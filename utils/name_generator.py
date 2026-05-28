@@ -25,11 +25,7 @@ SUFFIXES = [
 ]
 
 def generate_random_name():
-    """生成随机名称（形容词+名词+后缀）"""
     adj = random.choice(ADJECTIVES)
     noun = random.choice(NOUNS)
     suffix = random.choice(SUFFIXES)
     return f"{adj}{noun}{suffix}"
-
-def get_name_count():
-    return len(ADJECTIVES) * len(NOUNS) * len(SUFFIXES)
