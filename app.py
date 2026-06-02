@@ -345,7 +345,60 @@ if "current_name" not in st.session_state:
     st.session_state.current_name = generate_random_name()
 if "manual_input_mode" not in st.session_state:
     st.session_state.manual_input_mode = False
+# 如果当前会话为空，但 st.session_state.messages 不为空 → 主动创建并绑定
+if st.session_state.session_mgr.get_current_session() is None and st.session_state.messages:
+    import time
+    new_id = st.session_state.session_mgr.create_session(title="当前对话")
+    st.session_state.session_mgr.switch_session(new_id)
+    # 把已有消息同步到 session_mgr
+    for msg in st.session_state.messages:
+        st.session_state.session_mgr.add_message(msg["role"], msg["content"])
+    st.session_state.session_mgr._save()
+    st.rerun()
+# ========== 保底：确保当前对话存在 + 自动生成标题 ==========
+if st.session_state.session_mgr.get_current_session() is None and st.session_state.messages:
+    # 1. 从第一条用户消息提取标题
+    first_user_msg = ""
+    for msg in st.session_state.messages:
+        if msg["role"] == "user":
+            first_user_msg = msg["content"][:80]
+            break
 
+    if first_user_msg:
+        title_prompt = f"请为以下学习问题生成一个简短的标题（不超过15字）：{first_user_msg}"
+        try:
+            new_title = call_llm([{"role": "user", "content": title_prompt}], temperature=0.5)
+        except:
+            new_title = "新对话"
+    else:
+        new_title = "新对话"
+
+    # 2. 创建会话（使用生成的标题）
+    new_id = st.session_state.session_mgr.create_session(title=new_title)
+    st.session_state.session_mgr.switch_session(new_id)
+
+    # 3. 把已有消息同步到 session_mgr
+    for msg in st.session_state.messages:
+        st.session_state.session_mgr.add_message(msg["role"], msg["content"])
+    st.session_state.session_mgr._save()
+    st.rerun()
+# ========== 强制修正标题（解决“当前对话 / 新对话”）==========
+current_session = st.session_state.session_mgr.get_current_session()
+if current_session and current_session["title"] in ["", "当前对话", "新对话"]:
+    first_user_msg = ""
+    for msg in st.session_state.messages:
+        if msg["role"] == "user":
+            first_user_msg = msg["content"][:80]
+            break
+    if first_user_msg:
+        try:
+            from utils.llm_client import call_llm
+            title_prompt = f"请为以下学习问题生成一个简短的标题（不超过15字）：{first_user_msg}"
+            new_title = call_llm([{"role": "user", "content": title_prompt}], temperature=0.5)
+            st.session_state.session_mgr.update_title(current_session["id"], new_title)
+            st.session_state.session_mgr._save()
+        except:
+            pass
 # ========== 双语文本定义 ==========
 texts = {
     "中文": {
