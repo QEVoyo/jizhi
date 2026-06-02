@@ -18,3 +18,11 @@ def plan(user_profile, topic):
     ], temperature=0.7)
 
     return response
+def plan_with_history(user_profile, topic, history):
+    from utils.llm_client import call_llm
+    messages = [
+        {"role": "system", "content": PLANNER_SYSTEM},
+        *history,
+        {"role": "user", "content": f"用户水平：{user_profile.get('level')}，学习目标：{topic}"}
+    ]
+    return call_llm(messages)

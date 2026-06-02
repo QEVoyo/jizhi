@@ -17,3 +17,11 @@ def evaluate(resource, user_profile, knowledge_point):
         {"role": "user", "content": prompt}
     ], temperature=0.3)
     return response
+def evaluate_with_history(resource, user_profile, user_input, history):
+    from utils.llm_client import call_llm
+    messages = [
+        {"role": "system", "content": EVALUATOR_SYSTEM},
+        *history,
+        {"role": "user", "content": f"学习内容：{resource}\n用户水平：{user_profile.get('level')}\n用户问题：{user_input}"}
+    ]
+    return call_llm(messages)

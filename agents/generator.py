@@ -17,3 +17,11 @@ def generate(knowledge_point, user_profile, memory_hint=""):
         {"role": "user", "content": prompt}
     ])
     return response
+def generate_with_history(user_input, user_profile, memory_context, history):
+    from utils.llm_client import call_llm
+    messages = [
+        {"role": "system", "content": GENERATOR_SYSTEM + memory_context},
+        *history,
+        {"role": "user", "content": user_input}
+    ]
+    return call_llm(messages)

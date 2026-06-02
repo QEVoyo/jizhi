@@ -1122,8 +1122,7 @@ if user_input:
                         break
         if last_q:
             title = generate_mistake_title(last_a, last_q)
-            st.session_state.mistake_manager.add_mistake(last_q, "", last_a, {"user": last_q, "assistant": last_a},
-                                                         title)
+            st.session_state.mistake_manager.add_mistake(last_q, "", last_a, {"user": last_q, "assistant": last_a}, title)
             st.success("✅ 已加入错题本")
             time.sleep(0.5)
             st.rerun()
@@ -1131,7 +1130,7 @@ if user_input:
             st.warning("没有找到可添加的对话")
             st.rerun()
 
-    # 正常处理
+    # ========== 1. 图片 / 输入预处理 ==========
     has_image = len(st.session_state.current_images) > 0
     vision_text = ""
     image_type = None
@@ -1180,13 +1179,34 @@ if user_input:
         if has_image:
             st.caption(f"📷 已上传 {len(st.session_state.current_images)} 张图片")
 
+    # ========== 2. 强制历史上下文 ==========
+    def build_context(max_messages=20):
+        messages = st.session_state.messages
+        if not messages:
+            return ""
+
+        recent = messages[-max_messages:]
+        lines = ["【对话历史】"]
+        for m in recent:
+            role = "用户" if m["role"] == "user" else "助手"
+            lines.append(f"{role}：{m['content']}")
+        return "\n".join(lines)
+
+    context = build_context(20)
+    full_input = f"""{context}
+
+【用户当前问题】
+{combined_input}
+
+请严格基于以上对话历史回答。如果用户问“我们聊了什么”或“刚才的问题”，请基于历史回答。"""
+
     intent = detect_intent(combined_input)
 
     intent_display = {
-        "plan": t["intent_plan"],
-        "generate": t["intent_generate"],
-        "evaluate": t["intent_evaluate"],
-        "chat": t["intent_chat"]
+        "plan": "📋 规划Agent",
+        "generate": "📖 生成Agent",
+        "evaluate": "🔍 评估Agent",
+        "chat": "💬 对话模式"
     }
 
     with st.status(intent_display.get(intent, "🤔 思考中..."), expanded=True) as status:
@@ -1196,49 +1216,40 @@ if user_input:
 
         try:
             if intent == "plan":
-                result = plan(user_profile, combined_input)
+                result = plan(user_profile, full_input)
             elif intent == "generate":
-                result = generate(combined_input, user_profile, memory_context)
-                # 学习日志
+                result = generate(full_input, user_profile, memory_context)
                 keyword = generate_mistake_title(result, user_input)
                 from datetime import datetime
-
                 st.session_state.learning_log_manager.add_log(keyword=keyword, date=datetime.now().strftime("%Y-%m-%d"))
             elif intent == "evaluate":
-                # 如果用户问题包含总结类关键词，强制走 generate
-                if any(kw in user_input for kw in ["总结", "归纳", "梳理", "回顾", "复习", "概括"]):
-                    result = generate(combined_input, user_profile, memory_context)
-                else:
-                    current = st.session_state.session_mgr.get_current_session()
-                    last_a = None
-                    if current:
-                        for msg in reversed(current.get("messages", [])):
-                            if msg["role"] == "assistant":
-                                last_a = msg["content"]
-                                break
-                    if not last_a:
-                        result = generate(combined_input, user_profile, memory_context)
-                    else:
-                        if image_type == "📊 个人成绩单" and vision_text:
-                            analysis_prompt = f"""请根据以下识别内容生成学习评估报告：
-
-识别内容：{vision_text}
-
-用户问题：{user_input}
-
-要求：分析优势和薄弱环节，给出具体建议，输出纯文字。"""
-                            result = evaluate(analysis_prompt, {"level": difficulty}, combined_input)
-                        else:
-                            result = evaluate(last_a, {"level": "medium"}, combined_input)
-            else:
                 current = st.session_state.session_mgr.get_current_session()
-                history = current.get("messages", [])[-10:] if current else []
-                messages = [{"role": "system", "content": "你是友好的学习助手。" + memory_context}, *history]
+                last_a = None
+                if current:
+                    for msg in reversed(current.get("messages", [])):
+                        if msg["role"] == "assistant":
+                            last_a = msg["content"]
+                            break
+                if not last_a:
+                    result = generate(full_input, user_profile, memory_context)
+                else:
+                    if image_type == "📊 个人成绩单" and vision_text:
+                        analysis_prompt = f"""请根据以下识别内容生成学习评估报告：
+识别内容：{vision_text}
+用户问题：{user_input}"""
+                        result = evaluate(analysis_prompt, {"level": difficulty}, full_input)
+                    else:
+                        result = evaluate(last_a, {"level": "medium"}, full_input)
+            else:  # chat
+                messages = [
+                    {"role": "system", "content": "你是基智，友好的学习助手。" + memory_context},
+                    {"role": "user", "content": full_input}
+                ]
                 result = call_llm(messages, temperature=0.7)
 
-            status.update(label=t["intent_complete"], state="complete")
+            status.update(label="✅ 完成", state="complete")
         except Exception as e:
-            result = f"{t['error_process']}: {str(e)}"
+            result = f"处理出错：{str(e)}"
             status.update(label="❌ 失败", state="error")
 
     with st.chat_message("assistant"):
@@ -1248,8 +1259,7 @@ if user_input:
     auto_keywords = ["不会", "错了", "做错", "不懂", "没懂", "不太会", "没搞懂", "有点难", "不理解"]
     if any(kw in user_input for kw in auto_keywords):
         title = generate_mistake_title(result, user_input)
-        st.session_state.mistake_manager.add_mistake(user_input, "", result, {"user": user_input, "assistant": result},
-                                                     title)
+        st.session_state.mistake_manager.add_mistake(user_input, "", result, {"user": user_input, "assistant": result}, title)
 
     # 保存助手消息
     st.session_state.messages.append({"role": "assistant", "content": result})
