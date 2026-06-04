@@ -55,154 +55,113 @@ st.set_page_config(page_title="基智 · 多智能体学习系统", page_icon="�
 def show_login_page():
     st.markdown("""
     <style>
-    .stApp {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    }
-    .stApp header {
-        display: none;
-    }
-    footer {
-        display: none;
-    }
-    .main .block-container {
-        padding-top: 20px;
-        padding-bottom: 20px;
-        max-width: 100%;
-    }
-    .custom-header {
-        background: rgba(0,0,0,0.5);
-        backdrop-filter: blur(10px);
-        padding: 12px 20px;
-        text-align: center;
-        font-size: 14px;
-        color: #aaa;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        margin-bottom: 20px;
-    }
-    .name-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 28px;
-        padding: 60px 30px;
-        text-align: center;
-        width: 90%;
-        max-width: 500px;
-        margin: 0 auto 30px auto;
-    }
-    .name-card h1 {
-        color: white;
-        font-size: 2rem;
-    }
-    .name-card .name {
-        color: white;
-        font-size: 1.2rem;
-        background: rgba(255,255,255,0.2);
-        padding: 10px 20px;
-        border-radius: 40px;
-        display: inline-block;
-        margin-top: 15px;
-    }
-    .stButton button {
-        border-radius: 40px !important;
-    }
+    .stApp { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
+    .stApp header { display: none; }
+    .main .block-container { padding-top: 30px; max-width: 500px; margin: 0 auto; }
     </style>
-
-    <div class="custom-header">
-        🧠 基智 · 多智能体学习助手
-    </div>
     """, unsafe_allow_html=True)
 
-    # 卡片
-    st.markdown(f"""
-    <div style="display: flex; justify-content: center;">
-        <div class="name-card">
-            <h1>🧠 基智</h1>
-            <p>你的学习身份</p >
-            <div class="name">✨ {st.session_state.current_name}</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.title("🧠 基智")
+    st.markdown("### 学习从账号开始")
 
-    # 按钮
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("🔄 换一个", use_container_width=True):
-            from utils.name_generator import generate_random_name
-            st.session_state.current_name = generate_random_name()
-            st.rerun()
-    with col2:
-        if st.button("✅ 开始", use_container_width=True, type="primary"):
-            st.session_state.logged_in = True
-            st.session_state.username = st.session_state.current_name
-            from session_manager import SessionManager
-            from checkin import CheckInManager
-            from mistakes import MistakeManager
-            from learning_log import LearningLogManager
-            from countdown import CountdownManager
-            from timer import TimerManager
-            from memory import UserMemory
-            st.session_state.session_mgr = SessionManager(user_id=st.session_state.username)
-            st.session_state.user_memory = UserMemory(user_id=st.session_state.username)
-            st.session_state.checkin_manager = CheckInManager(user_id=st.session_state.username)
-            st.session_state.mistake_manager = MistakeManager(user_id=st.session_state.username)
-            st.session_state.learning_log_manager = LearningLogManager(user_id=st.session_state.username)
-            st.session_state.countdown_manager = CountdownManager(user_id=st.session_state.username)
-            st.session_state.timer_manager = TimerManager(user_id=st.session_state.username)
-            st.session_state.messages = []
-            st.rerun()
-    with col3:
-        if st.button("📝 手动", use_container_width=True):
-            st.session_state.manual_input_mode = True
-            st.rerun()
-
-# 检查登录状态
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "current_name" not in st.session_state:
     from utils.name_generator import generate_random_name
+    nickname = st.text_input("昵称", value=generate_random_name())
 
-    st.session_state.current_name = generate_random_name()
-if "manual_input_mode" not in st.session_state:
-    st.session_state.manual_input_mode = False
+    # 控制跳转的变量
+    if "switch_to_login" not in st.session_state:
+        st.session_state.switch_to_login = False
+    if "auto_email" not in st.session_state:
+        st.session_state.auto_email = ""
 
-# 未登录或手动输入模式，显示登录页
-if not st.session_state.logged_in or st.session_state.manual_input_mode:
-    if st.session_state.manual_input_mode:
-        st.markdown("### 输入你的学习身份")
-        name_input = st.text_input("名字", placeholder="例如：张三")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("确认", use_container_width=True):
-                if name_input:
-                    st.session_state.current_name = name_input
-                    st.session_state.logged_in = True
-                    st.session_state.manual_input_mode = False
-                    # 初始化 Manager
-                    from session_manager import SessionManager
-                    from checkin import CheckInManager
-                    from mistakes import MistakeManager
-                    from learning_log import LearningLogManager
-                    from countdown import CountdownManager
-                    from timer import TimerManager
-                    from memory import UserMemory
+    # 强制刷新到登录 Tab
+    if st.session_state.switch_to_login:
+        st.session_state.switch_to_login = False
+        st.query_params["tab"] = "login"
+        st.rerun()
 
-                    st.session_state.session_mgr = SessionManager(user_id=st.session_state.current_name)
-                    st.session_state.user_memory = UserMemory(user_id=st.session_state.current_name)
-                    st.session_state.checkin_manager = CheckInManager(user_id=st.session_state.current_name)
-                    st.session_state.mistake_manager = MistakeManager(user_id=st.session_state.current_name)
-                    st.session_state.learning_log_manager = LearningLogManager(user_id=st.session_state.current_name)
-                    st.session_state.countdown_manager = CountdownManager(user_id=st.session_state.current_name)
-                    st.session_state.timer_manager = TimerManager(user_id=st.session_state.current_name)
-                    st.session_state.messages = []
-                    st.rerun()
+    query_tab = st.query_params.get("tab", ["login"])[0]
+    tab_index = 0 if query_tab == "login" else 1
+
+    tab1, tab2 = st.tabs(["🔐 登录", "📝 注册"])
+
+    if tab_index == 1:
+        st.markdown("""
+        <script>
+        setTimeout(() => {
+            const btns = parent.document.querySelectorAll('button[data-baseweb="tab"]');
+            if (btns.length > 1) btns[1].click();
+        }, 100);
+        </script>
+        """, unsafe_allow_html=True)
+
+    # ========= 登录 Tab =========
+    with tab1:
+        with st.form("login_form"):
+            email = st.text_input("邮箱", placeholder="example@domain.com", value=st.session_state.auto_email)
+            password = st.text_input("密码", type="password")
+            submitted = st.form_submit_button("登录", use_container_width=True)
+
+            if submitted:
+                if not email or not password:
+                    st.warning("请输入邮箱和密码")
                 else:
-                    st.warning("请输入名字")
-        with col2:
-            if st.button("返回随机", use_container_width=True):
-                st.session_state.manual_input_mode = False
-                st.rerun()
-    else:
-        show_login_page()
-    st.stop()
+                    from utils.auth import sign_in
+                    user, err = sign_in(email, password)
+                    if user:
+                        # 关键：直接用邮箱当用户 ID，不依赖 Supabase 的 id
+                        user_id = email
+                        st.session_state.logged_in = True
+                        st.session_state.user_email = email
+                        st.session_state.user_id = user_id
+                        st.session_state.username = nickname or email.split("@")[0]
+
+                        from session_manager import SessionManager
+                        from memory import UserMemory
+                        from checkin import CheckInManager
+                        from mistakes import MistakeManager
+                        from learning_log import LearningLogManager
+                        from countdown import CountdownManager
+                        from timer import TimerManager
+
+                        st.session_state.session_mgr = SessionManager(user_id=user_id)
+                        st.session_state.user_memory = UserMemory(user_id=user_id)
+                        st.session_state.checkin_manager = CheckInManager(user_id=user_id)
+                        st.session_state.mistake_manager = MistakeManager(user_id=user_id)
+                        st.session_state.learning_log_manager = LearningLogManager(user_id=user_id)
+                        st.session_state.countdown_manager = CountdownManager(user_id=user_id)
+                        st.session_state.timer_manager = TimerManager(user_id=user_id)
+
+                        st.session_state.messages = []
+                        st.rerun()
+                    else:
+                        st.error("登录失败，请检查邮箱或密码")
+
+    # ========= 注册 Tab =========
+    with tab2:
+        with st.form("register_form"):
+            email = st.text_input("邮箱", placeholder="example@domain.com", key="reg_email")
+            password = st.text_input("密码", type="password", key="reg_pwd")
+            confirm = st.text_input("确认密码", type="password", key="reg_confirm")
+            submitted = st.form_submit_button("注册", use_container_width=True)
+
+            if submitted:
+                if not email or not password:
+                    st.warning("请填写邮箱和密码")
+                elif len(password) < 6:
+                    st.warning("密码长度至少为 6 位")
+                elif password != confirm:
+                    st.warning("两次密码不一致")
+                else:
+                    from utils.auth import sign_up
+                    final_nickname = nickname if nickname else generate_random_name()
+                    user, err = sign_up(email, password, final_nickname)
+
+                    if user:
+                        st.success("注册成功！请去登录")
+                    elif err and "already registered" in err.lower():
+                        st.warning("该邮箱已注册，请直接登录")
+                    else:
+                        st.error(f"注册失败：{err}")
 
 def parse_scores_from_text(text):
     scores = {}
@@ -304,8 +263,17 @@ setTimeout(scrollToBottom, 200);
 """, unsafe_allow_html=True)
 
 # ========== 初始化 ==========
+# 登录状态
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_id" not in st.session_state:
+    st.session_state.user_id = ""
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
+
+# 原有 Manager（登录后赋值）
 if "session_mgr" not in st.session_state:
-    st.session_state.session_mgr = None  # 先设为 None，登录后赋值
+    st.session_state.session_mgr = None
 if "user_memory" not in st.session_state:
     st.session_state.user_memory = None
 if "checkin_manager" not in st.session_state:
@@ -318,6 +286,8 @@ if "countdown_manager" not in st.session_state:
     st.session_state.countdown_manager = None
 if "timer_manager" not in st.session_state:
     st.session_state.timer_manager = None
+
+# UI 状态
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_images" not in st.session_state:
@@ -337,27 +307,8 @@ if "current_title_edit" not in st.session_state:
 if "pending_timer_log" not in st.session_state:
     st.session_state.pending_timer_log = None
 
-# 登录状态
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "current_name" not in st.session_state:
-    from utils.name_generator import generate_random_name
-    st.session_state.current_name = generate_random_name()
-if "manual_input_mode" not in st.session_state:
-    st.session_state.manual_input_mode = False
-# 如果当前会话为空，但 st.session_state.messages 不为空 → 主动创建并绑定
-if st.session_state.session_mgr.get_current_session() is None and st.session_state.messages:
-    import time
-    new_id = st.session_state.session_mgr.create_session(title="当前对话")
-    st.session_state.session_mgr.switch_session(new_id)
-    # 把已有消息同步到 session_mgr
-    for msg in st.session_state.messages:
-        st.session_state.session_mgr.add_message(msg["role"], msg["content"])
-    st.session_state.session_mgr._save()
-    st.rerun()
-# ========== 保底：确保当前对话存在 + 自动生成标题 ==========
-if st.session_state.session_mgr.get_current_session() is None and st.session_state.messages:
-    # 1. 从第一条用户消息提取标题
+# ===== 保底：确保当前对话存在 + 自动生成标题（保留你原有的）=====
+if st.session_state.session_mgr is not None and st.session_state.session_mgr.get_current_session() is None and st.session_state.messages:
     first_user_msg = ""
     for msg in st.session_state.messages:
         if msg["role"] == "user":
@@ -373,32 +324,17 @@ if st.session_state.session_mgr.get_current_session() is None and st.session_sta
     else:
         new_title = "新对话"
 
-    # 2. 创建会话（使用生成的标题）
     new_id = st.session_state.session_mgr.create_session(title=new_title)
     st.session_state.session_mgr.switch_session(new_id)
 
-    # 3. 把已有消息同步到 session_mgr
     for msg in st.session_state.messages:
         st.session_state.session_mgr.add_message(msg["role"], msg["content"])
     st.session_state.session_mgr._save()
     st.rerun()
-# ========== 强制修正标题（解决“当前对话 / 新对话”）==========
-current_session = st.session_state.session_mgr.get_current_session()
-if current_session and current_session["title"] in ["", "当前对话", "新对话"]:
-    first_user_msg = ""
-    for msg in st.session_state.messages:
-        if msg["role"] == "user":
-            first_user_msg = msg["content"][:80]
-            break
-    if first_user_msg:
-        try:
-            from utils.llm_client import call_llm
-            title_prompt = f"请为以下学习问题生成一个简短的标题（不超过15字）：{first_user_msg}"
-            new_title = call_llm([{"role": "user", "content": title_prompt}], temperature=0.5)
-            st.session_state.session_mgr.update_title(current_session["id"], new_title)
-            st.session_state.session_mgr._save()
-        except:
-            pass
+# ========== 未登录则显示登录页 ==========
+if not st.session_state.logged_in:
+    show_login_page()
+    st.stop()
 # ========== 双语文本定义 ==========
 texts = {
     "中文": {
