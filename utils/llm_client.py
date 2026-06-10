@@ -17,13 +17,23 @@ def get_base_url():
         return os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
 def call_llm(messages, temperature=0.7):
-    client = OpenAI(
-        api_key=get_api_key(),
-        base_url=get_base_url()
-    )
+    """非流式调用，用于plan/evaluate等一次性场景"""
+    client = OpenAI(api_key=get_api_key(), base_url=get_base_url())
     response = client.chat.completions.create(
         model="deepseek-chat",
         messages=messages,
-        temperature=temperature
+        temperature=temperature,
+        stream=False
     )
     return response.choices[0].message.content
+
+def call_llm_stream(messages, temperature=0.7):
+    """流式调用，用于generate/chat等对话场景"""
+    client = OpenAI(api_key=get_api_key(), base_url=get_base_url())
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=messages,
+        temperature=temperature,
+        stream=True
+    )
+    return response

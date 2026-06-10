@@ -49,19 +49,30 @@ def analyze_image(image_bytes, prompt="请描述这张图片的内容"):
         return f"调用失败: {str(e)}"
 
 
-st.set_page_config(page_title="基智 · 多智能体学习系统", page_icon="🧠", layout="wide", initial_sidebar_state="auto")
+st.set_page_config(page_title="基智 · 多智能体学习系统", page_icon="🎓", layout="wide", initial_sidebar_state="auto")
 
 
 def show_login_page():
     st.markdown("""
     <style>
-    .stApp { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
-    .stApp header { display: none; }
-    .main .block-container { padding-top: 30px; max-width: 500px; margin: 0 auto; }
+        .stApp header { display: none; }
+        .main .block-container {
+            padding-top: 30px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        /* 输入框样式（跟随主题） */
+        .stTextInput label, .stSelectbox label {
+            font-weight: 500;
+        }
+        /* 按钮圆角 */
+        .stButton button {
+            border-radius: 12px;
+        }
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("🧠 基智")
+    st.markdown('<h1><i class="fas fa-graduation-cap"></i> 基智 · 多智能体学习助手</h1>', unsafe_allow_html=True)
     st.markdown("### 学习从账号开始")
 
     from utils.name_generator import generate_random_name
@@ -203,7 +214,9 @@ def generate_chart(scores, chart_type="bar"):
     img_base64 = base64.b64encode(buf.read()).decode()
     plt.close(fig)
     return f"data:image/png;base64,{img_base64}"
-
+st.markdown("""
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+""", unsafe_allow_html=True)
 st.markdown("""
 <style>
     /* 移动端适配 */
@@ -341,7 +354,7 @@ texts = {
         "switch_user": "🔄 切换用户",
         "feature_title": "✨ 功能介绍",
         "feature_content": """
-        **🧠 基智 · 多智能体学习系统**
+        **🎓 基智 · 多智能体学习系统**
 
         由**三个智能体协作**的个性化学习助手：
 
@@ -380,7 +393,7 @@ texts = {
         "difficulty_levels": {"初级": "beginner", "中等": "intermediate", "高级": "advanced"},
         "style_levels": {"多举例": "example_heavy", "多理论": "theory_heavy", "均衡": "balanced"},
         "profile_title": "📝 学习档案",
-        "main_title": "🧠 基智 · 多智能体学习助手",
+        "main_title": "🎓 基智 · 多智能体学习助手",
         "main_caption": "多智能体协作 | 个性化学习 | 图片理解 | 成绩可视化 | 自适应难度",
         "chat_placeholder": "例如：解释列表推导式、帮我规划Python学习路径...",
         "intent_plan": "📋 规划Agent 工作中...",
@@ -403,7 +416,7 @@ texts = {
         "switch_user": "🔄 Switch User",
         "feature_title": "✨ Features",
         "feature_content": """
-        **🧠 JiZhi · Multi-Agent Learning System**
+        **🎓 JiZhi · Multi-Agent Learning System**
 
         Personalized learning assistant powered by **three collaborative agents**:
 
@@ -442,7 +455,7 @@ texts = {
         "difficulty_levels": {"Beginner": "beginner", "Intermediate": "intermediate", "Advanced": "advanced"},
         "style_levels": {"Example-heavy": "example_heavy", "Theory-heavy": "theory_heavy", "Balanced": "balanced"},
         "profile_title": "📝 Learning Profile",
-        "main_title": "🧠 JiZhi · Multi-Agent Learning Assistant",
+        "main_title": "🎓 JiZhi · Multi-Agent Learning Assistant",
         "main_caption": "Multi-Agent Collaboration | Personalized Learning | Image Understanding | Score Visualization | Adaptive Difficulty",
         "chat_placeholder": "e.g., Explain list comprehension, plan my Python learning path...",
         "intent_plan": "📋 Planning Agent working...",
@@ -466,8 +479,9 @@ texts = {
 lang = st.session_state.language
 t = texts[lang]
 # ========== 侧边栏 ==========
+# ========== 侧边栏 ==========
 with st.sidebar:
-    st.title("📚 基智")
+    st.markdown('<h2><i class="fas fa-graduation-cap"></i> 基智</h2>', unsafe_allow_html=True)
 
     # 语言切换
     col_lang1, col_lang2 = st.columns(2)
@@ -481,39 +495,34 @@ with st.sidebar:
             st.rerun()
     st.markdown("---")
 
-    # 用户名
-    if not st.session_state.username:
-        username_label = "👤 你的称呼" if lang == "中文" else "👤 Your Name"
-        username_placeholder = "例如：张三、学习爱好者..." if lang == "中文" else "e.g., Zhang San, Learner..."
-        st.session_state.username = st.text_input(username_label, placeholder=username_placeholder)
-        if st.session_state.username:
-            st.session_state.session_mgr = SessionManager(user_id=st.session_state.username)
-            st.session_state.checkin_manager = CheckInManager(user_id=st.session_state.username)
-            st.session_state.mistake_manager = MistakeManager(user_id=st.session_state.username)
-            st.session_state.learning_log_manager = LearningLogManager(user_id=st.session_state.username)
-            st.session_state.countdown_manager = CountdownManager(user_id=st.session_state.username)
-            st.session_state.timer_manager = TimerManager(user_id=st.session_state.username)
-            st.rerun()
-    else:
-        current_user_text = "👤 当前用户：" if lang == "中文" else "👤 Current User: "
-        st.caption(f"{current_user_text}{st.session_state.username}")
-        switch_user_text = "🔄 切换用户" if lang == "中文" else "🔄 Switch User"
-        if st.button(switch_user_text, use_container_width=True):
-            st.session_state.username = ""
-            st.rerun()
-    st.markdown("---")
-
-    # ========== 对话管理 ==========
-    chat_mgr_title = "💬 对话管理" if lang == "中文" else "💬 Chat Manager"
-    with st.popover(chat_mgr_title, use_container_width=True):
-        st.markdown(f"## {chat_mgr_title}")
-
-        new_chat_text = "➕ 新对话" if lang == "中文" else "➕ New Chat"
-        clear_text = "🗑️ 清空当前对话" if lang == "中文" else "🗑️ Clear Current Chat"
+    # ========== 用户信息 + 退出登录 / 个人中心 ==========
+    if st.session_state.logged_in:
+        st.markdown(f'<i class="fas fa-user-circle"></i> 当前用户：{st.session_state.username}', unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button(new_chat_text, use_container_width=True):
+            if st.button("🚪 退出登录", use_container_width=True):
+                for key in ["logged_in", "user_email", "user_id", "username", "session_mgr",
+                            "user_memory", "checkin_manager", "mistake_manager",
+                            "learning_log_manager", "countdown_manager", "timer_manager"]:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.rerun()
+        with col2:
+            if st.button("👤 个人中心", use_container_width=True):
+                st.session_state.show_profile = True
+                st.rerun()
+    else:
+        st.info("请先登录")
+    st.markdown("---")
+
+    # ========== 对话管理 ==========
+    with st.popover("💬 对话管理", use_container_width=True):
+        st.markdown("## 💬 对话管理")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("➕ 新对话", use_container_width=True):
                 for m in st.session_state.mistake_manager.get_learning_mistakes():
                     st.session_state.mistake_manager.mark_conquered(m["id"])
                 new_id = st.session_state.session_mgr.create_session(title="新对话" if lang == "中文" else "New Chat")
@@ -521,7 +530,7 @@ with st.sidebar:
                 st.session_state.messages = []
                 st.rerun()
         with col2:
-            if st.button(clear_text, use_container_width=True):
+            if st.button("🗑️ 清空当前对话", use_container_width=True):
                 current = st.session_state.session_mgr.get_current_session()
                 if current:
                     current["messages"] = []
@@ -532,10 +541,8 @@ with st.sidebar:
         st.markdown("---")
 
         # 历史对话列表
-        history_title = "📜 查看历史对话" if lang == "中文" else "📜 View History"
-        with st.popover(history_title, use_container_width=True):
-            history_list_title = "📜 历史对话列表" if lang == "中文" else "📜 Chat History List"
-            st.markdown(f"### {history_list_title}")
+        with st.popover("📜 查看历史对话", use_container_width=True):
+            st.markdown("### 📜 历史对话列表")
             sessions = st.session_state.session_mgr.get_all_sessions()
             current_id = st.session_state.session_mgr.data.get("current_session_id")
 
@@ -573,29 +580,22 @@ with st.sidebar:
                         st.rerun()
                 st.markdown("---")
 
-            no_history_text = "暂无历史对话" if lang == "中文" else "No chat history"
             if not sessions:
-                st.info(no_history_text)
+                st.info("暂无历史对话")
 
     st.markdown("---")
 
     # ========== 工作台 ==========
-    workbench_title = "🧰 工作台" if lang == "中文" else "🧰 Workbench"
-    with st.popover(workbench_title, use_container_width=True):
-        st.markdown(f"## {workbench_title}")
+    with st.popover("🧰 工作台", use_container_width=True):
+        st.markdown("## 🧰 工作台")
 
-        # 7个Tab
+        # 7个Tab（使用纯 emoji 确保100%显示）
         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-            "📅 打卡" if lang == "中文" else "📅 Check-in",
-            "⏰ 倒计时" if lang == "中文" else "⏰ Countdown",
-            "⏱️ 计时器" if lang == "中文" else "⏱️ Timer",
-            "📝 学习日志" if lang == "中文" else "📝 Learning Log",
-            "📖 错题本" if lang == "中文" else "📖 Mistake Book",
-            "📊 成绩分析" if lang == "中文" else "📊 Score Analysis",
-            "📈 学情报告" if lang == "中文" else "📈 Learning Report"
+            "📅 打卡", "⏰ 倒计时", "⏱️ 计时器",
+            "📝 学习日志", "📖 错题本", "📊 成绩分析", "📈 学情报告"
         ])
 
-        # ===== Tab1: 打卡 =====
+        # Tab1: 打卡
         with tab1:
             checkin_mgr = st.session_state.checkin_manager
             projects = checkin_mgr.get_projects()
@@ -604,8 +604,7 @@ with st.sidebar:
                 with col_a:
                     st.write(f"**{p['name']}**")
                     st.progress(p['completed_days'] / p['target_days'] if p['target_days'] > 0 else 0)
-                    progress_text = f"进度：{p['completed_days']}/{p['target_days']} 天" if lang == "中文" else f"Progress: {p['completed_days']}/{p['target_days']} days"
-                    st.caption(progress_text)
+                    st.caption(f"进度：{p['completed_days']}/{p['target_days']} 天")
                 with col_b:
                     if st.button("✅", key=f"checkin_{p['name']}"):
                         success, msg = checkin_mgr.checkin(p['name'])
@@ -621,18 +620,13 @@ with st.sidebar:
                         st.rerun()
                 st.markdown("---")
 
-            add_text = "➕ 添加新打卡项目" if lang == "中文" else "➕ Add New Check-in Project"
-            with st.expander(add_text):
+            with st.expander("➕ 添加新打卡项目"):
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    name_label = "项目名称" if lang == "中文" else "Project Name"
-                    new_name = st.text_input(name_label, key="new_checkin_name")
+                    new_name = st.text_input("项目名称", key="new_checkin_name")
                 with col_b:
-                    target_label = "目标天数" if lang == "中文" else "Target Days"
-                    new_target = st.number_input(target_label, min_value=1, max_value=365, value=30,
-                                                 key="new_checkin_target")
-                add_btn = "添加" if lang == "中文" else "Add"
-                if st.button(add_btn, key="add_checkin_submit"):
+                    new_target = st.number_input("目标天数", min_value=1, max_value=365, value=30, key="new_checkin_target")
+                if st.button("添加", key="add_checkin_submit"):
                     if new_name:
                         success, msg = checkin_mgr.add_project(new_name, new_target)
                         if success:
@@ -642,7 +636,7 @@ with st.sidebar:
                         else:
                             st.error(msg)
 
-        # ===== Tab2: 倒计时 =====
+        # Tab2: 倒计时
         with tab2:
             countdown_mgr = st.session_state.countdown_manager
             events = countdown_mgr.get_events()
@@ -652,53 +646,42 @@ with st.sidebar:
                     st.write(f"**{e['name']}**")
                     days = countdown_mgr.get_days_remaining(e['target_date'])
                     if days >= 0:
-                        remaining_text = f"📅 距离 {e['name']} 还有 **{days}** 天" if lang == "中文" else f"📅 {days} days until {e['name']}"
-                        st.write(remaining_text)
-                        st.caption(f"目标日期：{e['target_date']}" if lang == "中文" else f"Target: {e['target_date']}")
+                        st.write(f"📅 距离 {e['name']} 还有 **{days}** 天")
+                        st.caption(f"目标日期：{e['target_date']}")
                     else:
-                        ended_text = f"📅 {e['name']} 已结束（{abs(days)}天前）" if lang == "中文" else f"📅 {e['name']} ended ({abs(days)} days ago)"
-                        st.write(ended_text)
-                        st.caption(f"目标日期：{e['target_date']}" if lang == "中文" else f"Target: {e['target_date']}")
+                        st.write(f"📅 {e['name']} 已结束（{abs(days)}天前）")
+                        st.caption(f"目标日期：{e['target_date']}")
                 with col_b:
                     if st.button("🗑️", key=f"del_countdown_{e['id']}"):
                         countdown_mgr.delete_event(e['id'])
                         st.rerun()
                 st.markdown("---")
 
-            add_text = "➕ 添加倒计时" if lang == "中文" else "➕ Add Countdown"
-            with st.expander(add_text):
+            with st.expander("➕ 添加倒计时"):
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    name_label = "事件名称" if lang == "中文" else "Event Name"
-                    new_name = st.text_input(name_label,
-                                             placeholder="例：比赛截止" if lang == "中文" else "e.g., Competition Deadline",
-                                             key="countdown_name")
+                    new_name = st.text_input("事件名称", placeholder="例：比赛截止", key="countdown_name")
                 with col_b:
-                    date_label = "目标日期" if lang == "中文" else "Target Date"
-                    new_date = st.date_input(date_label, key="countdown_date")
-                add_btn = "添加" if lang == "中文" else "Add"
-                if st.button(add_btn, key="add_countdown_submit"):
+                    new_date = st.date_input("目标日期", key="countdown_date")
+                if st.button("添加", key="add_countdown_submit"):
                     if new_name:
                         countdown_mgr.add_event(new_name, new_date.strftime("%Y-%m-%d"))
                         st.rerun()
                     else:
-                        st.warning("请输入事件名称" if lang == "中文" else "Please enter event name")
+                        st.warning("请输入事件名称")
             if not events:
-                no_text = "暂无倒计时事件，点击「➕ 添加倒计时」开始" if lang == "中文" else "No countdown events. Click '➕ Add Countdown' to start"
-                st.info(no_text)
+                st.info("暂无倒计时事件")
 
-        # ===== Tab3: 计时器 =====
+        # Tab3: 计时器
         with tab3:
             timer_mgr = st.session_state.timer_manager
             timers = timer_mgr.get_timers()
-
             for timer_item in timers:
                 col_a, col_b, col_c = st.columns([3, 1, 1])
                 with col_a:
                     type_icon = "⏳" if timer_item["type"] == "countdown" else "⏱️"
                     type_text = "倒计时" if timer_item["type"] == "countdown" else "正向计时"
-                    duration_text = f" - {timer_item['duration_minutes']}分钟" if timer_item[
-                                                                                      "type"] == "countdown" else ""
+                    duration_text = f" - {timer_item['duration_minutes']}分钟" if timer_item["type"] == "countdown" else ""
                     st.write(f"{type_icon} **{timer_item['name']}** ({type_text}{duration_text})")
                 with col_b:
                     if st.button("▶️ 开始", key=f"start_{timer_item['id']}"):
@@ -706,10 +689,8 @@ with st.sidebar:
                             "id": timer_item['id'],
                             "name": timer_item['name'],
                             "type": timer_item["type"],
-                            "duration_minutes": timer_item['duration_minutes'] if timer_item[
-                                                                                      "type"] == "countdown" else 0,
-                            "remaining_seconds": timer_item['duration_minutes'] * 60 if timer_item[
-                                                                                            "type"] == "countdown" else 0,
+                            "duration_minutes": timer_item['duration_minutes'] if timer_item["type"] == "countdown" else 0,
+                            "remaining_seconds": timer_item['duration_minutes'] * 60 if timer_item["type"] == "countdown" else 0,
                             "elapsed_seconds": 0 if timer_item["type"] == "stopwatch" else 0,
                             "start_time": time.time(),
                             "running": True,
@@ -722,52 +703,39 @@ with st.sidebar:
                         st.rerun()
                 st.markdown("---")
 
-            add_text = "➕ 添加计时器模板" if lang == "中文" else "➕ Add Timer Template"
-            with st.expander(add_text):
+            with st.expander("➕ 添加计时器模板"):
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    new_name = st.text_input("任务名称" if lang == "中文" else "Task Name", key="new_timer_name")
+                    new_name = st.text_input("任务名称", key="new_timer_name")
                 with col_b:
-                    new_type = st.selectbox("计时类型" if lang == "中文" else "Timer Type", ["倒计时", "正向计时"],
-                                            key="new_timer_type")
-
+                    new_type = st.selectbox("计时类型", ["倒计时", "正向计时"], key="new_timer_type")
                 new_duration = 25
                 if new_type == "倒计时":
-                    new_duration = st.number_input("时长（分钟）" if lang == "中文" else "Duration (minutes)",
-                                                   min_value=1, max_value=180, value=25, step=5,
-                                                   key="new_timer_duration")
-
-                if st.button("添加" if lang == "中文" else "Add", key="add_timer_submit"):
+                    new_duration = st.number_input("时长（分钟）", min_value=1, max_value=180, value=25, step=5, key="new_timer_duration")
+                if st.button("添加", key="add_timer_submit"):
                     if new_name:
                         timer_type = "countdown" if new_type == "倒计时" else "stopwatch"
                         timer_mgr.add_timer(new_name, timer_type, new_duration if new_type == "倒计时" else 0)
                         st.rerun()
                     else:
-                        st.warning("请输入任务名称" if lang == "中文" else "Please enter task name")
+                        st.warning("请输入任务名称")
 
-            # 显示当前正在运行的计时器
             if "active_timer" in st.session_state and st.session_state.active_timer.get("running", False):
                 st.markdown("---")
                 active = st.session_state.active_timer
-
                 if active["type"] == "countdown":
                     if not active.get("paused", False):
                         elapsed = int(time.time() - active["start_time"])
                         remaining = max(0, active["duration_minutes"] * 60 - elapsed)
                         active["remaining_seconds"] = remaining
-                        st.session_state.active_timer["remaining_seconds"] = remaining
                     remaining = active["remaining_seconds"]
                     minutes = remaining // 60
                     seconds = remaining % 60
-                    time_str = f"{minutes:02d}:{seconds:02d}"
                     st.markdown(f"### ⏳ 倒计时：{active['name']}")
-                    st.markdown(f"## {time_str}")
+                    st.markdown(f"## {minutes:02d}:{seconds:02d}")
                     if remaining <= 0:
-                        from datetime import datetime
-
                         keyword = f"学习了「{active['name']}」{active['duration_minutes']}分钟"
-                        st.session_state.learning_log_manager.add_log(keyword=keyword,
-                                                                      date=datetime.now().strftime("%Y-%m-%d"))
+                        st.session_state.learning_log_manager.add_log(keyword=keyword, date=datetime.now().strftime("%Y-%m-%d"))
                         st.success(f"🎉 {keyword}！已记录到学习日志")
                         del st.session_state.active_timer
                         st.rerun()
@@ -775,13 +743,11 @@ with st.sidebar:
                     if not active.get("paused", False):
                         elapsed = int(time.time() - active["start_time"])
                         active["elapsed_seconds"] = elapsed
-                        st.session_state.active_timer["elapsed_seconds"] = elapsed
                     elapsed = active["elapsed_seconds"]
                     minutes = elapsed // 60
                     seconds = elapsed % 60
-                    time_str = f"{minutes:02d}:{seconds:02d}"
                     st.markdown(f"### ⏱️ 正向计时：{active['name']}")
-                    st.markdown(f"## {time_str}")
+                    st.markdown(f"## {minutes:02d}:{seconds:02d}")
 
                 col_a, col_b, col_c = st.columns(3)
                 with col_a:
@@ -789,8 +755,7 @@ with st.sidebar:
                         if st.button("▶️ 继续", key="resume_timer"):
                             active["paused"] = False
                             if active["type"] == "countdown":
-                                active["start_time"] = time.time() - (
-                                            active["duration_minutes"] * 60 - active["remaining_seconds"])
+                                active["start_time"] = time.time() - (active["duration_minutes"] * 60 - active["remaining_seconds"])
                             else:
                                 active["start_time"] = time.time() - active["elapsed_seconds"]
                             st.rerun()
@@ -805,71 +770,56 @@ with st.sidebar:
                 with col_c:
                     if active["type"] == "stopwatch":
                         if st.button("✅ 完成", key="complete_stopwatch"):
-                            from datetime import datetime
-
                             actual_min = max(1, active["elapsed_seconds"] // 60)
                             keyword = f"学习了「{active['name']}」{actual_min}分钟"
-                            st.session_state.learning_log_manager.add_log(keyword=keyword,
-                                                                          date=datetime.now().strftime("%Y-%m-%d"))
+                            st.session_state.learning_log_manager.add_log(keyword=keyword, date=datetime.now().strftime("%Y-%m-%d"))
                             st.success(f"🎉 {keyword}！已记录到学习日志")
                             del st.session_state.active_timer
                             st.rerun()
-
                 time.sleep(1)
                 st.rerun()
 
             if not timers and "active_timer" not in st.session_state:
-                no_text = "暂无计时器模板，点击「➕ 添加计时器模板」开始" if lang == "中文" else "No timer templates. Click '➕ Add Timer Template' to start"
-                st.info(no_text)
+                st.info("暂无计时器模板")
 
-        # ===== Tab4: 学习日志 =====
+        # Tab4: 学习日志
         with tab4:
             log_mgr = st.session_state.learning_log_manager
             grouped = log_mgr.get_logs_grouped_by_date()
             if not grouped:
-                no_text = "暂无学习日志" if lang == "中文" else "No learning logs yet"
-                st.info(no_text)
+                st.info("暂无学习日志")
             else:
                 for date, logs in list(grouped.items())[:30]:
                     st.markdown(f"### 📅 {date}")
                     for log in logs[:10]:
                         st.markdown(f"- {log['keyword']}")
                     if len(logs) > 10:
-                        more_text = f"...还有 {len(logs) - 10} 条" if lang == "中文" else f"...{len(logs) - 10} more"
-                        st.caption(more_text)
+                        st.caption(f"...还有 {len(logs)-10} 条")
                     st.markdown("---")
-            clear_text = "🗑️ 清空所有日志" if lang == "中文" else "🗑️ Clear All Logs"
-            if st.button(clear_text, key="clear_logs_btn"):
+            if st.button("🗑️ 清空所有日志", key="clear_logs_btn"):
                 log_mgr.clear_all()
                 st.rerun()
 
-        # ===== Tab5: 错题本 =====
+        # Tab5: 错题本
         with tab5:
             mistake_mgr = st.session_state.mistake_manager
             learning_cnt, conquered_cnt = mistake_mgr.count_by_status()
-            learning_label = "学习中" if lang == "中文" else "Learning"
-            conquered_label = "已攻克" if lang == "中文" else "Conquered"
-            st.caption(f"📚 {learning_label}：{learning_cnt}  |  ✅ {conquered_label}：{conquered_cnt}")
+            st.caption(f"📚 学习中：{learning_cnt}  |  ✅ 已攻克：{conquered_cnt}")
 
-            sub1, sub2 = st.tabs(
-                ["📖 学习中" if lang == "中文" else "📖 Learning", "✅ 已攻克" if lang == "中文" else "✅ Conquered"])
-
+            sub1, sub2 = st.tabs(["📖 学习中", "✅ 已攻克"])
             with sub1:
                 for m in mistake_mgr.get_learning_mistakes()[:20]:
                     title = m.get('title', m['question'][:60])
                     with st.expander(f"❓ {title}"):
                         if m.get("conversation_snapshot"):
-                            q_label = "用户问题：" if lang == "中文" else "User Question:"
-                            a_label = "AI回复：" if lang == "中文" else "AI Response:"
-                            st.markdown(f"**{q_label}**")
+                            st.markdown("**用户问题：**")
                             st.info(m["conversation_snapshot"]["user"][:300])
-                            st.markdown(f"**{a_label}**")
+                            st.markdown("**AI回复：**")
                             st.success(m["conversation_snapshot"]["assistant"][:300])
                         st.caption(f"📅 {m['created_at']}")
                         col_a, col_b = st.columns(2)
                         with col_a:
-                            conquer_btn = "✅ 标记已攻克" if lang == "中文" else "✅ Mark Conquered"
-                            if st.button(conquer_btn, key=f"conquer_{m['id']}"):
+                            if st.button("✅ 标记已攻克", key=f"conquer_{m['id']}"):
                                 mistake_mgr.mark_conquered(m['id'])
                                 st.rerun()
                         with col_b:
@@ -878,25 +828,21 @@ with st.sidebar:
                                 st.rerun()
                     st.markdown("---")
                 if not mistake_mgr.get_learning_mistakes():
-                    no_text = "暂无学习中错题" if lang == "中文" else "No learning mistakes"
-                    st.info(no_text)
+                    st.info("暂无学习中错题")
 
             with sub2:
                 for m in mistake_mgr.get_conquered_mistakes()[:20]:
                     title = m.get('title', m['question'][:60])
                     with st.expander(f"✅ {title}"):
                         if m.get("conversation_snapshot"):
-                            q_label = "用户问题：" if lang == "中文" else "User Question:"
-                            a_label = "AI回复：" if lang == "中文" else "AI Response:"
-                            st.markdown(f"**{q_label}**")
+                            st.markdown("**用户问题：**")
                             st.info(m["conversation_snapshot"]["user"][:300])
-                            st.markdown(f"**{a_label}**")
+                            st.markdown("**AI回复：**")
                             st.success(m["conversation_snapshot"]["assistant"][:300])
                         st.caption(f"📅 {m['created_at']}")
                         col_a, col_b = st.columns(2)
                         with col_a:
-                            review_btn = "📖 复习" if lang == "中文" else "📖 Review"
-                            if st.button(review_btn, key=f"review_{m['id']}"):
+                            if st.button("📖 复习", key=f"review_{m['id']}"):
                                 st.session_state.review_question = m['question']
                                 st.rerun()
                         with col_b:
@@ -905,48 +851,31 @@ with st.sidebar:
                                 st.rerun()
                     st.markdown("---")
                 if not mistake_mgr.get_conquered_mistakes():
-                    no_text = "暂无已攻克错题" if lang == "中文" else "No conquered mistakes"
-                    st.info(no_text)
+                    st.info("暂无已攻克错题")
 
-        # ===== Tab6: 成绩分析 =====
+        # Tab6: 成绩分析
         with tab6:
-            upload_hint = "上传成绩单图片（选择「个人成绩单」类型），系统会自动分析" if lang == "中文" else "Upload score sheet image (select 'Score Sheet' type), system will analyze automatically"
-            st.info(upload_hint)
+            st.info("上传成绩单图片（选择「个人成绩单」类型），系统会自动分析")
 
-        # ===== Tab7: 学情报告 =====
+        # Tab7: 学情报告
         with tab7:
             st.markdown("## 📊 学情报告")
             st.caption("汇总你的学习数据，生成正向激励报告")
-
             if st.button("📈 生成学情报告", use_container_width=True, key="generate_report_btn"):
                 with st.spinner("正在分析你的学习数据..."):
-                    # 获取数据
-                    from datetime import datetime
-
-                    # 学习日志
                     logs = st.session_state.learning_log_manager.get_recent_logs(limit=50)
                     log_keywords = list(set([log["keyword"] for log in logs]))[:20]
-
-                    # 错题本
                     learning_cnt, conquered_cnt = st.session_state.mistake_manager.count_by_status()
-
-                    # 打卡
-                    checkin_mgr = st.session_state.checkin_manager
-                    projects = checkin_mgr.get_projects()
+                    projects = st.session_state.checkin_manager.get_projects()
                     total_checkin_days = sum(p["completed_days"] for p in projects)
-
-                    # 倒计时
-                    countdown_mgr = st.session_state.countdown_manager
-                    events = countdown_mgr.get_events()
+                    events = st.session_state.countdown_manager.get_events()
                     upcoming_events = []
                     for e in events:
-                        days = countdown_mgr.get_days_remaining(e["target_date"])
+                        days = st.session_state.countdown_manager.get_days_remaining(e["target_date"])
                         if days >= 0 and days <= 30:
                             upcoming_events.append(f"「{e['name']}」还有 {days} 天")
 
-                    # 构建 Prompt
                     keywords_str = "、".join(log_keywords) if log_keywords else "暂无"
-
                     prompt = f"""请根据以下学习数据，给用户生成一份正向激励的学习报告。
 
 学习数据：
@@ -964,49 +893,37 @@ with st.sidebar:
 5. 使用中文，适当使用emoji
 
 请生成报告："""
-
-                    # 调用大模型生成
                     from utils.llm_client import call_llm
-
                     report = call_llm([{"role": "user", "content": prompt}], temperature=0.7)
-
-                    # 显示报告
                     st.markdown("---")
                     st.markdown(report)
                     st.markdown("---")
                     st.caption("📝 报告由AI生成，仅供参考")
-
             else:
                 st.info("点击「生成学情报告」按钮，系统会根据你的学习数据生成正向激励报告")
 
     st.markdown("---")
 
     # 图片上传
-    upload_label = "📷 上传图片" if lang == "中文" else "📷 Upload Images"
-    st.subheader(upload_label)
-    upload_hint = "支持 PNG、JPG、JPEG，可多张" if lang == "中文" else "PNG, JPG, JPEG, multiple allowed"
+    st.markdown("### 📷 上传图片")
     uploaded_files = st.file_uploader(
-        upload_hint,
+        "支持 PNG、JPG、JPEG，可多张",
         type=["png", "jpg", "jpeg"],
         accept_multiple_files=True,
         key=f"img_uploader_{st.session_state.uploader_key}"
     )
     if uploaded_files:
         st.session_state.current_images = uploaded_files
-        img_count_text = f"{len(uploaded_files)} 张图片" if lang == "中文" else f"{len(uploaded_files)} images"
-        st.caption(img_count_text)
-        image_type_label = "图片类型" if lang == "中文" else "Image Type"
-        st.radio(image_type_label, ["📝 题目/笔记", "📊 个人成绩单"], horizontal=True, key="image_type")
+        st.caption(f"{len(uploaded_files)} 张图片")
+        st.radio("图片类型", ["📝 题目/笔记", "📊 个人成绩单"], horizontal=True, key="image_type")
         for idx, img in enumerate(uploaded_files[:3]):
             st.image(img, width=80)
         if len(uploaded_files) > 3:
-            more_text = f"...等{len(uploaded_files) - 3}张" if lang == "中文" else f"...and {len(uploaded_files) - 3} more"
-            st.caption(more_text)
+            st.caption(f"...等{len(uploaded_files)-3}张")
     st.markdown("---")
 
     # 偏好设置
-    pref_title = "🎛️ 偏好设置" if lang == "中文" else "🎛️ Preferences"
-    st.subheader(pref_title)
+    st.markdown("### 🎛️ 偏好设置")
     current_diff = st.session_state.user_memory.data['preferences'].get('difficulty', 'intermediate')
     current_style = st.session_state.user_memory.data['preferences'].get('style', 'balanced')
 
@@ -1017,15 +934,9 @@ with st.sidebar:
 
     col1, col2 = st.columns(2)
     with col1:
-        diff_label = "难度" if lang == "中文" else "Difficulty"
-        selected_diff_display = st.selectbox(diff_label, list(diff_reverse.keys()),
-                                             index=list(diff_reverse.keys()).index(
-                                                 diff_display.get(current_diff, "中等")))
+        selected_diff_display = st.selectbox("难度", list(diff_reverse.keys()), index=list(diff_reverse.keys()).index(diff_display.get(current_diff, "中等")))
     with col2:
-        style_label = "风格" if lang == "中文" else "Style"
-        selected_style_display = st.selectbox(style_label, list(style_reverse.keys()),
-                                              index=list(style_reverse.keys()).index(
-                                                  style_display.get(current_style, "均衡")))
+        selected_style_display = st.selectbox("风格", list(style_reverse.keys()), index=list(style_reverse.keys()).index(style_display.get(current_style, "均衡")))
 
     if diff_reverse[selected_diff_display] != current_diff:
         st.session_state.user_memory.update_preference("difficulty", diff_reverse[selected_diff_display])
@@ -1035,51 +946,39 @@ with st.sidebar:
     st.markdown("---")
 
     # 学习档案
-    profile_title = "📝 学习档案" if lang == "中文" else "📝 Learning Profile"
-    st.subheader(profile_title)
+    st.markdown("### 📝 学习档案")
     st.text(st.session_state.user_memory.get_preference_prompt())
-
     stats = st.session_state.user_memory.data['preferences'].get('feedback_stats', {})
     if stats.get('total', 0) > 0:
-        feedback_text = f"📊 反馈次数：{stats.get('total', 0)} | 平均分：{stats.get('avg_score', 0):.1f}" if lang == "中文" else f"📊 Feedback: {stats.get('total', 0)} | Avg: {stats.get('avg_score', 0):.1f}"
-        st.caption(feedback_text)
+        st.caption(f"📊 反馈次数：{stats.get('total', 0)} | 平均分：{stats.get('avg_score', 0):.1f}")
 
     st.markdown("---")
 
     # 功能介绍
-    with st.popover(t["feature_title"], use_container_width=True):
+    with st.popover("✨ 功能介绍", use_container_width=True):
         st.markdown(t["feature_content"])
 
     # 团队详情
-    with st.popover(t["team_title"], use_container_width=True):
+    with st.popover("🏆 团队详情", use_container_width=True):
         st.markdown(t["team_content"])
 
     st.markdown("---")
 
     # 反馈表单
-    feedback_title = "📝 使用体验反馈" if lang == "中文" else "📝 Experience Feedback"
-    st.subheader(feedback_title)
+    st.markdown("### 📝 使用体验反馈")
     with st.form(key="feedback_form", clear_on_submit=True):
-        name_label = "你的称呼（可选）" if lang == "中文" else "Your name (optional)"
-        name_placeholder = "例如：张三" if lang == "中文" else "e.g., Zhang San"
-        feedback_name = st.text_input(name_label, placeholder=name_placeholder)
-        rating_label = "整体满意度（1-10分）" if lang == "中文" else "Overall Satisfaction (1-10)"
-        rating = st.slider(rating_label, 1, 10, 8)
-        comment_placeholder = "欢迎提出改进意见..." if lang == "中文" else "Share your suggestions..."
-        feedback_text = st.text_area("", placeholder=comment_placeholder, height=80)
-        submit_btn = "提交反馈" if lang == "中文" else "Submit Feedback"
-        submitted = st.form_submit_button(submit_btn)
-        if submitted:
-            username = feedback_name.strip() if feedback_name else "匿名用户" if lang == "中文" else "Anonymous"
+        feedback_name = st.text_input("你的称呼（可选）", placeholder="例如：张三")
+        rating = st.slider("整体满意度（1-10分）", 1, 10, 8)
+        feedback_text = st.text_area("", placeholder="欢迎提出改进意见...", height=80)
+        if st.form_submit_button("提交反馈", use_container_width=True):
+            username = feedback_name.strip() if feedback_name else "匿名用户"
             success = send_feedback_email(username, rating, feedback_text)
             if success:
-                success_text = "感谢反馈！" if lang == "中文" else "Thank you for your feedback!"
-                st.success(success_text)
+                st.success("感谢反馈！")
                 time.sleep(1.5)
                 st.rerun()
             else:
-                error_text = "反馈提交失败" if lang == "中文" else "Failed to submit feedback"
-                st.error(error_text)
+                st.error("反馈提交失败")
 # ========== 主界面 ==========
 st.title(t["main_title"])
 st.caption(t["main_caption"])
@@ -1197,20 +1096,38 @@ if user_input:
         "evaluate": "🔍 评估Agent",
         "chat": "💬 对话模式"
     }
+    difficulty = st.session_state.user_memory.data['preferences'].get('difficulty', 'intermediate')
 
-    with st.status(intent_display.get(intent, "🤔 思考中..."), expanded=True) as status:
-        difficulty = st.session_state.user_memory.data['preferences'].get('difficulty', 'intermediate')
+    # 获取当前对话历史
+    current_session = st.session_state.session_mgr.get_current_session()
+    history = current_session.get("messages", [])[-20:] if current_session else []
+    with st.status(intent_display.get(intent, "思考中..."), expanded=True) as status:
         user_profile = {"level": difficulty, "style": "喜欢例子"}
         memory_context = st.session_state.user_memory.get_preference_prompt()
 
         try:
             if intent == "plan":
                 result = plan(user_profile, full_input)
+
             elif intent == "generate":
-                result = generate(full_input, user_profile, memory_context)
+                # 构建历史消息列表
+                from utils.llm_client import call_llm_stream
+
+                messages = [
+                    {"role": "system", "content": "你是基智，个性化学习助手。" + memory_context},
+                    *history,
+                    {"role": "user", "content": full_input}
+                ]
+                # 流式输出
+                stream = call_llm_stream(messages, temperature=0.7)
+                result = st.write_stream(stream)
+
+                # 学习日志
                 keyword = generate_mistake_title(result, user_input)
                 from datetime import datetime
+
                 st.session_state.learning_log_manager.add_log(keyword=keyword, date=datetime.now().strftime("%Y-%m-%d"))
+
             elif intent == "evaluate":
                 current = st.session_state.session_mgr.get_current_session()
                 last_a = None
@@ -1222,24 +1139,30 @@ if user_input:
                 if not last_a:
                     result = generate(full_input, user_profile, memory_context)
                 else:
-                    if image_type == "📊 个人成绩单" and vision_text:
-                        analysis_prompt = f"""请根据以下识别内容生成学习评估报告：
-识别内容：{vision_text}
-用户问题：{user_input}"""
+                    if image_type == "个人生成内容" and vision_text:
+                        analysis_prompt = f"""请根据以下识别内容生成学习评估报告。
+    {vision_text}
+    用户问题: {user_input}"""
                         result = evaluate(analysis_prompt, {"level": difficulty}, full_input)
                     else:
                         result = evaluate(last_a, {"level": "medium"}, full_input)
+
             else:  # chat
+                from utils.llm_client import call_llm_stream
+
                 messages = [
                     {"role": "system", "content": "你是基智，友好的学习助手。" + memory_context},
+                    *history,
                     {"role": "user", "content": full_input}
                 ]
-                result = call_llm(messages, temperature=0.7)
+                stream = call_llm_stream(messages, temperature=0.7)
+                result = st.write_stream(stream)
 
-            status.update(label="✅ 完成", state="complete")
+            status.update(label="完成", state="complete")
+
         except Exception as e:
-            result = f"处理出错：{str(e)}"
-            status.update(label="❌ 失败", state="error")
+            result = f"处理出错: {str(e)}"
+            status.update(label="失败", state="error")
 
     with st.chat_message("assistant"):
         st.markdown(result)
