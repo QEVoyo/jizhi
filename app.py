@@ -75,9 +75,6 @@ def show_login_page():
     st.markdown('<h1><i class="fas fa-graduation-cap"></i> 基智 · 多智能体学习助手</h1>', unsafe_allow_html=True)
     st.markdown("### 学习从账号开始")
 
-    from utils.name_generator import generate_random_name
-    nickname = st.text_input("昵称", value=generate_random_name())
-
     # 控制跳转的变量
     if "switch_to_login" not in st.session_state:
         st.session_state.switch_to_login = False
@@ -123,13 +120,18 @@ def show_login_page():
                         user_email = user.get("email")
                         user_id = user.get("id")
                         user_account = user.get("user_account")
+                        # ... 现有代码 ...
+                        # 设置在线状态
+                        from utils.auth import update_user_status
+                        update_user_status(user_id, "online")
 
                         st.session_state.logged_in = True
                         st.session_state.user_email = user_email
                         st.session_state.user_id = user_id
                         st.session_state.user_account = user_account
                         st.session_state.access_token = user.get("access_token")
-                        st.session_state.username = nickname or user_email.split("@")[0]
+                        # 从数据库读取昵称，若没有则用邮箱前缀
+                        st.session_state.username = user.get("nickname") or user_email.split("@")[0]
 
                         # 初始化 Manager
                         from session_manager import SessionManager
@@ -192,7 +194,9 @@ def show_login_page():
                     st.warning("两次密码不一致")
                 else:
                     from utils.auth import sign_up
-                    final_nickname = nickname if nickname else generate_random_name()
+                    from utils.name_generator import generate_random_name
+                    # 直接自动生成昵称，不再从界面读取
+                    final_nickname = generate_random_name()
                     user, err = sign_up(email, password, final_nickname)
 
                     if user:
@@ -519,7 +523,43 @@ with st.sidebar:
     st.markdown("---")
 
     if st.session_state.logged_in:
-        st.markdown(f'<i class="fas fa-user-circle"></i> 当前用户：{st.session_state.username}', unsafe_allow_html=True)
+        from utils.auth import get_user_status, update_user_status
+
+        avatar_url = st.session_state.get("avatar_url", "")
+        user_account = st.session_state.get("user_account", "")
+        user_id = st.session_state.user_id
+        # 获取当前用户的在线状态
+        user_status = get_user_status(user_id)
+        status_display = {
+            "online": {"color": "#22c55e", "text": "在线"},
+            "offline": {"color": "#a855f7", "text": "离线"},
+            "invisible": {"color": "#6b7280", "text": "隐身"}
+        }
+        status = status_display.get(user_status, status_display["offline"])
+
+        # 三列布局：头像 | 在线状态 | 昵称+账号
+        col1, col2, col3 = st.columns([1, 1, 2])
+
+        with col1:
+            if avatar_url:
+                st.image(avatar_url, width=50)
+            else:
+                st.markdown(
+                    '<div style="width:50px;height:50px;border-radius:50%;background:#2a2a3a;display:flex;align-items:center;justify-content:center;font-size:24px;">👤</div>',
+                    unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(
+                f'<div style="display:flex;align-items:center;height:50px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{status["color"]};margin-right:6px;"></span><span style="font-size:13px;">{status["text"]}</span></div>',
+                unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f'<div style="font-weight:bold;font-size:15px;">{st.session_state.username}</div>',
+                        unsafe_allow_html=True)
+            if user_account:
+                st.caption(f"账号：{user_account}")
+
+
     else:
         st.info("请先登录")
     st.markdown("---")
