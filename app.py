@@ -49,7 +49,7 @@ def analyze_image(image_bytes, prompt="请描述这张图片的内容"):
         return f"调用失败: {str(e)}"
 
 
-st.set_page_config(page_title="基智 · 多智能体学习系统", page_icon="🎓", layout="wide", initial_sidebar_state="auto")
+st.set_page_config(page_title="主界面", page_icon="🏠", layout="wide", initial_sidebar_state="auto")
 
 
 def show_login_page():
@@ -108,24 +108,30 @@ def show_login_page():
     # ========= 登录 Tab =========
     with tab1:
         with st.form("login_form"):
-            email = st.text_input("邮箱", placeholder="example@domain.com", value=st.session_state.auto_email)
+            login_input = st.text_input("账号 / 邮箱", placeholder="请输入账号或邮箱")
             password = st.text_input("密码", type="password")
             submitted = st.form_submit_button("登录", use_container_width=True)
 
             if submitted:
-                if not email or not password:
-                    st.warning("请输入邮箱和密码")
+                if not login_input or not password:
+                    st.warning("请输入账号/邮箱和密码")
                 else:
                     from utils.auth import sign_in
-                    user, err = sign_in(email, password)
+                    user, err = sign_in(login_input, password)
                     if user:
-                        # 关键：直接用邮箱当用户 ID，不依赖 Supabase 的 id
-                        user_id = email
-                        st.session_state.logged_in = True
-                        st.session_state.user_email = email
-                        st.session_state.user_id = user_id
-                        st.session_state.username = nickname or email.split("@")[0]
+                        # 登录成功
+                        user_email = user.get("email")
+                        user_id = user.get("id")
+                        user_account = user.get("user_account")
 
+                        st.session_state.logged_in = True
+                        st.session_state.user_email = user_email
+                        st.session_state.user_id = user_id
+                        st.session_state.user_account = user_account
+                        st.session_state.access_token = user.get("access_token")
+                        st.session_state.username = nickname or user_email.split("@")[0]
+
+                        # 初始化 Manager
                         from session_manager import SessionManager
                         from memory import UserMemory
                         from checkin import CheckInManager
@@ -142,10 +148,24 @@ def show_login_page():
                         st.session_state.countdown_manager = CountdownManager(user_id=user_id)
                         st.session_state.timer_manager = TimerManager(user_id=user_id)
 
+                        # 创建新对话
+                        new_id = st.session_state.session_mgr.create_session(title="新对话")
+                        st.session_state.session_mgr.switch_session(new_id)
                         st.session_state.messages = []
+
                         st.rerun()
                     else:
-                        st.error("登录失败，请检查邮箱或密码")
+                        # 友好错误提示
+                        error_msg = str(err) if err else "登录失败"
+                        # 解析常见错误
+                        if "Invalid login credentials" in error_msg:
+                            st.error("账号/邮箱或密码错误")
+                        elif "Email not confirmed" in error_msg:
+                            st.warning("邮箱尚未验证，请先去邮箱点击验证链接")
+                        elif "账号不存在" in error_msg:
+                            st.error("账号不存在")
+                        else:
+                            st.error("登录失败，请稍后重试")
 
     # ========= 注册 Tab =========
     with tab2:
@@ -156,8 +176,16 @@ def show_login_page():
             submitted = st.form_submit_button("注册", use_container_width=True)
 
             if submitted:
+                # 邮箱格式校验
+                import re
+                def is_valid_email(email):
+                    pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+                    return re.match(pattern, email) is not None
+
                 if not email or not password:
                     st.warning("请填写邮箱和密码")
+                elif not is_valid_email(email):
+                    st.warning("邮箱格式不正确，请输入如：name@example.com")
                 elif len(password) < 6:
                     st.warning("密码长度至少为 6 位")
                 elif password != confirm:
@@ -168,7 +196,7 @@ def show_login_page():
                     user, err = sign_up(email, password, final_nickname)
 
                     if user:
-                        st.success("注册成功！请去登录")
+                        st.success("验证邮件已发送，请查收邮箱并点击验证链接。\n\n登录后可在「个人中心」查看你的专属账号。")
                     elif err and "already registered" in err.lower():
                         st.warning("该邮箱已注册，请直接登录")
                     else:
@@ -344,7 +372,10 @@ if st.session_state.session_mgr is not None and st.session_state.session_mgr.get
         st.session_state.session_mgr.add_message(msg["role"], msg["content"])
     st.session_state.session_mgr._save()
     st.rerun()
-# ========== 未登录则显示登录页 ==========
+# ========== 登录检查（必须放在最前面）==========
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
 if not st.session_state.logged_in:
     show_login_page()
     st.stop()
@@ -482,36 +513,13 @@ t = texts[lang]
 # ========== 侧边栏 ==========
 with st.sidebar:
     st.markdown('<h2><i class="fas fa-graduation-cap"></i> 基智</h2>', unsafe_allow_html=True)
+    st.page_link("app.py", label="🏠 主界面")
+    st.page_link("pages/profile.py", label="👤 个人中心")
 
-    # 语言切换
-    col_lang1, col_lang2 = st.columns(2)
-    with col_lang1:
-        if st.button("中文", use_container_width=True, disabled=lang == "中文"):
-            st.session_state.language = "中文"
-            st.rerun()
-    with col_lang2:
-        if st.button("English", use_container_width=True, disabled=lang == "English"):
-            st.session_state.language = "English"
-            st.rerun()
     st.markdown("---")
 
-    # ========== 用户信息 + 退出登录 / 个人中心 ==========
     if st.session_state.logged_in:
         st.markdown(f'<i class="fas fa-user-circle"></i> 当前用户：{st.session_state.username}', unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🚪 退出登录", use_container_width=True):
-                for key in ["logged_in", "user_email", "user_id", "username", "session_mgr",
-                            "user_memory", "checkin_manager", "mistake_manager",
-                            "learning_log_manager", "countdown_manager", "timer_manager"]:
-                    if key in st.session_state:
-                        del st.session_state[key]
-                st.rerun()
-        with col2:
-            if st.button("👤 个人中心", use_container_width=True):
-                st.session_state.show_profile = True
-                st.rerun()
     else:
         st.info("请先登录")
     st.markdown("---")
@@ -525,7 +533,7 @@ with st.sidebar:
             if st.button("➕ 新对话", use_container_width=True):
                 for m in st.session_state.mistake_manager.get_learning_mistakes():
                     st.session_state.mistake_manager.mark_conquered(m["id"])
-                new_id = st.session_state.session_mgr.create_session(title="新对话" if lang == "中文" else "New Chat")
+                new_id = st.session_state.session_mgr.create_session(title="新对话")
                 st.session_state.session_mgr.switch_session(new_id)
                 st.session_state.messages = []
                 st.rerun()
@@ -540,7 +548,6 @@ with st.sidebar:
 
         st.markdown("---")
 
-        # 历史对话列表
         with st.popover("📜 查看历史对话", use_container_width=True):
             st.markdown("### 📜 历史对话列表")
             sessions = st.session_state.session_mgr.get_all_sessions()
@@ -561,19 +568,17 @@ with st.sidebar:
                         st.rerun()
                 with col2:
                     if st.button("🗑️", key=f"del_{s['id']}"):
-                        all_sessions = st.session_state.session_mgr.get_all_sessions()
-                        st.session_state.session_mgr.data["sessions"] = [x for x in all_sessions if x["id"] != s["id"]]
+                        st.session_state.session_mgr.data["sessions"] = [
+                            sess for sess in st.session_state.session_mgr.data["sessions"]
+                            if sess["id"] != s["id"]
+                        ]
                         if current_id == s["id"]:
                             remaining = st.session_state.session_mgr.data["sessions"]
                             if remaining:
                                 st.session_state.session_mgr.switch_session(remaining[0]["id"])
-                                if remaining[0].get("messages") and isinstance(remaining[0]["messages"], list):
-                                    st.session_state.messages = remaining[0]["messages"].copy()
-                                else:
-                                    st.session_state.messages = []
+                                st.session_state.messages = remaining[0].get("messages", []).copy()
                             else:
-                                new_id = st.session_state.session_mgr.create_session(
-                                    title="新对话" if lang == "中文" else "New Chat")
+                                new_id = st.session_state.session_mgr.create_session(title="新对话")
                                 st.session_state.session_mgr.switch_session(new_id)
                                 st.session_state.messages = []
                         st.session_state.session_mgr._save()
@@ -589,7 +594,6 @@ with st.sidebar:
     with st.popover("🧰 工作台", use_container_width=True):
         st.markdown("## 🧰 工作台")
 
-        # 7个Tab（使用纯 emoji 确保100%显示）
         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
             "📅 打卡", "⏰ 倒计时", "⏱️ 计时器",
             "📝 学习日志", "📖 错题本", "📊 成绩分析", "📈 学情报告"
@@ -625,7 +629,8 @@ with st.sidebar:
                 with col_a:
                     new_name = st.text_input("项目名称", key="new_checkin_name")
                 with col_b:
-                    new_target = st.number_input("目标天数", min_value=1, max_value=365, value=30, key="new_checkin_target")
+                    new_target = st.number_input("目标天数", min_value=1, max_value=365, value=30,
+                                                 key="new_checkin_target")
                 if st.button("添加", key="add_checkin_submit"):
                     if new_name:
                         success, msg = checkin_mgr.add_project(new_name, new_target)
@@ -681,7 +686,8 @@ with st.sidebar:
                 with col_a:
                     type_icon = "⏳" if timer_item["type"] == "countdown" else "⏱️"
                     type_text = "倒计时" if timer_item["type"] == "countdown" else "正向计时"
-                    duration_text = f" - {timer_item['duration_minutes']}分钟" if timer_item["type"] == "countdown" else ""
+                    duration_text = f" - {timer_item['duration_minutes']}分钟" if timer_item[
+                                                                                      "type"] == "countdown" else ""
                     st.write(f"{type_icon} **{timer_item['name']}** ({type_text}{duration_text})")
                 with col_b:
                     if st.button("▶️ 开始", key=f"start_{timer_item['id']}"):
@@ -689,8 +695,10 @@ with st.sidebar:
                             "id": timer_item['id'],
                             "name": timer_item['name'],
                             "type": timer_item["type"],
-                            "duration_minutes": timer_item['duration_minutes'] if timer_item["type"] == "countdown" else 0,
-                            "remaining_seconds": timer_item['duration_minutes'] * 60 if timer_item["type"] == "countdown" else 0,
+                            "duration_minutes": timer_item['duration_minutes'] if timer_item[
+                                                                                      "type"] == "countdown" else 0,
+                            "remaining_seconds": timer_item['duration_minutes'] * 60 if timer_item[
+                                                                                            "type"] == "countdown" else 0,
                             "elapsed_seconds": 0 if timer_item["type"] == "stopwatch" else 0,
                             "start_time": time.time(),
                             "running": True,
@@ -711,7 +719,8 @@ with st.sidebar:
                     new_type = st.selectbox("计时类型", ["倒计时", "正向计时"], key="new_timer_type")
                 new_duration = 25
                 if new_type == "倒计时":
-                    new_duration = st.number_input("时长（分钟）", min_value=1, max_value=180, value=25, step=5, key="new_timer_duration")
+                    new_duration = st.number_input("时长（分钟）", min_value=1, max_value=180, value=25, step=5,
+                                                   key="new_timer_duration")
                 if st.button("添加", key="add_timer_submit"):
                     if new_name:
                         timer_type = "countdown" if new_type == "倒计时" else "stopwatch"
@@ -735,7 +744,8 @@ with st.sidebar:
                     st.markdown(f"## {minutes:02d}:{seconds:02d}")
                     if remaining <= 0:
                         keyword = f"学习了「{active['name']}」{active['duration_minutes']}分钟"
-                        st.session_state.learning_log_manager.add_log(keyword=keyword, date=datetime.now().strftime("%Y-%m-%d"))
+                        st.session_state.learning_log_manager.add_log(keyword=keyword,
+                                                                      date=datetime.now().strftime("%Y-%m-%d"))
                         st.success(f"🎉 {keyword}！已记录到学习日志")
                         del st.session_state.active_timer
                         st.rerun()
@@ -755,7 +765,8 @@ with st.sidebar:
                         if st.button("▶️ 继续", key="resume_timer"):
                             active["paused"] = False
                             if active["type"] == "countdown":
-                                active["start_time"] = time.time() - (active["duration_minutes"] * 60 - active["remaining_seconds"])
+                                active["start_time"] = time.time() - (
+                                            active["duration_minutes"] * 60 - active["remaining_seconds"])
                             else:
                                 active["start_time"] = time.time() - active["elapsed_seconds"]
                             st.rerun()
@@ -772,7 +783,8 @@ with st.sidebar:
                         if st.button("✅ 完成", key="complete_stopwatch"):
                             actual_min = max(1, active["elapsed_seconds"] // 60)
                             keyword = f"学习了「{active['name']}」{actual_min}分钟"
-                            st.session_state.learning_log_manager.add_log(keyword=keyword, date=datetime.now().strftime("%Y-%m-%d"))
+                            st.session_state.learning_log_manager.add_log(keyword=keyword,
+                                                                          date=datetime.now().strftime("%Y-%m-%d"))
                             st.success(f"🎉 {keyword}！已记录到学习日志")
                             del st.session_state.active_timer
                             st.rerun()
@@ -794,7 +806,7 @@ with st.sidebar:
                     for log in logs[:10]:
                         st.markdown(f"- {log['keyword']}")
                     if len(logs) > 10:
-                        st.caption(f"...还有 {len(logs)-10} 条")
+                        st.caption(f"...还有 {len(logs) - 10} 条")
                     st.markdown("---")
             if st.button("🗑️ 清空所有日志", key="clear_logs_btn"):
                 log_mgr.clear_all()
@@ -894,6 +906,7 @@ with st.sidebar:
 
 请生成报告："""
                     from utils.llm_client import call_llm
+
                     report = call_llm([{"role": "user", "content": prompt}], temperature=0.7)
                     st.markdown("---")
                     st.markdown(report)
@@ -919,7 +932,7 @@ with st.sidebar:
         for idx, img in enumerate(uploaded_files[:3]):
             st.image(img, width=80)
         if len(uploaded_files) > 3:
-            st.caption(f"...等{len(uploaded_files)-3}张")
+            st.caption(f"...等{len(uploaded_files) - 3}张")
     st.markdown("---")
 
     # 偏好设置
@@ -934,9 +947,12 @@ with st.sidebar:
 
     col1, col2 = st.columns(2)
     with col1:
-        selected_diff_display = st.selectbox("难度", list(diff_reverse.keys()), index=list(diff_reverse.keys()).index(diff_display.get(current_diff, "中等")))
+        selected_diff_display = st.selectbox("难度", list(diff_reverse.keys()), index=list(diff_reverse.keys()).index(
+            diff_display.get(current_diff, "中等")))
     with col2:
-        selected_style_display = st.selectbox("风格", list(style_reverse.keys()), index=list(style_reverse.keys()).index(style_display.get(current_style, "均衡")))
+        selected_style_display = st.selectbox("风格", list(style_reverse.keys()),
+                                              index=list(style_reverse.keys()).index(
+                                                  style_display.get(current_style, "均衡")))
 
     if diff_reverse[selected_diff_display] != current_diff:
         st.session_state.user_memory.update_preference("difficulty", diff_reverse[selected_diff_display])
@@ -951,16 +967,6 @@ with st.sidebar:
     stats = st.session_state.user_memory.data['preferences'].get('feedback_stats', {})
     if stats.get('total', 0) > 0:
         st.caption(f"📊 反馈次数：{stats.get('total', 0)} | 平均分：{stats.get('avg_score', 0):.1f}")
-
-    st.markdown("---")
-
-    # 功能介绍
-    with st.popover("✨ 功能介绍", use_container_width=True):
-        st.markdown(t["feature_content"])
-
-    # 团队详情
-    with st.popover("🏆 团队详情", use_container_width=True):
-        st.markdown(t["team_content"])
 
     st.markdown("---")
 

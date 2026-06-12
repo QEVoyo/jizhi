@@ -1,21 +1,25 @@
 from utils.llm_client import call_llm
 
-EVALUATOR_SYSTEM = """你是严格的学习资源评估专家。输出JSON格式：
-{"score": 1-10, "pass": true/false, "issues": ["问题1"], "suggestions": "修改建议"}
-6分以下为不通过。"""
+EVALUATOR_SYSTEM = """你是学习评估专家。请用自然语言、温和的语气评估学习内容。
+不要输出 JSON，不要输出分数，不要用「score」「pass」等字段。
+直接给出评估结论和建议，例如：
+「这个讲解很清晰，适合你的水平，可以继续往下学了。」
+或
+「这部分有点难，建议再复习一下前面的知识点。」
+"""
 
 
-def evaluate(resource, user_profile, knowledge_point):
-    prompt = f"""知识点：{knowledge_point}
-用户水平：{user_profile['level']}
-学习内容：{resource}
+def evaluate(content, user_profile, user_input):
+    prompt = f"""学习内容：{content}
+用户水平：{user_profile.get('level', '中等')}
+用户问题：{user_input}
 
-请评估这份内容是否适合该用户。"""
+请评估这份学习内容是否适合该用户，用自然语言给出建议。不要输出JSON。"""
 
     response = call_llm([
         {"role": "system", "content": EVALUATOR_SYSTEM},
         {"role": "user", "content": prompt}
-    ], temperature=0.3)
+    ], temperature=0.5)
     return response
 def evaluate_with_history(resource, user_profile, user_input, history):
     from utils.llm_client import call_llm

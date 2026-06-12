@@ -31,9 +31,6 @@ class SessionManager:
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "messages": []
         }
-        # 确保 sessions 是列表
-        if not isinstance(self.data.get("sessions"), list):
-            self.data["sessions"] = []
         self.data["sessions"].insert(0, new_session)
         self.data["current_session_id"] = session_id
         self._save()
@@ -43,15 +40,13 @@ class SessionManager:
         current_id = self.data.get("current_session_id")
         if not current_id:
             return None
-        sessions = self.data.get("sessions", [])
-        for s in sessions:
+        for s in self.data.get("sessions", []):
             if s.get("id") == current_id:
                 return s
         return None
 
     def switch_session(self, session_id):
-        sessions = self.data.get("sessions", [])
-        for s in sessions:
+        for s in self.data.get("sessions", []):
             if s.get("id") == session_id:
                 self.data["current_session_id"] = session_id
                 self._save()
@@ -70,15 +65,8 @@ class SessionManager:
             })
             self._save()
 
-    def get_messages(self):
-        session = self.get_current_session()
-        if session:
-            return session.get("messages", [])
-        return []
-
     def update_title(self, session_id, new_title):
-        sessions = self.data.get("sessions", [])
-        for s in sessions:
+        for s in self.data.get("sessions", []):
             if s.get("id") == session_id:
                 s["title"] = new_title[:30]
                 self._save()
