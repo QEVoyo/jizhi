@@ -4,6 +4,104 @@ from utils.llm_client import call_llm
 import time
 import json
 import os
+import requests
+
+# 后端 API 地址
+BACKEND_URL = "http://localhost:8000"
+
+# ========== 带缓存的后端 API 调用 ==========
+@st.cache_data(ttl=60, show_spinner=False)
+def get_checkin_via_backend(user_id, access_token):
+    """获取打卡数据"""
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/tools/checkin/{user_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json().get("projects", []), None
+        return [], response.json().get("detail", "获取失败")
+    except Exception as e:
+        return [], str(e)
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_learning_logs_via_backend(user_id, access_token):
+    """获取学习日志"""
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/tools/learning-logs/{user_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json().get("logs", []), None
+        return [], response.json().get("detail", "获取失败")
+    except Exception as e:
+        return [], str(e)
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_mistakes_via_backend(user_id, access_token):
+    """获取错题本数据（暂时返回空，后续实现）"""
+    return [], None
+
+def upload_avatar_via_backend(user_id, image_bytes, access_token):
+    """通过后端 API 上传头像"""
+    try:
+        files = {"file": ("avatar.png", image_bytes, "image/png")}
+        response = requests.post(
+            f"{BACKEND_URL}/auth/upload-avatar/{user_id}",
+            files=files,
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=30
+        )
+        if response.status_code == 200:
+            return response.json().get("avatar_url"), None
+        else:
+            error = response.json().get("detail", "上传失败")
+            return None, error
+    except requests.exceptions.ConnectionError:
+        return None, "无法连接到服务器"
+    except Exception as e:
+        return None, str(e)
+
+def update_bio_via_backend(user_id, bio, access_token):
+    """通过后端 API 更新简介"""
+    try:
+        response = requests.put(
+            f"{BACKEND_URL}/auth/update-bio",
+            json={"user_id": user_id, "bio": bio},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json(), None
+        else:
+            error = response.json().get("detail", "更新失败")
+            return None, error
+    except requests.exceptions.ConnectionError:
+        return None, "无法连接到服务器"
+    except Exception as e:
+        return None, str(e)
+
+def update_nickname_via_backend(user_id, nickname, access_token):
+    """通过后端 API 更新昵称"""
+    try:
+        response = requests.put(
+            f"{BACKEND_URL}/auth/update-nickname",
+            json={"user_id": user_id, "nickname": nickname},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json(), None
+        else:
+            error = response.json().get("detail", "更新失败")
+            return None, error
+    except requests.exceptions.ConnectionError:
+        return None, "无法连接到服务器"
+    except Exception as e:
+        return None, str(e)
 
 st.set_page_config(
     page_title="个人中心",
@@ -40,10 +138,6 @@ user_email = st.session_state.user_email
 user_id = st.session_state.user_id
 user_account = st.session_state.get("user_account", "未设置")
 
-# 确保 profiles 存在（修复昵称/简介修改失败）
-#from utils.auth import ensure_profile_exists
-#ensure_profile_exists(user_id, user_email, st.session_state.get("username", "用户"))
-
 # 从数据库读取昵称（确保是最新的）
 nickname = get_user_nickname(user_id) or st.session_state.get("username", "用户")
 
@@ -62,7 +156,6 @@ with col_avatar1:
         st.markdown('<div style="width:80px;height:80px;border-radius:50%;background:#2a2a3a;display:flex;align-items:center;justify-content:center;font-size:32px;">👤</div>', unsafe_allow_html=True)
 
 with col_avatar2:
-    # 添加一个 key，用于清空上传组件
     uploader_key = st.session_state.get("avatar_uploader_key", 0)
     uploaded_avatar = st.file_uploader(
         "更换头像",
@@ -73,28 +166,25 @@ with col_avatar2:
 
     if uploaded_avatar:
         with st.spinner("上传中..."):
-            avatar_url = upload_avatar(user_id, uploaded_avatar.getvalue())
-
+            avatar_url, err = upload_avatar_via_backend(
+                user_id,
+                uploaded_avatar.getvalue(),
+                st.session_state.access_token
+            )
             if avatar_url:
-                st.info("文件已上传，正在保存链接...")
-                success = update_avatar_url(user_id, avatar_url)
-                if success:
-                    st.session_state.avatar_url = avatar_url
-                    # 清空上传组件，避免重复上传
-                    st.session_state.avatar_uploader_key = uploader_key + 1
-                    st.success("头像已更新")
-                    time.sleep(0.5)
-                    st.rerun()
-                else:
-                    st.error("保存链接失败")
+                st.session_state.avatar_url = avatar_url
+                st.session_state.avatar_uploader_key = uploader_key + 1
+                st.toast("✅ 头像已更新", icon="✅")
+                time.sleep(0.3)
+                st.rerun()
             else:
-                st.error("文件上传失败，请检查 Storage 权限")
+                st.error(f"上传失败：{err}")
 
 st.markdown("---")
+
 # ========== 在线状态设置 ==========
 st.subheader("🟢 在线状态")
 
-# 获取当前状态
 from utils.auth import get_user_status, update_user_status
 current_status = get_user_status(user_id)
 
@@ -112,13 +202,14 @@ selected_status = st.selectbox(
 
 if selected_status != current_status:
     if update_user_status(user_id, selected_status):
-        st.success(f"状态已切换为 {status_options[selected_status]}")
+        st.toast(f"✅ 已切换为 {status_options[selected_status]}", icon="✅")
         st.rerun()
     else:
         st.error("切换失败")
 
 st.caption("💡 提示：隐身模式可以让好友看不到你的在线状态")
 st.markdown("---")
+
 # ========== 账号信息 ==========
 st.subheader("📌 账号信息")
 st.text_input("账号", value=user_account, disabled=True)
@@ -135,50 +226,54 @@ if st.button("保存昵称", use_container_width=True):
     elif new_nickname == nickname:
         st.info("昵称没有变化")
     else:
-        from utils.auth import update_nickname
-        success = update_nickname(user_id, new_nickname)
+        success, err = update_nickname_via_backend(user_id, new_nickname, st.session_state.access_token)
         if success:
             st.session_state.username = new_nickname
-            st.success("昵称已更新")
-            time.sleep(0.5)
+            st.toast("✅ 昵称已更新", icon="✅")
+            time.sleep(0.3)
             st.rerun()
         else:
-            st.error(f"更新失败，请检查网络或联系管理员")
+            st.error(f"更新失败：{err}")
 
 st.markdown("---")
 
 # ========== 个人简介 ==========
 st.subheader("📝 个人简介")
 
-# 从数据库读取
 if "user_bio" not in st.session_state:
     st.session_state.user_bio = get_user_bio(user_id) or ""
 
 user_bio = st.text_area("", value=st.session_state.user_bio, placeholder="介绍一下自己...", height=100, label_visibility="collapsed")
 if st.button("保存简介", use_container_width=True):
-    if update_user_bio(user_id, user_bio):
+    success, err = update_bio_via_backend(user_id, user_bio, st.session_state.access_token)
+    if success:
         st.session_state.user_bio = user_bio
-        st.success("简介已保存")
-        time.sleep(0.5)
+        st.toast("✅ 简介已保存", icon="✅")
+        time.sleep(0.3)
         st.rerun()
     else:
-        st.error("保存失败")
+        st.error(f"保存失败：{err}")
 
 st.markdown("---")
 
 # ========== 用户画像 ==========
 st.subheader("🎯 用户画像")
 
-# 获取学习数据
-log_mgr = st.session_state.learning_log_manager
-mistake_mgr = st.session_state.mistake_manager
-checkin_mgr = st.session_state.checkin_manager
+# 从后端 API 获取数据（带缓存）
+access_token = st.session_state.access_token
 
-logs = log_mgr.get_recent_logs(limit=50)
-log_keywords = list(set([log["keyword"] for log in logs]))[:10]
-learning_cnt, conquered_cnt = mistake_mgr.count_by_status()
-projects = checkin_mgr.get_projects()
-total_checkin_days = sum(p["completed_days"] for p in projects)
+# 获取打卡数据
+projects, _ = get_checkin_via_backend(user_id, access_token)
+total_checkin_days = sum(p.get("completed_days", 0) for p in projects)
+
+# 获取学习日志
+logs, _ = get_learning_logs_via_backend(user_id, access_token)
+log_keywords = list(set([log.get("keyword", "") for log in logs]))[:10]
+
+# 获取错题本数据（暂时用空数据）
+mistakes, _ = get_mistakes_via_backend(user_id, access_token)
+learning_cnt = len([m for m in mistakes if m.get("status") == "learning"])
+conquered_cnt = len([m for m in mistakes if m.get("status") == "conquered"])
 
 # 掌握程度
 mastery_file = f"mastery_{user_id}.json"
@@ -186,7 +281,6 @@ if os.path.exists(mastery_file):
     with open(mastery_file, "r") as f:
         mastery_data = json.load(f)
 else:
-    # 初始化默认数据
     mastery_data = {"python_basics": 65}
     with open(mastery_file, "w") as f:
         json.dump(mastery_data, f)
@@ -274,7 +368,7 @@ st.markdown("---")
 if st.button("🚪 退出登录", use_container_width=True):
     from utils.auth import update_user_status
 
-    update_user_status(user_id, "offline")  # 设为离线
+    update_user_status(user_id, "offline")
     for key in ["logged_in", "user_email", "user_id", "username", "access_token",
                 "session_mgr", "user_memory", "checkin_manager", "mistake_manager",
                 "learning_log_manager", "countdown_manager", "timer_manager",

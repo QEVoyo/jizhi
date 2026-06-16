@@ -26,8 +26,233 @@ from dotenv import load_dotenv
 from utils.name_generator import generate_random_name
 # 阿里云百炼多模态
 import dashscope
+import requests
+import time
+# 后端 API 地址
+BACKEND_URL = "http://localhost:8000"
+from datetime import datetime
+@st.cache_data(ttl=60, show_spinner=False)
+def get_learning_logs_via_backend(user_id, access_token):
+    """获取学习日志"""
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/tools/learning-logs/{user_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json().get("logs", []), None
+        return [], response.json().get("detail", "获取失败")
+    except Exception as e:
+        return [], str(e)
 
+def clear_learning_logs_via_backend(user_id, access_token):
+    """清空学习日志"""
+    try:
+        response = requests.delete(
+            f"{BACKEND_URL}/tools/learning-logs/{user_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        return response.status_code == 200
+    except:
+        return False
+
+def login_via_backend(login_input, password):
+    """通过后端 API 登录"""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/auth/login",
+            json={"login_input": login_input, "password": password},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json(), None
+        else:
+            error = response.json().get("detail", "登录失败")
+            return None, error
+    except requests.exceptions.ConnectionError:
+        return None, "无法连接到服务器，请确保后端已启动"
+    except Exception as e:
+        return None, str(e)
 load_dotenv()
+
+def register_via_backend(email, password, nickname):
+    """通过后端 API 注册"""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/auth/register",
+            json={"email": email, "password": password, "nickname": nickname},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json(), None
+        else:
+            error = response.json().get("detail", "注册失败")
+            return None, error
+    except requests.exceptions.ConnectionError:
+        return None, "无法连接到服务器，请确保后端已启动"
+    except Exception as e:
+        return None, str(e)
+
+
+def get_profile_via_backend(user_id, access_token):
+    """通过后端 API 获取用户资料"""
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/auth/profile/{user_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json(), None
+        else:
+            error = response.json().get("detail", "获取资料失败")
+            return None, error
+    except requests.exceptions.ConnectionError:
+        return None, "无法连接到服务器"
+    except Exception as e:
+        return None, str(e)
+
+def update_nickname_via_backend(user_id, nickname, access_token):
+    """通过后端 API 更新昵称"""
+    try:
+        response = requests.put(
+            f"{BACKEND_URL}/auth/update-nickname",
+            json={"user_id": user_id, "nickname": nickname},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json(), None
+        else:
+            error = response.json().get("detail", "更新失败")
+            return None, error
+    except requests.exceptions.ConnectionError:
+        return None, "无法连接到服务器"
+    except Exception as e:
+        return None, str(e)
+
+def chat_via_backend(messages, user_id, temperature=0.7):
+    """通过后端 API 发送消息（流式）"""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/chat/send",
+            json={"messages": messages, "user_id": user_id, "temperature": temperature},
+            stream=True,
+            timeout=60
+        )
+        return response
+    except Exception as e:
+        return None
+
+def save_log_via_backend(user_id, keyword):
+    """保存学习日志"""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/tools/learning-logs/{user_id}",
+            json={"keyword": keyword, "date": datetime.now().strftime("%Y-%m-%d")},
+            timeout=10
+        )
+        return response.status_code == 200
+    except Exception as e:
+        print(f"保存日志失败: {e}")
+        return False
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_checkin_via_backend(user_id, access_token):
+    """获取打卡数据"""
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/tools/checkin/{user_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json().get("projects", []), None
+        return [], response.json().get("detail", "获取失败")
+    except Exception as e:
+        return [], str(e)
+
+def save_checkin_via_backend(user_id, projects, access_token):
+    """保存打卡数据"""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/tools/checkin/{user_id}",
+            json={"projects": projects},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        return response.status_code == 200
+    except:
+        return False
+
+# 倒计时
+@st.cache_data(ttl=60, show_spinner=False)
+def get_countdown_via_backend(user_id, access_token):
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/tools/countdown/{user_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json().get("events", []), None
+        return [], response.json().get("detail", "获取失败")
+    except Exception as e:
+        return [], str(e)
+
+def save_countdown_via_backend(user_id, events, access_token):
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/tools/countdown/{user_id}",
+            json={"events": events},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        return response.status_code == 200
+    except:
+        return False
+
+# 计时器
+@st.cache_data(ttl=60, show_spinner=False)
+def get_timer_via_backend(user_id, access_token):
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/tools/timer/{user_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json().get("timers", []), None
+        return [], response.json().get("detail", "获取失败")
+    except Exception as e:
+        return [], str(e)
+
+def save_timer_via_backend(user_id, timers, access_token):
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/tools/timer/{user_id}",
+            json={"timers": timers},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        return response.status_code == 200
+    except:
+        return False
+
+def get_report_via_backend(user_id, access_token):
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/tools/report/{user_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json(), None
+        return None, response.json().get("detail", "获取失败")
+    except Exception as e:
+        return None, str(e)
 
 dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
 
@@ -113,8 +338,7 @@ def show_login_page():
                 if not login_input or not password:
                     st.warning("请输入账号/邮箱和密码")
                 else:
-                    from utils.auth import sign_in
-                    user, err = sign_in(login_input, password)
+                    user, err = login_via_backend(login_input, password)
                     if user:
                         # 登录成功
                         user_email = user.get("email")
@@ -144,11 +368,22 @@ def show_login_page():
 
                         st.session_state.session_mgr = SessionManager(user_id=user_id)
                         st.session_state.user_memory = UserMemory(user_id=user_id)
-                        st.session_state.checkin_manager = CheckInManager(user_id=user_id)
+                        #st.session_state.checkin_manager = CheckInManager(user_id=user_id)
                         st.session_state.mistake_manager = MistakeManager(user_id=user_id)
                         st.session_state.learning_log_manager = LearningLogManager(user_id=user_id)
-                        st.session_state.countdown_manager = CountdownManager(user_id=user_id)
-                        st.session_state.timer_manager = TimerManager(user_id=user_id)
+                        #st.session_state.countdown_manager = CountdownManager(user_id=user_id)
+                        #st.session_state.timer_manager = TimerManager(user_id=user_id)
+                        projects, err = get_checkin_via_backend(user_id, st.session_state.access_token)
+                        st.session_state.checkin_projects = projects if projects else []
+
+                        events, err = get_countdown_via_backend(user_id, st.session_state.access_token)
+                        st.session_state.countdown_events = events if events else []
+
+                        timers, err = get_timer_via_backend(user_id, st.session_state.access_token)
+                        st.session_state.timer_items = timers if timers else []
+
+                        logs, err = get_learning_logs_via_backend(user_id, st.session_state.access_token)
+                        st.session_state.learning_logs = logs if logs else []
 
                         # 创建新对话
                         new_id = st.session_state.session_mgr.create_session(title="新对话")
@@ -193,11 +428,9 @@ def show_login_page():
                 elif password != confirm:
                     st.warning("两次密码不一致")
                 else:
-                    from utils.auth import sign_up
                     from utils.name_generator import generate_random_name
-                    # 直接自动生成昵称，不再从界面读取
                     final_nickname = generate_random_name()
-                    user, err = sign_up(email, password, final_nickname)
+                    user, err = register_via_backend(email, password, final_nickname)  # 改这里
 
                     if user:
                         st.success("验证邮件已发送，请查收邮箱并点击验证链接。\n\n登录后可在「个人中心」查看你的专属账号。")
@@ -634,35 +867,51 @@ with st.sidebar:
     with st.popover("🧰 工作台", use_container_width=True):
         st.markdown("## 🧰 工作台")
 
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-            "📅 打卡", "⏰ 倒计时", "⏱️ 计时器",
-            "📝 学习日志", "📖 错题本", "📊 成绩分析", "📈 学情报告"
+        user_id = st.session_state.user_id
+        access_token = st.session_state.access_token
+
+        # 加载数据
+        projects = st.session_state.get("checkin_projects", [])
+        events = st.session_state.get("countdown_events", [])
+        timers = st.session_state.get("timer_items", [])
+        logs = st.session_state.get("learning_logs", [])
+        st.session_state.learning_logs = logs if logs else []
+        # 横排 tabs（只保留5个：打卡、倒计时、计时器、学习日志、学情报告）
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "📅 打卡", "⏰ 倒计时", "⏱️ 计时器", "📝 学习日志", "📈 学情报告"
         ])
 
-        # Tab1: 打卡
+        # ========== Tab1: 打卡 ==========
         with tab1:
-            checkin_mgr = st.session_state.checkin_manager
-            projects = checkin_mgr.get_projects()
-            for p in projects:
-                col_a, col_b, col_c = st.columns([3, 1, 1])
-                with col_a:
-                    st.write(f"**{p['name']}**")
-                    st.progress(p['completed_days'] / p['target_days'] if p['target_days'] > 0 else 0)
-                    st.caption(f"进度：{p['completed_days']}/{p['target_days']} 天")
-                with col_b:
-                    if st.button("✅", key=f"checkin_{p['name']}"):
-                        success, msg = checkin_mgr.checkin(p['name'])
-                        if success:
-                            st.success(msg)
-                            time.sleep(0.5)
-                            st.rerun()
-                        else:
-                            st.warning(msg)
-                with col_c:
-                    if st.button("🗑️", key=f"del_checkin_{p['name']}"):
-                        checkin_mgr.delete_project(p['name'])
-                        st.rerun()
-                st.markdown("---")
+            if not projects:
+                st.info("暂无打卡项目，点击下方添加")
+            else:
+                for p in projects:
+                    col_a, col_b, col_c = st.columns([3, 1, 1])
+                    with col_a:
+                        st.write(f"**{p['name']}**")
+                        st.progress(p['completed_days'] / p['target_days'] if p['target_days'] > 0 else 0)
+                        st.caption(f"进度：{p['completed_days']}/{p['target_days']} 天")
+                    with col_b:
+                        if st.button("✅", key=f"checkin_{p['name']}"):
+                            today = datetime.now().strftime("%Y-%m-%d")
+                            if p.get('last_checkin') == today:
+                                st.warning("今天已经打卡过了")
+                            else:
+                                p['completed_days'] += 1
+                                p['last_checkin'] = today
+                                if save_checkin_via_backend(user_id, projects, access_token):
+                                    st.success(f"打卡成功！已完成 {p['completed_days']}/{p['target_days']} 天")
+                                    st.rerun()
+                                else:
+                                    st.error("保存失败")
+                    with col_c:
+                        if st.button("🗑️", key=f"del_checkin_{p['name']}"):
+                            projects = [proj for proj in projects if proj['name'] != p['name']]
+                            if save_checkin_via_backend(user_id, projects, access_token):
+                                st.session_state.checkin_projects = projects  # 加上这行
+                                st.rerun()
+                    st.markdown("---")
 
             with st.expander("➕ 添加新打卡项目"):
                 col_a, col_b = st.columns(2)
@@ -673,34 +922,46 @@ with st.sidebar:
                                                  key="new_checkin_target")
                 if st.button("添加", key="add_checkin_submit"):
                     if new_name:
-                        success, msg = checkin_mgr.add_project(new_name, new_target)
-                        if success:
-                            st.success(msg)
-                            time.sleep(0.5)
-                            st.rerun()
+                        if any(p['name'] == new_name for p in projects):
+                            st.error("项目名称已存在")
                         else:
-                            st.error(msg)
-
-        # Tab2: 倒计时
-        with tab2:
-            countdown_mgr = st.session_state.countdown_manager
-            events = countdown_mgr.get_events()
-            for e in events:
-                col_a, col_b = st.columns([4, 1])
-                with col_a:
-                    st.write(f"**{e['name']}**")
-                    days = countdown_mgr.get_days_remaining(e['target_date'])
-                    if days >= 0:
-                        st.write(f"📅 距离 {e['name']} 还有 **{days}** 天")
-                        st.caption(f"目标日期：{e['target_date']}")
+                            projects.append({
+                                "name": new_name,
+                                "target_days": new_target,
+                                "completed_days": 0,
+                                "last_checkin": None
+                            })
+                            if save_checkin_via_backend(user_id, projects, access_token):
+                                st.success("添加成功")
+                                st.rerun()
+                            else:
+                                st.error("保存失败")
                     else:
-                        st.write(f"📅 {e['name']} 已结束（{abs(days)}天前）")
-                        st.caption(f"目标日期：{e['target_date']}")
-                with col_b:
-                    if st.button("🗑️", key=f"del_countdown_{e['id']}"):
-                        countdown_mgr.delete_event(e['id'])
-                        st.rerun()
-                st.markdown("---")
+                        st.warning("请输入项目名称")
+
+        # ========== Tab2: 倒计时 ==========
+        with tab2:
+            if not events:
+                st.info("暂无倒计时事件")
+            else:
+                for e in events:
+                    col_a, col_b = st.columns([4, 1])
+                    with col_a:
+                        st.write(f"**{e['name']}**")
+                        days = (datetime.strptime(e['target_date'], "%Y-%m-%d") - datetime.now()).days
+                        if days >= 0:
+                            st.write(f"📅 距离 {e['name']} 还有 **{days}** 天")
+                            st.caption(f"目标日期：{e['target_date']}")
+                        else:
+                            st.write(f"📅 {e['name']} 已结束（{abs(days)}天前）")
+                            st.caption(f"目标日期：{e['target_date']}")
+                    with col_b:
+                        if st.button("🗑️", key=f"del_countdown_{e['id']}"):
+                            events = [ev for ev in events if ev['id'] != e['id']]
+                            if save_countdown_via_backend(user_id, events, access_token):
+                                st.session_state.countdown_events = events  # 加上这行
+                                st.rerun()
+                    st.markdown("---")
 
             with st.expander("➕ 添加倒计时"):
                 col_a, col_b = st.columns(2)
@@ -710,46 +971,58 @@ with st.sidebar:
                     new_date = st.date_input("目标日期", key="countdown_date")
                 if st.button("添加", key="add_countdown_submit"):
                     if new_name:
-                        countdown_mgr.add_event(new_name, new_date.strftime("%Y-%m-%d"))
-                        st.rerun()
+                        import uuid
+
+                        events.append({
+                            "id": str(uuid.uuid4()),
+                            "name": new_name,
+                            "target_date": new_date.strftime("%Y-%m-%d"),
+                            "created_at": datetime.now().strftime("%Y-%m-%d")
+                        })
+                        if save_countdown_via_backend(user_id, events, access_token):
+                            st.success("添加成功")
+                            st.rerun()
+                        else:
+                            st.error("保存失败")
                     else:
                         st.warning("请输入事件名称")
-            if not events:
-                st.info("暂无倒计时事件")
 
-        # Tab3: 计时器
+        # ========== Tab3: 计时器 ==========
         with tab3:
-            timer_mgr = st.session_state.timer_manager
-            timers = timer_mgr.get_timers()
-            for timer_item in timers:
-                col_a, col_b, col_c = st.columns([3, 1, 1])
-                with col_a:
-                    type_icon = "⏳" if timer_item["type"] == "countdown" else "⏱️"
-                    type_text = "倒计时" if timer_item["type"] == "countdown" else "正向计时"
-                    duration_text = f" - {timer_item['duration_minutes']}分钟" if timer_item[
-                                                                                      "type"] == "countdown" else ""
-                    st.write(f"{type_icon} **{timer_item['name']}** ({type_text}{duration_text})")
-                with col_b:
-                    if st.button("▶️ 开始", key=f"start_{timer_item['id']}"):
-                        st.session_state.active_timer = {
-                            "id": timer_item['id'],
-                            "name": timer_item['name'],
-                            "type": timer_item["type"],
-                            "duration_minutes": timer_item['duration_minutes'] if timer_item[
-                                                                                      "type"] == "countdown" else 0,
-                            "remaining_seconds": timer_item['duration_minutes'] * 60 if timer_item[
-                                                                                            "type"] == "countdown" else 0,
-                            "elapsed_seconds": 0 if timer_item["type"] == "stopwatch" else 0,
-                            "start_time": time.time(),
-                            "running": True,
-                            "paused": False
-                        }
-                        st.rerun()
-                with col_c:
-                    if st.button("🗑️", key=f"del_timer_{timer_item['id']}"):
-                        timer_mgr.delete_timer(timer_item['id'])
-                        st.rerun()
-                st.markdown("---")
+            if not timers:
+                st.info("暂无计时器模板")
+            else:
+                for timer_item in timers:
+                    col_a, col_b, col_c = st.columns([3, 1, 1])
+                    with col_a:
+                        type_icon = "⏳" if timer_item["type"] == "countdown" else "⏱️"
+                        type_text = "倒计时" if timer_item["type"] == "countdown" else "正向计时"
+                        duration_text = f" - {timer_item['duration_minutes']}分钟" if timer_item[
+                                                                                          "type"] == "countdown" else ""
+                        st.write(f"{type_icon} **{timer_item['name']}** ({type_text}{duration_text})")
+                    with col_b:
+                        if st.button("▶️ 开始", key=f"start_{timer_item['id']}"):
+                            st.session_state.active_timer = {
+                                "id": timer_item['id'],
+                                "name": timer_item['name'],
+                                "type": timer_item["type"],
+                                "duration_minutes": timer_item['duration_minutes'] if timer_item[
+                                                                                          "type"] == "countdown" else 0,
+                                "remaining_seconds": timer_item['duration_minutes'] * 60 if timer_item[
+                                                                                                "type"] == "countdown" else 0,
+                                "elapsed_seconds": 0,
+                                "start_time": time.time(),
+                                "running": True,
+                                "paused": False
+                            }
+                            st.rerun()
+                    with col_c:
+                        if st.button("🗑️", key=f"del_timer_{timer_item['id']}"):
+                            timers = [t for t in timers if t['id'] != timer_item['id']]
+                            if save_timer_via_backend(user_id, timers, access_token):
+                                st.session_state.timer_items = timers  # 加上这行
+                                st.rerun()
+                    st.markdown("---")
 
             with st.expander("➕ 添加计时器模板"):
                 col_a, col_b = st.columns(2)
@@ -763,12 +1036,24 @@ with st.sidebar:
                                                    key="new_timer_duration")
                 if st.button("添加", key="add_timer_submit"):
                     if new_name:
+                        import uuid
+
                         timer_type = "countdown" if new_type == "倒计时" else "stopwatch"
-                        timer_mgr.add_timer(new_name, timer_type, new_duration if new_type == "倒计时" else 0)
-                        st.rerun()
+                        timers.append({
+                            "id": str(uuid.uuid4()),
+                            "name": new_name,
+                            "type": timer_type,
+                            "duration_minutes": new_duration if new_type == "倒计时" else 0
+                        })
+                        if save_timer_via_backend(user_id, timers, access_token):
+                            st.success("添加成功")
+                            st.rerun()
+                        else:
+                            st.error("保存失败")
                     else:
                         st.warning("请输入任务名称")
 
+            # 正在运行的计时器
             if "active_timer" in st.session_state and st.session_state.active_timer.get("running", False):
                 st.markdown("---")
                 active = st.session_state.active_timer
@@ -784,8 +1069,7 @@ with st.sidebar:
                     st.markdown(f"## {minutes:02d}:{seconds:02d}")
                     if remaining <= 0:
                         keyword = f"学习了「{active['name']}」{active['duration_minutes']}分钟"
-                        st.session_state.learning_log_manager.add_log(keyword=keyword,
-                                                                      date=datetime.now().strftime("%Y-%m-%d"))
+                        save_log_via_backend(st.session_state.user_id, keyword)
                         st.success(f"🎉 {keyword}！已记录到学习日志")
                         del st.session_state.active_timer
                         st.rerun()
@@ -823,137 +1107,86 @@ with st.sidebar:
                         if st.button("✅ 完成", key="complete_stopwatch"):
                             actual_min = max(1, active["elapsed_seconds"] // 60)
                             keyword = f"学习了「{active['name']}」{actual_min}分钟"
-                            st.session_state.learning_log_manager.add_log(keyword=keyword,
-                                                                          date=datetime.now().strftime("%Y-%m-%d"))
+                            save_log_via_backend(st.session_state.user_id, keyword)
                             st.success(f"🎉 {keyword}！已记录到学习日志")
                             del st.session_state.active_timer
                             st.rerun()
                 time.sleep(1)
                 st.rerun()
 
-            if not timers and "active_timer" not in st.session_state:
-                st.info("暂无计时器模板")
-
-        # Tab4: 学习日志
+        # ========== Tab4: 学习日志 ==========
+        # ========== Tab4: 学习日志 ==========
         with tab4:
-            log_mgr = st.session_state.learning_log_manager
-            grouped = log_mgr.get_logs_grouped_by_date()
-            if not grouped:
+            logs = st.session_state.get("learning_logs", [])
+
+            if not logs or len(logs) == 0:
                 st.info("暂无学习日志")
             else:
-                for date, logs in list(grouped.items())[:30]:
+                grouped = {}
+                for log in logs:
+                    date = log.get("date", "未知日期")
+                    if date not in grouped:
+                        grouped[date] = []
+                    grouped[date].append(log)
+
+                for date, logs_list in list(grouped.items())[:30]:
                     st.markdown(f"### 📅 {date}")
-                    for log in logs[:10]:
+                    for log in logs_list[:10]:
                         st.markdown(f"- {log['keyword']}")
-                    if len(logs) > 10:
-                        st.caption(f"...还有 {len(logs) - 10} 条")
+                    if len(logs_list) > 10:
+                        st.caption(f"...还有 {len(logs_list) - 10} 条")
                     st.markdown("---")
+
             if st.button("🗑️ 清空所有日志", key="clear_logs_btn"):
-                log_mgr.clear_all()
-                st.rerun()
+                if clear_learning_logs_via_backend(user_id, access_token):
+                    st.session_state.learning_logs = []
+                    st.success("日志已清空")
+                    st.rerun()
+                else:
+                    st.error("清空失败")
 
-        # Tab5: 错题本
+        # ========== Tab5: 学情报告 ==========
         with tab5:
-            mistake_mgr = st.session_state.mistake_manager
-            learning_cnt, conquered_cnt = mistake_mgr.count_by_status()
-            st.caption(f"📚 学习中：{learning_cnt}  |  ✅ 已攻克：{conquered_cnt}")
-
-            sub1, sub2 = st.tabs(["📖 学习中", "✅ 已攻克"])
-            with sub1:
-                for m in mistake_mgr.get_learning_mistakes()[:20]:
-                    title = m.get('title', m['question'][:60])
-                    with st.expander(f"❓ {title}"):
-                        if m.get("conversation_snapshot"):
-                            st.markdown("**用户问题：**")
-                            st.info(m["conversation_snapshot"]["user"][:300])
-                            st.markdown("**AI回复：**")
-                            st.success(m["conversation_snapshot"]["assistant"][:300])
-                        st.caption(f"📅 {m['created_at']}")
-                        col_a, col_b = st.columns(2)
-                        with col_a:
-                            if st.button("✅ 标记已攻克", key=f"conquer_{m['id']}"):
-                                mistake_mgr.mark_conquered(m['id'])
-                                st.rerun()
-                        with col_b:
-                            if st.button("🗑️", key=f"del_learning_{m['id']}"):
-                                mistake_mgr.delete_mistake(m['id'])
-                                st.rerun()
-                    st.markdown("---")
-                if not mistake_mgr.get_learning_mistakes():
-                    st.info("暂无学习中错题")
-
-            with sub2:
-                for m in mistake_mgr.get_conquered_mistakes()[:20]:
-                    title = m.get('title', m['question'][:60])
-                    with st.expander(f"✅ {title}"):
-                        if m.get("conversation_snapshot"):
-                            st.markdown("**用户问题：**")
-                            st.info(m["conversation_snapshot"]["user"][:300])
-                            st.markdown("**AI回复：**")
-                            st.success(m["conversation_snapshot"]["assistant"][:300])
-                        st.caption(f"📅 {m['created_at']}")
-                        col_a, col_b = st.columns(2)
-                        with col_a:
-                            if st.button("📖 复习", key=f"review_{m['id']}"):
-                                st.session_state.review_question = m['question']
-                                st.rerun()
-                        with col_b:
-                            if st.button("🗑️", key=f"del_conquered_{m['id']}"):
-                                mistake_mgr.delete_mistake(m['id'])
-                                st.rerun()
-                    st.markdown("---")
-                if not mistake_mgr.get_conquered_mistakes():
-                    st.info("暂无已攻克错题")
-
-        # Tab6: 成绩分析
-        with tab6:
-            st.info("上传成绩单图片（选择「个人成绩单」类型），系统会自动分析")
-
-        # Tab7: 学情报告
-        with tab7:
-            st.markdown("## 📊 学情报告")
             st.caption("汇总你的学习数据，生成正向激励报告")
             if st.button("📈 生成学情报告", use_container_width=True, key="generate_report_btn"):
                 with st.spinner("正在分析你的学习数据..."):
-                    logs = st.session_state.learning_log_manager.get_recent_logs(limit=50)
-                    log_keywords = list(set([log["keyword"] for log in logs]))[:20]
-                    learning_cnt, conquered_cnt = st.session_state.mistake_manager.count_by_status()
-                    projects = st.session_state.checkin_manager.get_projects()
-                    total_checkin_days = sum(p["completed_days"] for p in projects)
-                    events = st.session_state.countdown_manager.get_events()
-                    upcoming_events = []
-                    for e in events:
-                        days = st.session_state.countdown_manager.get_days_remaining(e["target_date"])
-                        if days >= 0 and days <= 30:
-                            upcoming_events.append(f"「{e['name']}」还有 {days} 天")
+                    report_data, _ = get_report_via_backend(user_id, access_token)
+                    if report_data:
+                        logs = report_data.get("logs", [])
+                        keywords = list(set([log.get("keyword", "") for log in logs[-50:]]))[:20]
+                        total_checkin_days = report_data.get("total_checkin_days", 0)
+                        events = report_data.get("events", [])
+                        upcoming_events = []
+                        for e in events:
+                            days = (datetime.strptime(e['target_date'], "%Y-%m-%d") - datetime.now()).days
+                            if days >= 0 and days <= 30:
+                                upcoming_events.append(f"「{e['name']}」还有 {days} 天")
 
-                    keywords_str = "、".join(log_keywords) if log_keywords else "暂无"
-                    prompt = f"""请根据以下学习数据，给用户生成一份正向激励的学习报告。
+                        keywords_str = "、".join(keywords) if keywords else "暂无"
+                        prompt = f"""请根据以下学习数据，给用户生成一份正向激励的学习报告。
 
-学习数据：
-- 近期学习内容：{keywords_str}
-- 已攻克错题：{conquered_cnt} 个
-- 学习中错题：{learning_cnt} 个
-- 累计打卡天数：{total_checkin_days} 天
-- 近期倒计时事件：{'、'.join(upcoming_events) if upcoming_events else '无'}
+    学习数据：
+    - 近期学习内容：{keywords_str}
+    - 累计打卡天数：{total_checkin_days} 天
+    - 近期倒计时事件：{'、'.join(upcoming_events) if upcoming_events else '无'}
 
-要求：
-1. 语气温暖、积极、正向激励
-2. 肯定用户的进步和努力
-3. 给出1-2条具体的学习建议
-4. 字数控制在150-200字
-5. 使用中文，适当使用emoji
+    要求：
+    1. 语气温暖、积极、正向激励
+    2. 肯定用户的进步和努力
+    3. 给出1-2条具体的学习建议
+    4. 字数控制在150-200字
+    5. 使用中文，适当使用emoji
 
-请生成报告："""
-                    from utils.llm_client import call_llm
+    请生成报告："""
+                        from utils.llm_client import call_llm
 
-                    report = call_llm([{"role": "user", "content": prompt}], temperature=0.7)
-                    st.markdown("---")
-                    st.markdown(report)
-                    st.markdown("---")
-                    st.caption("📝 报告由AI生成，仅供参考")
-            else:
-                st.info("点击「生成学情报告」按钮，系统会根据你的学习数据生成正向激励报告")
+                        report = call_llm([{"role": "user", "content": prompt}], temperature=0.7)
+                        st.markdown("---")
+                        st.markdown(report)
+                        st.markdown("---")
+                        st.caption("📝 报告由AI生成，仅供参考")
+                    else:
+                        st.error("获取学习数据失败")
 
     st.markdown("---")
 
@@ -1157,23 +1390,36 @@ if user_input:
 
             elif intent == "generate":
                 # 构建历史消息列表
-                from utils.llm_client import call_llm_stream
-
                 messages = [
-                    {"role": "system", "content": "你是基智，个性化学习助手。" + memory_context},
+                    {"role": "system", "content": """你是基智，一个热情、博学的AI学习助手。
+
+                ## 你的行为准则：
+                1. **先完整回答用户的问题**：无论用户问什么（知识、概念、方法、生活问题等），都要先给出清晰、完整、有用的回答。
+                2. **再引导学习**：回答完后，自然地引导到学习方向，比如推荐相关知识点、建议下一步学什么、或者出一道相关的思考题。
+                3. **语气温暖亲切**：像朋友一样交流，鼓励用户继续探索。
+
+                ## 示例：
+                用户问"广东有什么特点？"
+                你应该先回答广东的地理、文化、经济特点，然后说："如果你对地理感兴趣，我们可以一起学习中国的地理分区，或者你想了解广东的历史吗？"
+
+                用户问"如何做番茄炒蛋？"
+                你应该先给出菜谱步骤，然后说："烹饪也是生活中的一种学习，如果你对营养学感兴趣，我们可以聊聊食物搭配的知识哦！"
+
+                记住：永远先回答问题，再引导学习。"""},
                     *history,
                     {"role": "user", "content": full_input}
                 ]
-                # 流式输出
-                stream = call_llm_stream(messages, temperature=0.7)
-                result = st.write_stream(stream)
+                response = chat_via_backend(messages, st.session_state.user_id, temperature=0.7)
+                if response:
+                    result = st.write_stream(response.iter_content(chunk_size=100, decode_unicode=True))
 
                 # 学习日志
                 keyword = generate_mistake_title(result, user_input)
                 from datetime import datetime
 
-                st.session_state.learning_log_manager.add_log(keyword=keyword, date=datetime.now().strftime("%Y-%m-%d"))
-
+                save_log_via_backend(st.session_state.user_id, keyword)
+                logs, _ = get_learning_logs_via_backend(st.session_state.user_id, st.session_state.access_token)
+                st.session_state.learning_logs = logs if logs else []
             elif intent == "evaluate":
                 current = st.session_state.session_mgr.get_current_session()
                 last_a = None
@@ -1194,15 +1440,14 @@ if user_input:
                         result = evaluate(last_a, {"level": "medium"}, full_input)
 
             else:  # chat
-                from utils.llm_client import call_llm_stream
-
                 messages = [
                     {"role": "system", "content": "你是基智，友好的学习助手。" + memory_context},
                     *history,
                     {"role": "user", "content": full_input}
                 ]
-                stream = call_llm_stream(messages, temperature=0.7)
-                result = st.write_stream(stream)
+                response = chat_via_backend(messages, st.session_state.user_id, temperature=0.7)
+                if response:
+                    result = st.write_stream(response.iter_content(chunk_size=100, decode_unicode=True))
 
             status.update(label="完成", state="complete")
 
