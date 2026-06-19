@@ -36,7 +36,13 @@ def call_llm(messages, temperature=0.7, use_cache=True):
         cached = redis_client.get(cache_key)
         if cached:
             print("命中缓存")
-            return json.loads(cached)
+            # 检查缓存内容是否有效
+            if cached and len(cached) > 10:
+                return cached
+            else:
+                # 缓存内容无效，删除
+                redis_client.delete(cache_key)
+                print("缓存内容无效，已删除")
 
     # 调用 API
     client = OpenAI(
@@ -51,10 +57,15 @@ def call_llm(messages, temperature=0.7, use_cache=True):
     )
     result = response.choices[0].message.content
 
+    # 检查结果是否有效
+    if not result or len(result) < 10:
+        print(f"AI 返回内容为空或太短: {result}")
+        return "{}"
+
     # 存入缓存（1小时过期）
     if use_cache and redis_client:
         cache_key = get_cache_key(messages, temperature)
-        redis_client.setex(cache_key, 3600, json.dumps(result))
+        redis_client.setex(cache_key, 3600, result)
 
     return result
 

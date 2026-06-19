@@ -752,13 +752,21 @@ with st.sidebar:
     st.markdown('<h2><i class="fas fa-graduation-cap"></i> 基智</h2>', unsafe_allow_html=True)
     st.page_link("app.py", label="🏠 主界面")
     st.page_link("pages/profile.py", label="👤 个人中心")
+    st.page_link("pages/resource_lib.py", label="📚 资源库")  # 👈 添加这一行
 
     st.markdown("---")
 
     if st.session_state.logged_in:
         from utils.auth import get_user_status, update_user_status
 
-        avatar_url = st.session_state.get("avatar_url", "")
+        # 从数据库获取最新的头像 URL
+        from utils.auth import get_avatar_url
+
+        avatar_url = get_avatar_url(st.session_state.user_id)
+        if avatar_url:
+            st.session_state.avatar_url = avatar_url
+        else:
+            avatar_url = st.session_state.get("avatar_url", "")
         user_account = st.session_state.get("user_account", "")
         user_id = st.session_state.user_id
         # 获取当前用户的在线状态
