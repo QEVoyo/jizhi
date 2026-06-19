@@ -29,7 +29,7 @@ import dashscope
 import requests
 import time
 # 后端 API 地址
-BACKEND_URL = "https://hearty-playfulness-production-78c1.up.railway.app"
+BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 from datetime import datetime
 @st.cache_data(ttl=60, show_spinner=False)
 def get_learning_logs_via_backend(user_id, access_token):

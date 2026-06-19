@@ -1,5 +1,5 @@
 import streamlit as st
-
+BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 st.set_page_config(
     page_title="掌握度看板",
     page_icon="📊",
