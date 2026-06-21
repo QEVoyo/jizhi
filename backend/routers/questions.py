@@ -157,6 +157,15 @@ async def create_question_set(user_id: str, data: QuestionSetCreate):
         res = await client.post(url, headers=headers, json=set_data)
         if res.status_code not in [200, 201]:
             raise HTTPException(status_code=400, detail=f"创建题集失败: {res.text}")
+
+        # 如果响应为空，手动查询刚创建的题集
+        if res.status_code == 201 and not res.text:
+            get_url = f"{settings.SUPABASE_URL}/rest/v1/question_sets?user_id=eq.{user_id}&order=created_at.desc&limit=1"
+            get_res = await client.get(get_url, headers=headers)
+            if get_res.status_code == 200 and get_res.json():
+                return get_res.json()[0]
+            return {"success": True, "message": "题集已创建"}
+
         return res.json()
 
 

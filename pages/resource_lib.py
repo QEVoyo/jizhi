@@ -222,27 +222,170 @@ with tab1:
                         st.error(f"❌ 错误：{str(e)}")
 
 # ========== Tab2: 我的题集 ==========
+# ========== Tab2: 我的题集 ==========
 with tab2:
     st.subheader("📁 我的题集")
 
-    # TODO: 从后端获取题集列表
-    question_sets = []
 
-    if not question_sets:
-        st.info("暂无题集，点击下方创建")
+    # 获取题集列表
+    def load_question_sets():
+        try:
+            response = requests.get(
+                f"{BACKEND_URL}/questions/set/list/{user_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except:
+            return []
 
-    with st.expander("➕ 创建新题集"):
+
+    # 创建题集
+    def create_question_set(name, desc):
+        try:
+            response = requests.post(
+                f"{BACKEND_URL}/questions/set/create?user_id={user_id}",
+                json={
+                    "name": name,
+                    "description": desc,
+                    "set_type": "custom"
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10
+            )
+            return response.status_code in [200, 201, 204], response.text
+        except Exception as e:
+            return False, str(e)
+
+
+    # 删除题集
+    def delete_question_set(set_id):
+        try:
+            response = requests.delete(
+                f"{BACKEND_URL}/questions/set/{set_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10
+            )
+            return response.status_code in [200, 204]
+        except:
+            return False
+
+
+    # 从题集移除题目
+    def remove_question_from_set(set_id, question_id):
+        try:
+            response = requests.post(
+                f"{BACKEND_URL}/questions/set/{set_id}/remove/{question_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10
+            )
+            return response.status_code in [200, 204]
+        except:
+            return False
+
+
+    # 获取题目详情
+    def get_question_detail(question_id):
+        try:
+            response = requests.get(
+                f"{BACKEND_URL}/questions/{question_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except:
+            return None
+
+
+    # 创建题集（放在最上面）
+    with st.expander("➕ 创建新题集", expanded=True):
         col1, col2 = st.columns(2)
         with col1:
-            new_set_name = st.text_input("题集名称", key="new_set_name")
+            new_set_name = st.text_input("题集名称", placeholder="例：Python基础", key="new_set_name")
         with col2:
-            new_set_desc = st.text_input("描述（可选）", key="new_set_desc")
-        if st.button("创建题集"):
+            new_set_desc = st.text_input("描述（可选）", placeholder="例：Python核心知识点", key="new_set_desc")
+
+        if st.button("✨ 创建题集", key="create_set_btn", use_container_width=True):
             if new_set_name:
-                # TODO: 调用后端 API 创建题集
-                st.success(f"✅ 题集「{new_set_name}」创建成功")
+                success, msg = create_question_set(new_set_name, new_set_desc)
+                if success:
+                    st.success(f"✅ 题集「{new_set_name}」创建成功")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error(f"创建失败：{msg}")
             else:
                 st.warning("请输入题集名称")
+
+    st.markdown("---")
+
+    # 获取并显示题集列表
+    question_sets = load_question_sets()
+
+    # 搜索题集
+    search_set = st.text_input("🔍 搜索题集", placeholder="输入题集名称搜索...", key="search_set")
+
+    # 过滤题集
+    filtered_sets = question_sets
+    if search_set:
+        filtered_sets = [s for s in filtered_sets if search_set.lower() in s.get("name", "").lower()]
+
+    if not filtered_sets:
+        if search_set:
+            st.info("📭 没有匹配的题集")
+        else:
+            st.info("📭 暂无题集，点击上方创建")
+    else:
+        for s in filtered_sets:
+            set_id = s.get('id')
+            set_name = s.get('name', '未命名')
+            set_desc = s.get('description', '')
+            question_ids = s.get('question_ids', [])
+
+            created_at = s.get('created_at', '')
+            if created_at:
+                try:
+                    from datetime import datetime, timedelta
+
+                    dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    dt_local = dt + timedelta(hours=8)
+                    create_time = dt_local.strftime("%Y-%m-%d %H:%M")
+                except:
+                    create_time = created_at[:16]
+            else:
+                create_time = "未知时间"
+
+            col1, col2, col3, col4 = st.columns([3, 1.5, 1, 1])
+            with col1:
+                st.markdown(f"**{set_name}**")
+                st.caption(f"{set_desc if set_desc else '无描述'}  ·  📅 {create_time}  ·  📝 {len(question_ids)} 道题")
+            with col2:
+                if st.button("📖 查看", key=f"view_{set_id}"):
+                    st.session_state.view_set_id = set_id
+                    st.switch_page("pages/set_detail.py")
+            with col3:
+                if st.button("🗑️ 删除", key=f"del_{set_id}"):
+                    if delete_question_set(set_id):
+                        st.success(f"✅ 题集「{set_name}」已删除")
+                        # 直接从列表移除
+                        question_sets = [s for s in question_sets if s.get('id') != set_id]
+                        filtered_sets = [s for s in filtered_sets if s.get('id') != set_id]
+                        time.sleep(0.3)
+                        st.rerun()
+                    else:
+                        st.error("删除失败")
+            with col4:
+                if question_ids:
+                    if st.button("🎯 练习", key=f"practice_{set_id}"):
+                        st.session_state.practice_set_id = set_id
+                        st.session_state.practice_questions = question_ids
+                        st.session_state.practice_index = 0
+                        st.switch_page("pages/do_question.py")
+            st.markdown("---")
 
 # ========== Tab3: 错题本 ==========
 with tab3:

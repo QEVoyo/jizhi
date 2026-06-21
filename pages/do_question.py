@@ -278,7 +278,8 @@ with col2:
 
 with col3:
     if st.button("📁 加入题集", use_container_width=True):
-        st.info("加入题集功能开发中...")
+        st.session_state.show_add_to_set = True
+        st.rerun()
 
 with col4:
     if st.button("🔄 换题型", use_container_width=True):
@@ -309,3 +310,90 @@ with st.expander("📖 使用说明", expanded=False):
 
     💡 点击「加入题集」后，该题会自动出现在资源库的「薄弱点卡片」区域。
     """)
+
+# ========== 加入题集弹窗 ==========
+if st.session_state.get("show_add_to_set", False):
+    with st.popover("📁 加入题集", use_container_width=True):
+        st.markdown("### 📁 选择题集")
+        st.caption("将当前题目加入以下题集")
+
+        # 获取用户的所有题集
+        try:
+            response = requests.get(
+                f"{BACKEND_URL}/questions/set/list/{user_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10
+            )
+            if response.status_code == 200:
+                sets = response.json()
+            else:
+                sets = []
+        except Exception as e:
+            st.error(f"获取题集失败：{str(e)}")
+            sets = []
+
+        # 情况1：没有题集
+        if not sets:
+            st.info("📭 你还没有创建题集")
+            st.caption("💡 请前往「资源库 → 我的题集」创建题集后再来添加")
+            if st.button("🔗 前往创建题集", use_container_width=True):
+                st.session_state.show_add_to_set = False
+                st.switch_page("pages/resource_lib.py")
+
+        # 情况2：有题集
+        else:
+            # 检查题目是否已有 id
+            question_id = question.get("id")
+            if not question_id:
+                st.warning("⚠️ 当前题目尚未保存，请先提交答案或重新生成")
+                if st.button("关闭", use_container_width=True):
+                    st.session_state.show_add_to_set = False
+                    st.rerun()
+            else:
+                # 显示题集列表
+                for s in sets:
+                    set_id = s.get("id")
+                    set_name = s.get("name", "未命名题集")
+                    set_desc = s.get("description", "")
+                    question_ids = s.get("question_ids", [])
+                    count = len(question_ids)
+                    already_in = question_id in question_ids
+
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    with col1:
+                        if already_in:
+                            st.markdown(f"**{set_name}** ✅ 已加入")
+                        else:
+                            st.markdown(f"**{set_name}**")
+                        st.caption(f"{set_desc if set_desc else '无描述'}  ·  {count} 道题")
+                    with col2:
+                        if already_in:
+                            st.button("✅ 已加入", key=f"already_{set_id}", disabled=True, use_container_width=True)
+                        else:
+                            if st.button("📥 加入", key=f"add_to_set_{set_id}", use_container_width=True):
+                                try:
+                                    res = requests.post(
+                                        f"{BACKEND_URL}/questions/set/{set_id}/add/{question_id}",
+                                        headers={"Authorization": f"Bearer {access_token}"},
+                                        timeout=10
+                                    )
+                                    if res.status_code == 200:
+                                        st.toast(f"✅ 已加入「{set_name}」！", icon="✅")
+                                        st.session_state.show_add_to_set = False
+                                        time.sleep(0.5)
+                                        st.rerun()
+                                    else:
+                                        st.error(f"加入失败：{res.json().get('detail', '未知错误')}")
+                                except Exception as e:
+                                    st.error(f"错误：{str(e)}")
+                    with col3:
+                        if st.button("📖 查看", key=f"view_set_{set_id}", use_container_width=True):
+                            st.session_state.current_set_id = set_id
+                            st.session_state.show_add_to_set = False
+                            st.switch_page("pages/resource_lib.py")
+                    st.markdown("---")
+
+        # 关闭按钮
+        if st.button("❌ 关闭", use_container_width=True):
+            st.session_state.show_add_to_set = False
+            st.rerun()
