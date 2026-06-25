@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from config import settings
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import re
 
@@ -288,6 +288,7 @@ async def remove_question_from_set(set_id: str, question_id: str):
 async def generate_question(data: dict):
     """AI 生成题目"""
     from utils.llm_client import call_llm
+    import random
 
     user_id = data.get("user_id")
     category = data.get("category", "Python")
@@ -302,6 +303,7 @@ async def generate_question(data: dict):
         "判断题": "judge",
         "简答题": "essay",
         "计算题": "calculation",
+        "论述题": "essay",  # 👈 新增，和简答题共用 essay
         "编程题": "coding"
     }
     q_type = type_map.get(question_type, "choice")
@@ -322,19 +324,38 @@ async def generate_question(data: dict):
     }
     difficulty_score = difficulty_map.get(difficulty, 6.0)
 
+    # 随机出题角度
+    angles = [
+        "概念理解",
+        "代码示例",
+        "易错点辨析",
+        "实际应用场景",
+        "与其他概念的对比",
+        "底层原理",
+        "最佳实践",
+        "常见面试题变形",
+        "边界情况考察",
+        "性能分析"
+    ]
+    angle = random.choice(angles)
+    seed = random.randint(1, 10000)
+
     prompt = f"""请生成 1 道 {difficulty} 难度的 {question_type} 题。
 
 学科/领域：{category}
 具体知识点：{topic}
+出题角度：{angle}
+随机种子：{seed}
 {f"补充说明：{extra}" if extra else ""}
 
 要求：
-1. 题目清晰、准确
-2. {type_instructions.get(question_type, '')}
-3. 提供正确答案和详细解析
-4. 这道题的难度固定为 {difficulty}，对应的 difficulty_score 为：简单=2.0，中等=6.0，困难=8.5，请使用 {difficulty_score} 作为 difficulty_score
-
-5. 将用户输入的知识点 "{topic}" **归一化**为简洁的标准知识点名称：
+1. 从「{angle}」这个角度出题，不要和之前的题目重复
+2. 题目清晰、准确
+3. {type_instructions.get(question_type, '')}
+4. 提供正确答案和详细解析
+5. 如果是选择题，选项要有迷惑性
+6. 难度固定为 {difficulty}，difficulty_score 使用 {difficulty_score}
+7. 将用户输入的知识点 "{topic}" 归一化为简洁的标准知识点名称：
    - 禁止直接复制用户输入
    - 提取核心关键词，去掉无关修饰词
    - 不要包含学科前缀（category 已经包含）
@@ -360,7 +381,11 @@ async def generate_question(data: dict):
 }}"""
 
     try:
-        response = call_llm([{"role": "user", "content": prompt}], temperature=0.7)
+        response = call_llm(
+            [{"role": "user", "content": prompt}],
+            temperature=0.9,
+            use_cache=False
+        )
         print(f"=== AI 原始返回 ===\n{response}\n=== 结束 ===")
 
         # 提取 JSON
@@ -375,6 +400,8 @@ async def generate_question(data: dict):
             result["title"] = "题目生成失败"
         if "type" not in result:
             result["type"] = q_type
+        # 👇 不管 type 存不存在，都设置 question_type
+        result["question_type"] = result.get("type", q_type)
         if "answer" not in result:
             result["answer"] = "请参考解析"
         if "explanation" not in result:
@@ -401,7 +428,7 @@ async def generate_question(data: dict):
                 "difficulty_score": result.get("difficulty_score", 5.0),
                 "category": result.get("category"),
                 "topic": result.get("topic"),
-                "normalized_topic": result.get("normalized_topic"),  # 👈 新增
+                "normalized_topic": result.get("normalized_topic"),
                 "options": result.get("options"),
                 "answer": result.get("answer"),
                 "explanation": result.get("explanation"),
@@ -428,7 +455,6 @@ async def generate_question(data: dict):
                         print(f"=== 保存成功，id: {result.get('id')} ===")
                     except Exception as e:
                         print(f"=== 解析响应失败: {e} ===")
-                        # 如果响应为空，尝试查询
                         if user_id and result.get("title"):
                             query_url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&title=eq.{result.get('title')}&order=created_at.desc&limit=1"
                             query_res = await client.get(query_url, headers=headers)
@@ -453,12 +479,14 @@ async def generate_question(data: dict):
 async def evaluate_answer(data: dict):
     """评估用户答案"""
     from utils.llm_client import call_llm
+    from datetime import datetime
 
     question = data.get("question", {})
     user_answer = data.get("user_answer", "")
+    user_id = data.get("user_id")
 
     title = question.get("title", "")
-    q_type = question.get("type", "choice")
+    q_type = question.get("question_type", "choice")
     correct_answer = question.get("answer", "")
     explanation = question.get("explanation", "")
 
@@ -501,6 +529,55 @@ async def evaluate_answer(data: dict):
             result["evaluation"] = "评估完成"
         if "suggestion" not in result:
             result["suggestion"] = "继续练习"
+
+        # ====== 保存掌握度 + 错题本逻辑 ======
+        if user_id and question.get("id"):
+            headers = {
+                "apikey": settings.SUPABASE_KEY,
+                "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+                "Content-Type": "application/json"
+            }
+            question_id = question.get("id")
+            mastery_score = result.get("mastery_score", 50)
+
+            async with httpx.AsyncClient() as client:  # 👈 先定义 client
+                # 先查询当前错题状态
+                check_url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}&select=is_mistake,mistake_status"
+                check_res = await client.get(check_url, headers=headers)
+                current = check_res.json()[0] if check_res.json() else {}
+                current_is_mistake = current.get('is_mistake', False)
+                current_status = current.get('mistake_status', 'none')
+
+                from datetime import datetime, timezone
+
+                # 判断错题本逻辑
+                if mastery_score < 60:
+                    update_data = {
+                        "mastery_score": mastery_score,
+                        "is_mistake": True,
+                        "mistake_status": "learning",
+                        "mistake_added_at": datetime.now().isoformat()
+                    }
+                else:
+                    # 掌握度 >= 60%
+                    if current_is_mistake and current_status == "learning":
+                        # 从学习中移到已攻克
+                        update_data = {
+                            "mastery_score": mastery_score,
+                            "is_mistake": True,
+                            "mistake_status": "conquered"
+                        }
+                    else:
+                        # 不是错题，不加入
+                        update_data = {
+                            "mastery_score": mastery_score,
+                            "is_mistake": False,
+                            "mistake_status": "none"
+                        }
+
+                update_url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}"
+                await client.patch(update_url, headers=headers, json=update_data)
+                print(f"✅ 已更新掌握度: {mastery_score}%, 错题状态: {update_data.get('mistake_status')}")
 
         return result
 
@@ -550,3 +627,87 @@ async def get_generation_history(user_id: str, limit: int = 50):
         if res.status_code == 200:
             return res.json()
         return []
+
+
+@router.get("/mastery/{user_id}")
+async def get_mastery_data(user_id: str):
+    """获取用户所有知识点的掌握度（按 normalized_topic 聚合）"""
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}"
+    }
+
+    url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&select=normalized_topic,mastery_score"
+
+    async with httpx.AsyncClient() as client:
+        res = await client.get(url, headers=headers)
+        if res.status_code != 200:
+            return []
+
+        questions = res.json()
+
+        # 按 normalized_topic 聚合
+        topic_map = {}
+        for q in questions:
+            topic = q.get('normalized_topic')
+            if not topic:
+                continue
+            if topic not in topic_map:
+                topic_map[topic] = {'total': 0, 'count': 0}
+            topic_map[topic]['total'] += q.get('mastery_score', 0)
+            topic_map[topic]['count'] += 1
+
+        result = []
+        for topic, data in topic_map.items():
+            avg = round(data['total'] / data['count']) if data['count'] > 0 else 0
+            result.append({
+                'topic': topic,
+                'mastery_score': avg,
+                'question_count': data['count']
+            })
+
+        # 按掌握度从低到高排序（0% 排最前面）
+        result.sort(key=lambda x: x['mastery_score'])
+
+        return result
+
+
+# ========== 错题本 ==========
+@router.get("/mistakes/{user_id}")
+async def get_mistakes(user_id: str):
+    """获取用户的错题本"""
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}"
+    }
+
+    # 获取所有错题
+    url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&is_mistake=eq.true&order=created_at.desc"
+
+    async with httpx.AsyncClient() as client:
+        res = await client.get(url, headers=headers)
+        if res.status_code == 200:
+            return res.json()
+        return []
+
+
+@router.post("/mistakes/conquer/{question_id}")
+async def conquer_mistake(question_id: str):
+    """标记错题为已攻克"""
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    update_url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}"
+    update_data = {
+        "is_mistake": False,
+        "mistake_status": "conquered"
+    }
+
+    async with httpx.AsyncClient() as client:
+        res = await client.patch(update_url, headers=headers, json=update_data)
+        if res.status_code in [200, 204]:
+            return {"success": True}
+        return {"success": False}

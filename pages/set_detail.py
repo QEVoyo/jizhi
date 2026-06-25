@@ -3,7 +3,7 @@ import requests
 import time
 from datetime import datetime, timedelta
 
-BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
+BACKEND_URL = "http://localhost:8000"
 
 st.set_page_config(
     page_title="题集详情",
@@ -291,6 +291,18 @@ else:
             q_title = q.get('title', '无题目')[:80]
             q_type = q.get('question_type', '未知')
             mastery = q.get('mastery_score', 0)
+            difficulty_score = q.get('difficulty_score', 5.0)  # 👈 获取难度
+
+            # 难度颜色
+            if difficulty_score < 3:
+                diff_color = "#00CC66"
+                diff_label = "简单"
+            elif difficulty_score < 6:
+                diff_color = "#FFC400"
+                diff_label = "中等"
+            else:
+                diff_color = "#FF6E00"
+                diff_label = "困难"
 
             if mastery >= 70:
                 color = "#00CC66"
@@ -305,16 +317,18 @@ else:
             col1, col2, col3 = st.columns([4, 1, 1])
             with col1:
                 st.markdown(f"**{q_title}**")
-                st.caption(f"题型：{q_type}  ·  {status}")
-                # 小进度条
+                # 显示题型 + 难度 + 掌握度
                 st.markdown(f"""
-                <div style="width:100%; height:4px; background:#2a2a3a; border-radius:2px; overflow:hidden;">
-                    <div style="width:{mastery}%; height:100%; background:{color}; border-radius:2px;"></div>
+                <div style="display:flex; gap:15px; font-size:13px; color:#888; margin-top:2px;">
+                    <span>📝 {q_type}</span>
+                    <span style="color:{diff_color};">📊 难度 {difficulty_score:.1f}（{diff_label}）</span>
+                    <span style="color:{color};">📈 {status} {mastery}%</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col2:
                 if st.button("📝 练习", key=f"q_practice_{q_id}"):
                     st.session_state.current_question = q
+                    st.session_state.from_set_detail = True
                     st.switch_page("pages/do_question.py")
             with col3:
                 if st.button("❌ 移除", key=f"q_remove_{q_id}"):

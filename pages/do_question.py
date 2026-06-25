@@ -3,7 +3,7 @@ import requests
 import json
 import time
 
-BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
+BACKEND_URL = "http://localhost:8000"
 
 st.set_page_config(
     page_title="练习",
@@ -59,12 +59,23 @@ def get_difficulty_label(score):
 
 
 # ========== 顶部：返回 + 标题 ==========
+# ========== 顶部：返回 + 标题 ==========
 col_back, col_title = st.columns([1, 8])
 with col_back:
     if st.button("← 返回", use_container_width=True):
         st.session_state.evaluated = False
         st.session_state.evaluation_result = None
-        st.switch_page("pages/resource_lib.py")
+        if st.session_state.get("from_mistake_book", False):
+            st.session_state.from_mistake_book = False
+            st.switch_page("pages/resource_lib.py")
+        elif st.session_state.get("from_set_detail", False):
+            st.session_state.from_set_detail = False
+            st.switch_page("pages/set_detail.py")
+        elif st.session_state.get("from_mastery_board", False):
+            st.session_state.from_mastery_board = False
+            st.switch_page("pages/mastery_board.py")
+        else:
+            st.switch_page("pages/resource_lib.py")
 with col_title:
     st.title("📝 练习")
 
@@ -95,7 +106,15 @@ with col_d2:
     st.markdown(f"**知识点：** {question.get('normalized_topic', question.get('topic', '未知'))}")  # 👈 改这里
 
 with col_d3:
-    st.markdown(f"**题型：** {question.get('type', '未知')}")
+    type_display = {
+        "choice": "选择题",
+        "fill": "填空题",
+        "judge": "判断题",
+        "essay": "简答题/论述题",
+        "calculation": "计算题",
+        "coding": "编程题"
+    }
+    st.markdown(f"**题型：** {type_display.get(question.get('question_type', ''), '未知')}")
 
 st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
 
@@ -103,7 +122,7 @@ st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
 st.markdown(f"**{question.get('title', '题目内容')}**")
 
 # ========== 根据题型显示答题区 ==========
-q_type = question.get("type", "choice")
+q_type = question.get("question_type", "choice")
 user_answer = ""
 
 if q_type == "choice":
@@ -186,9 +205,6 @@ if st.session_state.evaluated and st.session_state.evaluation_result:
     st.markdown(f"**📝 评估：** {result.get('evaluation', '')}")
     st.markdown(f"**💡 建议：** {result.get('suggestion', '')}")
 
-    if not result.get("is_correct"):
-        if st.button("📖 加入错题本", use_container_width=True):
-            st.success("✅ 已加入错题本，将同步到薄弱点卡片")
 
     if st.button("继续练习 →", use_container_width=True):
         st.session_state.evaluated = False
@@ -198,7 +214,7 @@ if st.session_state.evaluated and st.session_state.evaluation_result:
     st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
 
 # ========== 按钮区域 ==========
-col1, col2, col3, col4, col5, col6 = st.columns(6)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     if st.button("📝 提交", use_container_width=True):
@@ -211,7 +227,8 @@ with col1:
                         f"{BACKEND_URL}/questions/evaluate",
                         json={
                             "question": question,
-                            "user_answer": user_answer
+                            "user_answer": user_answer,
+                            "user_id": user_id  # 👈 加上这行
                         },
                         headers={"Authorization": f"Bearer {access_token}"},
                         timeout=30
@@ -221,7 +238,7 @@ with col1:
                         result = response.json()
                         st.session_state.evaluated = True
                         st.session_state.evaluation_result = result
-                        st.rerun()
+                        st.rerun()  # 只刷新页面，显示评估结果，不跳转
                     else:
                         st.error(f"评估失败：{response.json().get('detail', '未知错误')}")
                 except Exception as e:
@@ -229,9 +246,12 @@ with col1:
 
 with col2:
     if st.button("🔄 重新生成", use_container_width=True):
-        current_category = question.get("category", "Python")
+        current_category = question.get("category", "")
+        if not current_category:
+            st.warning("该题目没有分类，请先保存或重新生成")
+            st.stop()
         current_topic = question.get("topic", "")
-        current_type = question.get("type", "choice")
+        current_type = question.get("question_type", "choice")
 
         type_map = {
             "choice": "选择题",
@@ -268,10 +288,28 @@ with col2:
 
         if response.status_code == 200:
             new_question = response.json()
+
+            # 👇 保存到生成历史
+            try:
+                requests.post(
+                    f"{BACKEND_URL}/questions/history/save",
+                    json={
+                        "user_id": user_id,
+                        "question_id": new_question.get("id"),
+                        "title": new_question.get("title"),
+                        "question_type": new_question.get("type"),
+                        "category": new_question.get("category"),
+                        "topic": new_question.get("topic")
+                    },
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=10
+                )
+            except:
+                pass
+
             st.session_state.evaluated = False
             st.session_state.evaluation_result = None
             st.session_state.current_question = new_question
-            st.session_state.refresh_question = True
             st.rerun()
         else:
             st.error("重新生成失败")
@@ -283,19 +321,143 @@ with col3:
 
 with col4:
     if st.button("🔄 换题型", use_container_width=True):
-        st.info("换题型功能开发中...")
+        st.session_state.show_change_type = True
+        st.rerun()
+
 
 with col5:
-    if st.button("💡 举一反三", use_container_width=True):
-        st.info("举一反三功能开发中...")
-
-with col6:
     with st.popover("❓ 提示"):
         hint = question.get("hint", "暂无提示")
         st.markdown(f"💡 {hint}")
 
 st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
+# ========== 换题型弹窗 ==========
+if st.session_state.get("show_change_type", False):
+    with st.popover("🔄 换题型", use_container_width=True):
+        st.markdown("### 选择换题方式")
 
+        # 获取当前参数
+        current_category = question.get("category", "")
+        if not current_category:
+            st.warning("该题目没有分类，请先保存或重新生成")
+            st.stop()
+        current_topic = question.get("topic", "")
+        current_score = question.get("difficulty_score", 5.0)
+
+        if current_score < 4:
+            current_difficulty = "简单"
+        elif current_score < 7:
+            current_difficulty = "中等"
+        else:
+            current_difficulty = "困难"
+
+        # 当前题型（英文转中文）
+        type_map_display = {
+            "choice": "选择题",
+            "fill": "填空题",
+            "judge": "判断题",
+            "essay": "简答题",
+            "calculation": "计算题",
+            "coding": "编程题"
+        }
+        current_type_display = type_map_display.get(question.get("question_type", "choice"), "选择题")
+
+        all_types = ["选择题", "填空题", "判断题", "简答题", "计算题", "编程题"]
+        available_types = [t for t in all_types if t != current_type_display]
+
+        # 选择换题方式
+        change_mode = st.radio(
+            "选择方式",
+            ["🎲 从选中的题型中随机", "📋 指定一个题型"],
+            index=0,
+            key="change_type_mode"
+        )
+
+        target_type = None
+        selected_types = []
+
+        if "随机" in change_mode:
+            st.markdown("**勾选要参与随机的题型**（至少选一个）")
+            cols = st.columns(3)
+            for i, t in enumerate(available_types):
+                with cols[i % 3]:
+                    if st.checkbox(t, key=f"random_type_{t}", value=True):
+                        selected_types.append(t)
+
+            if not selected_types:
+                st.warning("请至少选择一个题型")
+        else:
+            target_type = st.selectbox(
+                "选择题型",
+                available_types,
+                key="change_type_target"
+            )
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ 确认换题", use_container_width=True):
+                if "随机" in change_mode:
+                    if not selected_types:
+                        st.warning("请至少选择一个题型")
+                    else:
+                        import random
+
+                        new_type = random.choice(selected_types)
+                else:
+                    new_type = target_type
+
+                with st.spinner(f"正在切换为 {new_type}..."):
+                    try:
+                        response = requests.post(
+                            f"{BACKEND_URL}/questions/generate",
+                            json={
+                                "user_id": user_id,
+                                "category": current_category,
+                                "topic": current_topic,
+                                "question_type": new_type,
+                                "difficulty": current_difficulty,
+                                "extra": ""
+                            },
+                            headers={"Authorization": f"Bearer {access_token}"},
+                            timeout=60
+                        )
+
+                        if response.status_code == 200:
+                            new_question = response.json()
+
+                            # 👇 保存到生成历史
+                            try:
+                                requests.post(
+                                    f"{BACKEND_URL}/questions/history/save",
+                                    json={
+                                        "user_id": user_id,
+                                        "question_id": new_question.get("id"),
+                                        "title": new_question.get("title"),
+                                        "question_type": new_question.get("type"),
+                                        "category": new_question.get("category"),
+                                        "topic": new_question.get("topic")
+                                    },
+                                    headers={"Authorization": f"Bearer {access_token}"},
+                                    timeout=10
+                                )
+                            except:
+                                pass
+
+                            st.session_state.evaluated = False
+                            st.session_state.evaluation_result = None
+                            st.session_state.current_question = new_question
+                            st.session_state.show_change_type = False
+                            st.toast(f"✅ 已切换为 {new_type}", icon="🔄")
+                            time.sleep(0.3)
+                            st.rerun()
+                        else:
+                            st.error(f"换题型失败：{response.json().get('detail', '未知错误')}")
+                    except Exception as e:
+                        st.error(f"错误：{str(e)}")
+        with col2:
+            if st.button("❌ 取消", use_container_width=True):
+                st.session_state.show_change_type = False
+                st.rerun()
 # ========== 使用说明 ==========
 with st.expander("📖 使用说明", expanded=False):
     st.markdown("""
@@ -303,9 +465,8 @@ with st.expander("📖 使用说明", expanded=False):
     |------|------|
     | 📝 提交 | 提交答案，触发 AI 评估 |
     | 🔄 重新生成 | 换一道同类型、同难度的新题 |
-    | 💡 举一反三 | 生成同类型变体题（保留当前题） |
-    | 🔄 换题型 | 切换成其他题型（如选择→判断） |
     | 📁 加入题集 | 保存到自定义题集 |
+    | 🔄 换题型 | 切换成其他题型（如选择→判断） |
     | ❓ 提示 | 显示解题提示 |
 
     💡 点击「加入题集」后，该题会自动出现在资源库的「薄弱点卡片」区域。

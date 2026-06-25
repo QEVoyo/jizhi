@@ -7,7 +7,7 @@ import os
 import requests
 
 # 后端 API 地址
-BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
+BACKEND_URL = "http://localhost:8000"
 
 # ========== 带缓存的后端 API 调用 ==========
 @st.cache_data(ttl=60, show_spinner=False)

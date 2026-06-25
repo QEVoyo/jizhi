@@ -1,5 +1,8 @@
 import streamlit as st
-BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
+import requests
+
+BACKEND_URL = "http://localhost:8000"
+
 st.set_page_config(
     page_title="掌握度看板",
     page_icon="📊",
@@ -38,22 +41,20 @@ def get_color_by_mastery(score):
         return "#00CC66"
 
 
-def get_mock_knowledge_points():
-    """模拟知识点掌握度数据"""
-    return [
-        {"topic": "装饰器", "mastery_score": 35, "question_id": "q1"},
-        {"topic": "递归函数", "mastery_score": 42, "question_id": "q2"},
-        {"topic": "GIL锁", "mastery_score": 55, "question_id": "q3"},
-        {"topic": "列表推导式", "mastery_score": 68, "question_id": "q4"},
-        {"topic": "lambda函数", "mastery_score": 72, "question_id": "q5"},
-        {"topic": "闭包", "mastery_score": 65, "question_id": "q6"},
-        {"topic": "生成器", "mastery_score": 48, "question_id": "q7"},
-        {"topic": "类与对象", "mastery_score": 92, "question_id": "q8"},
-        {"topic": "异常处理", "mastery_score": 88, "question_id": "q9"},
-        {"topic": "文件操作", "mastery_score": 85, "question_id": "q10"},
-        {"topic": "多线程", "mastery_score": 90, "question_id": "q11"},
-        {"topic": "协程", "mastery_score": 86, "question_id": "q12"},
-    ]
+def load_mastery_data(user_id, access_token):
+    """从后端获取真实掌握度数据"""
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/questions/mastery/{user_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except Exception as e:
+        st.error(f"加载数据失败: {e}")
+        return []
 
 
 # ========== 页面标题 ==========
@@ -67,8 +68,14 @@ with col_title:
 
 st.markdown("---")
 
-# ========== 获取数据 ==========
-all_points = get_mock_knowledge_points()
+# ========== 获取真实数据 ==========
+user_id = st.session_state.user_id
+access_token = st.session_state.access_token
+all_points = load_mastery_data(user_id, access_token)
+
+if not all_points:
+    st.info("📭 暂无知识点数据，请先创建题集并练习")
+    st.stop()
 
 # ========== 排序选项 ==========
 sort_options = {
@@ -124,32 +131,32 @@ st.markdown("""
 if not filtered_points:
     st.info("📭 没有匹配的知识点")
 else:
-    # 按分类分组展示
     weak_points = [p for p in filtered_points if p['mastery_score'] < 60]
     consolidate_points = [p for p in filtered_points if 60 <= p['mastery_score'] < 80]
     strong_points = [p for p in filtered_points if p['mastery_score'] >= 80]
 
-    # 薄弱点
     if weak_points:
         st.markdown("### 🔴 薄弱点")
-        cols = st.columns(min(len(weak_points), 6))
-        for i, wp in enumerate(weak_points):
-            if i >= len(cols):
-                break
-            with cols[i]:
-                color = get_color_by_mastery(wp['mastery_score'])
-                st.markdown(f"""
-                <div style="background:{color}; color:white; border-radius:10px; padding:16px 12px; text-align:center; min-height:80px; display:flex; flex-direction:column; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                    <div style="font-size:15px; font-weight:bold; margin-bottom:4px;">{wp['topic']}</div>
-                    <div style="font-size:24px; font-weight:bold;">{wp['mastery_score']}%</div>
-                </div>
-                """, unsafe_allow_html=True)
-                if st.button("🎯 攻克", key=f"weak_{wp['topic']}_{i}", use_container_width=True):
-                    st.session_state.current_weak_point = wp
-                    st.switch_page("pages/do_question.py")
-        st.markdown("---")
+        # 每行显示 6 个，自动换行
+        per_row = 6
+        for i in range(0, len(weak_points), per_row):
+            row_points = weak_points[i:i + per_row]
+            cols = st.columns(len(row_points))
+            for j, wp in enumerate(row_points):
+                with cols[j]:
+                    color = get_color_by_mastery(wp['mastery_score'])
+                    st.markdown(f"""
+                    <div style="background:{color}; color:white; border-radius:10px; padding:16px 12px; text-align:center; min-height:80px; display:flex; flex-direction:column; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="font-size:15px; font-weight:bold; margin-bottom:4px;">{wp['topic']}</div>
+                        <div style="font-size:24px; font-weight:bold;">{wp['mastery_score']}%</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    if st.button("🎯 攻克", key=f"weak_{wp['topic']}_{i}", use_container_width=True):
+                        st.session_state.practice_mode = "mastery_board"
+                        st.session_state.practice_topic = wp['topic']
+                        st.switch_page("pages/generate_from_mastery.py")  # 👈 跳转到新页面
+            st.markdown("---")
 
-    # 待巩固
     if consolidate_points:
         st.markdown("### 🟡 待巩固")
         cols = st.columns(min(len(consolidate_points), 6))
@@ -165,11 +172,11 @@ else:
                 </div>
                 """, unsafe_allow_html=True)
                 if st.button("📖 练习", key=f"cons_{wp['topic']}_{i}", use_container_width=True):
-                    st.session_state.current_weak_point = wp
-                    st.switch_page("pages/do_question.py")
+                    st.session_state.practice_mode = "mastery_board"
+                    st.session_state.practice_topic = wp['topic']
+                    st.switch_page("pages/generate_from_mastery.py")
         st.markdown("---")
 
-    # 优势点
     if strong_points:
         st.markdown("### 🟢 优势点")
         cols = st.columns(min(len(strong_points), 6))
@@ -185,8 +192,9 @@ else:
                 </div>
                 """, unsafe_allow_html=True)
                 if st.button("⭐ 复习", key=f"strong_{wp['topic']}_{i}", use_container_width=True):
-                    st.session_state.current_weak_point = wp
-                    st.switch_page("pages/do_question.py")
+                    st.session_state.practice_mode = "mastery_board"
+                    st.session_state.practice_topic = wp['topic']
+                    st.switch_page("pages/generate_from_mastery.py")
 
 st.markdown("---")
 st.caption("💡 点击卡片上的按钮可进入做题巩固")
