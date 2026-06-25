@@ -3,7 +3,7 @@ import requests
 import time
 from datetime import datetime, timedelta
 
-BACKEND_URL = "http://localhost:8000"
+BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 
 st.set_page_config(
     page_title="题集详情",

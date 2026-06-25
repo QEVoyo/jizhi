@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 
 # 后端 API 地址
-BACKEND_URL = "http://localhost:8000"
+BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 
 st.set_page_config(
     page_title="资源库",

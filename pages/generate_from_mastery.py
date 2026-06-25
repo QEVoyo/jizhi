@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import time
 
-BACKEND_URL = "http://localhost:8000"
+BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 
 st.set_page_config(
     page_title="生成题目",
