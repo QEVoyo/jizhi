@@ -3,7 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import auth, chat, tools, questions  # 添加 questions
 
 app = FastAPI(title="基智学习助手 API", version="1.0.0")
+from routers import auth, chat, tools, questions, career
 
+app.include_router(career.router)
 # 允许前端调用
 app.add_middleware(
     CORSMiddleware,

@@ -753,6 +753,7 @@ with st.sidebar:
     st.page_link("app.py", label="🏠 主界面")
     st.page_link("pages/profile.py", label="👤 个人中心")
     st.page_link("pages/resource_lib.py", label="📚 资源库")  # 👈 添加这一行
+    st.page_link("pages/career.py", label="🗺️ 学程")
 
     st.markdown("---")
 
@@ -799,7 +800,6 @@ with st.sidebar:
                         unsafe_allow_html=True)
             if user_account:
                 st.caption(f"账号：{user_account}")
-
 
     else:
         st.info("请先登录")
