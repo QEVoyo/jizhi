@@ -11,9 +11,120 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# ====== 全局样式 ======
+st.markdown("""
+<style>
+    .stApp { background: var(--background-color); }
+    .main .block-container { background: transparent; }
+
+    h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
+    .stButton button, .stAlert, .stInfo, .stWarning, .stSuccess,
+    .stTextInput label, .stSelectbox label, .stNumberInput label,
+    .stTextInput input, .stSelectbox select, .stNumberInput input,
+    .stTextArea label, .stTextArea textarea,
+    .stRadio label, .stCheckbox label {
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    .stButton button {
+        background: rgba(128,128,128,0.06) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-color) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        font-weight: 500 !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    .stButton button:hover {
+        background: rgba(128,128,128,0.10) !important;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        transform: translateY(-3px) !important;
+    }
+    .stButton button:active {
+        transform: translateY(0px) !important;
+    }
+    .stButton button:disabled {
+        opacity: 0.35 !important;
+        cursor: not-allowed !important;
+        transform: none !important;
+    }
+
+    .stTextInput input, .stSelectbox select, .stNumberInput input,
+    .stTextArea textarea {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-color) !important;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.04) !important;
+        transition: all 0.3s ease !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .stTextInput input:focus, .stSelectbox select:focus,
+    .stNumberInput input:focus, .stTextArea textarea:focus {
+        background: rgba(128,128,128,0.08) !important;
+        box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
+    }
+
+    .stPopover {
+        background: var(--background-color) !important;
+        border: none !important;
+        border-radius: 16px !important;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04) !important;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+
+    .stRadio label, .stCheckbox label {
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+    }
+
+    hr { border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }
+
+    .stAlert {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04) !important;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+
+    .stExpander {
+        background: transparent !important;
+        border: none !important;
+    }
+    .streamlit-expanderHeader {
+        background: rgba(128,128,128,0.04) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    }
+    .streamlit-expanderHeader:hover {
+        background: rgba(128,128,128,0.08) !important;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
+        transform: translateY(-2px) !important;
+    }
+    .streamlit-expanderContent {
+        background: transparent !important;
+        border: none !important;
+        padding-top: 8px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # 强制刷新触发器
 if "refresh_question" in st.session_state:
     st.session_state.pop("refresh_question")
+
 # 登录检查
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.warning("请先登录")
@@ -49,7 +160,6 @@ def get_color_by_difficulty(score):
 
 
 def get_difficulty_label(score):
-    """根据难度分数获取中文标签"""
     if score < 4:
         return "简单"
     elif score < 7:
@@ -58,8 +168,57 @@ def get_difficulty_label(score):
         return "困难"
 
 
-# ========== 顶部：返回 + 标题 ==========
-# ========== 顶部：返回 + 标题 ==========
+def get_color_by_mastery(score):
+    if score < 5:
+        return "#FF0000"
+    elif score < 10:
+        return "#FF1A00"
+    elif score < 15:
+        return "#FF3300"
+    elif score < 20:
+        return "#FF4D00"
+    elif score < 25:
+        return "#FF6600"
+    elif score < 30:
+        return "#FF8000"
+    elif score < 35:
+        return "#FF9900"
+    elif score < 40:
+        return "#FFB300"
+    elif score < 45:
+        return "#FFCC00"
+    elif score < 50:
+        return "#FFE600"
+    elif score < 55:
+        return "#D4E000"
+    elif score < 60:
+        return "#A8D500"
+    elif score < 65:
+        return "#7DCC00"
+    elif score < 70:
+        return "#52C200"
+    elif score < 75:
+        return "#26B800"
+    elif score < 80:
+        return "#00AD00"
+    elif score < 85:
+        return "#00A300"
+    elif score < 90:
+        return "#009900"
+    elif score < 95:
+        return "#008000"
+    else:
+        return "#006600"
+
+
+def progress_bar_html(pct, bar_color):
+    pct = min(max(pct, 0), 100)
+    return '<div style="display:flex; align-items:center; gap:8px;"><div style="flex:1; background:rgba(128,128,128,0.18); border-radius:4px; height:8px; overflow:hidden;"><div style="width:' + str(
+        pct) + '%; height:100%; background:' + bar_color + '; border-radius:4px; transition:width 0.6s ease;"></div></div><span style="font-size:11px; color:#888; min-width:36px; text-align:right;">' + str(
+        pct) + '%</span></div>'
+
+
+# ========== 顶部 ==========
 col_back, col_title = st.columns([1, 8])
 with col_back:
     if st.button("← 返回", use_container_width=True):
@@ -90,10 +249,10 @@ with col_d1:
     st.markdown(f"""
     <div style="text-align:center;">
         <div style="width:50px; height:50px; border-radius:50%; 
-            background:conic-gradient({color} {difficulty / 10 * 100}%, #2a2a3a {difficulty / 10 * 100}%);
+            background:conic-gradient({color} {difficulty / 10 * 100}%, rgba(128,128,128,0.15) {difficulty / 10 * 100}%);
             display:flex; align-items:center; justify-content:center; margin:0 auto;">
-            <div style="background:#1e1e2e; width:38px; height:38px; border-radius:50%; 
-                display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:bold; color:white;">
+            <div style="background:var(--background-color); width:38px; height:38px; border-radius:50%; 
+                display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:bold; color:var(--text-color);">
                 {difficulty:.1f}
             </div>
         </div>
@@ -103,7 +262,7 @@ with col_d1:
 
 with col_d2:
     st.markdown(f"**分类：** {question.get('category', '未分类')}")
-    st.markdown(f"**知识点：** {question.get('normalized_topic', question.get('topic', '未知'))}")  # 👈 改这里
+    st.markdown(f"**知识点：** {question.get('normalized_topic', question.get('topic', '未知'))}")
 
 with col_d3:
     type_display = {
@@ -116,7 +275,7 @@ with col_d3:
     }
     st.markdown(f"**题型：** {type_display.get(question.get('question_type', ''), '未知')}")
 
-st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
+st.markdown("<hr>", unsafe_allow_html=True)
 
 # ========== 题目内容 ==========
 st.markdown(f"**{question.get('title', '题目内容')}**")
@@ -179,7 +338,7 @@ else:
     user_answer = st.text_input("请输入答案", key="default_answer", label_visibility="collapsed",
                                 placeholder="请输入答案...")
 
-st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
+st.markdown("<hr>", unsafe_allow_html=True)
 
 # ========== 如果已经评估，显示结果 ==========
 if st.session_state.evaluated and st.session_state.evaluation_result:
@@ -191,27 +350,23 @@ if st.session_state.evaluated and st.session_state.evaluation_result:
         st.error("❌ 回答错误")
 
     mastery = result.get("mastery_score", 50)
-    color = "#00CC66" if mastery >= 70 else "#FFC400" if mastery >= 50 else "#FF0000"
+    bar_color = get_color_by_mastery(mastery)
     st.markdown(f"""
     <div style="display:flex; align-items:center; gap:12px; margin:8px 0;">
-        <span style="font-weight:bold;">掌握程度：</span>
-        <div style="flex:1; height:8px; background:#2a2a3a; border-radius:4px; overflow:hidden;">
-            <div style="width:{mastery}%; height:100%; background:{color}; border-radius:4px;"></div>
-        </div>
-        <span style="font-weight:bold; color:{color};">{mastery}%</span>
+        <span style="font-weight:bold; text-shadow:0 1px 4px rgba(0,0,0,0.04);">掌握程度：</span>
     </div>
     """, unsafe_allow_html=True)
+    st.markdown(progress_bar_html(mastery, bar_color), unsafe_allow_html=True)
 
     st.markdown(f"**📝 评估：** {result.get('evaluation', '')}")
     st.markdown(f"**💡 建议：** {result.get('suggestion', '')}")
-
 
     if st.button("继续练习 →", use_container_width=True):
         st.session_state.evaluated = False
         st.session_state.evaluation_result = None
         st.rerun()
 
-    st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr>", unsafe_allow_html=True)
 
 # ========== 按钮区域 ==========
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -228,7 +383,7 @@ with col1:
                         json={
                             "question": question,
                             "user_answer": user_answer,
-                            "user_id": user_id  # 👈 加上这行
+                            "user_id": user_id
                         },
                         headers={"Authorization": f"Bearer {access_token}"},
                         timeout=30
@@ -238,7 +393,7 @@ with col1:
                         result = response.json()
                         st.session_state.evaluated = True
                         st.session_state.evaluation_result = result
-                        st.rerun()  # 只刷新页面，显示评估结果，不跳转
+                        st.rerun()
                     else:
                         st.error(f"评估失败：{response.json().get('detail', '未知错误')}")
                 except Exception as e:
@@ -289,7 +444,6 @@ with col2:
         if response.status_code == 200:
             new_question = response.json()
 
-            # 👇 保存到生成历史
             try:
                 requests.post(
                     f"{BACKEND_URL}/questions/history/save",
@@ -324,19 +478,18 @@ with col4:
         st.session_state.show_change_type = True
         st.rerun()
 
-
 with col5:
     with st.popover("❓ 提示"):
         hint = question.get("hint", "暂无提示")
         st.markdown(f"💡 {hint}")
 
-st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
+st.markdown("<hr>", unsafe_allow_html=True)
+
 # ========== 换题型弹窗 ==========
 if st.session_state.get("show_change_type", False):
     with st.popover("🔄 换题型", use_container_width=True):
         st.markdown("### 选择换题方式")
 
-        # 获取当前参数
         current_category = question.get("category", "")
         if not current_category:
             st.warning("该题目没有分类，请先保存或重新生成")
@@ -351,7 +504,6 @@ if st.session_state.get("show_change_type", False):
         else:
             current_difficulty = "困难"
 
-        # 当前题型（英文转中文）
         type_map_display = {
             "choice": "选择题",
             "fill": "填空题",
@@ -365,7 +517,6 @@ if st.session_state.get("show_change_type", False):
         all_types = ["选择题", "填空题", "判断题", "简答题", "计算题", "编程题"]
         available_types = [t for t in all_types if t != current_type_display]
 
-        # 选择换题方式
         change_mode = st.radio(
             "选择方式",
             ["🎲 从选中的题型中随机", "📋 指定一个题型"],
@@ -425,7 +576,6 @@ if st.session_state.get("show_change_type", False):
                         if response.status_code == 200:
                             new_question = response.json()
 
-                            # 👇 保存到生成历史
                             try:
                                 requests.post(
                                     f"{BACKEND_URL}/questions/history/save",
@@ -458,6 +608,7 @@ if st.session_state.get("show_change_type", False):
             if st.button("❌ 取消", use_container_width=True):
                 st.session_state.show_change_type = False
                 st.rerun()
+
 # ========== 使用说明 ==========
 with st.expander("📖 使用说明", expanded=False):
     st.markdown("""
@@ -468,8 +619,6 @@ with st.expander("📖 使用说明", expanded=False):
     | 📁 加入题集 | 保存到自定义题集 |
     | 🔄 换题型 | 切换成其他题型（如选择→判断） |
     | ❓ 提示 | 显示解题提示 |
-
-    💡 点击「加入题集」后，该题会自动出现在资源库的「薄弱点卡片」区域。
     """)
 
 # ========== 加入题集弹窗 ==========
@@ -478,7 +627,6 @@ if st.session_state.get("show_add_to_set", False):
         st.markdown("### 📁 选择题集")
         st.caption("将当前题目加入以下题集")
 
-        # 获取用户的所有题集
         try:
             response = requests.get(
                 f"{BACKEND_URL}/questions/set/list/{user_id}",
@@ -493,17 +641,13 @@ if st.session_state.get("show_add_to_set", False):
             st.error(f"获取题集失败：{str(e)}")
             sets = []
 
-        # 情况1：没有题集
         if not sets:
             st.info("📭 你还没有创建题集")
             st.caption("💡 请前往「资源库 → 我的题集」创建题集后再来添加")
             if st.button("🔗 前往创建题集", use_container_width=True):
                 st.session_state.show_add_to_set = False
                 st.switch_page("pages/resource_lib.py")
-
-        # 情况2：有题集
         else:
-            # 检查题目是否已有 id
             question_id = question.get("id")
             if not question_id:
                 st.warning("⚠️ 当前题目尚未保存，请先提交答案或重新生成")
@@ -511,7 +655,6 @@ if st.session_state.get("show_add_to_set", False):
                     st.session_state.show_add_to_set = False
                     st.rerun()
             else:
-                # 显示题集列表
                 for s in sets:
                     set_id = s.get("id")
                     set_name = s.get("name", "未命名题集")
@@ -554,7 +697,6 @@ if st.session_state.get("show_add_to_set", False):
                             st.switch_page("pages/resource_lib.py")
                     st.markdown("---")
 
-        # 关闭按钮
         if st.button("❌ 关闭", use_container_width=True):
             st.session_state.show_add_to_set = False
             st.rerun()

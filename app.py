@@ -14,7 +14,6 @@ from agents.evaluator import evaluate
 from memory import UserMemory
 from session_manager import SessionManager
 from checkin import CheckInManager
-from mistakes import MistakeManager
 from learning_log import LearningLogManager
 from countdown import CountdownManager
 from timer import TimerManager
@@ -24,16 +23,17 @@ from utils.email_sender import send_feedback_email
 from utils.title_generator import generate_mistake_title
 from dotenv import load_dotenv
 from utils.name_generator import generate_random_name
-# 阿里云百炼多模态
 import dashscope
 import requests
 import time
-# 后端 API 地址
+
 BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 from datetime import datetime
+
+
+# ========== 缓存函数 ==========
 @st.cache_data(ttl=60, show_spinner=False)
 def get_learning_logs_via_backend(user_id, access_token):
-    """获取学习日志"""
     try:
         response = requests.get(
             f"{BACKEND_URL}/tools/learning-logs/{user_id}",
@@ -46,8 +46,8 @@ def get_learning_logs_via_backend(user_id, access_token):
     except Exception as e:
         return [], str(e)
 
+
 def clear_learning_logs_via_backend(user_id, access_token):
-    """清空学习日志"""
     try:
         response = requests.delete(
             f"{BACKEND_URL}/tools/learning-logs/{user_id}",
@@ -58,8 +58,8 @@ def clear_learning_logs_via_backend(user_id, access_token):
     except:
         return False
 
+
 def login_via_backend(login_input, password):
-    """通过后端 API 登录"""
     try:
         response = requests.post(
             f"{BACKEND_URL}/auth/login",
@@ -75,10 +75,12 @@ def login_via_backend(login_input, password):
         return None, "无法连接到服务器，请确保后端已启动"
     except Exception as e:
         return None, str(e)
+
+
 load_dotenv()
 
+
 def register_via_backend(email, password, nickname):
-    """通过后端 API 注册"""
     try:
         response = requests.post(
             f"{BACKEND_URL}/auth/register",
@@ -96,45 +98,7 @@ def register_via_backend(email, password, nickname):
         return None, str(e)
 
 
-def get_profile_via_backend(user_id, access_token):
-    """通过后端 API 获取用户资料"""
-    try:
-        response = requests.get(
-            f"{BACKEND_URL}/auth/profile/{user_id}",
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=10
-        )
-        if response.status_code == 200:
-            return response.json(), None
-        else:
-            error = response.json().get("detail", "获取资料失败")
-            return None, error
-    except requests.exceptions.ConnectionError:
-        return None, "无法连接到服务器"
-    except Exception as e:
-        return None, str(e)
-
-def update_nickname_via_backend(user_id, nickname, access_token):
-    """通过后端 API 更新昵称"""
-    try:
-        response = requests.put(
-            f"{BACKEND_URL}/auth/update-nickname",
-            json={"user_id": user_id, "nickname": nickname},
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=10
-        )
-        if response.status_code == 200:
-            return response.json(), None
-        else:
-            error = response.json().get("detail", "更新失败")
-            return None, error
-    except requests.exceptions.ConnectionError:
-        return None, "无法连接到服务器"
-    except Exception as e:
-        return None, str(e)
-
 def chat_via_backend(messages, user_id, temperature=0.7):
-    """通过后端 API 发送消息（流式）"""
     try:
         response = requests.post(
             f"{BACKEND_URL}/chat/send",
@@ -146,8 +110,8 @@ def chat_via_backend(messages, user_id, temperature=0.7):
     except Exception as e:
         return None
 
+
 def save_log_via_backend(user_id, keyword):
-    """保存学习日志"""
     try:
         response = requests.post(
             f"{BACKEND_URL}/tools/learning-logs/{user_id}",
@@ -159,9 +123,9 @@ def save_log_via_backend(user_id, keyword):
         print(f"保存日志失败: {e}")
         return False
 
+
 @st.cache_data(ttl=60, show_spinner=False)
 def get_checkin_via_backend(user_id, access_token):
-    """获取打卡数据"""
     try:
         response = requests.get(
             f"{BACKEND_URL}/tools/checkin/{user_id}",
@@ -174,8 +138,8 @@ def get_checkin_via_backend(user_id, access_token):
     except Exception as e:
         return [], str(e)
 
+
 def save_checkin_via_backend(user_id, projects, access_token):
-    """保存打卡数据"""
     try:
         response = requests.post(
             f"{BACKEND_URL}/tools/checkin/{user_id}",
@@ -187,7 +151,7 @@ def save_checkin_via_backend(user_id, projects, access_token):
     except:
         return False
 
-# 倒计时
+
 @st.cache_data(ttl=60, show_spinner=False)
 def get_countdown_via_backend(user_id, access_token):
     try:
@@ -202,6 +166,7 @@ def get_countdown_via_backend(user_id, access_token):
     except Exception as e:
         return [], str(e)
 
+
 def save_countdown_via_backend(user_id, events, access_token):
     try:
         response = requests.post(
@@ -214,7 +179,7 @@ def save_countdown_via_backend(user_id, events, access_token):
     except:
         return False
 
-# 计时器
+
 @st.cache_data(ttl=60, show_spinner=False)
 def get_timer_via_backend(user_id, access_token):
     try:
@@ -229,6 +194,7 @@ def get_timer_via_backend(user_id, access_token):
     except Exception as e:
         return [], str(e)
 
+
 def save_timer_via_backend(user_id, timers, access_token):
     try:
         response = requests.post(
@@ -240,6 +206,7 @@ def save_timer_via_backend(user_id, timers, access_token):
         return response.status_code == 200
     except:
         return False
+
 
 def get_report_via_backend(user_id, access_token):
     try:
@@ -253,6 +220,7 @@ def get_report_via_backend(user_id, access_token):
         return None, response.json().get("detail", "获取失败")
     except Exception as e:
         return None, str(e)
+
 
 dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
 
@@ -276,6 +244,266 @@ def analyze_image(image_bytes, prompt="请描述这张图片的内容"):
 
 st.set_page_config(page_title="主界面", page_icon="🏠", layout="wide", initial_sidebar_state="auto")
 
+# ====== 全局样式 - 无边设计，靠阴影和深浅区分层次 ======
+st.markdown("""
+<style>
+    .stApp { background: var(--background-color); }
+    .main .block-container { background: transparent; }
+
+    /* ===== 所有文字 ===== */
+    h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
+    .stButton button, .stAlert, .stInfo, .stWarning, .stSuccess,
+    .stTextInput label, .stSelectbox label, .stNumberInput label,
+    .stTextInput input, .stSelectbox select, .stNumberInput input,
+    .stTextArea label, .stTextArea textarea,
+    .stSlider label, .stCheckbox label, .stRadio label,
+    .stTabs [data-baseweb="tab"] {
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    /* ===== 所有按钮 - 无边框，悬停上浮 ===== */
+    .stButton button {
+        background: rgba(128,128,128,0.06) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-color) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+        font-weight: 500 !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        cursor: pointer !important;
+    }
+    .stButton button:hover {
+        background: rgba(128,128,128,0.10) !important;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        transform: translateY(-3px) !important;
+    }
+    .stButton button:active {
+        transform: translateY(0px) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+    }
+    .stButton button:disabled {
+        opacity: 0.35 !important;
+        cursor: not-allowed !important;
+        transform: none !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.02) !important;
+    }
+
+    /* ===== 输入框 - 无边框，凹陷阴影 ===== */
+    .stTextInput input, .stSelectbox select, .stNumberInput input,
+    .stTextArea textarea {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-color) !important;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.04) !important;
+        transition: all 0.3s ease !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .stTextInput input:focus, .stSelectbox select:focus,
+    .stNumberInput input:focus, .stTextArea textarea:focus {
+        background: rgba(128,128,128,0.08) !important;
+        box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
+    }
+
+    /* ===== 弹出框 ===== */
+    .stPopover {
+        background: var(--background-color) !important;
+        border: none !important;
+        border-radius: 16px !important;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04) !important;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+
+    /* ===== 展开器 - 悬停上浮 ===== */
+    .streamlit-expanderHeader {
+        background: rgba(128,128,128,0.04) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        cursor: pointer !important;
+    }
+    .streamlit-expanderHeader:hover {
+        background: rgba(128,128,128,0.08) !important;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
+        transform: translateY(-2px) !important;
+    }
+    .streamlit-expanderContent {
+        background: transparent !important;
+        border: none !important;
+        padding-top: 8px !important;
+    }
+
+    /* ===== Tabs - 悬停上浮 ===== */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 6px !important;
+        background: transparent !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background: rgba(128,128,128,0.04) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 8px 18px !important;
+        color: var(--text-color) !important;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.02) !important;
+        cursor: pointer !important;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        background: rgba(128,128,128,0.08) !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+        transform: translateY(-2px) !important;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background: rgba(128,128,128,0.10) !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+    }
+
+    /* ===== 进度条 ===== */
+    .stProgress > div > div {
+        background: rgba(128,128,128,0.10) !important;
+        border-radius: 6px !important;
+        height: 8px !important;
+        border: none !important;
+        box-shadow: inset 0 1px 4px rgba(0,0,0,0.06) !important;
+    }
+    .stProgress > div > div > div {
+        border-radius: 6px !important;
+        box-shadow: 0 0 20px rgba(255,255,255,0.04) !important;
+        transition: width 0.6s ease !important;
+    }
+
+    /* ===== Alert/Info/Warning/Success ===== */
+    .stAlert {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04) !important;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+
+    /* ===== 分割线 ===== */
+    hr {
+        border: none !important;
+        height: 1px !important;
+        background: rgba(128,128,128,0.10) !important;
+        margin: 16px 0 !important;
+    }
+
+    /* ===== 聊天消息 - 悬停上浮 ===== */
+    .stChatMessage {
+        background: rgba(128,128,128,0.04) !important;
+        border: none !important;
+        border-radius: 14px !important;
+        padding: 12px 18px !important;
+        margin-bottom: 10px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .stChatMessage:hover {
+        background: rgba(128,128,128,0.07) !important;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.06) !important;
+        transform: translateY(-2px) !important;
+    }
+
+    /* ===== 聊天输入框 ===== */
+    .stChatInput textarea {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 14px !important;
+        color: var(--text-color) !important;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.04) !important;
+        transition: all 0.3s ease !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .stChatInput textarea:focus {
+        background: rgba(128,128,128,0.08) !important;
+        box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
+    }
+
+    /* ===== 侧边栏 ===== */
+    [data-testid="stSidebar"] {
+        background: var(--background-color) !important;
+        border-right: none !important;
+        box-shadow: 2px 0 20px rgba(0,0,0,0.04) !important;
+    }
+    [data-testid="stSidebar"] .stMarkdown {
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+    }
+
+    /* ===== 侧边栏菜单项 - 悬停上浮 ===== */
+    [data-testid="stSidebar"] .stPageLink,
+    [data-testid="stSidebar"] .stButton button {
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    }
+    [data-testid="stSidebar"] .stPageLink:hover,
+    [data-testid="stSidebar"] .stButton button:hover {
+        transform: translateX(4px) !important;
+    }
+
+    /* ===== 图片上传区域 ===== */
+    .stFileUploader {
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 4px !important;
+        background: rgba(128,128,128,0.03) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important;
+    }
+    .stFileUploader > div {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .stFileUploader label {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .stFileUploader .stFileUploaderDropzone {
+        border: 1px dashed rgba(128,128,128,0.15) !important;
+        border-radius: 12px !important;
+        background: rgba(128,128,128,0.03) !important;
+        padding: 24px !important;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.04) !important;
+        transition: all 0.3s ease !important;
+    }
+    .stFileUploader .stFileUploaderDropzone:hover {
+        background: rgba(128,128,128,0.06) !important;
+        box-shadow: inset 0 2px 12px rgba(0,0,0,0.08) !important;
+    }
+
+    /* ===== 滑块 ===== */
+    .stSlider > div > div {
+        background: rgba(128,128,128,0.08) !important;
+        border-radius: 4px !important;
+        height: 4px !important;
+        box-shadow: inset 0 1px 4px rgba(0,0,0,0.06) !important;
+    }
+    .stSlider > div > div > div {
+        background: var(--text-color) !important;
+        border-radius: 4px !important;
+        box-shadow: 0 0 16px rgba(128,128,128,0.2) !important;
+    }
+
+    /* ===== 单选框/复选框 ===== */
+    .stRadio label, .stCheckbox label {
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 def show_login_page():
     st.markdown("""
@@ -286,27 +514,89 @@ def show_login_page():
             max-width: 500px;
             margin: 0 auto;
         }
-        /* 输入框样式（跟随主题） */
         .stTextInput label, .stSelectbox label {
             font-weight: 500;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
         }
-        /* 按钮圆角 */
         .stButton button {
-            border-radius: 12px;
+            border-radius: 12px !important;
+            padding: 10px !important;
+            font-size: 16px !important;
+            background: rgba(128,128,128,0.06) !important;
+            border: none !important;
+            color: var(--text-color) !important;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+            font-weight: 500 !important;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            cursor: pointer !important;
+        }
+        .stButton button:hover {
+            background: rgba(128,128,128,0.10) !important;
+            box-shadow: 0 6px 28px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+            transform: translateY(-3px) !important;
+        }
+        .stButton button:active {
+            transform: translateY(0px) !important;
+        }
+        .stTextInput input {
+            background: rgba(128,128,128,0.05) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            color: var(--text-color) !important;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.04) !important;
+            transition: all 0.3s ease !important;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .stTextInput input:focus {
+            background: rgba(128,128,128,0.08) !important;
+            box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
+        }
+        .stTabs [data-baseweb="tab"] {
+            background: rgba(128,128,128,0.04) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            padding: 8px 18px !important;
+            color: var(--text-color) !important;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.02) !important;
+            cursor: pointer !important;
+        }
+        .stTabs [data-baseweb="tab"]:hover {
+            background: rgba(128,128,128,0.08) !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+            transform: translateY(-2px) !important;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            background: rgba(128,128,128,0.10) !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+        }
+        .stAlert {
+            background: rgba(128,128,128,0.05) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04) !important;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
         }
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<h1><i class="fas fa-graduation-cap"></i> 基智 · 多智能体学习助手</h1>', unsafe_allow_html=True)
+    st.markdown(
+        '<h1 style="text-shadow:0 2px 20px rgba(0,0,0,0.06), 0 4px 40px rgba(0,0,0,0.03);"><i class="fas fa-graduation-cap"></i> 基智 · 多智能体学习助手</h1>',
+        unsafe_allow_html=True)
     st.markdown("### 学习从账号开始")
 
-    # 控制跳转的变量
     if "switch_to_login" not in st.session_state:
         st.session_state.switch_to_login = False
     if "auto_email" not in st.session_state:
         st.session_state.auto_email = ""
 
-    # 强制刷新到登录 Tab
     if st.session_state.switch_to_login:
         st.session_state.switch_to_login = False
         st.query_params["tab"] = "login"
@@ -340,12 +630,9 @@ def show_login_page():
                 else:
                     user, err = login_via_backend(login_input, password)
                     if user:
-                        # 登录成功
                         user_email = user.get("email")
                         user_id = user.get("id")
                         user_account = user.get("user_account")
-                        # ... 现有代码 ...
-                        # 设置在线状态
                         from utils.auth import update_user_status
                         update_user_status(user_id, "online")
 
@@ -354,25 +641,19 @@ def show_login_page():
                         st.session_state.user_id = user_id
                         st.session_state.user_account = user_account
                         st.session_state.access_token = user.get("access_token")
-                        # 从数据库读取昵称，若没有则用邮箱前缀
                         st.session_state.username = user.get("nickname") or user_email.split("@")[0]
 
-                        # 初始化 Manager
                         from session_manager import SessionManager
                         from memory import UserMemory
                         from checkin import CheckInManager
-                        from mistakes import MistakeManager
                         from learning_log import LearningLogManager
                         from countdown import CountdownManager
                         from timer import TimerManager
 
                         st.session_state.session_mgr = SessionManager(user_id=user_id)
                         st.session_state.user_memory = UserMemory(user_id=user_id)
-                        #st.session_state.checkin_manager = CheckInManager(user_id=user_id)
-                        st.session_state.mistake_manager = MistakeManager(user_id=user_id)
                         st.session_state.learning_log_manager = LearningLogManager(user_id=user_id)
-                        #st.session_state.countdown_manager = CountdownManager(user_id=user_id)
-                        #st.session_state.timer_manager = TimerManager(user_id=user_id)
+
                         projects, err = get_checkin_via_backend(user_id, st.session_state.access_token)
                         st.session_state.checkin_projects = projects if projects else []
 
@@ -385,16 +666,13 @@ def show_login_page():
                         logs, err = get_learning_logs_via_backend(user_id, st.session_state.access_token)
                         st.session_state.learning_logs = logs if logs else []
 
-                        # 创建新对话
                         new_id = st.session_state.session_mgr.create_session(title="新对话")
                         st.session_state.session_mgr.switch_session(new_id)
                         st.session_state.messages = []
 
                         st.rerun()
                     else:
-                        # 友好错误提示
                         error_msg = str(err) if err else "登录失败"
-                        # 解析常见错误
                         if "Invalid login credentials" in error_msg:
                             st.error("账号/邮箱或密码错误")
                         elif "Email not confirmed" in error_msg:
@@ -413,8 +691,6 @@ def show_login_page():
             submitted = st.form_submit_button("注册", use_container_width=True)
 
             if submitted:
-                # 邮箱格式校验
-                import re
                 def is_valid_email(email):
                     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
                     return re.match(pattern, email) is not None
@@ -428,9 +704,8 @@ def show_login_page():
                 elif password != confirm:
                     st.warning("两次密码不一致")
                 else:
-                    from utils.name_generator import generate_random_name
                     final_nickname = generate_random_name()
-                    user, err = register_via_backend(email, password, final_nickname)  # 改这里
+                    user, err = register_via_backend(email, password, final_nickname)
 
                     if user:
                         st.success("验证邮件已发送，请查收邮箱并点击验证链接。\n\n登录后可在「个人中心」查看你的专属账号。")
@@ -439,92 +714,28 @@ def show_login_page():
                     else:
                         st.error(f"注册失败：{err}")
 
-def parse_scores_from_text(text):
-    scores = {}
-    patterns = [r'([\u4e00-\u9fa5]{2,6})(?:成绩|：|:|\s)*(\d{1,3})', r'(\d{1,3})\s*分?\s*([\u4e00-\u9fa5]{2,6})']
-    for pattern in patterns:
-        matches = re.findall(pattern, text)
-        for match in matches:
-            if len(match) == 2:
-                if match[0].isdigit():
-                    scores[match[1]] = int(match[0])
-                else:
-                    scores[match[0]] = int(match[1])
-    return scores
 
-
-def generate_chart(scores, chart_type="bar"):
-    if not scores:
-        return None
-    subjects = list(scores.keys())
-    values = list(scores.values())
-    fig, ax = plt.subplots(figsize=(8, 5))
-    if chart_type == "bar":
-        bars = ax.bar(subjects, values, color=['#4ecdc4', '#6c63ff', '#ff6b6b', '#ffd93d', '#a8e6cf'])
-        ax.set_ylim(0, 105)
-        for bar, val in zip(bars, values):
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 2, str(val), ha='center', va='bottom',
-                    fontsize=12)
-    else:
-        ax.plot(subjects, values, marker='o', linewidth=2, markersize=8, color='#6c63ff')
-        ax.set_ylim(0, 105)
-        for i, val in enumerate(values):
-            ax.text(i, val + 2, str(val), ha='center', fontsize=12)
-    ax.set_ylabel('分数', fontsize=12)
-    ax.set_title('成绩分析图', fontsize=14, fontweight='bold')
-    ax.set_ylim(0, 105)
-    buf = BytesIO()
-    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight', facecolor='#1e1e2e', edgecolor='none')
-    buf.seek(0)
-    img_base64 = base64.b64encode(buf.read()).decode()
-    plt.close(fig)
-    return f"data:image/png;base64,{img_base64}"
 st.markdown("""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 """, unsafe_allow_html=True)
 st.markdown("""
 <style>
-    /* 移动端适配 */
     @media (max-width: 768px) {
         .main .block-container {
             padding-left: 0.5rem;
             padding-right: 0.5rem;
             padding-top: 0.5rem;
         }
-        .stChatMessage {
-            font-size: 14px !important;
-        }
-        .stChatInput textarea {
-            font-size: 14px !important;
-            padding: 8px 12px !important;
-        }
-        button {
-            font-size: 12px !important;
-            padding: 4px 8px !important;
-        }
-        [data-testid="stSidebar"] {
-            width: 250px !important;
-        }
-        h1 {
-            font-size: 1.5rem !important;
-        }
-        h2 {
-            font-size: 1.2rem !important;
-        }
-        h3 {
-            font-size: 1rem !important;
-        }
-        .stPopover {
-            width: 90% !important;
-            left: 5% !important;
-        }
-        .stTabs [data-baseweb="tab-list"] button {
-            font-size: 12px !important;
-            padding: 4px 8px !important;
-        }
-        .stImage img {
-            max-width: 60px !important;
-        }
+        .stChatMessage { font-size: 14px !important; }
+        .stChatInput textarea { font-size: 14px !important; padding: 8px 12px !important; }
+        button { font-size: 12px !important; padding: 4px 8px !important; }
+        [data-testid="stSidebar"] { width: 250px !important; }
+        h1 { font-size: 1.5rem !important; }
+        h2 { font-size: 1.2rem !important; }
+        h3 { font-size: 1rem !important; }
+        .stPopover { width: 90% !important; left: 5% !important; }
+        .stTabs [data-baseweb="tab-list"] button { font-size: 12px !important; padding: 4px 8px !important; }
+        .stImage img { max-width: 60px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -541,7 +752,6 @@ setTimeout(scrollToBottom, 200);
 """, unsafe_allow_html=True)
 
 # ========== 初始化 ==========
-# 登录状态
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_id" not in st.session_state:
@@ -549,15 +759,12 @@ if "user_id" not in st.session_state:
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
 
-# 原有 Manager（登录后赋值）
 if "session_mgr" not in st.session_state:
     st.session_state.session_mgr = None
 if "user_memory" not in st.session_state:
     st.session_state.user_memory = None
 if "checkin_manager" not in st.session_state:
     st.session_state.checkin_manager = None
-if "mistake_manager" not in st.session_state:
-    st.session_state.mistake_manager = None
 if "learning_log_manager" not in st.session_state:
     st.session_state.learning_log_manager = None
 if "countdown_manager" not in st.session_state:
@@ -565,15 +772,12 @@ if "countdown_manager" not in st.session_state:
 if "timer_manager" not in st.session_state:
     st.session_state.timer_manager = None
 
-# UI 状态
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_images" not in st.session_state:
     st.session_state.current_images = []
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
-if "language" not in st.session_state:
-    st.session_state.language = "中文"
 if "username" not in st.session_state:
     st.session_state.username = ""
 if "image_type" not in st.session_state:
@@ -585,7 +789,7 @@ if "current_title_edit" not in st.session_state:
 if "pending_timer_log" not in st.session_state:
     st.session_state.pending_timer_log = None
 
-# ===== 保底：确保当前对话存在 + 自动生成标题（保留你原有的）=====
+# ===== 保底：确保当前对话存在 =====
 if st.session_state.session_mgr is not None and st.session_state.session_mgr.get_current_session() is None and st.session_state.messages:
     first_user_msg = ""
     for msg in st.session_state.messages:
@@ -609,158 +813,30 @@ if st.session_state.session_mgr is not None and st.session_state.session_mgr.get
         st.session_state.session_mgr.add_message(msg["role"], msg["content"])
     st.session_state.session_mgr._save()
     st.rerun()
-# ========== 登录检查（必须放在最前面）==========
+
+# ========== 登录检查 ==========
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
     show_login_page()
     st.stop()
-# ========== 双语文本定义 ==========
-texts = {
-    "中文": {
-        "switch_user": "🔄 切换用户",
-        "feature_title": "✨ 功能介绍",
-        "feature_content": """
-        **🎓 基智 · 多智能体学习系统**
 
-        由**三个智能体协作**的个性化学习助手：
-
-        - **📋 规划Agent** — 拆解知识点，规划学习路径
-        - **📖 生成Agent** — 生成个性化讲解、例子、练习题
-        - **🔍 评估Agent** — 评估质量，自动调整难度
-
-        **🎯 核心能力：**
-        - ✅ 多智能体协作
-        - ✅ 个性化学习 + 自适应难度
-        - ✅ 图片理解
-        - ✅ 对话记忆
-        - ✅ 成绩可视化
-
-        **📅 学习打卡** — 自定义项目，追踪进度
-        **📝 学习日志** — 自动记录学过的知识点
-        **📖 错题本** — 自动/手动收录，成长报告
-
-        💡 试试说："帮我规划Python学习路径"、"解释一下列表推导式"
-        """,
-        "team_title": "🏆 团队详情",
-        "team_content": """
-        **广州软件学院 · KFC 团队**
-
-        参赛题目：A3-基于大模型的个性化资源生成与学习多智能体系统开发
-
-        **团队成员**
-        - 欧阳嘉誉（队长）
-        - 许钰婷（队员）
-        """,
-        "upload_images": "📷 上传图片",
-        "upload_hint": "支持 PNG、JPG、JPEG，可多张",
-        "pref_title": "🎛️ 偏好设置",
-        "difficulty": "难度",
-        "style": "风格",
-        "difficulty_levels": {"初级": "beginner", "中等": "intermediate", "高级": "advanced"},
-        "style_levels": {"多举例": "example_heavy", "多理论": "theory_heavy", "均衡": "balanced"},
-        "profile_title": "📝 学习档案",
-        "main_title": "🎓 基智 · 多智能体学习助手",
-        "main_caption": "多智能体协作 | 个性化学习 | 图片理解 | 成绩可视化 | 自适应难度",
-        "chat_placeholder": "例如：解释列表推导式、帮我规划Python学习路径...",
-        "intent_plan": "📋 规划Agent 工作中...",
-        "intent_generate": "📖 生成Agent 工作中...",
-        "intent_evaluate": "🔍 评估Agent 工作中...",
-        "intent_chat": "💬 对话模式 工作中...",
-        "intent_complete": "✅ 完成",
-        "error_no_content": "没有可评估的内容",
-        "error_process": "处理出错",
-        "feedback_title": "📝 使用体验反馈",
-        "feedback_name": "你的称呼（可选）",
-        "feedback_name_placeholder": "例如：张三",
-        "feedback_slider": "整体满意度（1-10分）",
-        "feedback_placeholder": "欢迎提出改进意见...",
-        "feedback_submit": "提交反馈",
-        "feedback_success": "感谢反馈！",
-        "clear_chat": "🗑️ 清空当前对话"
-    },
-    "English": {
-        "switch_user": "🔄 Switch User",
-        "feature_title": "✨ Features",
-        "feature_content": """
-        **🎓 JiZhi · Multi-Agent Learning System**
-
-        Personalized learning assistant powered by **three collaborative agents**:
-
-        - **📋 Planning Agent** — Decompose knowledge points, plan learning paths
-        - **📖 Generation Agent** — Generate personalized explanations, examples, exercises
-        - **🔍 Evaluation Agent** — Evaluate quality, auto-adjust difficulty
-
-        **🎯 Core Capabilities:**
-        - ✅ Multi-Agent Collaboration
-        - ✅ Personalized Learning + Adaptive Difficulty
-        - ✅ Image Understanding
-        - ✅ Conversation Memory
-        - ✅ Score Visualization
-
-        **📅 Check-in** — Custom projects, track progress
-        **📝 Learning Log** — Auto-record learned knowledge
-        **📖 Mistake Book** — Auto/manual collection, growth report
-
-        💡 Try saying: "Help me plan my Python learning path", "Explain list comprehension"
-        """,
-        "team_title": "🏆 Team Info",
-        "team_content": """
-        **Guangzhou Software Institute · KFC Team**
-
-        Project: A3 - Personalized Resource Generation & Multi-Agent Learning System based on LLM
-
-        **Team Members**
-        - Ouyang Jiayu (Leader)
-        - Xu Yuting (Member)
-        """,
-        "upload_images": "📷 Upload Images",
-        "upload_hint": "PNG, JPG, JPEG, multiple allowed",
-        "pref_title": "🎛️ Preferences",
-        "difficulty": "Difficulty",
-        "style": "Style",
-        "difficulty_levels": {"Beginner": "beginner", "Intermediate": "intermediate", "Advanced": "advanced"},
-        "style_levels": {"Example-heavy": "example_heavy", "Theory-heavy": "theory_heavy", "Balanced": "balanced"},
-        "profile_title": "📝 Learning Profile",
-        "main_title": "🎓 JiZhi · Multi-Agent Learning Assistant",
-        "main_caption": "Multi-Agent Collaboration | Personalized Learning | Image Understanding | Score Visualization | Adaptive Difficulty",
-        "chat_placeholder": "e.g., Explain list comprehension, plan my Python learning path...",
-        "intent_plan": "📋 Planning Agent working...",
-        "intent_generate": "📖 Generation Agent working...",
-        "intent_evaluate": "🔍 Evaluation Agent working...",
-        "intent_chat": "💬 Chat mode working...",
-        "intent_complete": "✅ Complete",
-        "error_no_content": "No content to evaluate",
-        "error_process": "Processing error",
-        "feedback_title": "📝 Experience Feedback",
-        "feedback_name": "Your name (optional)",
-        "feedback_name_placeholder": "e.g., Zhang San",
-        "feedback_slider": "Overall Satisfaction (1-10)",
-        "feedback_placeholder": "Share your suggestions...",
-        "feedback_submit": "Submit",
-        "feedback_success": "Thank you for your feedback!",
-        "clear_chat": "🗑️ Clear Current Chat"
-    }
-}
-
-lang = st.session_state.language
-t = texts[lang]
-# ========== 侧边栏 ==========
+# ========== 主界面 ==========
 # ========== 侧边栏 ==========
 with st.sidebar:
-    st.markdown('<h2><i class="fas fa-graduation-cap"></i> 基智</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 style="text-shadow:0 2px 20px rgba(0,0,0,0.06), 0 4px 40px rgba(0,0,0,0.03);"><i class="fas fa-graduation-cap"></i> 基智</h2>',
+        unsafe_allow_html=True)
     st.page_link("app.py", label="🏠 主界面")
     st.page_link("pages/profile.py", label="👤 个人中心")
-    st.page_link("pages/resource_lib.py", label="📚 资源库")  # 👈 添加这一行
+    st.page_link("pages/resource_lib.py", label="📚 资源库")
     st.page_link("pages/career.py", label="🗺️ 学程")
 
     st.markdown("---")
 
     if st.session_state.logged_in:
         from utils.auth import get_user_status, update_user_status
-
-        # 从数据库获取最新的头像 URL
         from utils.auth import get_avatar_url
 
         avatar_url = get_avatar_url(st.session_state.user_id)
@@ -770,7 +846,6 @@ with st.sidebar:
             avatar_url = st.session_state.get("avatar_url", "")
         user_account = st.session_state.get("user_account", "")
         user_id = st.session_state.user_id
-        # 获取当前用户的在线状态
         user_status = get_user_status(user_id)
         status_display = {
             "online": {"color": "#22c55e", "text": "在线"},
@@ -779,7 +854,6 @@ with st.sidebar:
         }
         status = status_display.get(user_status, status_display["offline"])
 
-        # 三列布局：头像 | 在线状态 | 昵称+账号
         col1, col2, col3 = st.columns([1, 1, 2])
 
         with col1:
@@ -787,17 +861,18 @@ with st.sidebar:
                 st.image(avatar_url, width=50)
             else:
                 st.markdown(
-                    '<div style="width:50px;height:50px;border-radius:50%;background:#2a2a3a;display:flex;align-items:center;justify-content:center;font-size:24px;">👤</div>',
+                    '<div style="width:50px;height:50px;border-radius:50%;background:rgba(128,128,128,0.06);display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:inset 0 2px 8px rgba(0,0,0,0.06);">👤</div>',
                     unsafe_allow_html=True)
 
         with col2:
             st.markdown(
-                f'<div style="display:flex;align-items:center;height:50px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{status["color"]};margin-right:6px;"></span><span style="font-size:13px;">{status["text"]}</span></div>',
+                f'<div style="display:flex;align-items:center;height:50px;text-shadow:0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{status["color"]};margin-right:6px;box-shadow:0 0 16px {status["color"]}44;"></span><span style="font-size:13px;">{status["text"]}</span></div>',
                 unsafe_allow_html=True)
 
         with col3:
-            st.markdown(f'<div style="font-weight:bold;font-size:15px;">{st.session_state.username}</div>',
-                        unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="font-weight:bold;font-size:15px;text-shadow:0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);">{st.session_state.username}</div>',
+                unsafe_allow_html=True)
             if user_account:
                 st.caption(f"账号：{user_account}")
 
@@ -812,8 +887,6 @@ with st.sidebar:
         col1, col2 = st.columns(2)
         with col1:
             if st.button("➕ 新对话", use_container_width=True):
-                for m in st.session_state.mistake_manager.get_learning_mistakes():
-                    st.session_state.mistake_manager.mark_conquered(m["id"])
                 new_id = st.session_state.session_mgr.create_session(title="新对话")
                 st.session_state.session_mgr.switch_session(new_id)
                 st.session_state.messages = []
@@ -878,13 +951,12 @@ with st.sidebar:
         user_id = st.session_state.user_id
         access_token = st.session_state.access_token
 
-        # 加载数据
         projects = st.session_state.get("checkin_projects", [])
         events = st.session_state.get("countdown_events", [])
         timers = st.session_state.get("timer_items", [])
         logs = st.session_state.get("learning_logs", [])
         st.session_state.learning_logs = logs if logs else []
-        # 横排 tabs（只保留5个：打卡、倒计时、计时器、学习日志、学情报告）
+
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "📅 打卡", "⏰ 倒计时", "⏱️ 计时器", "📝 学习日志", "📈 学情报告"
         ])
@@ -917,7 +989,7 @@ with st.sidebar:
                         if st.button("🗑️", key=f"del_checkin_{p['name']}"):
                             projects = [proj for proj in projects if proj['name'] != p['name']]
                             if save_checkin_via_backend(user_id, projects, access_token):
-                                st.session_state.checkin_projects = projects  # 加上这行
+                                st.session_state.checkin_projects = projects
                                 st.rerun()
                     st.markdown("---")
 
@@ -967,7 +1039,7 @@ with st.sidebar:
                         if st.button("🗑️", key=f"del_countdown_{e['id']}"):
                             events = [ev for ev in events if ev['id'] != e['id']]
                             if save_countdown_via_backend(user_id, events, access_token):
-                                st.session_state.countdown_events = events  # 加上这行
+                                st.session_state.countdown_events = events
                                 st.rerun()
                     st.markdown("---")
 
@@ -1028,7 +1100,7 @@ with st.sidebar:
                         if st.button("🗑️", key=f"del_timer_{timer_item['id']}"):
                             timers = [t for t in timers if t['id'] != timer_item['id']]
                             if save_timer_via_backend(user_id, timers, access_token):
-                                st.session_state.timer_items = timers  # 加上这行
+                                st.session_state.timer_items = timers
                                 st.rerun()
                     st.markdown("---")
 
@@ -1098,7 +1170,7 @@ with st.sidebar:
                             active["paused"] = False
                             if active["type"] == "countdown":
                                 active["start_time"] = time.time() - (
-                                            active["duration_minutes"] * 60 - active["remaining_seconds"])
+                                        active["duration_minutes"] * 60 - active["remaining_seconds"])
                             else:
                                 active["start_time"] = time.time() - active["elapsed_seconds"]
                             st.rerun()
@@ -1122,7 +1194,6 @@ with st.sidebar:
                 time.sleep(1)
                 st.rerun()
 
-        # ========== Tab4: 学习日志 ==========
         # ========== Tab4: 学习日志 ==========
         with tab4:
             logs = st.session_state.get("learning_logs", [])
@@ -1266,46 +1337,23 @@ with st.sidebar:
                 st.rerun()
             else:
                 st.error("反馈提交失败")
-# ========== 主界面 ==========
-st.title(t["main_title"])
-st.caption(t["main_caption"])
 
-# 显示历史消息
+# ========== 主界面聊天 ==========
+st.title("🎓 基智 · 多智能体学习助手")
+st.caption("多智能体协作 | 个性化学习 | 图片理解 | 成绩可视化 | 自适应难度")
+
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# 复习功能
 if st.session_state.review_question:
     user_input = st.session_state.review_question
     st.session_state.review_question = None
 else:
-    user_input = st.chat_input(t["chat_placeholder"])
-if user_input:
-    # 手动收录错题（打字触发）
-    manual_keywords = ["加入错题本", "添加到错题本", "记下来", "收藏错题", "记一下"]
-    if any(kw in user_input for kw in manual_keywords):
-        current = st.session_state.session_mgr.get_current_session()
-        last_q = ""
-        last_a = ""
-        if current and len(current.get("messages", [])) >= 2:
-            for i in range(len(current["messages"]) - 1, -1, -1):
-                if current["messages"][i]["role"] == "assistant":
-                    last_a = current["messages"][i]["content"]
-                    if i > 0 and current["messages"][i - 1]["role"] == "user":
-                        last_q = current["messages"][i - 1]["content"]
-                        break
-        if last_q:
-            title = generate_mistake_title(last_a, last_q)
-            st.session_state.mistake_manager.add_mistake(last_q, "", last_a, {"user": last_q, "assistant": last_a}, title)
-            st.success("✅ 已加入错题本")
-            time.sleep(0.5)
-            st.rerun()
-        else:
-            st.warning("没有找到可添加的对话")
-            st.rerun()
+    user_input = st.chat_input("例如：解释列表推导式、帮我规划Python学习路径...")
 
-    # ========== 1. 图片 / 输入预处理 ==========
+if user_input:
+    # ========== 图片预处理 ==========
     has_image = len(st.session_state.current_images) > 0
     vision_text = ""
     image_type = None
@@ -1338,11 +1386,9 @@ if user_input:
     else:
         combined_input = user_input
 
-    # 保存用户消息
     st.session_state.messages.append({"role": "user", "content": user_input})
     st.session_state.session_mgr.add_message("user", combined_input)
 
-    # 新对话自动生成标题
     current_session = st.session_state.session_mgr.get_current_session()
     if current_session and len(current_session.get("messages", [])) == 1:
         title_prompt = f"请为以下学习问题生成一个简短的标题（不超过15字）：{user_input[:80]}"
@@ -1354,12 +1400,12 @@ if user_input:
         if has_image:
             st.caption(f"📷 已上传 {len(st.session_state.current_images)} 张图片")
 
-    # ========== 2. 强制历史上下文 ==========
+
+    # ========== 构建上下文 ==========
     def build_context(max_messages=20):
         messages = st.session_state.messages
         if not messages:
             return ""
-
         recent = messages[-max_messages:]
         lines = ["【对话历史】"]
         for m in recent:
@@ -1367,13 +1413,14 @@ if user_input:
             lines.append(f"{role}：{m['content']}")
         return "\n".join(lines)
 
+
     context = build_context(20)
     full_input = f"""{context}
 
 【用户当前问题】
 {combined_input}
 
-请严格基于以上对话历史回答。如果用户问“我们聊了什么”或“刚才的问题”，请基于历史回答。"""
+请严格基于以上对话历史回答。如果用户问"我们聊了什么"或"刚才的问题"，请基于历史回答。"""
 
     intent = detect_intent(combined_input)
 
@@ -1385,9 +1432,9 @@ if user_input:
     }
     difficulty = st.session_state.user_memory.data['preferences'].get('difficulty', 'intermediate')
 
-    # 获取当前对话历史
     current_session = st.session_state.session_mgr.get_current_session()
     history = current_session.get("messages", [])[-20:] if current_session else []
+
     with st.status(intent_display.get(intent, "思考中..."), expanded=True) as status:
         user_profile = {"level": difficulty, "style": "喜欢例子"}
         memory_context = st.session_state.user_memory.get_preference_prompt()
@@ -1397,21 +1444,13 @@ if user_input:
                 result = plan(user_profile, full_input)
 
             elif intent == "generate":
-                # 构建历史消息列表
                 messages = [
                     {"role": "system", "content": """你是基智，一个热情、博学的AI学习助手。
 
                 ## 你的行为准则：
-                1. **先完整回答用户的问题**：无论用户问什么（知识、概念、方法、生活问题等），都要先给出清晰、完整、有用的回答。
-                2. **再引导学习**：回答完后，自然地引导到学习方向，比如推荐相关知识点、建议下一步学什么、或者出一道相关的思考题。
+                1. **先完整回答用户的问题**：无论用户问什么，都要先给出清晰、完整、有用的回答。
+                2. **再引导学习**：回答完后，自然地引导到学习方向。
                 3. **语气温暖亲切**：像朋友一样交流，鼓励用户继续探索。
-
-                ## 示例：
-                用户问"广东有什么特点？"
-                你应该先回答广东的地理、文化、经济特点，然后说："如果你对地理感兴趣，我们可以一起学习中国的地理分区，或者你想了解广东的历史吗？"
-
-                用户问"如何做番茄炒蛋？"
-                你应该先给出菜谱步骤，然后说："烹饪也是生活中的一种学习，如果你对营养学感兴趣，我们可以聊聊食物搭配的知识哦！"
 
                 记住：永远先回答问题，再引导学习。"""},
                     *history,
@@ -1421,13 +1460,11 @@ if user_input:
                 if response:
                     result = st.write_stream(response.iter_content(chunk_size=100, decode_unicode=True))
 
-                # 学习日志
                 keyword = generate_mistake_title(result, user_input)
-                from datetime import datetime
-
                 save_log_via_backend(st.session_state.user_id, keyword)
                 logs, _ = get_learning_logs_via_backend(st.session_state.user_id, st.session_state.access_token)
                 st.session_state.learning_logs = logs if logs else []
+
             elif intent == "evaluate":
                 current = st.session_state.session_mgr.get_current_session()
                 last_a = None
@@ -1466,17 +1503,9 @@ if user_input:
     with st.chat_message("assistant"):
         st.markdown(result)
 
-    # 自动收录错题
-    auto_keywords = ["不会", "错了", "做错", "不懂", "没懂", "不太会", "没搞懂", "有点难", "不理解"]
-    if any(kw in user_input for kw in auto_keywords):
-        title = generate_mistake_title(result, user_input)
-        st.session_state.mistake_manager.add_mistake(user_input, "", result, {"user": user_input, "assistant": result}, title)
-
-    # 保存助手消息
     st.session_state.messages.append({"role": "assistant", "content": result})
     st.session_state.session_mgr.add_message("assistant", result)
 
-    # 清空图片
     st.session_state.current_images = []
     st.session_state.uploader_key += 1
 

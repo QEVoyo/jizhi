@@ -1,18 +1,18 @@
 import streamlit as st
-from utils.auth import update_nickname, update_password, sign_in, upload_avatar, get_avatar_url, update_avatar_url, get_user_nickname, get_user_bio, update_user_bio, ensure_profile_exists
+from utils.auth import update_nickname, update_password, sign_in, upload_avatar, get_avatar_url, update_avatar_url, \
+    get_user_nickname, get_user_bio, update_user_bio, ensure_profile_exists
 from utils.llm_client import call_llm
 import time
 import json
 import os
 import requests
 
-# 后端 API 地址
 BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
+
 
 # ========== 带缓存的后端 API 调用 ==========
 @st.cache_data(ttl=60, show_spinner=False)
 def get_checkin_via_backend(user_id, access_token):
-    """获取打卡数据"""
     try:
         response = requests.get(
             f"{BACKEND_URL}/tools/checkin/{user_id}",
@@ -25,9 +25,9 @@ def get_checkin_via_backend(user_id, access_token):
     except Exception as e:
         return [], str(e)
 
+
 @st.cache_data(ttl=60, show_spinner=False)
 def get_learning_logs_via_backend(user_id, access_token):
-    """获取学习日志"""
     try:
         response = requests.get(
             f"{BACKEND_URL}/tools/learning-logs/{user_id}",
@@ -40,13 +40,13 @@ def get_learning_logs_via_backend(user_id, access_token):
     except Exception as e:
         return [], str(e)
 
+
 @st.cache_data(ttl=60, show_spinner=False)
 def get_mistakes_via_backend(user_id, access_token):
-    """获取错题本数据（暂时返回空，后续实现）"""
     return [], None
 
+
 def upload_avatar_via_backend(user_id, image_bytes, access_token):
-    """通过后端 API 上传头像"""
     try:
         files = {"file": ("avatar.png", image_bytes, "image/png")}
         response = requests.post(
@@ -65,8 +65,8 @@ def upload_avatar_via_backend(user_id, image_bytes, access_token):
     except Exception as e:
         return None, str(e)
 
+
 def update_bio_via_backend(user_id, bio, access_token):
-    """通过后端 API 更新简介"""
     try:
         response = requests.put(
             f"{BACKEND_URL}/auth/update-bio",
@@ -84,8 +84,8 @@ def update_bio_via_backend(user_id, bio, access_token):
     except Exception as e:
         return None, str(e)
 
+
 def update_nickname_via_backend(user_id, nickname, access_token):
-    """通过后端 API 更新昵称"""
     try:
         response = requests.put(
             f"{BACKEND_URL}/auth/update-nickname",
@@ -103,22 +103,123 @@ def update_nickname_via_backend(user_id, nickname, access_token):
     except Exception as e:
         return None, str(e)
 
+
 st.set_page_config(
     page_title="个人中心",
     page_icon="👤",
     layout="centered",
     initial_sidebar_state="collapsed",
-    menu_items={
-        'Get Help': None,
-        'Report a bug': None,
-        'About': None
-    }
+    menu_items={'Get Help': None, 'Report a bug': None, 'About': None}
 )
 
+# ====== 全局样式 ======
 st.markdown("""
 <style>
-    .stApp header {
-        display: none;
+    .stApp { background: var(--background-color); }
+    .main .block-container { background: transparent; }
+    .stApp header { display: none; }
+
+    h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
+    .stButton button, .stAlert, .stInfo, .stWarning, .stSuccess,
+    .stTextInput label, .stSelectbox label, .stNumberInput label,
+    .stTextInput input, .stSelectbox select, .stNumberInput input,
+    .stTextArea label, .stTextArea textarea {
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    .stButton button {
+        background: rgba(128,128,128,0.06) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-color) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        font-weight: 500 !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    .stButton button:hover {
+        background: rgba(128,128,128,0.10) !important;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        transform: translateY(-3px) !important;
+    }
+    .stButton button:active {
+        transform: translateY(0px) !important;
+    }
+    .stButton button:disabled {
+        opacity: 0.35 !important;
+        cursor: not-allowed !important;
+        transform: none !important;
+    }
+
+    .stTextInput input, .stSelectbox select, .stNumberInput input,
+    .stTextArea textarea {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-color) !important;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.04) !important;
+        transition: all 0.3s ease !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .stTextInput input:focus, .stSelectbox select:focus,
+    .stNumberInput input:focus, .stTextArea textarea:focus {
+        background: rgba(128,128,128,0.08) !important;
+        box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
+    }
+
+    .stAlert {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04) !important;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+
+    .stProgress > div > div {
+        background: rgba(128,128,128,0.10) !important;
+        border-radius: 6px !important;
+        height: 8px !important;
+        border: none !important;
+        box-shadow: inset 0 1px 4px rgba(0,0,0,0.06) !important;
+    }
+    .stProgress > div > div > div {
+        border-radius: 6px !important;
+        box-shadow: 0 0 20px rgba(255,255,255,0.04) !important;
+        transition: width 0.6s ease !important;
+    }
+
+    hr { border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 16px 0 !important; }
+
+    .stFileUploader {
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 4px !important;
+        background: rgba(128,128,128,0.03) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important;
+    }
+    .stFileUploader > div {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .stFileUploader label {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .stFileUploader .stFileUploaderDropzone {
+        border: 1px dashed rgba(128,128,128,0.15) !important;
+        border-radius: 12px !important;
+        background: rgba(128,128,128,0.03) !important;
+        padding: 24px !important;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.04) !important;
+        transition: all 0.3s ease !important;
+    }
+    .stFileUploader .stFileUploaderDropzone:hover {
+        background: rgba(128,128,128,0.06) !important;
+        box-shadow: inset 0 2px 12px rgba(0,0,0,0.08) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -133,18 +234,16 @@ st.caption("管理你的账号信息")
 if st.button("← 返回主界面", use_container_width=True):
     st.switch_page("app.py")
 
-# 获取用户信息
+# ========== 用户信息 ==========
 user_email = st.session_state.user_email
 user_id = st.session_state.user_id
 user_account = st.session_state.get("user_account", "未设置")
 
-# 从数据库读取昵称（确保是最新的）
 nickname = get_user_nickname(user_id) or st.session_state.get("username", "用户")
 
 # ========== 头像 ==========
 st.subheader("🖼️ 头像")
 
-# 页面加载时读取已保存的头像 URL
 if "avatar_url" not in st.session_state:
     st.session_state.avatar_url = get_avatar_url(user_id)
 
@@ -153,7 +252,9 @@ with col_avatar1:
     if st.session_state.avatar_url:
         st.image(st.session_state.avatar_url, width=80)
     else:
-        st.markdown('<div style="width:80px;height:80px;border-radius:50%;background:#2a2a3a;display:flex;align-items:center;justify-content:center;font-size:32px;">👤</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="width:80px;height:80px;border-radius:50%;background:rgba(128,128,128,0.06);display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:inset 0 2px 8px rgba(0,0,0,0.06);">👤</div>',
+            unsafe_allow_html=True)
 
 with col_avatar2:
     uploader_key = st.session_state.get("avatar_uploader_key", 0)
@@ -182,10 +283,11 @@ with col_avatar2:
 
 st.markdown("---")
 
-# ========== 在线状态设置 ==========
+# ========== 在线状态 ==========
 st.subheader("🟢 在线状态")
 
 from utils.auth import get_user_status, update_user_status
+
 current_status = get_user_status(user_id)
 
 status_options = {
@@ -243,7 +345,8 @@ st.subheader("📝 个人简介")
 if "user_bio" not in st.session_state:
     st.session_state.user_bio = get_user_bio(user_id) or ""
 
-user_bio = st.text_area("", value=st.session_state.user_bio, placeholder="介绍一下自己...", height=100, label_visibility="collapsed")
+user_bio = st.text_area("", value=st.session_state.user_bio, placeholder="介绍一下自己...", height=100,
+                        label_visibility="collapsed")
 if st.button("保存简介", use_container_width=True):
     success, err = update_bio_via_backend(user_id, user_bio, st.session_state.access_token)
     if success:
@@ -259,23 +362,18 @@ st.markdown("---")
 # ========== 用户画像 ==========
 st.subheader("🎯 用户画像")
 
-# 从后端 API 获取数据（带缓存）
 access_token = st.session_state.access_token
 
-# 获取打卡数据
 projects, _ = get_checkin_via_backend(user_id, access_token)
 total_checkin_days = sum(p.get("completed_days", 0) for p in projects)
 
-# 获取学习日志
 logs, _ = get_learning_logs_via_backend(user_id, access_token)
 log_keywords = list(set([log.get("keyword", "") for log in logs]))[:10]
 
-# 获取错题本数据（暂时用空数据）
 mistakes, _ = get_mistakes_via_backend(user_id, access_token)
 learning_cnt = len([m for m in mistakes if m.get("status") == "learning"])
 conquered_cnt = len([m for m in mistakes if m.get("status") == "conquered"])
 
-# 掌握程度
 mastery_file = f"mastery_{user_id}.json"
 if os.path.exists(mastery_file):
     with open(mastery_file, "r") as f:

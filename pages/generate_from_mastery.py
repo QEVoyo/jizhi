@@ -11,6 +11,71 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ====== 全局样式 ======
+st.markdown("""
+<style>
+    .stApp { background: var(--background-color); }
+    .main .block-container { background: transparent; }
+
+    h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
+    .stButton button, .stAlert, .stInfo, .stWarning, .stSuccess,
+    .stTextInput label, .stSelectbox label, .stNumberInput label,
+    .stTextInput input, .stSelectbox select, .stNumberInput input,
+    .stTextArea label, .stTextArea textarea {
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    .stButton button {
+        background: rgba(128,128,128,0.06) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-color) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        font-weight: 500 !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    .stButton button:hover {
+        background: rgba(128,128,128,0.10) !important;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        transform: translateY(-3px) !important;
+    }
+    .stButton button:active {
+        transform: translateY(0px) !important;
+    }
+
+    .stTextInput input, .stSelectbox select, .stNumberInput input,
+    .stTextArea textarea {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-color) !important;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.04) !important;
+        transition: all 0.3s ease !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .stTextInput input:focus, .stSelectbox select:focus,
+    .stNumberInput input:focus, .stTextArea textarea:focus {
+        background: rgba(128,128,128,0.08) !important;
+        box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
+    }
+
+    .stAlert {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04) !important;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+
+    hr { border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }
+</style>
+""", unsafe_allow_html=True)
+
 # 登录检查
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.warning("请先登录")
@@ -31,7 +96,7 @@ with st.form("generate_from_mastery"):
     with col1:
         st.markdown("**方向：**")
         st.markdown(f"**{practice_topic}** 🔒")
-        sub_topic = st.text_input("细化知识点（可选）", placeholder=f"例：在「{practice_topic}」下细分...")  # 第二行
+        sub_topic = st.text_input("细化知识点（可选）", placeholder=f"例：在「{practice_topic}」下细分...")
     with col2:
         question_type = st.selectbox("题型", [
             "选择题", "填空题", "判断题", "简答题", "计算题", "论述题", "编程题"
@@ -91,7 +156,7 @@ with st.form("generate_from_mastery"):
             except Exception as e:
                 st.error(f"错误：{str(e)}")
 
-if st.button("← 返回掌握度看板"):
+if st.button("← 返回掌握度看板", use_container_width=True):
     st.session_state.practice_mode = None
     st.session_state.practice_topic = None
     st.switch_page("pages/mastery_board.py")

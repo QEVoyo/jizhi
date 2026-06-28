@@ -13,22 +13,111 @@ st.set_page_config(
 st.markdown("""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
-.ach-card {
-    background: #1a1a2a;
-    border-radius: 12px;
-    padding: 16px 12px;
-    text-align: center;
-    margin-bottom: 12px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border: 2px solid #333;
-}
-.ach-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-}
-.ach-card-unlocked { opacity: 1; }
-.ach-card-locked { opacity: 0.5; }
+    .stApp { background: var(--background-color); }
+    .main .block-container { background: transparent; }
+
+    /* ===== 所有文字凹凸立体感 ===== */
+    h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
+    .stButton button, .stAlert, .stInfo, .stWarning, .stSuccess {
+        text-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+    }
+
+    /* ===== 所有按钮 ===== */
+    .stButton button {
+        background: transparent !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 10px !important;
+        color: var(--text-color) !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important;
+        transition: all 0.3s ease !important;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04) !important;
+        font-weight: 500 !important;
+    }
+    .stButton button:hover {
+        background: rgba(128,128,128,0.04) !important;
+        border-color: rgba(128,128,128,0.2) !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important;
+        transform: translateY(-2px);
+    }
+
+    /* ===== 进度条 - 清晰可见 ===== */
+    .track {
+        background: rgba(128,128,128,0.2);
+        border-radius: 4px;
+        height: 8px;
+        box-shadow: inset 0 1px 4px rgba(0,0,0,0.08);
+        overflow: hidden;
+        border: 1px solid rgba(128,128,128,0.08);
+    }
+    .track-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.6s ease;
+        box-shadow: 0 0 16px rgba(255,255,255,0.04);
+    }
+
+    /* ===== 卡片凹凸立体 ===== */
+    .ach-card {
+        background: transparent;
+        border-radius: 12px;
+        padding: 16px 12px 40px 12px;
+        text-align: center;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    .ach-card:hover {
+        transform: translateY(-3px);
+        border-color: rgba(128,128,128,0.2);
+        box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+    }
+    .ach-card-unlocked { opacity: 1; }
+    .ach-card-locked { opacity: 0.5; }
+
+    /* ===== 卡片内查看详情按钮 ===== */
+    .card-wrapper {
+        position: relative;
+    }
+    .card-wrapper .stButton button {
+        position: absolute !important;
+        bottom: 8px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 4px 16px !important;
+        margin: 0 !important;
+        color: var(--text-color) !important;
+        z-index: 10 !important;
+        cursor: pointer !important;
+        font-size: 12px !important;
+        font-weight: 400 !important;
+        opacity: 0.4 !important;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04) !important;
+        border: 1px solid rgba(128,128,128,0.1) !important;
+        border-radius: 6px !important;
+    }
+    .card-wrapper .stButton button:hover {
+        background: rgba(128,128,128,0.04) !important;
+        border-color: rgba(128,128,128,0.2) !important;
+        opacity: 0.8 !important;
+        transform: translateX(-50%) translateY(-1px) !important;
+        box-shadow: none !important;
+    }
+
+    hr { border-color: var(--border-color) !important; opacity: 0.3 !important; }
+
+    .stAlert {
+        background: transparent !important;
+        border: 1px solid var(--border-color) !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -84,16 +173,27 @@ def get_color_by_progress(score):
 
 
 def get_star_color(value):
-    colors = {
-        1: "#8B8B8B", 2: "#A8D5BA", 3: "#4CAF50", 4: "#26A69A",
-        5: "#42A5F5", 6: "#7E57C2", 7: "#FF9800", 8: "#FF6F00",
-        9: "#F44336", 10: "#FFD700"
-    }
+    colors = {1: "#8B8B8B", 2: "#A8D5BA", 3: "#4CAF50", 4: "#26A69A",
+              5: "#42A5F5", 6: "#7E57C2", 7: "#FF9800", 8: "#FF6F00",
+              9: "#F44336", 10: "#FFD700"}
     return colors.get(value, "#888")
 
 
 def get_stars(value):
     return "★" * value
+
+
+def progress_bar_html(progress, bar_color, show_label=True):
+    pct = min(max(progress, 0), 100)
+    label = f'<span style="font-size:11px; color:#888; text-shadow:0 1px 4px rgba(0,0,0,0.04); min-width:36px; text-align:right;">{pct}%</span>' if show_label else ""
+    return f"""
+    <div style="display:flex; align-items:center; gap:8px;">
+        <div class="track" style="flex:1;">
+            <div class="track-fill" style="width:{pct}%; background:{bar_color};"></div>
+        </div>
+        {label}
+    </div>
+    """
 
 
 if st.button("← 返回学程"):
@@ -104,21 +204,15 @@ st.caption("学海拾贝，采撷成果")
 st.markdown("---")
 
 try:
-    response = requests.get(
-        f"{BACKEND_URL}/career/stats/{user_id}",
-        headers={"Authorization": f"Bearer {access_token}"},
-        timeout=10
-    )
+    response = requests.get(f"{BACKEND_URL}/career/stats/{user_id}",
+                            headers={"Authorization": f"Bearer {access_token}"}, timeout=10)
     stats = response.json() if response.status_code == 200 else {}
 except:
     stats = {}
 
 user_achievements = stats.get("achievements", [])
-
-# 成就解锁时间映射
 achievement_times = stats.get("achievement_times", {})
 
-# 26种主题色
 achievement_colors = [
     "#FF6B6B", "#FF8E53", "#FFB74D", "#FFD93D", "#A8E06C",
     "#6BCB77", "#4ECDC4", "#45B7D1", "#4A9FF5", "#7C6DF0",
@@ -194,16 +288,9 @@ done_count = len([a for a in all_achievements if a["done"]])
 total = len(all_achievements)
 
 st.markdown(f"**已拾取：{done_count} / {total}**")
-progress_pct = (done_count / total) * 100
-st.markdown(f"""
-<div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-    <span style="font-size:13px; color:#888;">进度</span>
-    <div style="flex:1; height:8px; background:#2a2a3a; border-radius:4px; overflow:hidden;">
-        <div style="width:{progress_pct}%; height:100%; background:#42A5F5; border-radius:4px;"></div>
-    </div>
-    <span style="font-size:13px; font-weight:bold; color:#42A5F5;">{done_count}/{total}</span>
-</div>
-""", unsafe_allow_html=True)
+pct_total = (done_count / total) * 100
+total_bar_color = get_color_by_progress(pct_total)
+st.markdown(progress_bar_html(pct_total, total_bar_color, show_label=True), unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -217,44 +304,46 @@ def show_detail_dialog(ach):
     display_color = theme_color
     status_text = "✅ 已拾取" if is_done else "🔒 未拾取"
     status_color = "#4CAF50" if is_done else "#888"
-
-    # 解锁时间
     unlock_time = ach.get("unlock_time", None)
     time_text = unlock_time if unlock_time else "尚未解锁"
+    pct = ach['progress']
+    bar_color = get_color_by_progress(pct)
 
     st.markdown(f"""
-    <div style="text-align:center;">
-        <div style="font-size:48px; color:{display_color};">
+    <div style="text-align:center; padding:4px 0;">
+        <div style="font-size:48px; color:{display_color}; text-shadow:0 2px 16px {display_color}33, 0 4px 32px {display_color}15;">
             <i class="fas {ach['icon']}"></i>
         </div>
-        <div style="font-size:22px; font-weight:bold; color:{display_color}; margin-top:6px;">
+        <div style="font-size:22px; font-weight:bold; color:{display_color}; margin-top:6px; text-shadow:0 2px 16px {display_color}33, 0 4px 32px {display_color}15;">
             {ach['name']}
         </div>
-        <div style="font-size:13px; color:{display_color}; margin-top:2px;">
+        <div style="font-size:13px; color:{display_color}; margin-top:2px; text-shadow:0 2px 12px {display_color}20;">
             {ach['condition']}
         </div>
-        <div style="display:flex; justify-content:center; gap:28px; margin-top:14px;">
+        <div style="display:flex; justify-content:center; gap:28px; margin-top:16px;">
             <div>
                 <div style="font-size:11px; color:#888;">收获</div>
-                <div style="font-size:18px; font-weight:bold; color:{display_color};">+{ach['reward']}</div>
+                <div style="font-size:18px; font-weight:bold; color:{display_color}; text-shadow:0 2px 12px {display_color}20;">+{ach['reward']}</div>
             </div>
             <div>
                 <div style="font-size:11px; color:#888;">价值</div>
-                <div style="font-size:18px; font-weight:bold; color:{star_color};">{stars}</div>
+                <div style="font-size:18px; font-weight:bold; color:{star_color}; text-shadow:0 0 12px {star_color}33;">{stars}</div>
             </div>
             <div>
                 <div style="font-size:11px; color:#888;">状态</div>
                 <div style="font-size:14px; font-weight:bold; color:{status_color};">{status_text}</div>
             </div>
         </div>
-        <div style="margin-top:12px;">
+        <div style="margin-top:16px;">
             <div style="font-size:11px; color:#888; margin-bottom:4px;">进度</div>
-            <div style="width:100%; height:8px; background:#2a2a3a; border-radius:4px; overflow:hidden;">
-                <div style="width:{ach['progress']}%; height:100%; background:{get_color_by_progress(ach['progress'])}; border-radius:4px;"></div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div style="flex:1; background:rgba(128,128,128,0.2); border-radius:4px; height:8px; box-shadow:inset 0 1px 4px rgba(0,0,0,0.08); overflow:hidden; border:1px solid rgba(128,128,128,0.08);">
+                    <div style="width:{pct}%; height:100%; background:{bar_color}; border-radius:4px; transition:width 0.6s ease; box-shadow:0 0 16px rgba(255,255,255,0.04);"></div>
+                </div>
+                <span style="font-size:11px; color:#888; min-width:36px; text-align:right;">{pct}%</span>
             </div>
-            <div style="font-size:12px; color:#888; margin-top:4px;">{ach['progress']}%</div>
         </div>
-        <div style="margin-top:12px; font-size:12px; color:{'#4CAF50' if is_done else '#666'};">
+        <div style="margin-top:14px; font-size:12px; color:{'#4CAF50' if is_done else '#888'};">
             {'🎉 ' + time_text if is_done else '⏳ ' + time_text}
         </div>
     </div>
@@ -273,18 +362,26 @@ for i, ach in enumerate(all_achievements):
         display_color = theme_color if is_done else "#555"
         border_color = theme_color if is_done else "#333"
         status_text = "✅ 已拾取" if is_done else "🔒 未拾取"
+        card_class = "ach-card-unlocked" if is_done else "ach-card-locked"
 
-        card_html = f"""
-        <div class="ach-card {'ach-card-unlocked' if is_done else 'ach-card-locked'}" style="border-color:{border_color};">
-            <div style="font-size:32px; color:{display_color};"><i class="fas {ach['icon']}"></i></div>
-            <div style="font-size:14px; font-weight:bold; color:{display_color}; margin-top:4px;">{ach['name']}</div>
-            <div style="font-size:11px; color:{display_color}; margin:2px 0;">{ach['condition']}</div>
-            <div style="font-size:12px; color:{display_color};">+{ach['reward']} 收获</div>
-            <div style="font-size:13px; color:{star_color};">{stars}</div>
-            <div style="font-size:11px; color:{display_color}; margin-top:2px;">{status_text}</div>
+        st.markdown(f"""
+        <div class="card-wrapper">
+            <div class="ach-card {card_class}" style="border-color:{border_color};">
+                <div style="font-size:32px; color:{display_color}; text-shadow:0 2px 16px {display_color}33, 0 4px 32px {display_color}15;">
+                    <i class="fas {ach['icon']}"></i>
+                </div>
+                <div style="font-size:14px; font-weight:bold; color:{display_color}; margin-top:4px; text-shadow:0 2px 12px {display_color}20;">
+                    {ach['name']}
+                </div>
+                <div style="font-size:11px; color:{display_color}; margin:2px 0; text-shadow:0 2px 12px {display_color}15;">
+                    {ach['condition']}
+                </div>
+                <div style="font-size:12px; color:{display_color}; text-shadow:0 2px 12px {display_color}15;">+{ach['reward']} 收获</div>
+                <div style="font-size:13px; color:{star_color}; text-shadow:0 0 12px {star_color}33;">{stars}</div>
+                <div style="font-size:11px; color:{display_color}; margin-top:2px; text-shadow:0 2px 12px {display_color}15;">{status_text}</div>
+            </div>
         </div>
-        """
-        st.markdown(card_html, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
         if st.button("查看详情", key=f"ach_btn_{i}_{ach['id']}", use_container_width=True):
             show_detail_dialog(ach)

@@ -12,6 +12,109 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ====== 全局样式 ======
+st.markdown("""
+<style>
+    .stApp { background: var(--background-color); }
+    .main .block-container { background: transparent; }
+
+    h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
+    .stButton button, .stAlert, .stInfo, .stWarning, .stSuccess,
+    .stTextInput label, .stSelectbox label,
+    .stTextInput input, .stSelectbox select {
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    .stButton button {
+        background: rgba(128,128,128,0.06) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-color) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        font-weight: 500 !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    .stButton button:hover {
+        background: rgba(128,128,128,0.10) !important;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        transform: translateY(-3px) !important;
+    }
+    .stButton button:active {
+        transform: translateY(0px) !important;
+    }
+
+    .stTextInput input, .stSelectbox select {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: var(--text-color) !important;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.04) !important;
+        transition: all 0.3s ease !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .stTextInput input:focus, .stSelectbox select:focus {
+        background: rgba(128,128,128,0.08) !important;
+        box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
+    }
+
+    .stAlert {
+        background: rgba(128,128,128,0.05) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04) !important;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+
+    .mastery-card {
+        border-radius: 10px;
+        padding: 10px 8px;
+        text-align: center;
+        min-height: 60px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .mastery-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.10);
+    }
+
+    hr { border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }
+
+    .stExpander {
+        background: transparent !important;
+        border: none !important;
+    }
+    .streamlit-expanderHeader {
+        background: rgba(128,128,128,0.04) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    }
+    .streamlit-expanderHeader:hover {
+        background: rgba(128,128,128,0.08) !important;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
+        transform: translateY(-2px) !important;
+    }
+    .streamlit-expanderContent {
+        background: transparent !important;
+        border: none !important;
+        padding-top: 8px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.warning("请先登录")
     st.stop()
@@ -23,6 +126,62 @@ set_id = st.session_state.get("view_set_id")
 if not set_id:
     st.warning("没有找到题集")
     st.stop()
+
+
+def get_color_by_mastery(score):
+    if score < 5:
+        return "#FF0000"
+    elif score < 10:
+        return "#FF1A00"
+    elif score < 15:
+        return "#FF3300"
+    elif score < 20:
+        return "#FF4D00"
+    elif score < 25:
+        return "#FF6600"
+    elif score < 30:
+        return "#FF8000"
+    elif score < 35:
+        return "#FF9900"
+    elif score < 40:
+        return "#FFB300"
+    elif score < 45:
+        return "#FFCC00"
+    elif score < 50:
+        return "#FFE600"
+    elif score < 55:
+        return "#D4E000"
+    elif score < 60:
+        return "#A8D500"
+    elif score < 65:
+        return "#7DCC00"
+    elif score < 70:
+        return "#52C200"
+    elif score < 75:
+        return "#26B800"
+    elif score < 80:
+        return "#00AD00"
+    elif score < 85:
+        return "#00A300"
+    elif score < 90:
+        return "#009900"
+    elif score < 95:
+        return "#008000"
+    else:
+        return "#006600"
+
+
+def progress_bar_html(progress, bar_color, show_label=True):
+    pct = min(max(progress, 0), 100)
+    label = f'<span style="font-size:11px; color:#888; min-width:36px; text-align:right;">{pct}%</span>' if show_label else ""
+    return f'''
+    <div style="display:flex; align-items:center; gap:8px;">
+        <div style="flex:1; background:rgba(128,128,128,0.15); border-radius:4px; height:8px; box-shadow:inset 0 1px 4px rgba(0,0,0,0.06); overflow:hidden;">
+            <div style="width:{pct}%; height:100%; background:{bar_color}; border-radius:4px; transition:width 0.6s ease; box-shadow:0 0 16px rgba(255,255,255,0.04);"></div>
+        </div>
+        {label}
+    </div>
+    '''
 
 
 def get_set_detail(set_id):
@@ -72,14 +231,12 @@ if not set_detail:
 
 question_ids = set_detail.get('question_ids', [])
 
-# 获取所有题目
 questions = []
 for q_id in question_ids:
     q = get_question_detail(q_id)
     if q:
         questions.append(q)
 
-# ====== 计算统计数据 ======
 if questions:
     mastery_scores = [q.get('mastery_score', 0) for q in questions]
     avg_mastery = sum(mastery_scores) / len(mastery_scores)
@@ -92,8 +249,8 @@ else:
     weak_count = 0
     mid_count = 0
 
-# ====== 顶部：左右两列 ======
-col_left, col_right = st.columns([1, 2])  # 👈 改成 1:2
+# ====== 顶部 ======
+col_left, col_right = st.columns([1, 2])
 
 with col_left:
     if st.button("← 返回", use_container_width=True):
@@ -117,7 +274,6 @@ with col_left:
     st.caption(f"📅 创建时间：{create_time}  ·  📝 {len(question_ids)} 道题")
 
 with col_right:
-    # 平均掌握度进度条
     st.markdown("**📊 平均掌握度**")
     if avg_mastery >= 70:
         color = "#00CC66"
@@ -130,16 +286,13 @@ with col_right:
         label = "待加强"
 
     st.markdown(f"""
-    <div style="display:flex; align-items:center; gap:10px;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
         <span style="font-size:24px; font-weight:bold; color:{color};">{avg_mastery:.0f}%</span>
         <span style="font-size:14px; color:#888;">{label}</span>
     </div>
-    <div style="width:100%; height:8px; background:#2a2a3a; border-radius:4px; overflow:hidden;">
-        <div style="width:{avg_mastery}%; height:100%; background:{color}; border-radius:4px;"></div>
-    </div>
+    {progress_bar_html(avg_mastery, color)}
     """, unsafe_allow_html=True)
 
-    # 统计
     st.markdown(f"""
     <div style="display:flex; gap:20px; margin-top:8px;">
         <span style="font-size:13px; color:#00CC66;">🟢 优势 {strong_count}</span>
@@ -148,19 +301,16 @@ with col_right:
     </div>
     """, unsafe_allow_html=True)
 
-    # 小卡片
     if questions:
         st.markdown("---")
         display_questions = questions[:5]
         remaining = len(questions) - 5
-
         card_cols = st.columns(min(len(display_questions) + 1, 6))
 
         for i, q in enumerate(display_questions):
             with card_cols[i]:
                 topic = q.get('normalized_topic', q.get('topic', '未知'))
                 mastery = q.get('mastery_score', 0)
-
                 if mastery >= 70:
                     color_card = "#00CC66"
                 elif mastery >= 50:
@@ -169,9 +319,9 @@ with col_right:
                     color_card = "#FF4444"
 
                 st.markdown(f"""
-                <div style="background:{color_card}; color:white; border-radius:10px; padding:10px 6px; text-align:center; min-height:60px; display:flex; flex-direction:column; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
-                    <div style="font-size:13px; font-weight:bold; margin-bottom:2px;">{topic}</div>
-                    <div style="font-size:20px; font-weight:bold;">{mastery}%</div>
+                <div class="mastery-card" style="background:{color_card}; color:white;">
+                    <div style="font-size:13px; font-weight:bold; margin-bottom:2px; text-shadow:0 1px 4px rgba(0,0,0,0.15);">{topic}</div>
+                    <div style="font-size:20px; font-weight:bold; text-shadow:0 1px 4px rgba(0,0,0,0.15);">{mastery}%</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -179,10 +329,10 @@ with col_right:
                     st.session_state.current_question = q
                     st.switch_page("pages/do_question.py")
 
-        with card_cols[-1]:
+        with card_cols[-1] if len(display_questions) < 6 else card_cols:
             if remaining > 0:
                 st.markdown(f"""
-                <div style="background:#2a2a3a; border:2px dashed #555; border-radius:10px; padding:10px 6px; text-align:center; min-height:60px; display:flex; flex-direction:column; justify-content:center;">
+                <div style="background:rgba(128,128,128,0.04); border:2px dashed rgba(128,128,128,0.10); border-radius:10px; padding:10px 6px; text-align:center; min-height:60px; display:flex; flex-direction:column; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
                     <div style="font-size:13px; color:#888;">全部卡片</div>
                     <div style="font-size:11px; color:#666;">+{remaining}</div>
                 </div>
@@ -192,27 +342,23 @@ with col_right:
                     st.rerun()
             else:
                 st.markdown("""
-                <div style="background:#2a2a3a; border:2px dashed #555; border-radius:10px; padding:10px 6px; text-align:center; min-height:60px; display:flex; flex-direction:column; justify-content:center;">
+                <div style="background:rgba(128,128,128,0.04); border:2px dashed rgba(128,128,128,0.10); border-radius:10px; padding:10px 6px; text-align:center; min-height:60px; display:flex; flex-direction:column; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
                     <div style="font-size:13px; color:#888;">已全部显示</div>
                 </div>
                 """, unsafe_allow_html=True)
 
 st.markdown("---")
 
-# ====== 下方：搜索 + 筛选 + 题目列表 ======
-# 判断是否显示全部卡片
+# ====== 下方：题目列表 ======
 show_all = st.session_state.get("view_all_cards", False)
 
-# 全部卡片
 if show_all:
     st.subheader("📋 全部卡片")
-
     search_q = st.text_input("🔍 搜索题目", placeholder="输入关键词...", key="search_q_all")
-
     filter_options = ["全部", "选择题", "填空题", "判断题", "简答题", "计算题", "编程题"]
     filter_type = st.selectbox("筛选题型", filter_options, key="filter_type_all")
 
-    type_map = {
+    type_map_filter = {
         "选择题": "choice",
         "填空题": "fill",
         "判断题": "judge",
@@ -225,7 +371,7 @@ if show_all:
     if search_q:
         filtered_q = [q for q in filtered_q if search_q.lower() in q.get("title", "").lower()]
     if filter_type != "全部":
-        filter_type_en = type_map.get(filter_type)
+        filter_type_en = type_map_filter.get(filter_type)
         filtered_q = [q for q in filtered_q if q.get("question_type") == filter_type_en]
 
     if not filtered_q:
@@ -237,7 +383,6 @@ if show_all:
                 topic = q.get('normalized_topic', q.get('topic', '未知'))
                 mastery = q.get('mastery_score', 0)
                 q_type = q.get('question_type', '未知')
-
                 if mastery >= 70:
                     color = "#00CC66"
                 elif mastery >= 50:
@@ -246,9 +391,9 @@ if show_all:
                     color = "#FF4444"
 
                 st.markdown(f"""
-                <div style="background:{color}; color:white; border-radius:10px; padding:14px 10px; text-align:center; min-height:80px; display:flex; flex-direction:column; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
-                    <div style="font-size:15px; font-weight:bold; margin-bottom:2px;">{topic}</div>
-                    <div style="font-size:24px; font-weight:bold;">{mastery}%</div>
+                <div class="mastery-card" style="background:{color}; color:white;">
+                    <div style="font-size:15px; font-weight:bold; margin-bottom:2px; text-shadow:0 1px 4px rgba(0,0,0,0.15);">{topic}</div>
+                    <div style="font-size:24px; font-weight:bold; text-shadow:0 1px 4px rgba(0,0,0,0.15);">{mastery}%</div>
                     <div style="font-size:11px; opacity:0.7;">{q_type}</div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -261,13 +406,11 @@ if show_all:
         st.session_state.view_all_cards = False
         st.rerun()
 else:
-    # 默认显示普通列表
     search_q = st.text_input("🔍 搜索题目", placeholder="输入关键词...", key="search_q_normal")
-
     filter_options = ["全部", "选择题", "填空题", "判断题", "简答题", "计算题", "编程题"]
     filter_type = st.selectbox("筛选题型", filter_options, key="filter_type_normal")
 
-    type_map = {
+    type_map_filter = {
         "选择题": "choice",
         "填空题": "fill",
         "判断题": "judge",
@@ -280,7 +423,7 @@ else:
     if search_q:
         filtered_q = [q for q in filtered_q if search_q.lower() in q.get("title", "").lower()]
     if filter_type != "全部":
-        filter_type_en = type_map.get(filter_type)
+        filter_type_en = type_map_filter.get(filter_type)
         filtered_q = [q for q in filtered_q if q.get("question_type") == filter_type_en]
 
     if not filtered_q:
@@ -291,9 +434,8 @@ else:
             q_title = q.get('title', '无题目')[:80]
             q_type = q.get('question_type', '未知')
             mastery = q.get('mastery_score', 0)
-            difficulty_score = q.get('difficulty_score', 5.0)  # 👈 获取难度
+            difficulty_score = q.get('difficulty_score', 5.0)
 
-            # 难度颜色
             if difficulty_score < 3:
                 diff_color = "#00CC66"
                 diff_label = "简单"
@@ -317,7 +459,6 @@ else:
             col1, col2, col3 = st.columns([4, 1, 1])
             with col1:
                 st.markdown(f"**{q_title}**")
-                # 显示题型 + 难度 + 掌握度
                 st.markdown(f"""
                 <div style="display:flex; gap:15px; font-size:13px; color:#888; margin-top:2px;">
                     <span>📝 {q_type}</span>
