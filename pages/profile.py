@@ -8,7 +8,22 @@ import os
 import requests
 
 BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
-
+def record_action(action_type, metadata=None):
+    """记录用户行为到后端"""
+    if "user_id" not in st.session_state or not st.session_state.user_id:
+        return
+    try:
+        requests.post(
+            f"{BACKEND_URL}/career/actions/record",
+            json={
+                "user_id": st.session_state.user_id,
+                "action_type": action_type,
+                "metadata": metadata or {}
+            },
+            timeout=3
+        )
+    except:
+        pass
 
 # ========== 带缓存的后端 API 调用 ==========
 @st.cache_data(ttl=60, show_spinner=False)
@@ -227,6 +242,68 @@ st.markdown("""
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.warning("请先登录")
     st.stop()
+import streamlit as st
+import base64
+import os
+
+# ====== 背景图 ======
+def get_base64_image(img_path):
+    with open(img_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+img_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "profile_bg.jpg")
+img_base64 = get_base64_image(img_path)
+
+st.markdown(f"""
+<style>
+    .stApp {{
+        background: var(--background-color);
+        background-image: 
+            linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)),
+            url("data:image/jpg;base64,{img_base64}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    .main .block-container {{ background: transparent; }}
+
+    /* ===== 透明气泡 ===== */
+    .bubbles {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+        overflow: hidden;
+    }}
+    .bubble {{
+        position: absolute;
+        bottom: -80px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.06);
+        animation: rise linear infinite;
+        border: 1px solid rgba(255,255,255,0.04);
+    }}
+    .b1 {{ left: 5%; width: 30px; height: 30px; animation-duration: 12s; animation-delay: 0s; }}
+    .b2 {{ left: 15%; width: 50px; height: 50px; animation-duration: 18s; animation-delay: 1.5s; }}
+    .b3 {{ left: 28%; width: 20px; height: 20px; animation-duration: 10s; animation-delay: 2s; }}
+    .b4 {{ left: 40%; width: 60px; height: 60px; animation-duration: 22s; animation-delay: 0.5s; }}
+    .b5 {{ left: 55%; width: 35px; height: 35px; animation-duration: 14s; animation-delay: 3s; }}
+    .b6 {{ left: 68%; width: 45px; height: 45px; animation-duration: 16s; animation-delay: 1s; }}
+    .b7 {{ left: 80%; width: 25px; height: 25px; animation-duration: 11s; animation-delay: 2.5s; }}
+    .b8 {{ left: 90%; width: 55px; height: 55px; animation-duration: 20s; animation-delay: 0.8s; }}
+
+    @keyframes rise {{
+        0% {{ transform: translateY(0) scale(0.8); opacity: 0; }}
+        10% {{ opacity: 0.6; }}
+        90% {{ opacity: 0.6; }}
+        100% {{ transform: translateY(-110vh) scale(1.2); opacity: 0; }}
+    }}
+</style>
+""", unsafe_allow_html=True)
+
 
 st.title("👤 个人中心")
 st.caption("管理你的账号信息")
@@ -275,6 +352,7 @@ with col_avatar2:
             if avatar_url:
                 st.session_state.avatar_url = avatar_url
                 st.session_state.avatar_uploader_key = uploader_key + 1
+                record_action("update_avatar")  # 👈 加这里
                 st.toast("✅ 头像已更新", icon="✅")
                 time.sleep(0.3)
                 st.rerun()
@@ -331,6 +409,7 @@ if st.button("保存昵称", use_container_width=True):
         success, err = update_nickname_via_backend(user_id, new_nickname, st.session_state.access_token)
         if success:
             st.session_state.username = new_nickname
+            record_action("update_nickname")  # 👈 加这里
             st.toast("✅ 昵称已更新", icon="✅")
             time.sleep(0.3)
             st.rerun()
@@ -351,6 +430,7 @@ if st.button("保存简介", use_container_width=True):
     success, err = update_bio_via_backend(user_id, user_bio, st.session_state.access_token)
     if success:
         st.session_state.user_bio = user_bio
+        record_action("update_bio")  # 👈 加这里
         st.toast("✅ 简介已保存", icon="✅")
         time.sleep(0.3)
         st.rerun()

@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 import time
 from datetime import datetime, timedelta
+import base64
+import os
 
 BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 
@@ -12,20 +14,36 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ====== 背景图 ======
+def get_base64_image(img_path):
+    with open(img_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+img_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "set_detail_bg.jpg")
+img_base64 = get_base64_image(img_path)
+
 # ====== 全局样式 ======
-st.markdown("""
+st.markdown(f"""
 <style>
-    .stApp { background: var(--background-color); }
-    .main .block-container { background: transparent; }
+    .stApp {{
+        background: var(--background-color);
+        background-image: 
+            linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)),
+            url("data:image/jpg;base64,{img_base64}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    .main .block-container {{ background: transparent; }}
 
     h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
     .stButton button, .stAlert, .stInfo, .stWarning, .stSuccess,
     .stTextInput label, .stSelectbox label,
-    .stTextInput input, .stSelectbox select {
+    .stTextInput input, .stSelectbox select {{
         text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
-    }
+    }}
 
-    .stButton button {
+    .stButton button {{
         background: rgba(128,128,128,0.06) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -35,17 +53,17 @@ st.markdown("""
         font-weight: 500 !important;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
-    }
-    .stButton button:hover {
+    }}
+    .stButton button:hover {{
         background: rgba(128,128,128,0.10) !important;
         box-shadow: 0 6px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
         transform: translateY(-3px) !important;
-    }
-    .stButton button:active {
+    }}
+    .stButton button:active {{
         transform: translateY(0px) !important;
-    }
+    }}
 
-    .stTextInput input, .stSelectbox select {
+    .stTextInput input, .stSelectbox select {{
         background: rgba(128,128,128,0.05) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -54,13 +72,13 @@ st.markdown("""
         transition: all 0.3s ease !important;
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-    }
-    .stTextInput input:focus, .stSelectbox select:focus {
+    }}
+    .stTextInput input:focus, .stSelectbox select:focus {{
         background: rgba(128,128,128,0.08) !important;
         box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
-    }
+    }}
 
-    .stAlert {
+    .stAlert {{
         background: rgba(128,128,128,0.05) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -68,9 +86,9 @@ st.markdown("""
         text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-    }
+    }}
 
-    .mastery-card {
+    .mastery-card {{
         border-radius: 10px;
         padding: 10px 8px;
         text-align: center;
@@ -80,19 +98,19 @@ st.markdown("""
         justify-content: center;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .mastery-card:hover {
+    }}
+    .mastery-card:hover {{
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(0,0,0,0.10);
-    }
+    }}
 
-    hr { border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }
+    hr {{ border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }}
 
-    .stExpander {
+    .stExpander {{
         background: transparent !important;
         border: none !important;
-    }
-    .streamlit-expanderHeader {
+    }}
+    .streamlit-expanderHeader {{
         background: rgba(128,128,128,0.04) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -101,17 +119,17 @@ st.markdown("""
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
         transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-    }
-    .streamlit-expanderHeader:hover {
+    }}
+    .streamlit-expanderHeader:hover {{
         background: rgba(128,128,128,0.08) !important;
         box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
         transform: translateY(-2px) !important;
-    }
-    .streamlit-expanderContent {
+    }}
+    .streamlit-expanderContent {{
         background: transparent !important;
         border: none !important;
         padding-top: 8px !important;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
 

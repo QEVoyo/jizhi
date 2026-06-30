@@ -26,11 +26,31 @@ from utils.name_generator import generate_random_name
 import dashscope
 import requests
 import time
+import base64
+import os
 
+def get_base64_image(img_path):
+    with open(img_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 from datetime import datetime
 
-
+def record_action(action_type, metadata=None):
+    """记录用户行为到后端"""
+    if "user_id" not in st.session_state or not st.session_state.user_id:
+        return
+    try:
+        requests.post(
+            f"{BACKEND_URL}/career/actions/record",
+            json={
+                "user_id": st.session_state.user_id,
+                "action_type": action_type,
+                "metadata": metadata or {}
+            },
+            timeout=3
+        )
+    except:
+        pass
 # ========== 缓存函数 ==========
 @st.cache_data(ttl=60, show_spinner=False)
 def get_learning_logs_via_backend(user_id, access_token):
@@ -513,85 +533,241 @@ def show_login_page():
             padding-top: 30px;
             max-width: 500px;
             margin: 0 auto;
+            position: relative;
+            z-index: 10;
         }
+
+        /* ===== 背景 ===== */
+        .bg-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .bg-layer .bg-main {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background-color);
+        }
+
+        .bg-layer .grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(128,128,128,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(128,128,128,0.04) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* ===== 粒子 ===== */
+        .particle-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            animation: floatUp linear infinite;
+            opacity: 0;
+            transform: translateY(100vh);
+            box-shadow: 0 0 20px rgba(255,255,255,0.2);
+        }
+
+        .p1 { width: 16px; height: 16px; background: #4FC3F7; left: 5%; animation-duration: 12s; animation-delay: 0s; box-shadow: 0 0 30px #4FC3F766; }
+        .p2 { width: 22px; height: 22px; background: #7C6DF0; left: 15%; animation-duration: 14s; animation-delay: 1.2s; box-shadow: 0 0 40px #7C6DF066; }
+        .p3 { width: 10px; height: 10px; background: #EC407A; left: 28%; animation-duration: 10s; animation-delay: 2.5s; box-shadow: 0 0 25px #EC407A66; }
+        .p4 { width: 20px; height: 20px; background: #FFB74D; left: 40%; animation-duration: 16s; animation-delay: 0.8s; box-shadow: 0 0 35px #FFB74D66; }
+        .p5 { width: 12px; height: 12px; background: #81C784; left: 52%; animation-duration: 11s; animation-delay: 3.2s; box-shadow: 0 0 25px #81C78466; }
+        .p6 { width: 18px; height: 18px; background: #FFD54F; left: 62%; animation-duration: 13s; animation-delay: 1.8s; box-shadow: 0 0 30px #FFD54F66; }
+        .p7 { width: 8px; height: 8px; background: #4DD0E1; left: 75%; animation-duration: 9s; animation-delay: 2.2s; box-shadow: 0 0 20px #4DD0E166; }
+        .p8 { width: 25px; height: 25px; background: #F06292; left: 85%; animation-duration: 18s; animation-delay: 0.5s; box-shadow: 0 0 45px #F0629266; }
+        .p9 { width: 14px; height: 14px; background: #4FC3F7; left: 10%; animation-duration: 11s; animation-delay: 3.8s; box-shadow: 0 0 25px #4FC3F766; }
+        .p10 { width: 20px; height: 20px; background: #7C6DF0; left: 32%; animation-duration: 15s; animation-delay: 1.5s; box-shadow: 0 0 35px #7C6DF066; }
+        .p11 { width: 11px; height: 11px; background: #EC407A; left: 48%; animation-duration: 10s; animation-delay: 2.8s; box-shadow: 0 0 20px #EC407A66; }
+        .p12 { width: 17px; height: 17px; background: #FFB74D; left: 58%; animation-duration: 13s; animation-delay: 0.3s; box-shadow: 0 0 30px #FFB74D66; }
+        .p13 { width: 9px; height: 9px; background: #81C784; left: 70%; animation-duration: 9s; animation-delay: 3.5s; box-shadow: 0 0 20px #81C78466; }
+        .p14 { width: 23px; height: 23px; background: #FFD54F; left: 80%; animation-duration: 17s; animation-delay: 1.0s; box-shadow: 0 0 40px #FFD54F66; }
+        .p15 { width: 13px; height: 13px; background: #4DD0E1; left: 92%; animation-duration: 12s; animation-delay: 2.0s; box-shadow: 0 0 25px #4DD0E166; }
+
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) scale(0.6); opacity: 0; }
+            8% { opacity: 0.8; transform: translateY(88vh) scale(1); }
+            90% { opacity: 0.8; transform: translateY(-10vh) scale(1); }
+            100% { transform: translateY(-20vh) scale(0.8); opacity: 0; }
+        }
+
+        /* ===== 毛玻璃登录框 ===== */
+        .stTabs {
+            background: rgba(255,255,255,0.06) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border-radius: 20px !important;
+            padding: 24px 20px !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.04), inset 0 0 60px rgba(255,255,255,0.02) !important;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ===== 登录框上方光晕遮罩 ===== */
+        .stTabs::before {
+            content: '';
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 60px;
+            background: radial-gradient(ellipse, rgba(255,255,255,0.06) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* ===== 登录框周围光晕 ===== */
+        .stTabs::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            height: 90%;
+            background: radial-gradient(ellipse, rgba(128,128,128,0.02) 0%, transparent 70%);
+            border-radius: 20px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* ===== 输入框 ===== */
         .stTextInput label, .stSelectbox label {
             font-weight: 500;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
         }
+        .stTextInput input {
+            background: rgba(255,255,255,0.06) !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            border-radius: 12px !important;
+            color: var(--text-color) !important;
+            box-shadow: inset 0 1px 4px rgba(0,0,0,0.02) !important;
+            transition: all 0.3s ease !important;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .stTextInput input:focus {
+            background: rgba(255,255,255,0.10) !important;
+            border-color: rgba(255,255,255,0.15) !important;
+        }
+
+        /* ===== 按钮 ===== */
         .stButton button {
             border-radius: 12px !important;
             padding: 10px !important;
             font-size: 16px !important;
-            background: rgba(128,128,128,0.06) !important;
-            border: none !important;
+            background: rgba(255,255,255,0.06) !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
             color: var(--text-color) !important;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.02) !important;
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
             font-weight: 500 !important;
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             cursor: pointer !important;
         }
         .stButton button:hover {
-            background: rgba(128,128,128,0.10) !important;
-            box-shadow: 0 6px 28px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
-            transform: translateY(-3px) !important;
+            background: rgba(255,255,255,0.10) !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06) !important;
+            transform: translateY(-2px) !important;
+            border-color: rgba(255,255,255,0.15) !important;
         }
-        .stButton button:active {
-            transform: translateY(0px) !important;
-        }
-        .stTextInput input {
-            background: rgba(128,128,128,0.05) !important;
-            border: none !important;
-            border-radius: 12px !important;
-            color: var(--text-color) !important;
-            box-shadow: inset 0 2px 8px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.04) !important;
-            transition: all 0.3s ease !important;
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-        }
-        .stTextInput input:focus {
-            background: rgba(128,128,128,0.08) !important;
-            box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
+
+        /* ===== Tab ===== */
+        .stTabs [data-baseweb="tab-list"] {
+            background: transparent !important;
+            gap: 6px !important;
         }
         .stTabs [data-baseweb="tab"] {
-            background: rgba(128,128,128,0.04) !important;
-            border: none !important;
+            background: rgba(255,255,255,0.04) !important;
+            border: 1px solid rgba(255,255,255,0.06) !important;
             border-radius: 12px !important;
             padding: 8px 18px !important;
             color: var(--text-color) !important;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.02) !important;
             cursor: pointer !important;
         }
         .stTabs [data-baseweb="tab"]:hover {
-            background: rgba(128,128,128,0.08) !important;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+            background: rgba(255,255,255,0.08) !important;
             transform: translateY(-2px) !important;
+            border-color: rgba(255,255,255,0.12) !important;
         }
         .stTabs [data-baseweb="tab"][aria-selected="true"] {
-            background: rgba(128,128,128,0.10) !important;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+            background: rgba(255,255,255,0.10) !important;
+            border-color: rgba(255,255,255,0.15) !important;
         }
+
         .stAlert {
-            background: rgba(128,128,128,0.05) !important;
-            border: none !important;
+            background: rgba(255,255,255,0.04) !important;
+            border: 1px solid rgba(255,255,255,0.06) !important;
             border-radius: 12px !important;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.04) !important;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
             backdrop-filter: blur(4px);
             -webkit-backdrop-filter: blur(4px);
         }
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown(
-        '<h1 style="text-shadow:0 2px 20px rgba(0,0,0,0.06), 0 4px 40px rgba(0,0,0,0.03);"><i class="fas fa-graduation-cap"></i> 基智 · 多智能体学习助手</h1>',
-        unsafe_allow_html=True)
-    st.markdown("### 学习从账号开始")
+    # ====== 背景 + 粒子 ======
+    st.markdown("""
+    <div class="bg-layer">
+        <div class="bg-main"></div>
+        <div class="grid"></div>
+    </div>
 
+    <div class="particle-bg">
+        <div class="particle p1"></div>
+        <div class="particle p2"></div>
+        <div class="particle p3"></div>
+        <div class="particle p4"></div>
+        <div class="particle p5"></div>
+        <div class="particle p6"></div>
+        <div class="particle p7"></div>
+        <div class="particle p8"></div>
+        <div class="particle p9"></div>
+        <div class="particle p10"></div>
+        <div class="particle p11"></div>
+        <div class="particle p12"></div>
+        <div class="particle p13"></div>
+        <div class="particle p14"></div>
+        <div class="particle p15"></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="position:relative; z-index:10; text-align:center; margin-bottom:20px;">
+        <h1 style="text-shadow:0 2px 20px rgba(0,0,0,0.03);">
+            <i class="fas fa-graduation-cap"></i> 基智 · 多智能体学习助手
+        </h1>
+        <h3 style="font-weight:400; opacity:0.7;">学习从账号开始</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ====== 登录/注册逻辑 ======
     if "switch_to_login" not in st.session_state:
         st.session_state.switch_to_login = False
     if "auto_email" not in st.session_state:
@@ -617,7 +793,6 @@ def show_login_page():
         </script>
         """, unsafe_allow_html=True)
 
-    # ========= 登录 Tab =========
     with tab1:
         with st.form("login_form"):
             login_input = st.text_input("账号 / 邮箱", placeholder="请输入账号或邮箱")
@@ -682,7 +857,6 @@ def show_login_page():
                         else:
                             st.error("登录失败，请稍后重试")
 
-    # ========= 注册 Tab =========
     with tab2:
         with st.form("register_form"):
             email = st.text_input("邮箱", placeholder="example@domain.com", key="reg_email")
@@ -691,6 +865,7 @@ def show_login_page():
             submitted = st.form_submit_button("注册", use_container_width=True)
 
             if submitted:
+                import re
                 def is_valid_email(email):
                     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
                     return re.match(pattern, email) is not None
@@ -704,6 +879,7 @@ def show_login_page():
                 elif password != confirm:
                     st.warning("两次密码不一致")
                 else:
+                    from utils.name_generator import generate_random_name
                     final_nickname = generate_random_name()
                     user, err = register_via_backend(email, password, final_nickname)
 
@@ -821,7 +997,23 @@ if "logged_in" not in st.session_state:
 if not st.session_state.logged_in:
     show_login_page()
     st.stop()
+# ====== 主界面背景图 ======
+img_path = os.path.join(os.path.dirname(__file__), "assets", "main_bg.jpg")
+img_base64 = get_base64_image(img_path)
 
+st.markdown(f"""
+<style>
+    .stApp {{
+        background: var(--background-color);
+        background-image: 
+            linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7)),
+            url("data:image/jpg;base64,{img_base64}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+</style>
+""", unsafe_allow_html=True)
 # ========== 主界面 ==========
 # ========== 侧边栏 ==========
 with st.sidebar:
@@ -982,6 +1174,7 @@ with st.sidebar:
                                 p['last_checkin'] = today
                                 if save_checkin_via_backend(user_id, projects, access_token):
                                     st.success(f"打卡成功！已完成 {p['completed_days']}/{p['target_days']} 天")
+                                    record_action("checkin")  # 👈 加这里
                                     st.rerun()
                                 else:
                                     st.error("保存失败")
@@ -1151,6 +1344,7 @@ with st.sidebar:
                         keyword = f"学习了「{active['name']}」{active['duration_minutes']}分钟"
                         save_log_via_backend(st.session_state.user_id, keyword)
                         st.success(f"🎉 {keyword}！已记录到学习日志")
+                        record_action("use_timer")  # 👈 加这里
                         del st.session_state.active_timer
                         st.rerun()
                 else:
@@ -1262,6 +1456,7 @@ with st.sidebar:
                         report = call_llm([{"role": "user", "content": prompt}], temperature=0.7)
                         st.markdown("---")
                         st.markdown(report)
+                        record_action("view_report")  # 👈 加这里
                         st.markdown("---")
                         st.caption("📝 报告由AI生成，仅供参考")
                     else:

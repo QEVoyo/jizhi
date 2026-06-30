@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 import time
+import base64
+import os
 
 BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 
@@ -11,20 +13,36 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ====== 背景图 ======
+def get_base64_image(img_path):
+    with open(img_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+img_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mastery_board_bg.jpg")
+img_base64 = get_base64_image(img_path)
+
 # ====== 全局样式 ======
-st.markdown("""
+st.markdown(f"""
 <style>
-    .stApp { background: var(--background-color); }
-    .main .block-container { background: transparent; }
+    .stApp {{
+        background: var(--background-color);
+        background-image: 
+            linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)),
+            url("data:image/jpg;base64,{img_base64}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    .main .block-container {{ background: transparent; }}
 
     h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
     .stButton button, .stAlert, .stInfo, .stWarning, .stSuccess,
     .stTextInput label, .stSelectbox label,
-    .stTextInput input, .stSelectbox select {
+    .stTextInput input, .stSelectbox select {{
         text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
-    }
+    }}
 
-    .stButton button {
+    .stButton button {{
         background: rgba(128,128,128,0.06) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -34,17 +52,17 @@ st.markdown("""
         font-weight: 500 !important;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
-    }
-    .stButton button:hover {
+    }}
+    .stButton button:hover {{
         background: rgba(128,128,128,0.10) !important;
         box-shadow: 0 6px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
         transform: translateY(-3px) !important;
-    }
-    .stButton button:active {
+    }}
+    .stButton button:active {{
         transform: translateY(0px) !important;
-    }
+    }}
 
-    .stTextInput input, .stSelectbox select {
+    .stTextInput input, .stSelectbox select {{
         background: rgba(128,128,128,0.05) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -53,13 +71,13 @@ st.markdown("""
         transition: all 0.3s ease !important;
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-    }
-    .stTextInput input:focus, .stSelectbox select:focus {
+    }}
+    .stTextInput input:focus, .stSelectbox select:focus {{
         background: rgba(128,128,128,0.08) !important;
         box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
-    }
+    }}
 
-    .stAlert {
+    .stAlert {{
         background: rgba(128,128,128,0.05) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -67,11 +85,11 @@ st.markdown("""
         text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-    }
+    }}
 
-    hr { border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }
+    hr {{ border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }}
 
-    .stat-card {
+    .stat-card {{
         background: rgba(128,128,128,0.04);
         border-radius: 12px;
         padding: 14px 12px;
@@ -80,22 +98,22 @@ st.markdown("""
         transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-    }
-    .stat-card:hover {
+    }}
+    .stat-card:hover {{
         background: rgba(128,128,128,0.07);
         box-shadow: 0 6px 24px rgba(0,0,0,0.06);
         transform: translateY(-3px);
-    }
-    .stat-card .stat-number {
+    }}
+    .stat-card .stat-number {{
         font-size: 28px;
         font-weight: bold;
-    }
-    .stat-card .stat-label {
+    }}
+    .stat-card .stat-label {{
         font-size: 13px;
         color: #888;
-    }
+    }}
 
-    .mastery-card {
+    .mastery-card {{
         border-radius: 14px;
         padding: 18px 12px;
         text-align: center;
@@ -109,8 +127,8 @@ st.markdown("""
         cursor: pointer;
         position: relative;
         overflow: hidden;
-    }
-    .mastery-card::before {
+    }}
+    .mastery-card::before {{
         content: '';
         position: absolute;
         top: 0;
@@ -119,34 +137,34 @@ st.markdown("""
         bottom: 0;
         background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
         pointer-events: none;
-    }
-    .mastery-card:hover {
+    }}
+    .mastery-card:hover {{
         transform: translateY(-6px);
         box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-    }
-    .mastery-card .card-topic {
+    }}
+    .mastery-card .card-topic {{
         font-size: 14px;
         font-weight: 600;
         margin-bottom: 4px;
         text-shadow: 0 1px 4px rgba(0,0,0,0.15);
         position: relative;
         z-index: 1;
-    }
-    .mastery-card .card-score {
+    }}
+    .mastery-card .card-score {{
         font-size: 26px;
         font-weight: 700;
         text-shadow: 0 1px 4px rgba(0,0,0,0.15);
         position: relative;
         z-index: 1;
-    }
-    .mastery-card .card-status {
+    }}
+    .mastery-card .card-status {{
         font-size: 11px;
         margin-top: 2px;
         opacity: 0.8;
         text-shadow: 0 1px 4px rgba(0,0,0,0.10);
         position: relative;
         z-index: 1;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
 

@@ -3,6 +3,8 @@ import requests
 import time
 import json
 from datetime import datetime
+import base64
+import os
 
 BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 
@@ -13,22 +15,55 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
+# ====== 背景图 ======
+def get_base64_image(img_path):
+    with open(img_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+img_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "resource_lib_bg.png")
+img_base64 = get_base64_image(img_path)
+
+def record_action(action_type, metadata=None):
+    """记录用户行为到后端"""
+    if "user_id" not in st.session_state or not st.session_state.user_id:
+        return
+    try:
+        requests.post(
+            f"{BACKEND_URL}/career/actions/record",
+            json={
+                "user_id": st.session_state.user_id,
+                "action_type": action_type,
+                "metadata": metadata or {}
+            },
+            timeout=3
+        )
+    except:
+        pass
+
 # ====== 全局样式 ======
-st.markdown("""
+st.markdown(f"""
 <style>
-    .stApp { background: var(--background-color); }
-    .main .block-container { background: transparent; }
+    .stApp {{
+        background: var(--background-color);
+        background-image: 
+            linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)),
+            url("data:image/jpg;base64,{img_base64}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    .main .block-container {{ background: transparent; }}
 
     h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
     .stButton button, .stAlert, .stInfo, .stWarning, .stSuccess,
     .stTextInput label, .stSelectbox label, .stNumberInput label,
     .stTextInput input, .stSelectbox select, .stNumberInput input,
     .stTextArea label, .stTextArea textarea,
-    .stTabs [data-baseweb="tab"] {
+    .stTabs [data-baseweb="tab"] {{
         text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
-    }
+    }}
 
-    .stButton button {
+    .stButton button {{
         background: rgba(128,128,128,0.06) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -38,23 +73,23 @@ st.markdown("""
         font-weight: 500 !important;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
-    }
-    .stButton button:hover {
+    }}
+    .stButton button:hover {{
         background: rgba(128,128,128,0.10) !important;
         box-shadow: 0 6px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
         transform: translateY(-3px) !important;
-    }
-    .stButton button:active {
+    }}
+    .stButton button:active {{
         transform: translateY(0px) !important;
-    }
-    .stButton button:disabled {
+    }}
+    .stButton button:disabled {{
         opacity: 0.35 !important;
         cursor: not-allowed !important;
         transform: none !important;
-    }
+    }}
 
     .stTextInput input, .stSelectbox select, .stNumberInput input,
-    .stTextArea textarea {
+    .stTextArea textarea {{
         background: rgba(128,128,128,0.05) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -63,27 +98,27 @@ st.markdown("""
         transition: all 0.3s ease !important;
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-    }
+    }}
     .stTextInput input:focus, .stSelectbox select:focus,
-    .stNumberInput input:focus, .stTextArea textarea:focus {
+    .stNumberInput input:focus, .stTextArea textarea:focus {{
         background: rgba(128,128,128,0.08) !important;
         box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
-    }
+    }}
 
-    .stPopover {
+    .stPopover {{
         background: var(--background-color) !important;
         border: none !important;
         border-radius: 16px !important;
         box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04) !important;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-    }
+    }}
 
-    .stTabs [data-baseweb="tab-list"] {
+    .stTabs [data-baseweb="tab-list"] {{
         gap: 6px !important;
         background: transparent !important;
-    }
-    .stTabs [data-baseweb="tab"] {
+    }}
+    .stTabs [data-baseweb="tab"] {{
         background: rgba(128,128,128,0.04) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -93,22 +128,22 @@ st.markdown("""
         transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
         box-shadow: 0 1px 4px rgba(0,0,0,0.02) !important;
         cursor: pointer !important;
-    }
-    .stTabs [data-baseweb="tab"]:hover {
+    }}
+    .stTabs [data-baseweb="tab"]:hover {{
         background: rgba(128,128,128,0.08) !important;
         box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
         transform: translateY(-2px) !important;
-    }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+    }}
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {{
         background: rgba(128,128,128,0.10) !important;
         box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
-    }
+    }}
 
-    .stExpander {
+    .stExpander {{
         background: transparent !important;
         border: none !important;
-    }
-    .streamlit-expanderHeader {
+    }}
+    .streamlit-expanderHeader {{
         background: rgba(128,128,128,0.04) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -117,21 +152,21 @@ st.markdown("""
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
         transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-    }
-    .streamlit-expanderHeader:hover {
+    }}
+    .streamlit-expanderHeader:hover {{
         background: rgba(128,128,128,0.08) !important;
         box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
         transform: translateY(-2px) !important;
-    }
-    .streamlit-expanderContent {
+    }}
+    .streamlit-expanderContent {{
         background: transparent !important;
         border: none !important;
         padding-top: 8px !important;
-    }
+    }}
 
-    hr { border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }
+    hr {{ border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }}
 
-    .stAlert {
+    .stAlert {{
         background: rgba(128,128,128,0.05) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -139,9 +174,9 @@ st.markdown("""
         text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-    }
+    }}
 
-    .mastery-card {
+    .mastery-card {{
         border-radius: 12px;
         padding: 14px 10px;
         text-align: center;
@@ -152,41 +187,43 @@ st.markdown("""
         box-shadow: 0 2px 12px rgba(0,0,0,0.08);
         transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         cursor: pointer;
-    }
-    .mastery-card:hover {
+    }}
+    .mastery-card:hover {{
         transform: translateY(-4px);
         box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-    }
+    }}
 
-    .stFileUploader {
+    .stFileUploader {{
         border: none !important;
         border-radius: 12px !important;
         padding: 4px !important;
         background: rgba(128,128,128,0.03) !important;
         box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important;
-    }
-    .stFileUploader > div {
+    }}
+    .stFileUploader > div {{
         border: none !important;
         box-shadow: none !important;
-    }
-    .stFileUploader label {
+    }}
+    .stFileUploader label {{
         border: none !important;
         box-shadow: none !important;
-    }
-    .stFileUploader .stFileUploaderDropzone {
+    }}
+    .stFileUploader .stFileUploaderDropzone {{
         border: 1px dashed rgba(128,128,128,0.15) !important;
         border-radius: 12px !important;
         background: rgba(128,128,128,0.03) !important;
         padding: 24px !important;
         box-shadow: inset 0 2px 8px rgba(0,0,0,0.04) !important;
         transition: all 0.3s ease !important;
-    }
-    .stFileUploader .stFileUploaderDropzone:hover {
+    }}
+    .stFileUploader .stFileUploaderDropzone:hover {{
         background: rgba(128,128,128,0.06) !important;
         box-shadow: inset 0 2px 12px rgba(0,0,0,0.08) !important;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
+
+# 后面你原来的代码保持不变...
 
 # 登录检查
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
@@ -412,6 +449,7 @@ with tab1:
 
                     if response.status_code == 200:
                         question_data = response.json()
+                        record_action("generate_question")  # 👈 加这里
 
                         try:
                             requests.post(
@@ -516,6 +554,7 @@ with tab2:
             if new_set_name:
                 success, msg = create_question_set(new_set_name, new_set_desc)
                 if success:
+                    record_action("create_set")  # 👈 加这里
                     st.success(f"✅ 题集「{new_set_name}」创建成功")
                     time.sleep(0.5)
                     st.rerun()
@@ -679,6 +718,7 @@ with tab3:
                             st.caption(f"题型：{q_type}  |  加入时间：{added_time}")
                         with col2:
                             if st.button("📝 复习", key=f"review_{m.get('id')}"):
+                                record_action("conquer_mistake")  # 👈 加这里
                                 st.session_state.current_question = m
                                 st.session_state.from_mistake_book = True
                                 st.switch_page("pages/do_question.py")
@@ -716,8 +756,10 @@ with tab3:
                             st.markdown(progress_bar_html(mastery, bar_color), unsafe_allow_html=True)
                             st.caption(f"题型：{q_type}")
                         with col2:
-                            if st.button("📝 复习", key=f"review_conquered_{m.get('id')}"):
+                            if st.button("📝 复习", key=f"review_{m.get('id')}"):
+                                record_action("conquer_mistake")  # 👈 加这里
                                 st.session_state.current_question = m
+                                st.session_state.from_mistake_book = True
                                 st.switch_page("pages/do_question.py")
                         st.markdown("---")
 

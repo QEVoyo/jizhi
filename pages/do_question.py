@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 import json
 import time
+import base64
+import os
 
 BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 
@@ -12,22 +14,55 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ====== 背景图 ======
+def get_base64_image(img_path):
+    with open(img_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+img_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "do_question_bg.png")
+img_base64 = get_base64_image(img_path)
+
+def record_action(action_type, metadata=None):
+    """记录用户行为到后端"""
+    if "user_id" not in st.session_state or not st.session_state.user_id:
+        return
+    try:
+        requests.post(
+            f"{BACKEND_URL}/career/actions/record",
+            json={
+                "user_id": st.session_state.user_id,
+                "action_type": action_type,
+                "metadata": metadata or {}
+            },
+            timeout=3
+        )
+    except:
+        pass
+
 # ====== 全局样式 ======
-st.markdown("""
+st.markdown(f"""
 <style>
-    .stApp { background: var(--background-color); }
-    .main .block-container { background: transparent; }
+    .stApp {{
+        background: var(--background-color);
+        background-image: 
+            linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)),
+            url("data:image/jpg;base64,{img_base64}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    .main .block-container {{ background: transparent; }}
 
     h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
     .stButton button, .stAlert, .stInfo, .stWarning, .stSuccess,
     .stTextInput label, .stSelectbox label, .stNumberInput label,
     .stTextInput input, .stSelectbox select, .stNumberInput input,
     .stTextArea label, .stTextArea textarea,
-    .stRadio label, .stCheckbox label {
+    .stRadio label, .stCheckbox label {{
         text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
-    }
+    }}
 
-    .stButton button {
+    .stButton button {{
         background: rgba(128,128,128,0.06) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -37,23 +72,23 @@ st.markdown("""
         font-weight: 500 !important;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
-    }
-    .stButton button:hover {
+    }}
+    .stButton button:hover {{
         background: rgba(128,128,128,0.10) !important;
         box-shadow: 0 6px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.08) !important;
         transform: translateY(-3px) !important;
-    }
-    .stButton button:active {
+    }}
+    .stButton button:active {{
         transform: translateY(0px) !important;
-    }
-    .stButton button:disabled {
+    }}
+    .stButton button:disabled {{
         opacity: 0.35 !important;
         cursor: not-allowed !important;
         transform: none !important;
-    }
+    }}
 
     .stTextInput input, .stSelectbox select, .stNumberInput input,
-    .stTextArea textarea {
+    .stTextArea textarea {{
         background: rgba(128,128,128,0.05) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -62,29 +97,29 @@ st.markdown("""
         transition: all 0.3s ease !important;
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-    }
+    }}
     .stTextInput input:focus, .stSelectbox select:focus,
-    .stNumberInput input:focus, .stTextArea textarea:focus {
+    .stNumberInput input:focus, .stTextArea textarea:focus {{
         background: rgba(128,128,128,0.08) !important;
         box-shadow: inset 0 2px 12px rgba(0,0,0,0.10), 0 0 30px rgba(128,128,128,0.04) !important;
-    }
+    }}
 
-    .stPopover {
+    .stPopover {{
         background: var(--background-color) !important;
         border: none !important;
         border-radius: 16px !important;
         box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04) !important;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-    }
+    }}
 
-    .stRadio label, .stCheckbox label {
+    .stRadio label, .stCheckbox label {{
         text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
-    }
+    }}
 
-    hr { border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }
+    hr {{ border: none !important; height: 1px !important; background: rgba(128,128,128,0.10) !important; margin: 12px 0 !important; }}
 
-    .stAlert {
+    .stAlert {{
         background: rgba(128,128,128,0.05) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -92,13 +127,13 @@ st.markdown("""
         text-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03) !important;
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-    }
+    }}
 
-    .stExpander {
+    .stExpander {{
         background: transparent !important;
         border: none !important;
-    }
-    .streamlit-expanderHeader {
+    }}
+    .streamlit-expanderHeader {{
         background: rgba(128,128,128,0.04) !important;
         border: none !important;
         border-radius: 12px !important;
@@ -107,17 +142,17 @@ st.markdown("""
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
         transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-    }
-    .streamlit-expanderHeader:hover {
+    }}
+    .streamlit-expanderHeader:hover {{
         background: rgba(128,128,128,0.08) !important;
         box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
         transform: translateY(-2px) !important;
-    }
-    .streamlit-expanderContent {
+    }}
+    .streamlit-expanderContent {{
         background: transparent !important;
         border: none !important;
         padding-top: 8px !important;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -391,6 +426,11 @@ with col1:
 
                     if response.status_code == 200:
                         result = response.json()
+                        # 如果来自错题本且掌握度 >= 60%，记录攻克
+                        if st.session_state.get("from_mistake_book", False):
+                            mastery = result.get("mastery_score", 0)
+                            if mastery >= 60:
+                                record_action("conquer_mistake")
                         st.session_state.evaluated = True
                         st.session_state.evaluation_result = result
                         st.rerun()
@@ -682,6 +722,7 @@ if st.session_state.get("show_add_to_set", False):
                                         timeout=10
                                     )
                                     if res.status_code == 200:
+                                        record_action("add_to_set")  # 👈 加这里
                                         st.toast(f"✅ 已加入「{set_name}」！", icon="✅")
                                         st.session_state.show_add_to_set = False
                                         time.sleep(0.5)

@@ -1,5 +1,7 @@
 import streamlit as st
 import requests
+import base64
+import os
 
 BACKEND_URL = "https://ingenious-rejoicing-production-90b7.up.railway.app"
 
@@ -10,17 +12,33 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-st.markdown("""
+# ====== 背景图 ======
+def get_base64_image(img_path):
+    with open(img_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+img_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "career_rank_bg.png")
+img_base64 = get_base64_image(img_path)
+
+st.markdown(f"""
 <style>
-    .stApp { background: var(--background-color); }
-    .main .block-container { background: transparent; }
+    .stApp {{
+        background: var(--background-color);
+        background-image: 
+            linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)),
+            url("data:image/png;base64,{img_base64}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    .main .block-container {{ background: transparent; }}
 
     h1, h2, h3, h4, h5, h6, p, span, div, label, .stMarkdown, .stCaption,
-    .stButton button, .stAlert {
+    .stButton button, .stAlert {{
         text-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
-    }
+    }}
 
-    .stButton button {
+    .stButton button {{
         background: transparent !important;
         border: 1px solid var(--border-color) !important;
         border-radius: 10px !important;
@@ -28,29 +46,29 @@ st.markdown("""
         box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important;
         transition: all 0.3s ease !important;
         font-weight: 500 !important;
-    }
-    .stButton button:hover {
+    }}
+    .stButton button:hover {{
         background: rgba(128,128,128,0.04) !important;
         border-color: rgba(128,128,128,0.2) !important;
         box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important;
         transform: translateY(-2px);
-    }
+    }}
 
-    .glass-card {
+    .glass-card {{
         background: transparent;
         border-radius: 16px;
         padding: 24px 28px;
         border: 1px solid var(--border-color);
         box-shadow: 0 2px 12px rgba(0,0,0,0.05);
         transition: all 0.3s ease;
-    }
-    .glass-card:hover {
+    }}
+    .glass-card:hover {{
         border-color: rgba(128,128,128,0.15);
         box-shadow: 0 6px 24px rgba(0,0,0,0.08);
         transform: translateY(-1px);
-    }
+    }}
 
-    .glass-small {
+    .glass-small {{
         background: transparent;
         border-radius: 12px;
         padding: 14px 10px;
@@ -58,46 +76,46 @@ st.markdown("""
         border: 1px solid var(--border-color);
         box-shadow: 0 2px 10px rgba(0,0,0,0.04);
         transition: all 0.3s ease;
-    }
-    .glass-small:hover {
+    }}
+    .glass-small:hover {{
         transform: translateY(-3px);
         border-color: rgba(128,128,128,0.15);
         box-shadow: 0 8px 28px rgba(0,0,0,0.08);
-    }
+    }}
 
-    .glass-table {
+    .glass-table {{
         width: 100%;
         border-collapse: collapse;
         background: transparent !important;
-    }
-    .glass-table td, .glass-table th {
+    }}
+    .glass-table td, .glass-table th {{
         padding: 6px 8px;
         border-bottom: 1px solid var(--border-color);
         background: transparent !important;
-    }
-    .glass-table tr:hover td {
+    }}
+    .glass-table tr:hover td {{
         background: rgba(128,128,128,0.02) !important;
-    }
+    }}
 
-    .streamlit-expanderHeader {
+    .streamlit-expanderHeader {{
         background: transparent !important;
         border: 1px solid var(--border-color) !important;
         border-radius: 10px !important;
         box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important;
         text-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04) !important;
-    }
-    .streamlit-expanderHeader:hover {
+    }}
+    .streamlit-expanderHeader:hover {{
         background: rgba(128,128,128,0.02) !important;
         border-color: rgba(128,128,128,0.15) !important;
         box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important;
-    }
-    .streamlit-expanderContent {
+    }}
+    .streamlit-expanderContent {{
         background: transparent !important;
         border: none !important;
-    }
+    }}
 
-    hr { border-color: var(--border-color) !important; opacity: 0.3 !important; }
-    .stAlert { background: transparent !important; border: 1px solid var(--border-color) !important; box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important; }
+    hr {{ border-color: var(--border-color) !important; opacity: 0.3 !important; }}
+    .stAlert {{ background: transparent !important; border: 1px solid var(--border-color) !important; box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important; }}
 </style>
 """, unsafe_allow_html=True)
 
