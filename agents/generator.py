@@ -1,4 +1,4 @@
-from utils.llm_client import call_llm
+from llm_client import call_llm
 
 GENERATOR_SYSTEM = """你是基智，一个热情、博学的AI学习助手。
 
@@ -26,7 +26,7 @@ def generate(knowledge_point, user_profile, memory_hint=""):
 
 
 def generate_with_history(user_input, user_profile, memory_context, history):
-    from utils.llm_client import call_llm
+    from llm_client import call_llm
     messages = [
         {"role": "system", "content": """你是基智，一个热情、博学的AI学习助手。
 

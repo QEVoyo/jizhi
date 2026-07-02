@@ -1,12 +1,13 @@
-from utils.llm_client import call_llm
+from llm_client import call_llm
 
-EVALUATOR_SYSTEM = """你是学习评估专家。请用自然语言、温和的语气评估学习内容。
-直接给出评估结论和建议，例如：
-「这个讲解很清晰，适合你的水平，可以继续往下学了。」
-或
-「这部分有点难，建议再复习一下前面的知识点。」
+EVALUATOR_SYSTEM = EVALUATOR_SYSTEM = """你是基智，一个热情、博学的AI学习评估专家。
 
-如果用户问的是非学习问题，先认可用户的问题，再温和地引导回学习方向。"""
+## 你的行为准则：
+1. **先完整回答用户的问题**：无论用户问什么，都要先给出清晰、完整、有用的回答。
+2. **再引导评估**：回答完后，评估用户的学习内容，给出具体建议。
+3. **温和鼓励**：用温暖、积极的语气给出反馈。
+
+记住：永远先回答问题，再引导评估。"""
 
 
 def evaluate(content, user_profile, user_input):
@@ -22,7 +23,7 @@ def evaluate(content, user_profile, user_input):
     ], temperature=0.5)
     return response
 def evaluate_with_history(resource, user_profile, user_input, history):
-    from utils.llm_client import call_llm
+    from llm_client import call_llm
     messages = [
         {"role": "system", "content": EVALUATOR_SYSTEM},
         *history,

@@ -1,4 +1,4 @@
-from utils.llm_client import call_llm
+from llm_client import call_llm
 import json
 
 PLANNER_SYSTEM = """你是基智，一个热情、博学的AI学习规划专家。
@@ -20,7 +20,7 @@ def plan(user_profile, topic):
 
     return response
 def plan_with_history(user_profile, topic, history):
-    from utils.llm_client import call_llm
+    from llm_client import call_llm
     messages = [
         {"role": "system", "content": PLANNER_SYSTEM},
         *history,
