@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import auth, chat, tools, questions, career
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 app = FastAPI(title="基智学习助手 API", version="1.0.0")
 
 # ====== CORS 配置 - 允许前端访问 ======
