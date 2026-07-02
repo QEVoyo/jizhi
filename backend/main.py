@@ -3,13 +3,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import auth, chat, tools, questions, career
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 app = FastAPI(title="基智学习助手 API", version="1.0.0")
 
-# ====== CORS 配置 - 允许前端访问 ======
+# ====== CORS 配置 - 允许所有前端域名 ======
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "https://jizhi-learn.com",
+        "https://www.jizhi-learn.com",
+        "https://frontend-ebon-gamma-45.vercel.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
