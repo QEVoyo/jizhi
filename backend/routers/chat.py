@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-from agents.llm_client import call_llm_stream, call_llm
+from ..agents.llm_client import call_llm_stream, call_llm
 from config import settings
 import json
 import httpx
@@ -37,7 +37,7 @@ async def chat(req: ChatRequest):
 
     # 根据 intent 选择 Agent
     if req.intent == "plan":
-        from agents.planner import plan_with_history
+        from ..agents.planner import plan_with_history
         result = plan_with_history(
             user_profile,
             req.messages[-1].get("content", ""),
@@ -46,7 +46,7 @@ async def chat(req: ChatRequest):
         return StreamingResponse(iter([result]), media_type="text/plain")
 
     elif req.intent == "generate":
-        from agents.generator import generate_with_history
+        from ..agents.generator import generate_with_history
         result = generate_with_history(
             req.messages[-1].get("content", ""),
             user_profile,
@@ -56,7 +56,7 @@ async def chat(req: ChatRequest):
         return StreamingResponse(iter([result]), media_type="text/plain")
 
     elif req.intent == "evaluate":
-        from agents.evaluator import evaluate_with_history
+        from ..agents.evaluator import evaluate_with_history
         result = evaluate_with_history(
             req.messages[-1].get("content", ""),
             user_profile,
@@ -136,7 +136,7 @@ class TitleRequest(BaseModel):
 @router.post("/title")
 async def generate_title(req: TitleRequest):
     """根据对话内容生成标题"""
-    from utils.llm_client import call_llm
+    from ..agents.llm_client import call_llm
 
     prompt = f"""请根据以下对话内容，生成一个简短的标题（不超过15个字）：
 
