@@ -184,7 +184,7 @@
               class="video-card"
               @click="openVideo(video)"
             >
-              <img :src="video.pic" :alt="video.title" loading="lazy" />
+              <img :src="video.pic" :alt="video.title" loading="lazy"referrerpolicy="no-referrer"/>
               <div class="video-info">
                 <div class="video-title-text">{{ video.title }}</div>
                 <div class="video-meta">
