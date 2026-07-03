@@ -2,12 +2,16 @@
   <div class="login-page">
     <BubbleBackground />
     <div class="login-container">
+      <div class="login-back" @click="$router.push('/')">
+        <i class="fas fa-arrow-left"></i> 返回首页
+      </div>
+
       <div class="login-header">
         <div class="login-brand">
           <img src="/logo.png" alt="基智" class="login-logo-img" />
           <h1>基智</h1>
         </div>
-        <p>多智能体学习助手</p >
+        <p>多智能体学习助手</p>
       </div>
 
       <el-tabs v-model="activeTab" class="login-tabs">
@@ -31,11 +35,9 @@
                 @keyup.enter="handleLogin"
               />
             </el-form-item>
-
             <el-form-item>
               <el-checkbox v-model="rememberMe">记住我</el-checkbox>
             </el-form-item>
-
             <el-button
               type="primary"
               size="large"
@@ -97,17 +99,19 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
 import { ElMessage } from 'element-plus'
 import BubbleBackground from '@/components/BubbleBackground.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const sessionStore = useSessionStore()
 
-const activeTab = ref('login')
+// 从 URL 参数读取 tab，支持 ?tab=register
+const activeTab = ref(route.query.tab === 'register' ? 'register' : 'login')
 const loginLoading = ref(false)
 const registerLoading = ref(false)
 const loginError = ref('')
@@ -144,7 +148,7 @@ async function handleLogin() {
   if (result.success) {
     sessionStore.createSession('新对话')
     ElMessage.success('登录成功！')
-    router.push('/')
+    router.push('/home')
   } else {
     loginError.value = result.error
   }
@@ -200,7 +204,7 @@ async function handleRegister() {
   position: relative;
   z-index: 10;
   width: 420px;
-  padding: 40px 36px;
+  padding: 40px 36px 36px;
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -214,43 +218,59 @@ async function handleRegister() {
   border-color: rgba(255, 255, 255, 0.06);
 }
 
+.login-back {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 20;
+}
+.login-back:hover {
+  color: var(--text-primary);
+  transform: translateX(-2px);
+}
+
 .login-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 
 .login-brand {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .login-logo-img {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
   display: block;
-  margin: 0;
 }
 
 .login-header h1 {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
   color: var(--text-primary);
-  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.03);
   margin: 0;
 }
 
 .login-header p {
   color: var(--text-secondary);
   font-size: 14px;
-  margin-top: 4px;
+  margin-top: 2px;
   opacity: 0.6;
 }
 
 .login-tabs :deep(.el-tabs__header) {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   border: none;
 }
 .login-tabs :deep(.el-tabs__item) {
@@ -269,14 +289,13 @@ async function handleRegister() {
 
 .submit-btn {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 4px;
   background: rgba(128, 128, 128, 0.08) !important;
   border: 1px solid rgba(128, 128, 128, 0.12) !important;
   color: var(--text-primary) !important;
   border-radius: 12px !important;
   transition: all 0.3s ease !important;
 }
-
 .submit-btn:hover {
   background: rgba(128, 128, 128, 0.14) !important;
   transform: translateY(-2px);
@@ -289,13 +308,13 @@ async function handleRegister() {
 .error-msg {
   color: #f56c6c;
   font-size: 13px;
-  margin-top: 12px;
+  margin-top: 10px;
   text-align: center;
 }
 .success-msg {
   color: #67c23a;
   font-size: 13px;
-  margin-top: 12px;
+  margin-top: 10px;
   text-align: center;
 }
 

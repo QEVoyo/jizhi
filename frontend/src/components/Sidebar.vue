@@ -13,7 +13,10 @@
       </el-avatar>
 
       <div v-if="!isCollapsed" class="user-detail">
-        <div class="user-name">{{ authStore.user?.nickname || '用户' }}</div>
+        <div class="user-name-row">
+          <span class="user-name">{{ authStore.user?.nickname || '用户' }}</span>
+          <span class="user-account">{{ authStore.user?.account || '' }}</span>
+        </div>
         <div class="user-status-wrapper" @click.stop>
           <span class="status-dot" :class="userStatusClass" />
           <span class="status-text" @click="toggleStatusMenu">{{ userStatusText }}</span>
@@ -217,8 +220,8 @@ const userStatus = ref('online')
 const statusMenuVisible = ref(false)
 const statusOptions = [
   { value: 'online', label: '在线' },
-  { value: 'offline', label: '离线' },
   { value: 'invisible', label: '隐身' }
+  // 离线由系统自动设置，用户不能手动选
 ]
 const userStatusClass = computed(() => userStatus.value)
 const userStatusText = computed(() => {
@@ -459,10 +462,21 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
 }
+.user-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .user-name {
   font-weight: 600;
   color: var(--text-primary);
   font-size: 14px;
+  white-space: nowrap;
+}
+.user-account {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.6;
   white-space: nowrap;
 }
 .user-status-wrapper {

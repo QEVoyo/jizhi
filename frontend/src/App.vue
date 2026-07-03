@@ -15,8 +15,9 @@ const themeStore = useThemeStore()
 
 const bgKey = computed(() => {
   const map = {
+    '/': 'landing',
     '/login': 'login',
-    '/': 'main',
+    '/home': 'main',
     '/profile': 'profile',
     '/resource-lib': 'resource_lib',
     '/career': 'career',
@@ -39,7 +40,7 @@ const bgImage = computed(() => {
 const overlayColor = computed(() => {
   return themeStore.currentTheme === 'dark'
     ? 'rgba(0, 0, 0, 0.5)'
-    : 'rgba(255, 255, 255, 0.2)'
+    : 'rgba(255, 255, 255, 0.15)'
 })
 
 const bgStyle = computed(() => ({

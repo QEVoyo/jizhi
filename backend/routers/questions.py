@@ -1,3 +1,4 @@
+import sys
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -287,7 +288,7 @@ async def remove_question_from_set(set_id: str, question_id: str):
 @router.post("/generate")
 async def generate_question(data: dict):
     """AI 生成题目"""
-    from utils.llm_client import call_llm
+    from agents.llm_client import call_llm
     import random
 
     user_id = data.get("user_id")
@@ -478,7 +479,8 @@ async def generate_question(data: dict):
 @router.post("/evaluate")
 async def evaluate_answer(data: dict):
     """评估用户答案"""
-    from utils.llm_client import call_llm
+    print("=== evaluate_answer 被调用了 ===")  # 👈 加这行
+    from agents.llm_client import call_llm
     from datetime import datetime
 
     question = data.get("question", {})
@@ -489,8 +491,9 @@ async def evaluate_answer(data: dict):
     q_type = question.get("question_type", "choice")
     correct_answer = question.get("answer", "")
     explanation = question.get("explanation", "")
+    normalized_topic = question.get("normalized_topic", "")
 
-    prompt = f"""请评估用户的答题情况：
+    prompt = f"""请评估用户的答题情况，并提供详细的题目解析。
 
 【题目】
 {title}
@@ -505,22 +508,27 @@ async def evaluate_answer(data: dict):
 
 {f"【解析】{explanation}" if explanation else ""}
 
-请只输出以下 JSON 格式：
+请输出以下 JSON 格式（不要添加任何其他文字）：
+
 {{
     "is_correct": true/false,
-    "mastery_score": 85,
-    "evaluation": "评估文字内容",
-    "suggestion": "学习建议"
+    "mastery_score": 0-100 的整数,
+    "evaluation": "一句话总结用户答得怎么样",
+    "suggestion": "针对性的学习建议",
+    "correct_answer": "正确答案（显示给用户看）",
+    "detailed_analysis": "详细的题目解析，根据题型输出不同内容：选择题逐一分析每个选项为什么对/错；判断题说明为什么正确或错误；填空题说明正确答案及为什么填这个；简答题给出参考答案要点；计算题给出解题步骤和关键公式；编程题给出解题思路和代码要点",
+    "knowledge_points": ["知识点1", "知识点2"]
 }}"""
 
     try:
         response = call_llm([{"role": "user", "content": prompt}], temperature=0.5)
-
+        print(f"=== AI 原始返回: {response} ===")  # 👈 加这行
         try:
             result = extract_json_from_response(response)
         except ValueError as e:
             raise HTTPException(status_code=500, detail=f"AI 返回格式错误: {str(e)}")
 
+        # 确保所有字段存在
         if "is_correct" not in result:
             result["is_correct"] = False
         if "mastery_score" not in result:
@@ -529,6 +537,12 @@ async def evaluate_answer(data: dict):
             result["evaluation"] = "评估完成"
         if "suggestion" not in result:
             result["suggestion"] = "继续练习"
+        if "correct_answer" not in result:
+            result["correct_answer"] = correct_answer or "无"
+        if "detailed_analysis" not in result:
+            result["detailed_analysis"] = "暂无详细解析"
+        if "knowledge_points" not in result:
+            result["knowledge_points"] = [normalized_topic] if normalized_topic else []
 
         # ====== 保存掌握度 + 错题本逻辑 ======
         if user_id and question.get("id"):
@@ -540,15 +554,13 @@ async def evaluate_answer(data: dict):
             question_id = question.get("id")
             mastery_score = result.get("mastery_score", 50)
 
-            async with httpx.AsyncClient() as client:  # 👈 先定义 client
+            async with httpx.AsyncClient() as client:
                 # 先查询当前错题状态
                 check_url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}&select=is_mistake,mistake_status"
                 check_res = await client.get(check_url, headers=headers)
                 current = check_res.json()[0] if check_res.json() else {}
                 current_is_mistake = current.get('is_mistake', False)
                 current_status = current.get('mistake_status', 'none')
-
-                from datetime import datetime, timezone
 
                 # 判断错题本逻辑
                 if mastery_score < 60:
@@ -559,16 +571,13 @@ async def evaluate_answer(data: dict):
                         "mistake_added_at": datetime.now().isoformat()
                     }
                 else:
-                    # 掌握度 >= 60%
                     if current_is_mistake and current_status == "learning":
-                        # 从学习中移到已攻克
                         update_data = {
                             "mastery_score": mastery_score,
                             "is_mistake": True,
                             "mistake_status": "conquered"
                         }
                     else:
-                        # 不是错题，不加入
                         update_data = {
                             "mastery_score": mastery_score,
                             "is_mistake": False,
@@ -578,7 +587,7 @@ async def evaluate_answer(data: dict):
                 update_url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}"
                 await client.patch(update_url, headers=headers, json=update_data)
                 print(f"✅ 已更新掌握度: {mastery_score}%, 错题状态: {update_data.get('mistake_status')}")
-
+        print(f"=== 评估结果完整返回: {result} ===")
         return result
 
     except HTTPException:

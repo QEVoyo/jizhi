@@ -1,7 +1,8 @@
 <template>
   <div class="app-layout">
     <aside class="sidebar" :class="{ collapsed: isCollapsed }">
-      <div class="sidebar-toggle" @click="toggleSidebar">
+      <!-- 收起/展开按钮（锁定状态隐藏） -->
+      <div v-if="!locked" class="sidebar-toggle" @click="toggleSidebar">
         <i :class="isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left'"></i>
       </div>
       <slot name="sidebar" />
@@ -13,12 +14,20 @@
 </template>
 
 <script setup>
-import { ref, provide } from 'vue'
+import { ref, provide, watch } from 'vue'
 
-const isCollapsed = ref(false)
+const props = defineProps({
+  locked: {
+    type: Boolean,
+    default: false
+  }
+})
+
+const isCollapsed = ref(props.locked)
 provide('sidebarCollapsed', isCollapsed)
 
 function toggleSidebar() {
+  if (props.locked) return
   isCollapsed.value = !isCollapsed.value
 }
 </script>
@@ -31,6 +40,7 @@ function toggleSidebar() {
   overflow: hidden;
 }
 
+/* ===== 侧边栏 ===== */
 .sidebar {
   width: 260px;
   min-height: 100vh;
@@ -38,7 +48,7 @@ function toggleSidebar() {
   background: var(--card-bg);
   backdrop-filter: blur(16px);
   border-right: 1px solid var(--border-color);
-  padding: 16px 14px 70px 14px;
+  padding: 16px 14px 80px 14px;
   flex-shrink: 0;
   overflow-y: auto;
   transition: width 0.3s ease, padding 0.3s ease;
@@ -57,7 +67,7 @@ function toggleSidebar() {
 
 .sidebar.collapsed {
   width: 64px;
-  padding: 16px 10px 53px 10px;
+  padding: 16px 10px 80px 10px;
   overflow-y: hidden;
 }
 
@@ -65,6 +75,7 @@ function toggleSidebar() {
   width: 0;
 }
 
+/* ===== 收起/展开按钮 ===== */
 .sidebar-toggle {
   position: absolute;
   top: 12px;
@@ -81,12 +92,23 @@ function toggleSidebar() {
 .sidebar-toggle:hover {
   background: rgba(255, 255, 255, 0.10);
   color: var(--text-primary);
+  transform: scale(1.08);
+}
+.sidebar-toggle:active {
+  transform: scale(0.95);
 }
 .sidebar.collapsed .sidebar-toggle {
   right: 50%;
   transform: translateX(50%);
 }
+.sidebar.collapsed .sidebar-toggle:hover {
+  transform: translateX(50%) scale(1.08);
+}
+.sidebar.collapsed .sidebar-toggle:active {
+  transform: translateX(50%) scale(0.95);
+}
 
+/* ===== 主内容 ===== */
 .main-content {
   flex: 1;
   padding: 20px 28px;
@@ -103,11 +125,15 @@ function toggleSidebar() {
   background: rgba(128, 128, 128, 0.2);
   border-radius: 2px;
 }
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.3);
+}
 
 .main-content.expanded {
   padding: 20px 32px;
 }
 
+/* ===== 响应式 ===== */
 @media (max-width: 768px) {
   .app-layout {
     flex-direction: column;

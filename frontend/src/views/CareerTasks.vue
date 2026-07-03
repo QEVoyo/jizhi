@@ -1,128 +1,260 @@
 <template>
   <div class="tasks-page">
-    <AppLayout>
+    <AppLayout locked>
       <template #sidebar>
-        <CareerSidebar />
+        <CareerSidebar current-page="tasks" />
       </template>
       <template #main>
         <div class="tasks-content">
-          <el-button text @click="goBack" class="back-btn">← 返回</el-button>
           <h1>🌾 勤耕</h1>
           <p class="subtitle">日积月累，勤耕不辍</p>
-          <el-divider />
-
-          <!-- 播种 -->
-          <h2>🌰 播种</h2>
-          <p class="subtitle">新手引导 · 第一次使用各项功能</p>
-          <div class="task-table" v-if="seedTasks.length">
-            <div class="task-row header">
-              <span>状态</span>
-              <span>种子</span>
-              <span>收获</span>
-              <span>价值</span>
-              <span>进度</span>
-            </div>
-            <div class="task-row" v-for="(task, idx) in seedTasks" :key="idx">
-              <span class="status-icon">
-                <el-icon v-if="task.done" color="#67c23a"><Check /></el-icon>
-                <el-icon v-else-if="task.progress >= 100" color="#e6a23c"><Present /></el-icon>
-                <el-icon v-else color="#909399"><Clock /></el-icon>
-              </span>
-              <span>{{ task.name }}</span>
-              <span>+{{ task.reward }}</span>
-              <span>
-                <span v-for="s in task.value" :key="s" class="star">★</span>
-              </span>
-              <span>
-                <el-progress :percentage="task.progress" :color="getColor(task.progress)" :stroke-width="6" />
-              </span>
-            </div>
-          </div>
-          <div v-else class="empty-state">暂无播种任务</div>
 
           <el-divider />
 
-          <!-- 施肥 -->
-          <h2>🌱 施肥</h2>
-          <p class="subtitle">每日任务 · 完成获得收获</p>
-          <div class="task-table" v-if="dailyTasks.length">
-            <div class="task-row header">
-              <span>状态</span>
-              <span>肥料</span>
-              <span>收获</span>
-              <span>价值</span>
-              <span>进度</span>
+          <!-- ===== 播种 ===== -->
+          <div class="task-section">
+            <h2>🌰 播种</h2>
+            <p class="subtitle">新手引导 · 第一次使用各项功能</p>
+            <div class="task-table" v-if="seedTasks.length">
+              <div class="task-row header">
+                <span>状态</span>
+                <span>种子</span>
+                <span>收获</span>
+                <span>价值</span>
+                <span>进度</span>
+              </div>
+              <div class="task-row" v-for="(task, idx) in seedTasks" :key="idx">
+                <span class="status-icon">
+                  <el-icon v-if="task.done" color="#67c23a"><Check /></el-icon>
+                  <el-icon v-else-if="task.progress >= 100" color="#e6a23c"><Present /></el-icon>
+                  <el-icon v-else color="#909399"><Clock /></el-icon>
+                </span>
+                <span class="task-name">{{ task.name }}</span>
+                <span class="task-reward">+{{ task.reward }}</span>
+                <span class="task-value">
+                  <span
+                    v-for="s in task.value"
+                    :key="s"
+                    class="star"
+                    :style="{ color: getStarColor(task.value) }"
+                  >★</span>
+                </span>
+                <span class="task-progress">
+                  <div class="progress-wrapper">
+                    <div class="progress-track">
+                      <div
+                        class="progress-fill"
+                        :style="{
+                          width: task.progress + '%',
+                          background: getProgressColor(task.progress)
+                        }"
+                      />
+                    </div>
+                    <span class="progress-label">{{ task.progress }}%</span>
+                  </div>
+                </span>
+              </div>
             </div>
-            <div class="task-row" v-for="(task, idx) in dailyTasks" :key="idx">
-              <span class="status-icon">
-                <el-icon v-if="task.done" color="#67c23a"><Check /></el-icon>
-                <el-icon v-else-if="task.progress >= 100" color="#e6a23c"><Present /></el-icon>
-                <el-icon v-else color="#909399"><Clock /></el-icon>
-              </span>
-              <span>{{ task.name }}</span>
-              <span>+{{ task.reward }}</span>
-              <span>
-                <span v-for="s in task.value" :key="s" class="star">★</span>
-              </span>
-              <span>
-                <el-progress :percentage="task.progress" :color="getColor(task.progress)" :stroke-width="6" />
-              </span>
-            </div>
+            <div v-else class="empty-state">暂无播种任务</div>
           </div>
-          <div v-else class="empty-state">暂无每日任务</div>
 
           <el-divider />
 
-          <!-- 发芽 -->
-          <h2>🌿 发芽</h2>
-          <p class="subtitle">长期耕耘 · 持续积累 · 阶梯解锁</p>
-          <div class="task-table" v-if="longTasks.length">
-            <div class="task-row header">
-              <span>状态</span>
-              <span>扎根</span>
-              <span>收获</span>
-              <span>价值</span>
-              <span>进度</span>
+          <!-- ===== 施肥 ===== -->
+          <div class="task-section">
+            <div class="section-header-wrap">
+              <h2>🌱 施肥</h2>
+              <div class="section-actions">
+                <el-button
+                  v-if="!refreshUsed"
+                  size="small"
+                  class="refresh-btn"
+                  @click="handleRefreshDaily"
+                >
+                  🔄 换一批
+                </el-button>
+                <el-button
+                  v-else
+                  size="small"
+                  class="refresh-btn disabled"
+                  disabled
+                >
+                  ✅ 已更换
+                </el-button>
+                <span class="task-count">{{ displayDaily.length }} / 5 个任务</span>
+              </div>
             </div>
-            <div class="task-row" v-for="(task, idx) in longTasks" :key="idx">
-              <span class="status-icon">
-                <el-icon v-if="task.done" color="#67c23a"><Check /></el-icon>
-                <el-icon v-else-if="task.progress >= 100" color="#e6a23c"><Present /></el-icon>
-                <el-icon v-else color="#909399"><Clock /></el-icon>
+            <p class="subtitle">每日任务 · 完成获得收获</p>
+
+            <div class="task-table" v-if="displayDaily.length">
+              <div class="task-row header">
+                <span>状态</span>
+                <span>肥料</span>
+                <span>收获</span>
+                <span>价值</span>
+                <span>进度</span>
+              </div>
+              <div class="task-row" v-for="(task, idx) in displayDaily" :key="idx">
+                <span class="status-icon">
+                  <el-icon v-if="task.done" color="#67c23a"><Check /></el-icon>
+                  <el-icon v-else-if="task.progress >= 100" color="#e6a23c"><Present /></el-icon>
+                  <el-icon v-else color="#909399"><Clock /></el-icon>
+                </span>
+                <span class="task-name">{{ task.name }}</span>
+                <span class="task-reward">+{{ task.reward }}</span>
+                <span class="task-value">
+                  <span
+                    v-for="s in task.value"
+                    :key="s"
+                    class="star"
+                    :style="{ color: getStarColor(task.value) }"
+                  >★</span>
+                </span>
+                <span class="task-progress">
+                  <div class="progress-wrapper">
+                    <div class="progress-track">
+                      <div
+                        class="progress-fill"
+                        :style="{
+                          width: task.progress + '%',
+                          background: getProgressColor(task.progress)
+                        }"
+                      />
+                    </div>
+                    <span class="progress-label">{{ task.progress }}%</span>
+                  </div>
+                </span>
+              </div>
+            </div>
+            <div v-else class="empty-state">暂无每日任务</div>
+
+            <!-- 全部完成奖励 -->
+            <div v-if="displayDaily.length === 5 && allDailyDone" class="bonus-row">
+              <span class="bonus-label">🎯 完成全部每日任务</span>
+              <span class="bonus-reward">+50</span>
+              <span class="bonus-value">
+                <span class="star" style="color:#FFD700;">★★★★★</span>
               </span>
-              <span>{{ task.name }}</span>
-              <span>+{{ task.reward }}</span>
-              <span>
-                <span v-for="s in task.value" :key="s" class="star">★</span>
-              </span>
-              <span>
-                <el-progress :percentage="task.progress" :color="getColor(task.progress)" :stroke-width="6" />
-              </span>
+              <div class="bonus-progress">
+                <div class="progress-wrapper">
+                  <div class="progress-track">
+                    <div class="progress-fill" style="width:100%; background:#6BCB77;" />
+                  </div>
+                  <span class="progress-label">100%</span>
+                </div>
+              </div>
+              <el-button
+                v-if="!bonusClaimed"
+                type="warning"
+                size="small"
+                class="claim-btn"
+                @click="claimBonus"
+              >
+                🎁 领取
+              </el-button>
+              <el-button v-else size="small" disabled class="claim-btn done">
+                ✅ 已领取
+              </el-button>
             </div>
           </div>
-          <div v-else class="empty-state">暂无发芽任务</div>
 
           <el-divider />
 
-          <!-- 丰收 -->
-          <h2>🌾 丰收</h2>
-          <p class="subtitle">最接近完成的成就 · 加把劲就能收获</p>
-          <div v-if="pendingAchievements.length">
-            <div
-              v-for="ach in pendingAchievements.slice(0, 8)"
-              :key="ach.id"
-              class="ach-row"
-            >
-              <span>{{ ach.name }}</span>
-              <span class="ach-status">⏳ 未解锁</span>
-              <el-progress :percentage="0" :stroke-width="4" />
+          <!-- ===== 发芽（阶梯式） ===== -->
+          <div class="task-section">
+            <h2>🌿 发芽</h2>
+            <p class="subtitle">长期耕耘 · 持续积累 · 阶梯解锁</p>
+            <div class="task-table" v-if="longTasks.length">
+              <div class="task-row header">
+                <span>状态</span>
+                <span>扎根</span>
+                <span>收获</span>
+                <span>价值</span>
+                <span>进度</span>
+              </div>
+              <div class="task-row" v-for="(task, idx) in longTasks" :key="idx">
+                <span class="status-icon">
+                  <el-icon v-if="task.done" color="#67c23a"><Check /></el-icon>
+                  <el-icon v-else-if="task.progress >= 100" color="#e6a23c"><Present /></el-icon>
+                  <el-icon v-else color="#909399"><Clock /></el-icon>
+                </span>
+                <span class="task-name">{{ task.name }}</span>
+                <span class="task-reward">+{{ task.reward }}</span>
+                <span class="task-value">
+                  <span
+                    v-for="s in task.value"
+                    :key="s"
+                    class="star"
+                    :style="{ color: getStarColor(task.value) }"
+                  >★</span>
+                </span>
+                <span class="task-progress">
+                  <div class="progress-wrapper">
+                    <div class="progress-track">
+                      <div
+                        class="progress-fill"
+                        :style="{
+                          width: task.progress + '%',
+                          background: getProgressColor(task.progress)
+                        }"
+                      />
+                    </div>
+                    <span class="progress-label">{{ task.progress }}%</span>
+                  </div>
+                </span>
+              </div>
             </div>
+            <div v-else class="empty-state">暂无发芽任务</div>
           </div>
-          <div v-else class="empty-state">🎉 所有成就已解锁！继续加油！</div>
 
-          <el-button class="view-all-btn" @click="goAchievements">
-            📋 查看全部成就 →
-          </el-button>
+          <el-divider />
+
+          <!-- ===== 丰收 ===== -->
+          <div class="task-section">
+            <h2>🌾 丰收</h2>
+            <p class="subtitle">最接近完成的成就 · 加把劲就能收获</p>
+            <div v-if="pendingAchievements.length" class="achievement-list">
+              <div
+                v-for="ach in pendingAchievements.slice(0, 8)"
+                :key="ach.id"
+                class="ach-row"
+              >
+                <div
+                  class="ach-icon"
+                  :style="{ color: ach.done ? ach.themeColor : '#555' }"
+                >
+                  <i :class="getIcon(ach.id)"></i>
+                </div>
+                <div class="ach-info">
+                  <span class="ach-name">{{ ach.name }}</span>
+                  <span class="ach-condition">{{ ach.condition }}</span>
+                </div>
+                <span class="ach-status">
+                  <span v-if="ach.done">✅ 已拾取</span>
+                  <span v-else-if="ach.ready" style="color:#e6a23c;">🎁 可领取</span>
+                  <span v-else>⏳ 未解锁</span>
+                </span>
+                <div class="ach-progress">
+                  <div class="progress-track">
+                    <div
+                      class="progress-fill"
+                      :style="{
+                        width: ach.done || ach.ready ? '100%' : '0%',
+                        background: ach.done || ach.ready
+                          ? `linear-gradient(90deg, ${ach.themeColor}66, ${ach.themeColor})`
+                          : '#333'
+                      }"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-state">🎉 所有成就已解锁！继续加油！</div>
+
+            <el-button class="view-all-btn" @click="goAchievements">
+              📋 查看全部成就 →
+            </el-button>
+          </div>
         </div>
       </template>
     </AppLayout>
@@ -130,12 +262,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppLayout from '@/components/AppLayout.vue'
 import CareerSidebar from '@/components/CareerSidebar.vue'
-import { getTaskProgress } from '@/api/career'
+import { getTaskProgress, updateStats } from '@/api/career'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -143,24 +275,171 @@ const authStore = useAuthStore()
 
 const taskData = ref({ seed: [], daily: [], long: [], achievements: [] })
 const loading = ref(true)
+const refreshUsed = ref(false)
+const bonusClaimed = ref(false)
+
+const allDailyTasks = computed(() => taskData.value.daily || [])
+const displayDaily = ref([])
 
 const seedTasks = computed(() => taskData.value.seed || [])
-const dailyTasks = computed(() => taskData.value.daily || [])
 const longTasks = computed(() => taskData.value.long || [])
 const achievements = computed(() => taskData.value.achievements || [])
 const pendingAchievements = computed(() => achievements.value.filter(a => !a.done))
 
-function getColor(progress) {
-  if (progress < 30) return '#FF6B6B'
-  if (progress < 60) return '#FFB74D'
-  if (progress < 80) return '#FFD93D'
-  return '#6BCB77'
+const allDailyDone = computed(() => {
+  const tasks = displayDaily.value
+  return tasks.length === 5 && tasks.every(t => t.done)
+})
+
+function getStarColor(value) {
+  const colors = {
+    1: '#8B8B8B',
+    2: '#66CC66',
+    3: '#4CAF50',
+    4: '#42A5F5',
+    5: '#FFD700',
+    6: '#FF9800',
+    7: '#FF5722',
+    8: '#F44336',
+    9: '#9C27B0',
+    10: '#FFD700'
+  }
+  return colors[value] || '#888'
+}
+
+function getIcon(id) {
+  const map = {
+    'first_checkin': 'fa-book-open',
+    'checkin_7': 'fa-fire',
+    'checkin_30': 'fa-calendar-check',
+    'first_chat': 'fa-comment',
+    'first_plan': 'fa-sitemap',
+    'first_generate': 'fa-pen-fancy',
+    'first_evaluate': 'fa-search',
+    'questions_100': 'fa-scroll',
+    'questions_1000': 'fa-crown',
+    'mistakes_10': 'fa-bullseye',
+    'mistakes_100': 'fa-shield-halved',
+    'sets_5': 'fa-folder-open',
+    'sets_20': 'fa-layer-group',
+    'rank_mingli': 'fa-graduation-cap',
+    'rank_zhizhi': 'fa-brain',
+    'rank_duxing': 'fa-rocket',
+    'rank_zhenjing': 'fa-star',
+    'legend': 'fa-crown',
+    'share_10': 'fa-share-alt',
+    'study_7': 'fa-sun',
+    'timer_10h': 'fa-clock',
+    'logs_50': 'fa-book',
+    'report_10': 'fa-chart-line',
+    'sets_50': 'fa-building',
+    'messages_500': 'fa-comments'
+  }
+  return map[id] || 'fa-trophy'
+}
+
+function getProgressColor(progress) {
+  if (progress < 5) return '#FF0000'
+  if (progress < 10) return '#FF1A00'
+  if (progress < 15) return '#FF3300'
+  if (progress < 20) return '#FF4D00'
+  if (progress < 25) return '#FF6600'
+  if (progress < 30) return '#FF8000'
+  if (progress < 35) return '#FF9900'
+  if (progress < 40) return '#FFB300'
+  if (progress < 45) return '#FFCC00'
+  if (progress < 50) return '#FFE600'
+  if (progress < 55) return '#D4E000'
+  if (progress < 60) return '#A8D500'
+  if (progress < 65) return '#7DCC00'
+  if (progress < 70) return '#52C200'
+  if (progress < 75) return '#26B800'
+  if (progress < 80) return '#00AD00'
+  if (progress < 85) return '#00A300'
+  if (progress < 90) return '#009900'
+  if (progress < 95) return '#008000'
+  return '#006600'
+}
+
+function shuffleArray(arr) {
+  const shuffled = [...arr]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+function getStoredDaily() {
+  try {
+    const stored = sessionStorage.getItem('daily_tasks')
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (parsed.length > 0) return parsed
+    }
+  } catch {}
+  return null
+}
+
+function selectDailyTasks() {
+  const pool = allDailyTasks.value
+  if (!pool.length) {
+    displayDaily.value = []
+    return
+  }
+  const stored = getStoredDaily()
+  if (stored && stored.length === 5) {
+    const poolNames = new Set(pool.map(t => t.name))
+    const allExist = stored.every(t => poolNames.has(t.name))
+    if (allExist) {
+      displayDaily.value = stored
+      return
+    }
+  }
+  const shuffled = shuffleArray(pool)
+  const selected = shuffled.slice(0, 5)
+  displayDaily.value = selected
+  sessionStorage.setItem('daily_tasks', JSON.stringify(selected))
+}
+
+function refreshDailyTasks() {
+  const pool = allDailyTasks.value
+  if (!pool.length) return
+  const shuffled = shuffleArray(pool)
+  const selected = shuffled.slice(0, 5)
+  displayDaily.value = selected
+  sessionStorage.setItem('daily_tasks', JSON.stringify(selected))
+}
+
+async function claimBonus() {
+  try {
+    await updateStats({
+      user_id: authStore.user.id,
+      points_change: 50
+    })
+    bonusClaimed.value = true
+    ElMessage.success('🎉 获得 50 分！')
+    await loadData()
+  } catch {
+    ElMessage.error('领取失败')
+  }
+}
+
+async function handleRefreshDaily() {
+  if (refreshUsed.value) {
+    ElMessage.warning('今日已更换过任务')
+    return
+  }
+  refreshUsed.value = true
+  refreshDailyTasks()
+  ElMessage.success('🔄 任务已更换')
 }
 
 async function loadData() {
   loading.value = true
   try {
     taskData.value = await getTaskProgress(authStore.user.id)
+    selectDailyTasks()
   } catch (error) {
     ElMessage.error('加载任务失败')
   } finally {
@@ -168,9 +447,9 @@ async function loadData() {
   }
 }
 
-function goBack() {
-  router.push('/career')
-}
+watch(allDailyTasks, () => {
+  selectDailyTasks()
+}, { deep: true })
 
 function goAchievements() {
   router.push('/career/achievements')
@@ -182,25 +461,47 @@ onMounted(loadData)
 <style scoped>
 .tasks-content {
   padding: 8px 4px;
+  max-width: 900px;
+  margin: 0 auto;
 }
-.back-btn {
-  margin-bottom: 12px;
-  color: var(--text-secondary);
-}
-h1 {
-  font-size: 28px;
-  color: var(--text-primary);
-}
+h1 { font-size: 28px; color: var(--text-primary); }
 .subtitle {
   color: var(--text-secondary);
   font-size: 14px;
   opacity: 0.6;
 }
 
+.task-section {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(12px);
+  border-radius: 14px;
+  padding: 20px 24px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+.section-header-wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.section-header-wrap h2 { font-size: 20px; margin: 0; color: var(--text-primary); }
+.section-actions { display: flex; align-items: center; gap: 8px; }
+.task-count { font-size: 13px; color: var(--text-muted); }
+
+.refresh-btn {
+  transition: all 0.3s ease !important;
+  border-radius: 10px !important;
+}
+.refresh-btn:hover { transform: translateY(-2px) scale(1.03) !important; }
+.refresh-btn.disabled { opacity: 0.5; }
+
 .task-table {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   margin-top: 8px;
 }
 .task-row {
@@ -208,43 +509,85 @@ h1 {
   grid-template-columns: 50px 1fr 60px 70px 1fr;
   gap: 8px;
   align-items: center;
-  padding: 4px 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
   font-size: 14px;
 }
-.task-row.header {
-  font-weight: 600;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-.task-row:hover {
-  background: rgba(128, 128, 128, 0.04);
-  border-radius: 6px;
-}
-.status-icon {
+.task-row.header { font-weight: 600; color: var(--text-muted); font-size: 12px; }
+.task-row:hover { background: rgba(128,128,128,0.04); }
+.status-icon { display: flex; justify-content: center; }
+.task-name { color: var(--text-primary); }
+.task-reward { color: var(--text-secondary); }
+.star { font-size: 12px; letter-spacing: 1px; }
+
+.progress-wrapper {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: 8px;
 }
-.star {
-  color: #FFD700;
-  font-size: 12px;
+.progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(128,128,128,0.15);
+  overflow: hidden;
 }
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+.progress-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 32px;
+  text-align: right;
+}
+
+.bonus-row {
+  display: grid;
+  grid-template-columns: 50px 1fr 60px 70px 1fr 100px;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 8px;
+  margin-top: 12px;
+  border-radius: 8px;
+  background: rgba(255,215,0,0.06);
+  border: 1px solid rgba(255,215,0,0.12);
+}
+.bonus-label { font-weight: 600; color: var(--text-primary); }
+.bonus-reward { color: #FFB300; font-weight: 600; }
+.claim-btn { transition: all 0.3s ease !important; }
+.claim-btn:hover { transform: translateY(-2px) scale(1.03) !important; }
+.claim-btn.done { opacity: 0.5; }
+
+.achievement-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ach-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+.ach-row:hover { background: rgba(128,128,128,0.04); }
+.ach-icon { font-size: 18px; width: 28px; text-align: center; }
+.ach-info { flex: 1; }
+.ach-name { font-size: 13px; color: var(--text-primary); }
+.ach-condition { font-size: 11px; color: var(--text-muted); }
+.ach-status { font-size: 12px; min-width: 70px; }
+.ach-progress { flex: 1; max-width: 100px; }
+.ach-progress .progress-track { height: 4px; }
+
 .empty-state {
   color: var(--text-muted);
   padding: 16px 0;
   text-align: center;
-}
-
-.ach-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 6px 0;
-  font-size: 14px;
-}
-.ach-status {
-  font-size: 12px;
-  color: var(--text-muted);
-  min-width: 70px;
 }
 
 .view-all-btn {
@@ -254,5 +597,19 @@ h1 {
   border-radius: 10px !important;
   background: transparent !important;
   color: var(--text-secondary) !important;
+  transition: all 0.3s ease !important;
+}
+.view-all-btn:hover { transform: translateY(-2px) scale(1.02) !important; }
+
+@media (max-width: 768px) {
+  .task-row {
+    grid-template-columns: 40px 1fr 50px 50px 1fr;
+    font-size: 12px;
+    gap: 4px;
+  }
+  .bonus-row {
+    grid-template-columns: 40px 1fr 50px 50px 1fr 80px;
+    font-size: 12px;
+  }
 }
 </style>
