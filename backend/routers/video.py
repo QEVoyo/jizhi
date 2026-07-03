@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Query
 import httpx
+from fastapi import APIRouter, Query, Response
+from typing import Optional
 
 router = APIRouter(prefix="/video", tags=["视频"])
 
@@ -11,37 +12,54 @@ async def search_bilibili(
     page_size: int = Query(4, ge=1, le=20)
 ):
     """搜索B站视频（代理，解决跨域）"""
-    url = "https://api.bilibili.com/x/web-interface/search/type"
-    params = {
-        "search_type": "video",
-        "keyword": keyword,
-        "page": page,
-        "page_size": page_size
-    }
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": "https://www.bilibili.com/"
-    }
+    try:
+        url = "https://api.bilibili.com/x/web-interface/search/type"
+        params = {
+            "search_type": "video",
+            "keyword": keyword,
+            "page": page,
+            "page_size": page_size
+        }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://www.bilibili.com/"
+        }
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(url, params=params, headers=headers)
-        data = resp.json()
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params=params, headers=headers)
+            data = resp.json()
 
-    if data.get("code") != 0:
-        return {"success": False, "message": data.get("message", "搜索失败"), "videos": []}
+        if data.get("code") != 0:
+            return {"success": False, "message": data.get("message", "搜索失败"), "videos": []}
 
-    result = data.get("data", {})
-    videos = []
-    for v in result.get("result", [])[:page_size]:
-        videos.append({
-            "title": v.get("title", "").replace("<em class=\"keyword\">", "").replace("</em>", ""),
-            "bvid": v.get("bvid"),
-            "author": v.get("author"),
-            "pic": v.get("pic"),
-            "duration": v.get("duration"),
-            "url": f"https://www.bilibili.com/video/{v.get('bvid')}",
-            "play": v.get("play"),
-            "like": v.get("like")
-        })
+        result = data.get("data", {})
+        videos = []
+        for v in result.get("result", [])[:page_size]:
+            videos.append({
+                "title": v.get("title", "").replace("<em class=\"keyword\">", "").replace("</em>", ""),
+                "bvid": v.get("bvid"),
+                "author": v.get("author"),
+                "pic": v.get("pic", "").replace("http://", "https://"),  # 👈 强制 HTTPS
+                "duration": v.get("duration"),
+                "url": f"https://www.bilibili.com/video/{v.get('bvid')}",
+                "play": v.get("play"),
+                "like": v.get("like")
+            })
 
-    return {"success": True, "videos": videos, "total": result.get("numResults", 0)}
+        return {"success": True, "videos": videos, "total": result.get("numResults", 0)}
+    except Exception as e:
+        print(f"视频搜索错误: {e}")
+        return {"success": False, "message": str(e), "videos": []}
+
+
+@router.get("/image")
+async def proxy_image(url: str):
+    """代理B站图片，解决防盗链"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers={
+                "Referer": "https://www.bilibili.com/"
+            })
+            return Response(content=resp.content, media_type="image/jpeg")
+    except Exception as e:
+        return Response(content=b"", status_code=404)

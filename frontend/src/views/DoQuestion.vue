@@ -184,7 +184,13 @@
               class="video-card"
               @click="openVideo(video)"
             >
-              <img :src="video.pic" :alt="video.title" loading="lazy"referrerpolicy="no-referrer"/>
+              <img
+  :src="video.pic"
+  :alt="video.title"
+  loading="lazy"
+  referrerpolicy="no-referrer"
+  @error="handleImageError(video)"
+/>
               <div class="video-info">
                 <div class="video-title-text">{{ video.title }}</div>
                 <div class="video-meta">
@@ -466,7 +472,9 @@ function loadQuestion() {
     router.back()
   }
 }
-
+function handleImageError(video) {
+  video.pic = '' // 图片加载失败时隐藏
+}
 async function loadQuestionSets() {
   try {
     questionSets.value = await getQuestionSets(authStore.user.id)
