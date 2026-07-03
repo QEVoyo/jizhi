@@ -39,7 +39,7 @@ async def search_bilibili(
                 "title": v.get("title", "").replace("<em class=\"keyword\">", "").replace("</em>", ""),
                 "bvid": v.get("bvid"),
                 "author": v.get("author"),
-                "pic": v.get("pic", "").replace("http://", "https://"),  # 👈 强制 HTTPS
+                "pic": v.get("pic", "").replace("http://", "https://"),
                 "duration": v.get("duration"),
                 "url": f"https://www.bilibili.com/video/{v.get('bvid')}",
                 "play": v.get("play"),
@@ -50,16 +50,3 @@ async def search_bilibili(
     except Exception as e:
         print(f"视频搜索错误: {e}")
         return {"success": False, "message": str(e), "videos": []}
-
-
-@router.get("/image")
-async def proxy_image(url: str):
-    """代理B站图片，解决防盗链"""
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(url, headers={
-                "Referer": "https://www.bilibili.com/"
-            })
-            return Response(content=resp.content, media_type="image/jpeg")
-    except Exception as e:
-        return Response(content=b"", status_code=404)
