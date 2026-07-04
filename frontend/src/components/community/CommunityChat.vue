@@ -1,6 +1,5 @@
 <template>
   <div class="community-chat">
-    <!-- ===== 聊天头部 ===== -->
     <div class="chat-header">
       <el-button text class="back-btn" @click="goBack">
         <i class="fas fa-arrow-left"></i>
@@ -18,7 +17,6 @@
 
     <el-divider />
 
-    <!-- ===== 消息列表 ===== -->
     <div class="message-list" ref="messageListRef">
       <div v-if="loading" class="loading-state">
         <i class="fas fa-spinner fa-spin"></i> 加载中...
@@ -38,23 +36,9 @@
           <span class="message-content">{{ msg.content }}</span>
           <span class="message-time">{{ formatTime(msg.created_at) }}</span>
         </div>
-        <!-- 分享卡片 -->
-        <ShareCard
-          v-if="msg.message_type === 'question'"
-          :question-id="msg.question_id"
-          type="question"
-          @click="goQuestion"
-        />
-        <ShareCard
-          v-if="msg.message_type === 'question_set'"
-          :set-id="msg.question_set_id"
-          type="question_set"
-          @click="goSet"
-        />
       </div>
     </div>
 
-    <!-- ===== 输入区 ===== -->
     <div class="chat-input-wrapper">
       <div class="chat-tools">
         <el-button text class="tool-btn" @click="showShareMenu = !showShareMenu">
@@ -76,15 +60,14 @@
           v-model="inputContent"
           placeholder="输入消息..."
           size="large"
-          @keyup.enter="sendMessage"
+          @keyup.enter="handleSendMessage"
         />
-        <el-button type="primary" :loading="sending" @click="sendMessage">
+        <el-button type="primary" :loading="sending" @click="handleSendMessage">
           <i class="fas fa-paper-plane"></i>
         </el-button>
       </div>
     </div>
 
-    <!-- ===== 分享菜单 ===== -->
     <div v-if="showShareMenu" class="share-menu" @click.stop>
       <div class="share-options">
         <button class="share-option" @click="shareQuestion">
@@ -103,7 +86,6 @@ import { ref, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
-import ShareCard from './ShareCard.vue'
 import { getMessages, sendMessage } from '@/api/community'
 
 const router = useRouter()
@@ -126,14 +108,6 @@ function goBack() {
 
 function goUserProfile(userId) {
   router.push(`/community/user/${userId}`)
-}
-
-function goQuestion() {
-  router.push('/do-question')
-}
-
-function goSet() {
-  router.push('/set-detail')
 }
 
 function formatTime(time) {
@@ -162,7 +136,7 @@ function scrollToBottom() {
   }
 }
 
-async function sendMessage() {
+async function handleSendMessage() {
   if (!inputContent.value.trim()) {
     ElMessage.warning('请输入内容')
     return
@@ -191,7 +165,6 @@ function selectImage() {
 function handleImageSelect(event) {
   const file = event.target.files[0]
   if (file) {
-    // 上传图片逻辑
     ElMessage.info('图片上传功能开发中')
   }
   event.target.value = ''
