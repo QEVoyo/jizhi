@@ -1,5 +1,5 @@
 // ===== 后端地址 =====
-export const BACKEND_URL = 'https://api.jizhi-learn.com'
+export const BACKEND_URL = 'http://localhost:8000'
 console.log('=== constants.js 加载了, BACKEND_URL:', 'https://api.jizhi-learn.com')  // 👈 加这行
 // ===== 题型映射 =====
 export const TYPE_MAP = {
@@ -61,7 +61,11 @@ export const BG_MAP = {
     mastery_board: '/assets/bg/mastery_board_bg.jpg',
     set_detail: '/assets/bg/set_detail_bg.jpg',
     generate: '/assets/bg/generate_from_mastery_bg.jpg',
-    profile: '/assets/bg/profile_bg.jpg'
+    profile: '/assets/bg/profile_bg.jpg',
+    // ===== 新增三个页面 =====
+    community: '/assets/bg/community_bg.jpg',
+    qa: '/assets/bg/qa_bg.jpg',
+    message: '/assets/bg/message_bg.jpg'
   },
   dark: {
     landing: '/assets/bg/main_bl.jpg',
@@ -76,6 +80,10 @@ export const BG_MAP = {
     mastery_board: '/assets/bg/mastery_board_bl.jpg',
     set_detail: '/assets/bg/set_detail_bl.jpg',
     generate: '/assets/bg/generate_from_mastery_bl.jpg',
-    profile: '/assets/bg/profile_bl.jpg'
+    profile: '/assets/bg/profile_bl.jpg',
+    // ===== 新增三个页面 =====
+    community: '/assets/bg/community_bl.jpg',
+    qa: '/assets/bg/qa_bl.jpg',
+    message: '/assets/bg/message_bl.jpg'
   }
 }

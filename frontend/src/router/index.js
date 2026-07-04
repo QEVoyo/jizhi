@@ -79,6 +79,64 @@ const routes = [
     name: 'GenerateFromMastery',
     component: () => import('@/views/GenerateFromMastery.vue'),
     meta: { requiresAuth: true }
+  },
+  // ===== 社区 =====
+  {
+    path: '/community',
+    name: 'Community',
+    component: () => import('@/views/Community.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'CommunityFeed',
+        component: () => import('@/components/community/CommunityFeed.vue')
+      },
+      {
+        path: 'friends',
+        name: 'CommunityFriends',
+        component: () => import('@/components/community/CommunityFriends.vue')
+      },
+      {
+        path: 'collections',
+        name: 'CommunityCollections',
+        component: () => import('@/components/community/CommunityCollections.vue')
+      },
+      {
+        path: 'my-posts',
+        name: 'CommunityMyPosts',
+        component: () => import('@/components/community/CommunityMyPosts.vue')
+      },
+      {
+        path: 'profile-card',
+        name: 'CommunityProfileCard',
+        component: () => import('@/components/community/CommunityProfileCard.vue')
+      },
+      {
+        path: 'chat/:friendId',
+        name: 'CommunityChat',
+        component: () => import('@/components/community/CommunityChat.vue')
+      },
+      {
+        path: 'user/:userId',
+        name: 'CommunityUserProfile',
+        component: () => import('@/components/community/CommunityUserProfile.vue')
+      }
+    ]
+  },
+  // ===== Q&A =====
+  {
+    path: '/qa',
+    name: 'QAPage',
+    component: () => import('@/components/QAPage.vue'),
+    meta: { requiresAuth: true }
+  },
+  // ===== 消息中心 =====
+  {
+    path: '/message',
+    name: 'MessageCenter',
+    component: () => import('@/components/MessageCenter.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

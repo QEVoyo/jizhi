@@ -61,7 +61,26 @@
       <router-link to="/career" class="nav-item" :class="{ active: activeMenu === '/career' }" :title="isCollapsed ? '学程' : ''">
         <i class="fas fa-route"></i><span>学程</span>
       </router-link>
+
+      <!-- ===== 社区 ===== -->
+      <router-link to="/community" class="nav-item" :class="{ active: activeMenu === '/community' }" :title="isCollapsed ? '社区' : ''">
+        <i class="fas fa-users"></i><span>社区</span>
+      </router-link>
+
+      <!-- ===== Q&A ===== -->
+      <router-link to="/qa" class="nav-item" :class="{ active: activeMenu === '/qa' }" :title="isCollapsed ? 'Q&A' : ''">
+        <i class="fas fa-question-circle"></i><span>Q&A</span>
+      </router-link>
+
+      <!-- ===== 消息中心（带角标） ===== -->
+      <router-link to="/message" class="nav-item" :class="{ active: activeMenu === '/message' }" :title="isCollapsed ? '消息中心' : ''">
+        <i class="fas fa-bell"></i>
+        <span>消息中心</span>
+        <span v-if="unreadCount > 0" class="msg-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+      </router-link>
     </nav>
+    <!-- ===== 分隔线 ===== -->
+      <div class="nav-divider"></div>
 
     <!-- ===== 工作台 ===== -->
     <Workbench v-if="!isCollapsed" />
@@ -120,7 +139,7 @@
     </div>
   </div>
 
-  <!-- ===== 反馈弹窗（无遮罩） ===== -->
+  <!-- ===== 反馈弹窗 ===== -->
   <el-dialog
     v-model="showFeedback"
     title="📬 意见反馈"
@@ -221,7 +240,6 @@ const statusMenuVisible = ref(false)
 const statusOptions = [
   { value: 'online', label: '在线' },
   { value: 'invisible', label: '隐身' }
-  // 离线由系统自动设置，用户不能手动选
 ]
 const userStatusClass = computed(() => userStatus.value)
 const userStatusText = computed(() => {
@@ -338,9 +356,19 @@ function handleLogout() {
     .catch(() => {})
 }
 
+// ===== 消息未读数 =====
+const unreadCount = ref(0)
+
+async function fetchUnreadCount() {
+  // TODO: 对接后端 API 获取未读消息数
+  // 暂时用模拟数据
+  unreadCount.value = 3
+}
+
 onMounted(() => {
   sessionStore.loadSessions()
   loadRankData()
+  fetchUnreadCount()
   document.addEventListener('click', handleClickOutside)
 })
 
@@ -605,6 +633,36 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* ===== 消息角标 ===== */
+.msg-badge {
+  margin-left: auto;
+  background: rgba(128, 128, 128, 0.25);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 12px;
+  min-width: 20px;
+  text-align: center;
+  line-height: 1.6;
+  transition: all 0.3s ease;
+}
+[data-theme="dark"] .msg-badge {
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--text-secondary);
+}
+.nav-item:hover .msg-badge {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}
+
+.nav-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 8px;
+  opacity: 0.4;
+}
+
 .session-section {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
@@ -860,7 +918,7 @@ onUnmounted(() => {
 </style>
 
 <style>
-/* ===== 反馈弹窗（无遮罩，独立毛玻璃） ===== */
+/* ===== 反馈弹窗 ===== */
 .feedback-dialog-wrapper {
   --el-dialog-bg-color: transparent;
 }

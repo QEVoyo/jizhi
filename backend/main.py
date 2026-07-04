@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import auth, chat, tools, questions, career
 import sys
+from routers import community
 from pathlib import Path
+from routers import profile_card
 from routers import auth, career, chat, questions, tools, video
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -31,6 +33,8 @@ app.include_router(tools.router)
 app.include_router(questions.router)
 app.include_router(career.router)
 app.include_router(video.router)
+app.include_router(community.router)
+app.include_router(profile_card.router)
 @app.get("/")
 def root():
     return {"message": "基智学习助手后端已启动"}

@@ -27,7 +27,10 @@ const bgKey = computed(() => {
     '/do-question': 'do_question',
     '/mastery-board': 'mastery_board',
     '/set-detail': 'set_detail',
-    '/generate-from-mastery': 'generate'
+    '/generate-from-mastery': 'generate',
+    '/community': 'community',
+    '/qa': 'qa',
+    '/message': 'message'
   }
   return map[route.path] || 'main'
 })
@@ -43,16 +46,17 @@ const overlayColor = computed(() => {
     : 'rgba(255, 255, 255, 0.15)'
 })
 
-const bgStyle = computed(() => ({
-  backgroundImage: `
-    linear-gradient(${overlayColor.value}, ${overlayColor.value}),
-    url(${bgImage.value})
-  `,
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  backgroundAttachment: 'fixed',
-  minHeight: '100vh'
-}))
+const bgStyle = computed(() => {
+  const image = bgImage.value
+  return {
+    backgroundImage: `linear-gradient(${overlayColor.value}, ${overlayColor.value}), url(${image})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundAttachment: 'fixed',
+    minHeight: '100vh',
+    backgroundRepeat: 'no-repeat'
+  }
+})
 </script>
 
 <style>
@@ -67,12 +71,10 @@ body,
 #app {
   width: 100%;
   min-height: 100vh;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
 }
 
 .app-container {
   min-height: 100vh;
-  transition: background-image 0.5s ease;
 }
 
 ::-webkit-scrollbar {

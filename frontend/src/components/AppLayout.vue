@@ -164,6 +164,7 @@ function toggleSidebar() {
     height: auto;
     min-height: auto;
     overflow: visible;
+    background: transparent !important; /* 👈 加这行 */
   }
   .main-content.expanded {
     padding: 12px 16px;
