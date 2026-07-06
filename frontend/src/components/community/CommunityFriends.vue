@@ -28,7 +28,7 @@
         <i class="fas fa-search search-icon"></i>
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索用户..."
+          placeholder="请输入用户账号"
           size="small"
           clearable
           @input="handleSearch"
@@ -48,20 +48,42 @@
         <div v-if="loading" class="loading-state">
           <i class="fas fa-spinner fa-spin"></i> 加载中...
         </div>
-        <div v-else-if="!friends.length" class="empty-state">
-          <i class="fas fa-user-friends" style="font-size: 48px; opacity: 0.3;"></i>
-          <p>暂无好友</p >
-          <span>去认识一些志同道合的学习伙伴吧！</span>
-        </div>
         <div v-else class="friend-list">
-          <div v-for="friend in friends" :key="friend.id" class="friend-card">
+          <!-- ===== AI好友「小基」= 始终显示 ===== -->
+          <div class="friend-card xiaoji-card">
+            <div class="friend-info" @click="goChat('xiaoji')">
+              <el-avatar :size="44" src="/logo.png" class="friend-avatar xiaoji-avatar" />
+              <div class="friend-detail">
+                <div class="friend-name-row">
+                  <span class="friend-name">🤖 小基</span>
+                  <span class="friend-status-dot online"></span>
+                </div>
+                <span class="friend-account">AI 学习伙伴</span>
+              </div>
+            </div>
+            <div class="friend-actions">
+              <el-button size="small" type="primary" @click="goChat('xiaoji')">
+                <i class="fas fa-comment"></i> 聊天
+              </el-button>
+            </div>
+          </div>
+
+          <!-- ===== 真人好友 ===== -->
+          <div
+            v-for="friend in friends"
+            :key="friend.id"
+            class="friend-card"
+          >
             <div class="friend-info" @click="goUserProfile(friend.id)">
               <el-avatar :size="44" :src="friend.avatar_url || ''" class="friend-avatar">
                 {{ friend.nickname?.[0] || 'U' }}
               </el-avatar>
               <div class="friend-detail">
-                <span class="friend-name">{{ friend.nickname || '用户' }}</span>
-                <span class="friend-account">{{ friend.account || '' }}</span>
+                <div class="friend-name-row">
+                  <span class="friend-name">{{ friend.nickname || '用户' }}</span>
+                  <span class="friend-status-dot" :class="friend.status || 'offline'"></span>
+                </div>
+                <span class="friend-account">{{ friend.user_account || '' }}</span>
               </div>
             </div>
             <div class="friend-actions">
@@ -156,7 +178,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -179,6 +201,7 @@ const searchKeyword = ref('')
 const friends = ref([])
 const requests = ref([])
 const searchResults = ref([])
+let statusTimer = null
 
 const tabs = computed(() => [
   { key: 'list', label: '好友列表', badge: null },
@@ -217,7 +240,6 @@ async function handleSearch() {
   try {
     const res = await searchUsers(searchKeyword.value, authStore.user.id)
     searchResults.value = res.users || []
-    // 检查好友状态
     for (const user of searchResults.value) {
       if (friends.value.find(f => f.id === user.id)) {
         user.friend_status = 'friend'
@@ -236,12 +258,15 @@ async function handleSearch() {
 
 async function sendRequest(userId) {
   try {
-    await sendFriendRequest(authStore.user.id, userId)
+    const res = await sendFriendRequest(authStore.user.id, userId)
+    console.log('=== 添加好友响应 ===', res)
     ElMessage.success('好友请求已发送')
     await loadData()
     handleSearch()
-  } catch {
-    ElMessage.error('发送失败')
+  } catch (error) {
+    console.error('=== 添加好友失败 ===', error)
+    console.error('=== 错误详情 ===', error.response?.data || error.message)
+    ElMessage.error(error.response?.data?.detail || '发送失败')
   }
 }
 
@@ -278,15 +303,42 @@ function switchTab(key) {
 }
 
 function goUserProfile(userId) {
-  router.push(`/community/user/${userId}`)
+  const from = activeTab.value
+  router.push({
+    path: `/community/user/${userId}`,
+    query: { from: from }
+  })
 }
 
 function goChat(friendId) {
-  router.push(`/community/chat/${friendId}`)
+  if (friendId === 'xiaoji') {
+    router.push('/community/chat/xiaoji')
+  } else {
+    router.push(`/community/chat/${friendId}`)
+  }
 }
+
+import { useRoute } from 'vue-router'  // 文件顶部加
+
+const route = useRoute()  // 在 router 下面加
 
 onMounted(() => {
   loadData()
+  statusTimer = setInterval(() => {
+    loadData()
+  }, 30000)
+
+  // 新增：从 URL 参数恢复 Tab
+  const tab = route.query.tab
+  if (tab && ['list', 'requests', 'search'].includes(tab)) {
+    activeTab.value = tab
+  }
+})
+
+onUnmounted(() => {
+  if (statusTimer) {
+    clearInterval(statusTimer)
+  }
 })
 </script>
 
@@ -382,6 +434,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 8px;
 }
+
 .friend-card,
 .request-card,
 .search-result-card {
@@ -399,6 +452,19 @@ onMounted(() => {
 .search-result-card:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ===== 小基专属样式 ===== */
+.xiaoji-card {
+  border: 1px solid rgba(64, 158, 255, 0.15);
+  background: rgba(64, 158, 255, 0.04);
+}
+.xiaoji-card:hover {
+  background: rgba(64, 158, 255, 0.08);
+  border-color: rgba(64, 158, 255, 0.25);
+}
+.xiaoji-avatar {
+  border: 2px solid rgba(64, 158, 255, 0.2);
 }
 
 .friend-info,
@@ -421,6 +487,12 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
 }
+
+.friend-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .friend-name,
 .request-name,
 .result-name {
@@ -437,6 +509,25 @@ onMounted(() => {
 .request-time {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+/* ===== 状态点 ===== */
+.friend-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.friend-status-dot.online {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+}
+.friend-status-dot.offline {
+  background: #6b7280;
+}
+.friend-status-dot.invisible {
+  background: #6b7280;
 }
 
 .friend-actions,

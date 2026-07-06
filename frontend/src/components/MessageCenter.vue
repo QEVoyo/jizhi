@@ -9,6 +9,7 @@
           </el-button>
           <img src="/logo.png" alt="基智" class="header-logo" />
           <h1>消息中心</h1>
+          <span v-if="totalUnread > 0" class="header-badge">{{ totalUnread }}</span>
         </div>
         <el-button text class="settings-btn" @click="showSettings = true">
           <el-icon><Setting /></el-icon>
@@ -17,7 +18,7 @@
 
       <el-divider />
 
-      <!-- ===== Tab 分类 ===== -->
+      <!-- ===== 分类 Tab 栏 ===== -->
       <div class="tab-section">
         <button
           v-for="tab in tabList"
@@ -53,56 +54,54 @@
       <!-- ===== 消息列表 ===== -->
       <div class="message-list">
         <div
-          v-for="msg in filteredMessages"
-          :key="msg.id"
+          v-for="item in filteredMessages"
+          :key="item.id"
           class="message-card"
-          :class="{ unread: !msg.is_read }"
-          @click="handleMessageClick(msg)"
+          :class="{ unread: item.message_count > 0 }"
+          @click="handleMessageClick(item)"
         >
           <el-checkbox
             v-model="selectedIds"
-            :value="msg.id"
+            :value="item.id"
             @click.stop
             class="message-checkbox"
           />
-          <div class="message-icon" :style="{ color: msg.iconColor }">
-            <el-icon :size="24"><component :is="msg.icon" /></el-icon>
+          <div class="message-icon">
+            <el-avatar :size="40" :src="item.sender_avatar || ''" class="msg-avatar">
+              {{ item.sender_name?.[0] || 'U' }}
+            </el-avatar>
+            <span v-if="item.type" class="msg-type-tag" :class="item.type">
+              {{ typeLabels[item.type] }}
+            </span>
           </div>
           <div class="message-body">
             <div class="message-top">
-              <span class="message-title">{{ msg.title }}</span>
-              <span class="message-time">{{ msg.time }}</span>
+              <span class="message-title">{{ item.sender_name }}</span>
+              <span class="message-time">{{ formatTime(item.latest_time) }}</span>
             </div>
-            <div class="message-content">{{ msg.content }}</div>
-            <div v-if="msg.actions" class="message-actions">
-              <button
-                v-for="action in msg.actions"
-                :key="action.label"
-                class="msg-action-btn"
-                @click.stop="handleAction(action, msg)"
-              >
-                {{ action.label }}
-              </button>
+            <div class="message-content">
+              {{ item.latest_content || '发来了一条消息' }}
+            </div>
+            <div class="message-count-badge" v-if="item.message_count > 1">
+              {{ item.message_count }} 条消息
             </div>
           </div>
-          <div v-if="!msg.is_read" class="unread-dot"></div>
+          <div v-if="item.message_count > 0" class="unread-dot"></div>
         </div>
 
-        <div v-if="!filteredMessages.length" class="empty-state">
+        <div v-if="loading" class="loading-state">
+          <i class="fas fa-spinner fa-spin"></i> 加载中...
+        </div>
+
+        <div v-else-if="!filteredMessages.length" class="empty-state">
           <el-icon :size="48"><Bell /></el-icon>
-          <p>暂无消息</p>
+          <p>{{ emptyText }}</p>
           <span>当你收到新消息时，会在这里显示</span>
-        </div>
-
-        <div v-if="filteredMessages.length" class="load-more">
-          <el-button text @click="loadMore" :loading="loadingMore">
-            {{ hasMore ? '加载更多' : '已加载全部' }}
-          </el-button>
         </div>
       </div>
     </div>
 
-    <!-- ===== 设置弹窗 - 内联强制毛玻璃 ===== -->
+    <!-- ===== 设置弹窗 ===== -->
     <el-dialog
       v-model="showSettings"
       title="消息设置"
@@ -164,8 +163,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Setting,
@@ -174,117 +174,23 @@ import {
   Delete,
   Remove,
   Trophy,
-  Star,
-  Calendar,
-  DataLine,
   User,
-  FolderOpened,
-  Promotion
+  Promotion,
+  ChatDotRound
 } from '@element-plus/icons-vue'
+import { getUnreadSummary, markMessagesRead } from '@/api/community'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const activeTab = ref('all')
 const selectedIds = ref([])
 const selectAll = ref(false)
-const loadingMore = ref(false)
-const hasMore = ref(true)
+const loading = ref(false)
 const showSettings = ref(false)
 
-const messages = ref([
-  {
-    id: 1,
-    type: 'system',
-    icon: Promotion,
-    iconColor: '#409EFF',
-    title: '基智学习助手 v2.0 已上线',
-    content: '新增社区功能、多模态素材生成、Q&A帮助中心，快来体验吧！',
-    time: '刚刚',
-    is_read: false,
-    actions: [{ label: '查看详情', route: '/community' }]
-  },
-  {
-    id: 2,
-    type: 'report',
-    icon: DataLine,
-    iconColor: '#67C23A',
-    title: '本周学情报告已生成',
-    content: '本周掌握度整体提升 12%，薄弱项：导数（42%），建议加强练习。',
-    time: '2小时前',
-    is_read: false,
-    actions: [{ label: '查看报告', route: '/profile' }]
-  },
-  {
-    id: 3,
-    type: 'social',
-    icon: User,
-    iconColor: '#E6A23C',
-    title: '好友请求',
-    content: '用户「小明」请求添加你为好友，来自同一学习小组。',
-    time: '3小时前',
-    is_read: false,
-    actions: [
-      { label: '接受', action: 'accept' },
-      { label: '拒绝', action: 'reject' }
-    ]
-  },
-  {
-    id: 4,
-    type: 'learning',
-    icon: Trophy,
-    iconColor: '#F56C6C',
-    title: '成就解锁：错题猎手',
-    content: '恭喜你攻克 10 道错题，获得「错题猎手」成就！继续加油！',
-    time: '昨天 18:30',
-    is_read: true,
-    actions: [{ label: '查看成就', route: '/career/achievements' }]
-  },
-  {
-    id: 5,
-    type: 'learning',
-    icon: Star,
-    iconColor: '#9C27B0',
-    title: '段位晋升：明理',
-    content: '恭喜你晋升到「明理」段位！积分已达 500 分，继续攀登！',
-    time: '昨天 14:20',
-    is_read: true,
-    actions: [{ label: '查看段位', route: '/career/rank' }]
-  },
-  {
-    id: 6,
-    type: 'system',
-    icon: Calendar,
-    iconColor: '#409EFF',
-    title: '打卡提醒',
-    content: '今日尚未打卡，坚持学习才能不断进步，快来打卡吧！',
-    time: '昨天 09:00',
-    is_read: true,
-    actions: [{ label: '去打卡', route: '/home' }]
-  },
-  {
-    id: 7,
-    type: 'social',
-    icon: FolderOpened,
-    iconColor: '#42A5F5',
-    title: '题集分享',
-    content: '好友「小红」向你分享题集「高数必刷100题」，共 50 道题。',
-    time: '2天前',
-    is_read: true,
-    actions: [
-      { label: '接收', action: 'receive_set' },
-      { label: '拒绝', action: 'reject_set' }
-    ]
-  }
-])
-
-const tabList = computed(() => [
-  { key: 'all', icon: Bell, label: '全部', count: 0 },
-  { key: 'unread', icon: Bell, label: '未读', count: messages.value.filter(m => !m.is_read).length },
-  { key: 'system', icon: Promotion, label: '系统', count: messages.value.filter(m => m.type === 'system' && !m.is_read).length },
-  { key: 'learning', icon: Trophy, label: '学习', count: messages.value.filter(m => m.type === 'learning' && !m.is_read).length },
-  { key: 'social', icon: User, label: '社交', count: messages.value.filter(m => m.type === 'social' && !m.is_read).length },
-  { key: 'report', icon: DataLine, label: '学情', count: messages.value.filter(m => m.type === 'report' && !m.is_read).length }
-])
+const summary = ref([])
+const totalUnread = ref(0)
 
 const prefs = ref({
   system: true,
@@ -297,15 +203,68 @@ const prefs = ref({
   autoArchive: true
 })
 
-const filteredMessages = computed(() => {
-  let result = messages.value
-  if (activeTab.value === 'unread') {
-    result = result.filter(m => !m.is_read)
-  } else if (activeTab.value !== 'all') {
-    result = result.filter(m => m.type === activeTab.value)
-  }
-  return result
+// ===== 类型标签映射 =====
+const typeLabels = {
+  chat: '好友消息',
+  social: '社区互动',
+  learning: '学习动态',
+  system: '官方消息'
+}
+
+const typeIcons = {
+  chat: ChatDotRound,
+  social: User,
+  learning: Trophy,
+  system: Promotion
+}
+
+// ===== Tab 列表（5个分类） =====
+const tabList = computed(() => {
+  const allCount = summary.value.reduce((sum, m) => sum + (m.message_count || 0), 0)
+  const chatCount = summary.value.filter(m => m.type === 'chat').reduce((sum, m) => sum + (m.message_count || 0), 0)
+  const socialCount = summary.value.filter(m => m.type === 'social').reduce((sum, m) => sum + (m.message_count || 0), 0)
+  const learningCount = summary.value.filter(m => m.type === 'learning').reduce((sum, m) => sum + (m.message_count || 0), 0)
+  const systemCount = summary.value.filter(m => m.type === 'system').reduce((sum, m) => sum + (m.message_count || 0), 0)
+
+  return [
+    { key: 'all', icon: Bell, label: '全部', count: allCount },
+    { key: 'chat', icon: ChatDotRound, label: '好友消息', count: chatCount },
+    { key: 'social', icon: User, label: '社区互动', count: socialCount },
+    { key: 'learning', icon: Trophy, label: '学习动态', count: learningCount },
+    { key: 'system', icon: Promotion, label: '官方消息', count: systemCount }
+  ]
 })
+
+// ===== 筛选消息 =====
+const filteredMessages = computed(() => {
+  let result = summary.value
+  if (activeTab.value === 'all') return result
+  return result.filter(m => m.type === activeTab.value)
+})
+
+// ===== 空状态文案 =====
+const emptyText = computed(() => {
+  if (activeTab.value === 'all') return '暂无消息'
+  const label = typeLabels[activeTab.value] || activeTab.value
+  return `暂无${label}`
+})
+
+function formatTime(time) {
+  if (!time) return ''
+  let utcStr = time
+  if (!time.endsWith('Z') && !time.includes('+')) {
+    utcStr = time + 'Z'
+  }
+  const dt = new Date(utcStr)
+  if (isNaN(dt.getTime())) return ''
+  const now = new Date()
+  const diff = Math.floor((now - dt) / 1000)
+  if (diff < 60) return '刚刚'
+  if (diff < 3600) return Math.floor(diff / 60) + '分钟前'
+  if (diff < 86400) return Math.floor(diff / 3600) + '小时前'
+  if (diff < 604800) return Math.floor(diff / 86400) + '天前'
+  return dt.toLocaleDateString('zh-CN')
+}
 
 function goBack() {
   router.push('/home')
@@ -325,15 +284,61 @@ function toggleSelectAll(val) {
   }
 }
 
-function markAllRead() {
-  messages.value.forEach(m => {
-    if (selectedIds.value.length === 0 || selectedIds.value.includes(m.id)) {
-      m.is_read = true
+async function loadData() {
+  loading.value = true
+  try {
+    const res = await getUnreadSummary(authStore.user.id)
+    summary.value = res.summary || []
+    totalUnread.value = summary.value.reduce((sum, m) => sum + (m.message_count || 0), 0)
+  } catch (error) {
+    console.error('加载消息失败:', error)
+    ElMessage.error('加载消息失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleMessageClick(item) {
+  if (item.type === 'chat' && item.message_count > 0) {
+    try {
+      await markMessagesRead(authStore.user.id, item.sender_id)
+      item.message_count = 0
+      totalUnread.value = summary.value.reduce((sum, m) => sum + (m.message_count || 0), 0)
+    } catch (error) {
+      console.error('标记已读失败:', error)
     }
-  })
-  ElMessage.success('已标记为已读')
-  selectedIds.value = []
-  selectAll.value = false
+    router.push(`/community/chat/${item.sender_id}`)
+    return
+  }
+
+  if (item.link) {
+    router.push(item.link)
+  }
+}
+
+function markAllRead() {
+  ElMessageBox.confirm('确定要标记所有消息为已读吗？', '确认操作')
+    .then(async () => {
+      const targets = selectedIds.value.length > 0 ? selectedIds.value : summary.value.map(m => m.id)
+      for (const id of targets) {
+        const item = summary.value.find(m => m.id === id)
+        if (item && item.message_count > 0) {
+          try {
+            if (item.type === 'chat' && item.sender_id) {
+              await markMessagesRead(authStore.user.id, item.sender_id)
+            }
+            item.message_count = 0
+          } catch (error) {
+            console.error('标记已读失败:', error)
+          }
+        }
+      }
+      totalUnread.value = summary.value.reduce((sum, m) => sum + (m.message_count || 0), 0)
+      selectedIds.value = []
+      selectAll.value = false
+      ElMessage.success('已标记为已读')
+    })
+    .catch(() => {})
 }
 
 function deleteSelected() {
@@ -341,67 +346,36 @@ function deleteSelected() {
     ElMessage.warning('请先选择消息')
     return
   }
-  ElMessageBox.confirm('确定要删除选中的消息吗？', '确认删除')
+  ElMessageBox.confirm('确定要删除选中的消息记录吗？', '确认删除')
     .then(() => {
-      messages.value = messages.value.filter(m => !selectedIds.value.includes(m.id))
+      const toRemove = new Set(selectedIds.value)
+      summary.value = summary.value.filter(m => !toRemove.has(m.id))
       selectedIds.value = []
       selectAll.value = false
+      totalUnread.value = summary.value.reduce((sum, m) => sum + (m.message_count || 0), 0)
       ElMessage.success('删除成功')
     })
     .catch(() => {})
 }
 
 function clearAll() {
-  ElMessageBox.confirm('确定要清空所有消息吗？', '确认清空')
+  ElMessageBox.confirm('确定要清空所有消息记录吗？', '确认清空')
     .then(() => {
-      messages.value = []
-      selectedIds.value = []
-      selectAll.value = false
+      summary.value = []
+      totalUnread.value = 0
       ElMessage.success('已清空')
     })
     .catch(() => {})
-}
-
-function handleMessageClick(msg) {
-  if (!msg.is_read) {
-    msg.is_read = true
-  }
-  if (msg.actions && msg.actions.length === 1 && msg.actions[0].route) {
-    router.push(msg.actions[0].route)
-  }
-}
-
-function handleAction(action, msg) {
-  if (action.route) {
-    router.push(action.route)
-  } else if (action.action === 'accept') {
-    ElMessage.success('已接受好友请求')
-    msg.is_read = true
-  } else if (action.action === 'reject') {
-    ElMessage.info('已拒绝好友请求')
-    msg.is_read = true
-  } else if (action.action === 'receive_set') {
-    ElMessage.success('题集已接收，已保存到你的题集列表')
-    msg.is_read = true
-  } else if (action.action === 'reject_set') {
-    ElMessage.info('已拒绝题集分享')
-    msg.is_read = true
-  }
-}
-
-function loadMore() {
-  loadingMore.value = true
-  setTimeout(() => {
-    loadingMore.value = false
-    hasMore.value = false
-    ElMessage.info('已加载全部消息')
-  }, 1000)
 }
 
 function saveSettings() {
   showSettings.value = false
   ElMessage.success('设置已保存')
 }
+
+onMounted(() => {
+  loadData()
+})
 </script>
 
 <style scoped>
@@ -452,6 +426,15 @@ function saveSettings() {
 }
 .header-logo { width: 28px; height: 28px; object-fit: contain; }
 .message-header h1 { font-size: 22px; color: var(--text-primary); margin: 0; }
+.header-badge {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 10px;
+  border-radius: 12px;
+  line-height: 20px;
+}
 
 .settings-btn {
   color: var(--text-secondary) !important;
@@ -549,20 +532,35 @@ function saveSettings() {
   transform: translateX(4px);
 }
 .message-card.unread { border-left: 3px solid rgba(64,158,255,0.4); }
-.message-card:active { transform: translateX(2px) scale(0.99); }
 
 .message-checkbox { margin-top: 2px; flex-shrink: 0; }
 
 .message-icon {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.04);
+  width: 40px;
+  height: 40px;
+  position: relative;
 }
+.msg-avatar {
+  width: 40px !important;
+  height: 40px !important;
+  border: 2px solid rgba(255,255,255,0.06);
+}
+.msg-type-tag {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 6px;
+  color: #fff;
+  line-height: 1.4;
+}
+.msg-type-tag.chat { background: #409eff; }
+.msg-type-tag.social { background: #e6a23c; }
+.msg-type-tag.learning { background: #67c23a; }
+.msg-type-tag.system { background: #909399; }
+
 .message-body { flex: 1; min-width: 0; }
 .message-top {
   display: flex;
@@ -577,37 +575,31 @@ function saveSettings() {
   color: var(--text-secondary);
   margin-top: 2px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.5;
 }
-.message-actions { display: flex; gap: 10px; margin-top: 8px; }
-.msg-action-btn {
-  padding: 2px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.02);
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-.msg-action-btn:hover {
-  background: rgba(64,158,255,0.10);
-  border-color: rgba(64,158,255,0.2);
-  color: #409eff;
-  transform: translateY(-2px);
+.message-count-badge {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  padding: 0 10px;
+  border-radius: 10px;
+  line-height: 20px;
 }
 .unread-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: rgba(128,128,128,0.4);
+  background: rgba(64,158,255,0.6);
   flex-shrink: 0;
   margin-top: 8px;
 }
 
+.loading-state,
 .empty-state {
   text-align: center;
   padding: 40px 20px;
@@ -616,10 +608,6 @@ function saveSettings() {
 .empty-state .el-icon { color: var(--text-muted); opacity: 0.3; margin-bottom: 12px; }
 .empty-state p { font-size: 16px; color: var(--text-secondary); margin: 4px 0; }
 .empty-state span { font-size: 14px; opacity: 0.6; }
-
-.load-more { text-align: center; padding: 10px 0; }
-.load-more .el-button { color: var(--text-muted) !important; font-size: 13px; }
-.load-more .el-button:hover { color: var(--text-primary) !important; }
 
 .settings-content { display: flex; flex-direction: column; gap: 18px; }
 .setting-group { display: flex; flex-direction: column; gap: 8px; }
@@ -654,7 +642,6 @@ function saveSettings() {
 </style>
 
 <style>
-/* ===== 设置弹窗毛玻璃 - 全局强制覆盖 ===== */
 .settings-dialog .el-dialog {
   background: rgba(20, 20, 30, 0.15) !important;
   backdrop-filter: blur(24px) !important;
@@ -667,8 +654,6 @@ function saveSettings() {
   background: rgba(0, 0, 0, 0.40) !important;
   border-color: rgba(255, 255, 255, 0.06) !important;
 }
-
-/* 下拉框毛玻璃 */
 .settings-dialog .el-select-dropdown {
   background: rgba(20, 20, 30, 0.15) !important;
   backdrop-filter: blur(24px) !important;
@@ -679,7 +664,6 @@ function saveSettings() {
 [data-theme="dark"] .settings-dialog .el-select-dropdown {
   background: rgba(0, 0, 0, 0.40) !important;
 }
-
 .settings-dialog .el-select-dropdown__item {
   color: var(--text-secondary) !important;
 }
@@ -690,8 +674,6 @@ function saveSettings() {
 .settings-dialog .el-select-dropdown__item.selected {
   color: #409eff !important;
 }
-
-/* 弹窗内复选框 */
 .settings-dialog .el-checkbox__label {
   color: var(--text-secondary) !important;
 }

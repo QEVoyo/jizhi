@@ -26,8 +26,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { getFriendRequests } from '@/api/community'
+import { getFriendRequests, getUnreadCount } from '@/api/community'
 
+const unreadCount = ref(0)  // 新增
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -36,7 +37,13 @@ const friendRequestCount = ref(0)
 
 const navItems = computed(() => [
   { key: 'feed', label: '动态广场', icon: 'fas fa-home', path: '/community' },
-  { key: 'friends', label: '好友', icon: 'fas fa-users', path: '/community/friends', badge: friendRequestCount.value > 0 ? friendRequestCount.value : null },
+  {
+    key: 'friends',
+    label: '好友',
+    icon: 'fas fa-users',
+    path: '/community/friends',
+    badge: unreadCount.value > 0 ? unreadCount.value : (friendRequestCount.value > 0 ? friendRequestCount.value : null)
+  },
   { key: 'collections', label: '收藏', icon: 'fas fa-star', path: '/community/collections' },
   { key: 'my-posts', label: '我的发布', icon: 'fas fa-pen', path: '/community/my-posts' },
   { key: 'profile-card', label: '资料卡', icon: 'fas fa-id-card', path: '/community/profile-card' },
@@ -45,21 +52,35 @@ const navItems = computed(() => [
 
 const activeTab = computed(() => {
   const path = route.path
-  if (path === '/community') return 'feed'
+
+  // 聊天页面 → 不高亮
+  if (path.startsWith('/community/chat/')) return null
+
+  // 他人资料卡页面 → 不高亮
+  if (path.startsWith('/community/user/')) return null
+
+  // 正常匹配
+  if (path === '/community' || path === '/community/') return 'feed'
   if (path.startsWith('/community/friends')) return 'friends'
   if (path.startsWith('/community/collections')) return 'collections'
   if (path.startsWith('/community/my-posts')) return 'my-posts'
   if (path.startsWith('/community/profile-card')) return 'profile-card'
   if (path === '/home') return 'home'
-  return 'feed'
+
+  return null
 })
 
-async function loadFriendRequests() {
+async function loadBadges() {
   try {
-    const res = await getFriendRequests(authStore.user.id)
-    friendRequestCount.value = res.requests?.length || 0
+    const [requestsRes, unreadRes] = await Promise.all([
+      getFriendRequests(authStore.user.id),
+      getUnreadCount(authStore.user.id)
+    ])
+    friendRequestCount.value = requestsRes.requests?.length || 0
+    unreadCount.value = unreadRes.count || 0
   } catch {
     friendRequestCount.value = 0
+    unreadCount.value = 0
   }
 }
 
@@ -79,7 +100,7 @@ function goHome() {
 }
 
 onMounted(() => {
-  loadFriendRequests()
+  loadBadges()
 })
 </script>
 

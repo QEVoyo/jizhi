@@ -1,8 +1,13 @@
 import request from '@/utils/request'
 
 export function login(loginInput, password) {
-  return request.post('/auth/login', { login_input: loginInput, password })
-    .then(res => res.data)
+  const payload = { login_input: loginInput, password }
+  console.log('=== 登录请求体 ===', payload)
+  return request.post('/auth/login', payload)
+    .then(res => {
+      console.log('=== 登录响应 ===', res.data)
+      return res.data
+    })
 }
 
 export function register(email, password, nickname) {
@@ -41,4 +46,16 @@ export function updatePassword(accessToken, newPassword) {
       Authorization: `Bearer ${accessToken}`
     }
   }).then(res => res.data)
+}
+export function updateStatus(userId, status) {
+  return request.put('/auth/status', null, {
+    params: { user_id: userId, status }
+  }).then(res => res.data)
+}
+// 临时占位，后端没有 /auth/logout 接口，直接返回成功
+export function logout() {
+  return Promise.resolve({ success: true })
+}
+export function getUserInfo() {
+  return Promise.resolve({ success: true, user: null })
 }

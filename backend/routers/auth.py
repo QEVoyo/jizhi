@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from config import settings
 import httpx
@@ -278,3 +278,24 @@ async def upload_avatar(user_id: str, file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="保存头像URL失败")
 
         return {"success": True, "avatar_url": public_url}
+
+
+@router.put("/status")
+async def update_status(user_id: str = Query(...), status: str = Query(...)):
+    """更新用户在线状态"""
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    valid_status = ["online", "offline", "invisible"]
+    if status not in valid_status:
+        raise HTTPException(status_code=400, detail="无效的状态")
+
+    url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
+    async with httpx.AsyncClient() as client:
+        res = await client.patch(url, headers=headers, json={"status": status})
+        if res.status_code not in [200, 204]:
+            raise HTTPException(status_code=400, detail="更新状态失败")
+        return {"success": True, "status": status}

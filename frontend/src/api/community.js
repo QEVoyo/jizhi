@@ -91,8 +91,10 @@ export function searchUsers(keyword, userId) {
 // 5. 私聊
 // ============================================================
 
-export function sendMessage(data) {
-  return request.post('/community/message', null, { params: { user_id: data.sender_id }, data }).then(res => res.data)
+export function sendMessage(senderId, data) {
+  return request.post('/community/message', data, {
+    params: { user_id: senderId }
+  }).then(res => res.data)
 }
 
 export function getMessages(userId, friendId) {
@@ -145,4 +147,51 @@ export function getMyPosts(userId, page = 1, pageSize = 20) {
 
 export function getProfileCard(userId, currentUserId) {
   return request.get(`/community/profile-card/${userId}`, { params: { current_user_id: currentUserId } }).then(res => res.data)
+}
+// ===== 小基（AI好友） =====
+export function getXiaojiMessages(userId) {
+  return request.get('/community/xiaoji/messages', { params: { user_id: userId } })
+    .then(res => res.data)
+}
+
+export function sendXiaojiMessage(data) {
+  return request.post('/community/xiaoji/chat', data, {
+    params: { user_id: data.user_id }
+  }).then(res => res.data)
+}
+
+export function getXiaojiConfig(userId) {
+  return request.get('/community/xiaoji/config', { params: { user_id: userId } })
+    .then(res => res.data)
+}
+
+export function updateXiaojiConfig(data) {
+  return request.put('/community/xiaoji/config', null, { params: { user_id: data.user_id }, data })
+    .then(res => res.data)
+}
+export function xiaojiVision(data) {
+  return request.post('/community/xiaoji/vision', data, {
+    params: { user_id: data.user_id }
+  }).then(res => res.data)
+}
+export function saveXiaojiMessage(data) {
+  return request.post('/community/xiaoji/save', data, {
+    params: { user_id: data.user_id }
+  }).then(res => res.data)
+}
+// ===== 消息中心 =====
+
+export function getUnreadSummary(userId) {
+  return request.get('/community/messages/unread/summary', { params: { user_id: userId } })
+    .then(res => res.data)
+}
+
+export function getUnreadCount(userId) {
+  return request.get('/community/messages/unread/count', { params: { user_id: userId } })
+    .then(res => res.data)
+}
+
+export function markMessagesRead(userId, friendId) {
+  return request.put(`/community/messages/read/${friendId}`, null, { params: { user_id: userId } })
+    .then(res => res.data)
 }

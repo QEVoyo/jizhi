@@ -143,14 +143,16 @@ async function handleLogin() {
     loginForm.password,
     rememberMe.value
   )
+  console.log('=== 登录结果 ===', result)  // 新增这一行
+
   loginLoading.value = false
 
-  if (result.success) {
+  if (result && result.success) {
     sessionStore.createSession('新对话')
     ElMessage.success('登录成功！')
     router.push('/home')
   } else {
-    loginError.value = result.error
+    loginError.value = result?.message || '登录失败'
   }
 }
 

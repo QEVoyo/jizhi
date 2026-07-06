@@ -62,9 +62,11 @@
         <i class="fas fa-route"></i><span>学程</span>
       </router-link>
 
-      <!-- ===== 社区 ===== -->
+      <!-- ===== 社区（带未读角标） ===== -->
       <router-link to="/community" class="nav-item" :class="{ active: activeMenu === '/community' }" :title="isCollapsed ? '社区' : ''">
-        <i class="fas fa-users"></i><span>社区</span>
+        <i class="fas fa-users"></i>
+        <span>社区</span>
+        <span v-if="communityUnreadCount > 0" class="msg-badge">{{ communityUnreadCount > 99 ? '99+' : communityUnreadCount }}</span>
       </router-link>
 
       <!-- ===== Q&A ===== -->
@@ -197,6 +199,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useSessionStore } from '@/stores/session'
 import { getUserStats } from '@/api/career'
+import { getUnreadCount } from '@/api/community'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Workbench from './Workbench.vue'
 import { RANK_ICONS, RANK_COLORS, SUB_SYMBOLS } from '@/utils/constants'
@@ -348,36 +351,55 @@ async function submitFeedback() {
 
 function handleLogout() {
   ElMessageBox.confirm('确定要退出登录吗？', '确认退出')
-    .then(() => {
-      authStore.logout()
+    .then(async () => {
+      await authStore.logout()
       ElMessage.success('已退出')
       router.push('/login')
     })
     .catch(() => {})
 }
 
-// ===== 消息未读数 =====
+// ===== 未读消息数（真实API） =====
 const unreadCount = ref(0)
+const communityUnreadCount = ref(0)
 
-async function fetchUnreadCount() {
-  // TODO: 对接后端 API 获取未读消息数
-  // 暂时用模拟数据
-  unreadCount.value = 3
+async function loadBadges() {
+  try {
+    const res = await getUnreadCount(authStore.user.id)
+    const count = res.count || 0
+    unreadCount.value = count
+    communityUnreadCount.value = count
+  } catch (error) {
+    console.error('加载未读消息数失败:', error)
+    unreadCount.value = 0
+    communityUnreadCount.value = 0
+  }
 }
+
+let badgeTimer = null
 
 onMounted(() => {
   sessionStore.loadSessions()
   loadRankData()
-  fetchUnreadCount()
+  loadBadges()
   document.addEventListener('click', handleClickOutside)
+
+  // 每30秒刷新一次角标
+  badgeTimer = setInterval(() => {
+    loadBadges()
+  }, 30000)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  if (badgeTimer) {
+    clearInterval(badgeTimer)
+  }
 })
 </script>
 
 <style scoped>
+/* 所有样式跟你原来一样，不用改，直接复制上面模板和脚本即可 */
 .sidebar-content {
   display: flex;
   flex-direction: column;
