@@ -15,7 +15,7 @@
     </div>
 
     <div v-else-if="!userData" class="empty-state">
-      <p>用户不存在</p>
+      <p>用户不存在</p >
     </div>
 
     <div v-else class="user-profile-content">
@@ -80,14 +80,14 @@
 
       <el-divider />
 
-      <!-- ===== 知识点掌握（新增） ===== -->
-      <div class="mastery-section" v-if="masteryData.length">
+      <!-- ===== 知识点掌握（按用户设置过滤） ===== -->
+      <div class="mastery-section" v-if="displayedTopics.length">
         <div class="section-header">
           <h4>📚 知识点掌握</h4>
         </div>
         <div class="topic-grid">
           <div
-            v-for="item in masteryData.slice(0, 10)"
+            v-for="item in displayedTopics"
             :key="item.topic"
             class="topic-card"
             :style="{
@@ -102,14 +102,14 @@
         </div>
       </div>
 
-      <!-- ===== 成就展示（新增） ===== -->
-      <div class="achievement-section" v-if="achievements.length">
+      <!-- ===== 成就展示（按用户设置过滤） ===== -->
+      <div class="achievement-section" v-if="displayedAchievements.length">
         <div class="section-header">
           <h4>🏆 成就展示</h4>
         </div>
         <div class="achievement-grid">
           <div
-            v-for="ach in achievements.slice(0, 8)"
+            v-for="ach in displayedAchievements"
             :key="ach.id"
             class="achievement-item"
             :style="{ color: ach.themeColor || '#888' }"
@@ -155,6 +155,8 @@ const isFriend = ref(false)
 const requestStatus = ref('none')
 const masteryData = ref([])
 const achievements = ref([])
+const selectedTopics = ref([])
+const selectedAchievements = ref([])
 
 const userLevel = computed(() => {
   if (!userData.value?.profile) return 1
@@ -166,6 +168,26 @@ const rankColor = computed(() => RANK_COLORS[rankName.value] || '#888')
 const rankSubSymbol = computed(() => {
   const sub = userData.value?.profile?.sub_rank || 1
   return SUB_SYMBOLS[sub] || '○'
+})
+
+// ===== 按用户设置过滤知识点 =====
+const displayedTopics = computed(() => {
+  if (!selectedTopics.value.length) {
+    return masteryData.value.slice(0, 10)
+  }
+  return masteryData.value
+    .filter(item => selectedTopics.value.includes(item.topic))
+    .slice(0, 10)
+})
+
+// ===== 按用户设置过滤成就 =====
+const displayedAchievements = computed(() => {
+  if (!selectedAchievements.value.length) {
+    return achievements.value.slice(0, 8)
+  }
+  return achievements.value
+    .filter(item => selectedAchievements.value.includes(item.id))
+    .slice(0, 8)
 })
 
 // ===== 掌握度颜色 =====
@@ -239,6 +261,8 @@ async function loadData() {
     requestStatus.value = res.request_status || 'none'
     masteryData.value = res.mastery_data || []
     achievements.value = res.achievements || []
+    selectedTopics.value = res.selected_topics || []
+    selectedAchievements.value = res.selected_achievements || []
   } catch {
     ElMessage.error('加载用户资料失败')
   } finally {

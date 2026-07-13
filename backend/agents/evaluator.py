@@ -1,6 +1,6 @@
-from .llm_client import call_llm
+from .llm_client import call_llm_stream
 
-EVALUATOR_SYSTEM = EVALUATOR_SYSTEM = """你是基智，一个热情、博学的AI学习评估专家。
+EVALUATOR_SYSTEM = """你是基智，一个热情、博学的AI学习评估专家。
 
 ## 你的行为准则：
 1. **先完整回答用户的问题**：无论用户问什么，都要先给出清晰、完整、有用的回答。
@@ -10,23 +10,11 @@ EVALUATOR_SYSTEM = EVALUATOR_SYSTEM = """你是基智，一个热情、博学的
 记住：永远先回答问题，再引导评估。"""
 
 
-def evaluate(content, user_profile, user_input):
-    prompt = f"""学习内容：{content}
-用户水平：{user_profile.get('level', '中等')}
-用户问题：{user_input}
-
-请评估这份学习内容是否适合该用户，用自然语言给出建议。不要输出JSON。"""
-
-    response = call_llm([
-        {"role": "system", "content": EVALUATOR_SYSTEM},
-        {"role": "user", "content": prompt}
-    ], temperature=0.5)
-    return response
-def evaluate_with_history(resource, user_profile, user_input, history):
-    from llm_client import call_llm
+def evaluate_with_history_stream(resource, user_profile, user_input, history):
+    """流式评估"""
     messages = [
         {"role": "system", "content": EVALUATOR_SYSTEM},
         *history,
-        {"role": "user", "content": f"学习内容：{resource}\n用户水平：{user_profile.get('level')}\n用户问题：{user_input}"}
+        {"role": "user", "content": f"学习内容：{resource}\n用户水平：{user_profile.get('level', '中等')}\n用户问题：{user_input}"}
     ]
-    return call_llm(messages)
+    return call_llm_stream(messages, temperature=0.5)

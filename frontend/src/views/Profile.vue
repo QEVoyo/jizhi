@@ -28,7 +28,7 @@
         <div class="user-basic">
           <div class="basic-row">
             <span class="label">账号</span>
-            <span class="value">{{ user?.account || '未设置' }}</span>
+            <span class="value">{{ user?.user_account || '未设置' }}</span>
           </div>
           <div class="basic-row">
             <span class="label">邮箱</span>
@@ -188,7 +188,7 @@ async function handleAvatarUpload(file) {
   try {
     const result = await uploadAvatar(authStore.user.id, file)
     if (result.success) {
-      authStore.updateUser({ avatar_url: result.avatar_url })
+      authStore.user.avatar_url = result.avatar_url
       await recordAction(authStore.user.id, 'update_avatar')
       ElMessage.success('头像上传成功')
     }
@@ -206,7 +206,7 @@ async function handleUpdateNickname() {
   }
   try {
     await apiUpdateNickname(authStore.user.id, nickname.value)
-    authStore.updateUser({ nickname: nickname.value })
+    authStore.user.nickname = nickname.value
     await recordAction(authStore.user.id, 'update_nickname')
     ElMessage.success('昵称更新成功')
   } catch (error) {
@@ -218,7 +218,7 @@ async function handleUpdateNickname() {
 async function handleUpdateBio() {
   try {
     await apiUpdateBio(authStore.user.id, bio.value)
-    authStore.updateUser({ bio: bio.value })
+    authStore.user.bio = bio.value
     await recordAction(authStore.user.id, 'update_bio')
     ElMessage.success('简介更新成功')
   } catch (error) {
@@ -296,8 +296,8 @@ async function generateAdvice() {
 // ===== 退出登录 =====
 function handleLogout() {
   ElMessageBox.confirm('确定要退出登录吗？', '确认退出')
-    .then(() => {
-      authStore.logout()
+    .then(async () => {
+      await authStore.logout()
       ElMessage.success('已退出')
       router.push('/login')
     })

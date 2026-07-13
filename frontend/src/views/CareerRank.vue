@@ -7,7 +7,7 @@
       <template #main>
         <div class="rank-content">
           <h1>⛰️ 登攀</h1>
-          <p class="subtitle">学如登山，步步高升</p >
+          <p class="subtitle">学如登山，步步高升</p>
           <el-divider />
 
           <!-- ===== 当前段位 ===== -->
@@ -39,7 +39,7 @@
             <div class="level-divider"></div>
             <div class="level-main">
               <div class="level-label">Lv.{{ userLevel }}</div>
-              <div class="level-points">{{ points }} 分</div>
+              <div class="level-points">{{ levelPoints }} 分</div>
             </div>
             <div class="level-progress-wrap">
               <div class="progress-track">
@@ -186,7 +186,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onDeactivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppLayout from '@/components/AppLayout.vue'
@@ -198,10 +198,11 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const showRankInfo = ref(false)
-const stats = ref({ points: 0, rank: '启程', sub_rank: 1, rank_history: [] })
+const stats = ref({ points: 0, level_points: 0, rank: '启程', sub_rank: 1, rank_history: [] })
 const loading = ref(true)
 
 const points = computed(() => stats.value.points || 0)
+const levelPoints = computed(() => stats.value.level_points || 0)
 const rank = computed(() => stats.value.rank || '启程')
 const rankName = computed(() => rank.value)
 const subRank = computed(() => stats.value.sub_rank || 1)
@@ -227,11 +228,12 @@ const nextPoints = computed(() => {
   return subEnd - points.value
 })
 
-// ===== 等级计算（等差数列） =====
+// ===== 等级计算（使用 level_points） =====
 const userLevel = computed(() => {
   let level = 1
   let totalNeeded = 2
-  while (points.value >= totalNeeded) {
+  const lp = levelPoints.value
+  while (lp >= totalNeeded) {
     level++
     totalNeeded += (level + 1)
   }
@@ -240,20 +242,22 @@ const userLevel = computed(() => {
 
 const levelProgress = computed(() => {
   let used = 0
+  const lp = levelPoints.value
   for (let i = 1; i < userLevel.value; i++) {
     used += (i + 1)
   }
-  const currentProgress = points.value - used
+  const currentProgress = lp - used
   const currentNeeded = userLevel.value + 1
   return Math.min(100, (currentProgress / currentNeeded) * 100)
 })
 
 const nextLevelPoints = computed(() => {
   let used = 0
+  const lp = levelPoints.value
   for (let i = 1; i <= userLevel.value; i++) {
     used += (i + 1)
   }
-  return used - points.value
+  return used - lp
 })
 
 async function loadData() {
@@ -267,7 +271,28 @@ async function loadData() {
   }
 }
 
-onMounted(loadData)
+let refreshTimer = null
+
+// ===== 监听任务领取事件 =====
+function handleTaskClaimed() {
+  loadData()
+}
+
+onMounted(() => {
+  loadData()
+  // 定时刷新兜底
+  refreshTimer = setInterval(loadData, 30000)
+  // 监听任务领取事件（从 CareerTasks 触发）
+  window.addEventListener('task-claimed', handleTaskClaimed)
+})
+
+onDeactivated(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+  window.removeEventListener('task-claimed', handleTaskClaimed)
+})
 </script>
 
 <style scoped>

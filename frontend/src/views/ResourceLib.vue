@@ -6,7 +6,7 @@
         <i class="fas fa-arrow-left"></i> 返回主界面
       </el-button>
       <h1>📚 资源库</h1>
-      <p class="subtitle">生成题目 · 管理题集 · 错题本 · 薄弱点巩固</p>
+      <p class="subtitle">生成题目 · 管理题集 · 错题本 · 薄弱点巩固</p >
     </div>
 
     <!-- ===== 掌握度看板 ===== -->
@@ -50,7 +50,7 @@
     </div>
 
     <!-- ===== Tabs ===== -->
-    <el-tabs v-model="activeTab" class="resource-tabs">
+    <el-tabs v-model="activeTab" class="resource-tabs" @tab-click="handleTabClick">
       <el-tab-pane label="🤖 生成题目" name="generate">
         <GenerateForm />
       </el-tab-pane>
@@ -63,11 +63,38 @@
       <el-tab-pane label="📜 生成历史" name="history">
         <GenerationHistory />
       </el-tab-pane>
+      <el-tab-pane label="📊 评估中心" name="evaluation">
+        <div class="evaluation-placeholder">
+          <div class="evaluation-grid">
+            <div class="evaluation-card" @click="goReport">
+              <div class="card-icon">📈</div>
+              <div class="card-title">学情报告</div>
+              <div class="card-desc">查看学习进度、掌握度变化趋势</div>
+            </div>
+            <div class="evaluation-card" @click="goProfile">
+              <div class="card-icon">🧠</div>
+              <div class="card-title">六维画像</div>
+              <div class="card-desc">知识基础、认知风格、易错点偏好等</div>
+            </div>
+            <div class="evaluation-card" @click="goAssessment">
+              <div class="card-icon">📋</div>
+              <div class="card-title">评估表</div>
+              <div class="card-desc">知识点掌握度评估与建议</div>
+            </div>
+            <div class="evaluation-card" @click="goAdvice">
+              <div class="card-icon">💡</div>
+              <div class="card-title">学习建议</div>
+              <div class="card-desc">AI 生成个性化学习建议</div>
+            </div>
+          </div>
+        </div>
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
 
 <script setup>
+import { recordAction } from '@/api/career'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -164,6 +191,28 @@ function goMastery() {
 
 function goHome() {
   router.push('/')
+}
+
+function handleTabClick(tab) {
+  if (tab.paneName === 'evaluation') {
+    router.push('/evaluation-center')
+  }
+}
+
+function goReport() {
+  router.push('/home')
+}
+
+function goProfile() {
+  router.push('/profile')
+}
+
+function goAssessment() {
+  ElMessage.info('评估表功能开发中')
+}
+
+function goAdvice() {
+  ElMessage.info('学习建议功能开发中')
 }
 
 onMounted(loadMastery)
@@ -389,6 +438,45 @@ onMounted(loadMastery)
   max-height: none !important;
 }
 
+/* ===== 评估中心 ===== */
+.evaluation-placeholder {
+  padding: 8px 0;
+}
+.evaluation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.evaluation-card {
+  padding: 24px 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+.evaluation-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+.card-icon {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.card-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
 [data-theme="dark"] .mastery-panel {
   background: rgba(0, 0, 0, 0.25);
 }
@@ -424,6 +512,9 @@ onMounted(loadMastery)
   }
   .color-legend {
     flex-wrap: wrap;
+  }
+  .evaluation-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>

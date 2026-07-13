@@ -35,3 +35,15 @@ export function saveLog(userId, keyword) {
     body: JSON.stringify({ user_id: userId, keyword })
   }).then(res => res.json())
 }
+export async function extractSummary(content, userId) {
+  const token = getToken()
+  const response = await fetch(`${BACKEND_URL}/chat/summary`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : ''
+    },
+    body: JSON.stringify({ content, user_id: userId })
+  })
+  return response.json()
+}

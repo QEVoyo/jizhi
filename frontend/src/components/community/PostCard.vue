@@ -1,5 +1,5 @@
 <template>
-  <div class="post-card" @click="emit('post-click', post.id)">
+  <div class="post-card">
     <!-- ===== 用户信息 ===== -->
     <div class="post-header">
       <div class="post-user" @click.stop="emit('user-click', post.user_id)">
@@ -11,17 +11,20 @@
           <span class="post-time">{{ formatTime(post.created_at) }}</span>
         </div>
       </div>
-      <el-dropdown @command="handleCommand" trigger="click">
-        <el-button text class="more-btn">
-          <i class="fas fa-ellipsis-h"></i>
-        </el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item command="report">举报</el-dropdown-item>
-            <el-dropdown-item v-if="post.user_id === authStore.user?.id" command="delete">删除</el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+      <!-- ===== 三个点下拉菜单 ===== -->
+      <div @click.stop>
+        <el-dropdown @command="handleCommand" trigger="click">
+          <el-button text class="more-btn">
+            <i class="fas fa-ellipsis-h"></i>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="report">举报</el-dropdown-item>
+              <el-dropdown-item v-if="post.user_id === authStore.user?.id" command="delete">删除</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
     </div>
 
     <!-- ===== 内容 ===== -->
@@ -38,7 +41,7 @@
         <i :class="post.is_liked ? 'fas fa-heart' : 'far fa-heart'"></i>
         <span>{{ post.like_count || 0 }}</span>
       </button>
-      <button class="action-btn" @click.stop="emit('comment', post.id)">
+      <button class="action-btn" @click.stop="toggleComments">
         <i class="far fa-comment"></i>
         <span>{{ post.comment_count || 0 }}</span>
       </button>
@@ -60,6 +63,13 @@
           </div>
           <span class="comment-text">{{ comment.content }}</span>
           <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
+          <button
+            v-if="comment.user_id === authStore.user?.id"
+            class="comment-delete-btn"
+            @click.stop="deleteComment(comment.id)"
+          >
+            <i class="fas fa-times"></i>
+          </button>
         </div>
         <div v-if="!post.comments?.length" class="comment-empty">暂无评论</div>
       </div>
@@ -79,17 +89,17 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { ElMessage } from 'element-plus'
-import { createComment } from '@/api/community'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { createComment, deleteComment as deleteCommentApi } from '@/api/community'
 
 const props = defineProps({
   post: { type: Object, required: true }
 })
 
-const emit = defineEmits(['like', 'collect', 'comment', 'user-click', 'post-click', 'report', 'delete'])
+const emit = defineEmits(['like', 'collect', 'comment', 'user-click', 'report', 'delete'])
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -99,18 +109,22 @@ const commentInput = ref('')
 
 function formatTime(time) {
   if (!time) return ''
+  let utcStr = time
+  if (!time.endsWith('Z') && !time.includes('+')) {
+    utcStr = time + 'Z'
+  }
+  const t = new Date(utcStr)
+  if (isNaN(t.getTime())) return ''
   const now = new Date()
-  const t = new Date(time)
   const diff = Math.floor((now - t) / 1000)
   if (diff < 60) return '刚刚'
   if (diff < 3600) return Math.floor(diff / 60) + '分钟前'
   if (diff < 86400) return Math.floor(diff / 3600) + '小时前'
   if (diff < 604800) return Math.floor(diff / 86400) + '天前'
-  return t.toLocaleDateString()
+  return t.toLocaleDateString('zh-CN')
 }
 
 function goTopic(topic) {
-  // 跳转到话题搜索
   router.push(`/community?topic=${topic}`)
 }
 
@@ -135,17 +149,14 @@ async function submitComment() {
     return
   }
   try {
-    await createComment({
+    const res = await createComment({
       post_id: props.post.id,
       user_id: authStore.user.id,
       content: commentInput.value
     })
     ElMessage.success('评论成功')
-    commentInput.value = ''
-    // 刷新评论列表
-    if (!props.post.comments) props.post.comments = []
-    props.post.comments.unshift({
-      id: Date.now().toString(),
+    const newComment = {
+      id: res.id || Date.now().toString(),
       content: commentInput.value,
       user_id: authStore.user.id,
       profiles: {
@@ -153,11 +164,29 @@ async function submitComment() {
         avatar_url: authStore.user.avatar_url
       },
       created_at: new Date().toISOString()
-    })
-    props.post.comment_count++
+    }
+    if (!props.post.comments) props.post.comments = []
+    props.post.comments.unshift(newComment)
+    props.post.comment_count = (props.post.comment_count || 0) + 1
+    commentInput.value = ''
   } catch {
     ElMessage.error('评论失败')
   }
+}
+
+async function deleteComment(commentId) {
+  ElMessageBox.confirm('确定要删除这条评论吗？', '确认删除')
+    .then(async () => {
+      try {
+        await deleteCommentApi(commentId, authStore.user.id)
+        ElMessage.success('删除成功')
+        props.post.comments = props.post.comments.filter(c => c.id !== commentId)
+        props.post.comment_count = (props.post.comment_count || 1) - 1
+      } catch {
+        ElMessage.error('删除失败')
+      }
+    })
+    .catch(() => {})
 }
 </script>
 
@@ -168,15 +197,11 @@ async function submitComment() {
   border: 1px solid rgba(255, 255, 255, 0.04);
   background: rgba(255, 255, 255, 0.02);
   transition: all 0.3s ease;
-  cursor: pointer;
 }
 .post-card:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
   transform: translateY(-2px);
-}
-.post-card:active {
-  transform: translateY(0) scale(0.99);
 }
 
 .post-header {
@@ -310,7 +335,20 @@ async function submitComment() {
 .comment-time {
   font-size: 11px;
   color: var(--text-muted);
-  margin-left: auto;
+}
+.comment-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+.comment-delete-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.10);
 }
 .comment-empty {
   color: var(--text-muted);

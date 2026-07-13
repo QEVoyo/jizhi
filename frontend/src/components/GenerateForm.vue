@@ -71,11 +71,11 @@
 </template>
 
 <script setup>
+import { recordAction } from '@/api/career'
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { generateQuestion, saveGenerationHistory } from '@/api/questions'
-import { recordAction } from '@/api/career'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()

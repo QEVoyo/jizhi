@@ -80,6 +80,11 @@
         <span>消息中心</span>
         <span v-if="unreadCount > 0" class="msg-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
       </router-link>
+      <!-- ===== API管理 ===== -->
+      <router-link to="/api-center" class="nav-item" :class="{ active: activeMenu === '/api-center' }" :title="isCollapsed ? 'API管理' : ''">
+        <i class="fas fa-key"></i>
+        <span>API管理</span>
+      </router-link>
     </nav>
     <!-- ===== 分隔线 ===== -->
       <div class="nav-divider"></div>
@@ -265,18 +270,31 @@ function handleClickOutside() {
   feedbackMenuVisible.value = false
 }
 
-const rankData = ref({ points: 0, rank: '启程', sub_rank: 1 })
-const userLevel = ref(1)
+const rankData = ref({ points: 0, level_points: 0, rank: '启程', sub_rank: 1 })
+
+// ✅ 等差数列计算等级（使用 level_points）
+function calcLevel(lp) {
+  let level = 1
+  let totalNeeded = 2
+  while (lp >= totalNeeded) {
+    level++
+    totalNeeded += (level + 1)
+  }
+  return level
+}
+
+const userLevel = computed(() => calcLevel(rankData.value.level_points || 0))
+
 const rankName = computed(() => rankData.value.rank || '启程')
 const rankIcon = computed(() => RANK_ICONS[rankName.value] || '◈')
 const rankColor = computed(() => RANK_COLORS[rankName.value] || '#888')
 const rankSubSymbol = computed(() => SUB_SYMBOLS[rankData.value.sub_rank] || '○')
 
 async function loadRankData() {
+  if (!authStore.user?.id) return
   try {
     const data = await getUserStats(authStore.user.id)
     rankData.value = data
-    userLevel.value = Math.floor((data.points || 0) / 100) + 1
   } catch (error) {
     console.error('加载段位数据失败', error)
   }
@@ -354,16 +372,17 @@ function handleLogout() {
     .then(async () => {
       await authStore.logout()
       ElMessage.success('已退出')
+      await new Promise(resolve => setTimeout(resolve, 100))
       router.push('/login')
     })
     .catch(() => {})
 }
 
-// ===== 未读消息数（真实API） =====
 const unreadCount = ref(0)
 const communityUnreadCount = ref(0)
 
 async function loadBadges() {
+  if (!authStore.user?.id) return
   try {
     const res = await getUnreadCount(authStore.user.id)
     const count = res.count || 0
@@ -384,7 +403,6 @@ onMounted(() => {
   loadBadges()
   document.addEventListener('click', handleClickOutside)
 
-  // 每30秒刷新一次角标
   badgeTimer = setInterval(() => {
     loadBadges()
   }, 30000)
@@ -399,7 +417,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 所有样式跟你原来一样，不用改，直接复制上面模板和脚本即可 */
+/* 样式保持不变 */
 .sidebar-content {
   display: flex;
   flex-direction: column;
@@ -453,7 +471,6 @@ onUnmounted(() => {
   font-size: 16px;
   margin: 0;
 }
-
 .logo-section {
   display: flex;
   align-items: center;
@@ -655,7 +672,6 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.06);
 }
 
-/* ===== 消息角标 ===== */
 .msg-badge {
   margin-left: auto;
   background: rgba(128, 128, 128, 0.25);
@@ -751,7 +767,6 @@ onUnmounted(() => {
   gap: 4px;
   margin-top: auto;
 }
-
 .theme-toggle {
   display: flex;
   align-items: center;

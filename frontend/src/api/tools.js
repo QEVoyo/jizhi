@@ -54,3 +54,8 @@ export function getReport(userId) {
   return request.get(`/tools/report/${userId}`)
     .then(res => res.data)
 }
+export function deleteLearningLog(userId, logId) {
+  return request.delete('/tools/learning-log', {
+    params: { user_id: userId, log_id: logId }
+  }).then(res => res.data)
+}

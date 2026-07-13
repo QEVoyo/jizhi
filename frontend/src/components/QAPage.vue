@@ -90,7 +90,7 @@
         <div class="ask-wrapper">
           <el-input
             v-model="askContent"
-            placeholder="输入你的问题，AI 将为你解答..."
+            placeholder="输入你的问题，我们将通过邮件回复你..."
             size="large"
             @keyup.enter="submitAsk"
           />
@@ -118,7 +118,7 @@
           </el-button>
         </div>
         <div class="ask-hint">
-          <span>支持文字提问和图片上传（JPG/PNG，最大 5MB）</span>
+          <span>问题将发送到管理员邮箱，我们会尽快回复你（支持图片上传）</span>
         </div>
       </div>
 
@@ -133,7 +133,7 @@
           <div class="history-question">{{ item.question }}</div>
           <div class="history-meta">
             <span class="history-status" :class="item.status === '已回复' ? 'resolved' : 'pending'">
-              {{ item.status === '已回复' ? '✅ 已回复' : '⏳ 处理中' }}
+              {{ item.status === '已回复' ? '✅ 已回复' : '⏳ 待回复' }}
             </span>
             <span class="history-time">{{ item.time }}</span>
           </div>
@@ -149,9 +149,11 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 // ===== 搜索 =====
 const searchKeyword = ref('')
@@ -161,8 +163,10 @@ const tabs = [
   { key: 'all', icon: '📋', label: '全部' },
   { key: 'guide', icon: '📚', label: '学习指南' },
   { key: 'feature', icon: '🛠️', label: '功能使用' },
+  { key: 'career', icon: '🏆', label: '学程' },
+  { key: 'community', icon: '🌐', label: '社区' },
   { key: 'account', icon: '👤', label: '账号管理' },
-  { key: 'community', icon: '🌐', label: '社区' }
+  { key: 'api', icon: '🔑', label: 'API配置' }
 ]
 const activeTab = ref('all')
 
@@ -219,7 +223,10 @@ const faqs = ref([
       '❌ 掌握度 < 40% 的知识点 → 增加练习频次，推送相关视频讲解',
       '📊 每周自动生成学习报告，优化下一周学习路径'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '📊', label: '查看学情报告', route: '/profile' }
+    ]
   },
   {
     id: 4,
@@ -251,7 +258,10 @@ const faqs = ref([
       '3. 设置长期目标（如：一个月提升掌握度 20%）',
       '4. 系统会根据目标自动调整学习路径和题目难度'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '👤', label: '去个人中心', route: '/profile' }
+    ]
   },
 
   // ===== 功能使用 =====
@@ -342,7 +352,10 @@ const faqs = ref([
       '2. 每日点击打卡按钮完成打卡',
       '3. 打卡数据会自动记录到学习日志中'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '⏱️', label: '去工作台', route: '/home' }
+    ]
   },
   {
     id: 11,
@@ -358,7 +371,10 @@ const faqs = ref([
       '4. 报告包含：掌握度变化趋势、薄弱项分析、学习建议',
       '5. 支持导出 PDF 和图片'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '📊', label: '去工作台', route: '/home' }
+    ]
   },
   {
     id: 12,
@@ -371,12 +387,323 @@ const faqs = ref([
       '3. 使用「题型筛选」下拉框按题型过滤',
       '4. 支持搜索和分页浏览'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '📝', label: '去资源库', route: '/resource-lib' }
+    ]
+  },
+
+  // ===== 学程 =====
+  {
+    id: 13,
+    tag: '学程',
+    tagColor: '#F44336',
+    question: '学程是什么？',
+    answer: [
+      '学程是基智学习助手的游戏化激励体系，通过段位、等级、任务、成就四个维度，将学习行为转化为可视化的成长路径。',
+      '',
+      '📌 四大模块：',
+      '',
+      '🏆 段位：7 大段位 + 每段 5 小级',
+      '  启程 → 求索 → 明理 → 致知 → 笃行 → 臻境 → 传说',
+      '',
+      '📈 等级：等差数列升级，第 1 级 2 分，第 n 级 n+1 分',
+      '',
+      '📋 任务：播种任务（新手引导）→ 施肥任务（每日5个）→ 发芽任务（长期阶梯）',
+      '',
+      '🎖️ 成就：25 个一次性成就，涵盖学习全场景，解锁获得积分'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '🏆', label: '去学程', route: '/career' }
+    ]
+  },
+  {
+    id: 14,
+    tag: '学程',
+    tagColor: '#F44336',
+    question: '段位系统是如何计算的？',
+    answer: [
+      '段位系统由「段位积分」驱动，积分累计自动晋升：',
+      '',
+      '📌 7 大段位（从低到高）：',
+      '  启程 → 求索 → 明理 → 致知 → 笃行 → 臻境 → 传说',
+      '',
+      '📌 每个大段位含 5 个小段（I → V）：',
+      '  每小段 100 分，满 500 分晋升下一大段',
+      '',
+      '📌 积分来源：',
+      '  • 完成每日任务：10-70 分/个',
+      '  • 解锁成就：15-500 分/个',
+      '  • 段位晋升：50-500 分/次',
+      '  • 等级升级：自动累计',
+      '',
+      '📌 查看位置：学程 → 登攀'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '🏆', label: '查看段位', route: '/career/rank' }
+    ]
+  },
+  {
+    id: 15,
+    tag: '学程',
+    tagColor: '#F44336',
+    question: '等级系统是如何计算的？',
+    answer: [
+      '等级系统采用等差数列升级规则：',
+      '',
+      '📌 升级规则：',
+      '  第 1 级：需要 2 分',
+      '  第 2 级：需要 3 分',
+      '  第 n 级：需要 n+1 分',
+      '',
+      '📌 积分来源：',
+      '  与段位积分共享，学习行为同时累积段位积分和等级积分',
+      '',
+      '📌 进度显示：',
+      '  蓝色进度条实时展示当前等级进度',
+      '',
+      '📌 查看位置：学程 → 登攀'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '📈', label: '查看等级', route: '/career/rank' }
+    ]
+  },
+  {
+    id: 16,
+    tag: '学程',
+    tagColor: '#F44336',
+    question: '三种任务有什么区别？',
+    answer: [
+      '任务系统分为三个阶段，循序渐进：',
+      '',
+      '🌱 播种任务（新手引导）：',
+      '  • 首次使用各项功能，如：首次打卡、首次生成题目、首次添加好友',
+      '  • 完成后解锁施肥任务',
+      '',
+      '💧 施肥任务（每日任务）：',
+      '  • 每天 5 个任务，如：完成 3 道题、学习 15 分钟',
+      '  • 可「换一批」更换任务（每日限 1 次）',
+      '  • 完成后解锁发芽任务',
+      '',
+      '🌿 发芽任务（长期阶梯任务）：',
+      '  • 长期目标，如：累计完成 100 道题、连续打卡 7 天',
+      '  • 阶梯式奖励，越往后奖励越高',
+      '',
+      '📌 查看位置：学程 → 勤耕'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '📋', label: '去任务', route: '/career/tasks' }
+    ]
+  },
+  {
+    id: 17,
+    tag: '学程',
+    tagColor: '#F44336',
+    question: '成就有哪些？如何解锁？',
+    answer: [
+      '共有 25 个一次性成就，涵盖学习全场景：',
+      '',
+      '📌 成就分类：',
+      '  🎯 学习类：完成题目、掌握度提升、连续学习',
+      '  🤝 社交类：添加好友、分享题集、发布动态',
+      '  🏅 成长类：段位晋升、等级提升、完成任务',
+      '  📚 资源类：创建题集、收藏动态、错题攻克',
+      '',
+      '📌 成就状态：',
+      '  🔒 未解锁 → 条件未达成',
+      '  🔓 可领取 → 条件已达成，点击领取积分',
+      '  ✅ 已领取 → 已获得积分奖励',
+      '',
+      '📌 查看位置：学程 → 拾贝'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '🎖️', label: '查看成就', route: '/career/achievements' }
+    ]
+  },
+  {
+    id: 18,
+    tag: '学程',
+    tagColor: '#F44336',
+    question: '如何查看攀登足迹？',
+    answer: [
+      '攀登足迹记录你学习成长的每一个重要时刻：',
+      '',
+      '📌 记录内容：',
+      '  • 段位晋升：从启程 → 传说，每次晋升都有记录',
+      '  • 等级提升：每升 1 级记录一次',
+      '  • 成就解锁：获得特殊成就时记录',
+      '',
+      '📌 查看位置：学程 → 登攀 → 攀登足迹',
+      '',
+      '📌 用途：',
+      '  回顾自己的学习历程，看到从零到现在的成长轨迹，增强学习动力。'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '📜', label: '查看足迹', route: '/career/rank' }
+    ]
+  },
+  {
+    id: 19,
+    tag: '学程',
+    tagColor: '#F44336',
+    question: '积分可以从哪些行为获得？',
+    answer: [
+      '积分是段位、等级、成就的通用货币，以下行为均可获得：',
+      '',
+      '┌───────────────┬─────────────┐',
+      '│ 行为           │ 积分范围     │',
+      '├───────────────┼─────────────┤',
+      '│ 完成每日任务   │ 10-70 分    │',
+      '│ 解锁成就       │ 15-500 分   │',
+      '│ 段位晋升       │ 50-500 分   │',
+      '│ 等级升级       │ 自动累计    │',
+      '│ 完成题目       │ 按正确率评估 │',
+      '│ 打卡           │ 10 分       │',
+      '│ 发布动态       │ 15 分       │',
+      '│ 分享题集       │ 20 分       │',
+      '└───────────────┴─────────────┘',
+      '',
+      '📌 价值星星：不同价值的行为显示不同颜色星星，一目了然。'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '⭐', label: '去赚积分', route: '/career' }
+    ]
+  },
+  {
+    id: 20,
+    tag: '学程',
+    tagColor: '#F44336',
+    question: '学程三个子页面分别是什么？',
+    answer: [
+      '学程包含三个子页面，各司其职：',
+      '',
+      '🏔️ 登攀（/career/rank）：',
+      '  • 当前段位显示、段位进度条',
+      '  • 攀登足迹（历史记录）',
+      '  • 全部段位预览（从启程到传说）',
+      '',
+      '📋 勤耕（/career/tasks）：',
+      '  • 播种任务（新手引导）',
+      '  • 施肥任务（每日5个，可换一批）',
+      '  • 发芽任务（长期阶梯式）',
+      '',
+      '🐚 拾贝（/career/achievements）：',
+      '  • 25 个成就卡片展示',
+      '  • 成就进度、状态（未解锁/可领取/已领取）',
+      '  • 成就详情弹窗（毛玻璃效果）'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '🏆', label: '去学程', route: '/career' }
+    ]
+  },
+
+  // ===== 社区 =====
+  {
+    id: 21,
+    tag: '社区',
+    tagColor: '#9C27B0',
+    question: '什么是社区？',
+    answer: [
+      '社区是一个轻量化的学习社交空间，你可以在这里：',
+      '',
+      '🌐 发布学习笔记和动态，与同学分享学习心得',
+      '👥 添加好友，查看好友的学习资料和动态',
+      '📚 分享题集和资源，一键收纳好友分享的题目',
+      '📊 查看好友排行榜数据，互相激励进步',
+      '💬 在动态广场互动，点赞评论学习内容'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '🌐', label: '去社区', route: '/community' }
+    ]
+  },
+  {
+    id: 22,
+    tag: '社区',
+    tagColor: '#9C27B0',
+    question: '如何添加好友？',
+    answer: [
+      '添加好友流程：',
+      '',
+      '1. 进入「社区」→「好友」→ 搜索用户（按账号搜索）',
+      '2. 点击用户卡片上的「添加好友」按钮',
+      '3. 等待对方确认好友申请',
+      '4. 成为好友后，可以互相查看资料卡和分享题集',
+      '5. 好友排行榜数据互通'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '👥', label: '去添加好友', route: '/community/friends' }
+    ]
+  },
+  {
+    id: 23,
+    tag: '社区',
+    tagColor: '#9C27B0',
+    question: '如何分享和接收题集？',
+    answer: [
+      '题集分享功能：',
+      '',
+      '1. 在「资源库」→ 题集管理 → 选择要分享的题集',
+      '2. 点击「分享」按钮，发送给好友',
+      '3. 好友在消息中心收到通知，点击接收即可',
+      '4. 接收后自动保存到自己的题集列表中',
+      '5. 支持一键收纳好友分享的题目/套餐题集'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '📂', label: '去题集管理', route: '/resource-lib' }
+    ]
+  },
+  {
+    id: 24,
+    tag: '社区',
+    tagColor: '#9C27B0',
+    question: '好友之间可以查看哪些数据？',
+    answer: [
+      '好友互通权限说明：',
+      '',
+      '✅ 查看好友资料卡（昵称、头像、简介、段位等级）',
+      '✅ 查看好友排行榜数据',
+      '✅ 接收好友分享的题库和题集',
+      '✅ 查看好友的学习动态（打卡、完成题目、解锁成就）',
+      '❌ 无法查看好友的错题本和隐私设置内容'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '👤', label: '查看好友资料卡', route: '/community/friends' }
+    ]
+  },
+  {
+    id: 25,
+    tag: '社区',
+    tagColor: '#9C27B0',
+    question: '动态广场是什么？',
+    answer: [
+      '动态广场是社区的信息流页面，展示：',
+      '',
+      '📌 全部动态 / 好友动态（可切换筛选）',
+      '📌 发布学习笔记和心得',
+      '📌 点赞、评论、收藏互动',
+      '📌 举报违规内容'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '🏠', label: '去动态广场', route: '/community' }
+    ]
   },
 
   // ===== 账号管理 =====
   {
-    id: 13,
+    id: 26,
     tag: '账号管理',
     tagColor: '#FF9800',
     question: '如何修改昵称和头像？',
@@ -392,7 +719,7 @@ const faqs = ref([
     ]
   },
   {
-    id: 14,
+    id: 27,
     tag: '账号管理',
     tagColor: '#FF9800',
     question: '如何修改密码？',
@@ -409,7 +736,7 @@ const faqs = ref([
     ]
   },
   {
-    id: 15,
+    id: 28,
     tag: '账号管理',
     tagColor: '#FF9800',
     question: '如何绑定和修改邮箱？',
@@ -420,10 +747,13 @@ const faqs = ref([
       '4. 登录邮箱查看验证码并填写',
       '5. 点击确认完成邮箱绑定'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '👤', label: '去个人中心', route: '/profile' }
+    ]
   },
   {
-    id: 16,
+    id: 29,
     tag: '账号管理',
     tagColor: '#FF9800',
     question: '如何修改个人简介？',
@@ -432,10 +762,13 @@ const faqs = ref([
       '2. 点击编辑按钮，输入新的个人简介',
       '3. 点击保存，简介会自动更新'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '👤', label: '去个人中心', route: '/profile' }
+    ]
   },
   {
-    id: 17,
+    id: 30,
     tag: '账号管理',
     tagColor: '#FF9800',
     question: '如何退出登录？',
@@ -447,86 +780,280 @@ const faqs = ref([
     expanded: false
   },
 
-  // ===== 社区 =====
+  // ===== API配置 =====
   {
-    id: 18,
-    tag: '社区',
-    tagColor: '#9C27B0',
-    question: '什么是社区？',
+    id: 31,
+    tag: 'API配置',
+    tagColor: '#FF5722',
+    question: 'API 管理是做什么的？',
     answer: [
-      '社区是一个轻量化的学习社交空间，你可以在这里：',
+      'API 管理让你可以为每个 AI 功能选择不同的模型平台，并填入自己的 API 凭证。',
       '',
-      '🌐 发布学习笔记和动态，与同学分享学习心得',
-      '👥 添加好友，查看好友的学习资料和动态',
-      '📚 分享题集和资源，一键收纳好友分享的题目',
-      '📊 查看好友排行榜数据，互相激励进步',
-      '💬 在动态广场互动，点赞评论学习内容'
+      '📌 可配置的功能：',
+      '',
+      '  💬 AI 对话（小基聊天 / 学习问答）',
+      '    可选平台：火山引擎（豆包）、DeepSeek、智谱 GLM',
+      '',
+      '  🖼️ 图片理解（识别图片内容）',
+      '    可选平台：火山引擎（豆包）',
+      '',
+      '  📝 题目生成（AI 出题 / 换题型）',
+      '    可选平台：DeepSeek、智谱 GLM',
+      '',
+      '  📊 学习评估（掌握度评分 / 学情报告 / 画像生成）',
+      '    可选平台：DeepSeek',
+      '',
+      '  🎥 视频推荐（知识点相关视频推送）',
+      '    可选平台：腾讯云',
+      '',
+      '  📞 视频通话（讯飞数字人）',
+      '    可选平台：讯飞',
+      '',
+      '💡 配置后功能将优先使用你自己的 API 额度，无调用限制。'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '🔑', label: '去配置 API', route: '/api-center' }
+    ]
   },
   {
-    id: 19,
-    tag: '社区',
-    tagColor: '#9C27B0',
-    question: '如何添加好友？',
+    id: 32,
+    tag: 'API配置',
+    tagColor: '#FF5722',
+    question: '各功能需要什么平台的 API？',
     answer: [
-      '添加好友流程：',
+      '各功能和推荐平台的对应关系：',
       '',
-      '1. 进入「社区」→ 搜索用户（按昵称或账号）',
-      '2. 点击用户卡片上的「添加好友」按钮',
-      '3. 等待对方确认好友申请',
-      '4. 成为好友后，可以互相查看资料卡和分享题集',
-      '5. 好友排行榜数据互通'
+      '┌─────────────┬──────────────────┬─────────────────────┐',
+      '│ 功能        │ 推荐平台         │ 凭证要求            │',
+      '├─────────────┼──────────────────┼─────────────────────┤',
+      '│ 💬 AI 对话  │ 火山引擎（豆包）  │ API Key + Endpoint ID│',
+      '│             │ DeepSeek         │ API Key             │',
+      '│             │ 智谱 GLM         │ API Key             │',
+      '├─────────────┼──────────────────┼─────────────────────┤',
+      '│ 🖼️ 图片理解  │ 火山引擎（豆包）  │ API Key + Endpoint ID│',
+      '├─────────────┼──────────────────┼─────────────────────┤',
+      '│ 📝 题目生成  │ DeepSeek         │ API Key             │',
+      '│             │ 智谱 GLM         │ API Key             │',
+      '├─────────────┼──────────────────┼─────────────────────┤',
+      '│ 📊 学习评估  │ DeepSeek         │ API Key             │',
+      '├─────────────┼──────────────────┼─────────────────────┤',
+      '│ 🎥 视频推荐  │ 腾讯云           │ SecretId + SecretKey│',
+      '├─────────────┼──────────────────┼─────────────────────┤',
+      '│ 📞 视频通话  │ 讯飞             │ APPID + API Key     │',
+      '│             │                  │ + API Secret        │',
+      '└─────────────┴──────────────────┴─────────────────────┘'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '🔑', label: '去配置 API', route: '/api-center' }
+    ]
   },
   {
-    id: 20,
-    tag: '社区',
-    tagColor: '#9C27B0',
-    question: '如何分享和接收题集？',
+    id: 33,
+    tag: 'API配置',
+    tagColor: '#FF5722',
+    question: '如何获取 DeepSeek API Key？',
     answer: [
-      '题集分享功能：',
+      '🔹 步骤：',
+      '  1. 访问 platform.deepseek.com 注册账号',
+      '  2. 完成实名认证（需要手机号+身份证）',
+      '  3. 进入控制台 → 「API Keys」→ 「创建 API Key」',
+      '  4. 输入名称（如「基智学习」），点击「创建」',
+      '  5. 复制生成的 Key（格式：sk-xxxxxxxxxxxxxxxx）',
+      '  6. 回到基智 API 管理页面，粘贴保存',
       '',
-      '1. 在「资源库」→ 题集管理 → 选择要分享的题集',
-      '2. 点击「分享」按钮，生成分享链接',
-      '3. 发送给好友，好友点击链接即可接收题集',
-      '4. 接收后自动保存到自己的题集列表中',
-      '5. 支持一键收纳好友分享的题目/套餐题集'
+      '⚠️ 常见坑：',
+      '  • DeepSeek 新用户送 500 万 tokens 额度，够用很久',
+      '  • Key 只显示一次，务必复制保存，关闭后无法再查看',
+      '  • 如果提示余额不足，去控制台充值即可',
+      '',
+      '🔗 直达链接：',
+      '  • 注册/登录：https://platform.deepseek.com',
+      '  • API Keys 管理：https://platform.deepseek.com/api_keys'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '🔑', label: '去配置 API', route: '/api-center' }
+    ]
   },
   {
-    id: 21,
-    tag: '社区',
-    tagColor: '#9C27B0',
-    question: '好友之间可以查看哪些数据？',
+    id: 34,
+    tag: 'API配置',
+    tagColor: '#FF5722',
+    question: '如何获取火山引擎（豆包）API Key？',
     answer: [
-      '好友互通权限说明：',
+      '🔹 步骤：',
+      '  1. 访问 console.volcengine.com 注册账号',
+      '  2. 完成实名认证（个人/企业均可）',
+      '  3. 开通「火山方舟 ARK」服务（控制台搜索「ARK」）',
+      '  4. 进入「推理接入」→ 「创建接入点」',
+      '  5. 选择模型（如 Doubao-pro-32k、Doubao-vision）',
+      '  6. 接入点创建成功后，点击「API 调用」获取 Key',
+      '  7. 复制 API Key（格式：VxCgNvLTE.xxxxxxxxxxxxxxxx）和 Endpoint ID',
+      '  8. 回到基智 API 管理页面，填入对应字段',
       '',
-      '✅ 查看好友资料卡（昵称、头像、简介、段位等级）',
-      '✅ 查看好友排行榜数据',
-      '✅ 接收好友分享的题库和题集',
-      '✅ 查看好友的学习动态（打卡、完成题目、解锁成就）',
-      '❌ 无法查看好友的错题本和隐私设置内容'
+      '⚠️ 常见坑：',
+      '  • 火山引擎的 API Key 不是 Access Key/Secret Key，而是 ARK API Key',
+      '  • 开通 ARK 服务可能需要 0 元开通，无需付费',
+      '  • 每个接入点有独立的 API Key，不要搞混',
+      '  • Vision（图片理解）和 Chat（对话）是不同接入点，需分别创建',
+      '  • 新用户通常有免费额度，够测试使用',
+      '',
+      '🔗 直达链接：',
+      '  • 注册/登录：https://console.volcengine.com',
+      '  • ARK 控制台：https://console.volcengine.com/ark/',
+      '  • 推理接入点管理：https://console.volcengine.com/ark/region:ark+cn-beijing/endpoint'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '🔑', label: '去配置 API', route: '/api-center' }
+    ]
   },
   {
-    id: 22,
-    tag: '社区',
-    tagColor: '#9C27B0',
-    question: '动态广场是什么？',
+    id: 35,
+    tag: 'API配置',
+    tagColor: '#FF5722',
+    question: '如何获取智谱 GLM / 百川 API Key？',
     answer: [
-      '动态广场是社区的信息流页面，展示：',
+      '🔹 智谱 GLM（用于对话、生成题目）：',
+      '  1. 访问 open.bigmodel.cn 注册账号',
+      '  2. 完成实名认证',
+      '  3. 进入控制台 → 「API Keys」→ 「创建 API Key」',
+      '  4. 复制 Key（格式：xxxxxxxx.xxxxxxxxxxxxxxxx）',
+      '  5. 新用户送免费额度',
+      '  🔗 https://open.bigmodel.cn',
       '',
-      '📌 自己的学习动态（打卡、完成题目、解锁成就等）',
-      '📌 好友的学习动态（系统自动聚合）',
-      '📌 发布的笔记和题集分享',
+      '🔹 百川（用于联网搜索）：',
+      '  1. 访问 platform.baichuan-ai.com 注册账号',
+      '  2. 完成实名认证',
+      '  3. 进入「API Keys」页面创建密钥',
+      '  4. 复制 Key 并保存',
+      '  🔗 https://platform.baichuan-ai.com',
       '',
-      '支持点赞、评论、收藏等互动功能'
+      '⚠️ 通用坑：',
+      '  • 所有平台的 Key 都只显示一次，请立即保存',
+      '  • 如果验证失败，检查 Key 是否有前后空格',
+      '  • 大部分平台新用户都有免费额度，不用先充值'
     ],
-    expanded: false
+    expanded: false,
+    actions: [
+      { icon: '🔑', label: '去配置 API', route: '/api-center' }
+    ]
+  },
+  {
+    id: 36,
+    tag: 'API配置',
+    tagColor: '#FF5722',
+    question: '如何获取腾讯云 API 密钥？',
+    answer: [
+      '🔹 步骤（用于视频推荐）：',
+      '  1. 访问 console.cloud.tencent.com 注册账号',
+      '  2. 完成实名认证',
+      '  3. 开通「云点播 VOD」服务',
+      '  4. 进入「访问管理」→ 「API密钥管理」',
+      '  5. 创建密钥，获取 SecretId 和 SecretKey',
+      '  6. 选择地域（推荐上海 ap-shanghai）',
+      '  7. 回到基智 API 管理页面，填入对应字段',
+      '',
+      '⚠️ 常见坑：',
+      '  • SecretId 和 SecretKey 是腾讯云所有服务的通用密钥',
+      '  • 需开通云点播服务后才能使用视频相关功能',
+      '  • 部分接口需要指定地域，与密钥权限相关',
+      '',
+      '🔗 直达链接：',
+      '  • 注册/登录：https://console.cloud.tencent.com',
+      '  • API密钥管理：https://console.cloud.tencent.com/cam/capi',
+      '  • 云点播控制台：https://console.cloud.tencent.com/vod'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '🔑', label: '去配置 API', route: '/api-center' }
+    ]
+  },
+  {
+    id: 37,
+    tag: 'API配置',
+    tagColor: '#FF5722',
+    question: '如何获取讯飞 API 凭证？',
+    answer: [
+      '🔹 步骤（用于视频通话/数字人）：',
+      '  1. 访问 console.xfyun.cn 注册账号',
+      '  2. 完成实名认证',
+      '  3. 进入控制台 → 创建应用',
+      '  4. 获取 APPID、API Key、API Secret',
+      '  5. 开通对应的数字人服务（如讯飞数字人）',
+      '  6. 回到基智 API 管理页面，填入对应字段',
+      '',
+      '⚠️ 常见坑：',
+      '  • 讯飞的三个凭证（APPID、API Key、API Secret）都需要填写',
+      '  • 不同应用有不同的凭证，不要搞混',
+      '  • 数字人服务需要单独开通，可能有免费试用额度',
+      '',
+      '🔗 直达链接：',
+      '  • 注册/登录：https://console.xfyun.cn',
+      '  • 应用管理：https://console.xfyun.cn/app'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '🔑', label: '去配置 API', route: '/api-center' }
+    ]
+  },
+  {
+    id: 38,
+    tag: 'API配置',
+    tagColor: '#FF5722',
+    question: 'API Key 配置后如何验证是否有效？',
+    answer: [
+      '在「API 管理」页面填入凭证后：',
+      '',
+      '1. 点击对应平台的「验证」按钮',
+      '2. 系统会发送一条测试请求到该平台',
+      '3. 验证结果会显示在按钮旁边：',
+      '   ✅ 验证通过 → 凭证有效，功能可正常使用',
+      '   ❌ 验证失败 → 请检查以下问题：',
+      '',
+      '🔍 验证失败排查：',
+      '  • 凭证是否完整复制（没有遗漏字符）',
+      '  • 是否有多余空格（复制时容易带入）',
+      '  • 平台账户是否有余额/免费额度',
+      '  • 火山引擎：是否填写了正确的 Endpoint ID',
+      '  • 腾讯云：是否开通了对应的云服务',
+      '  • 讯飞：是否开通了对应的数字人服务',
+      '  • 网络是否正常（需要能访问外网）',
+      '',
+      '💡 验证通过后，对应功能会优先使用你的凭证进行调用。'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '🔑', label: '去验证 API', route: '/api-center' }
+    ]
+  },
+  {
+    id: 39,
+    tag: 'API配置',
+    tagColor: '#FF5722',
+    question: '未配置 API 或 API 失效时会怎样？',
+    answer: [
+      '系统有完整的降级方案，保证功能可用：',
+      '',
+      '📌 情况1：未配置任何 API',
+      '  → 自动使用系统公共 API（有限额，适合体验）',
+      '  → 页面会提示「建议配置专属 Key」',
+      '',
+      '📌 情况2：已配置但凭证失效',
+      '  → 自动降级到系统公共 API',
+      '  → 页面提示「你的 API 凭证已失效，已切换为公共资源」',
+      '',
+      '📌 情况3：公共 API 也超限',
+      '  → 显示「服务繁忙，请稍后重试或配置自己的 API Key」',
+      '',
+      '💡 建议尽早配置自己的凭证，避免公共额度耗尽影响学习。'
+    ],
+    expanded: false,
+    actions: [
+      { icon: '🔑', label: '去配置 API', route: '/api-center' }
+    ]
   }
 ])
 
@@ -537,9 +1064,9 @@ const uploadedImage = ref(null)
 const uploadRef = ref(null)
 const showAskHistory = ref(false)
 const askHistory = ref([
-  { id: 1, question: '什么是导数？', status: '已回复', time: '2024-01-15' },
-  { id: 2, question: '如何理解偏微分？', status: '处理中', time: '2024-01-16' },
-  { id: 3, question: '微积分有什么应用？', status: '已回复', time: '2024-01-14' }
+  { id: 1, question: '如何配置 API Key？', status: '已回复', time: '2026-07-08' },
+  { id: 2, question: '为什么我的 API Key 验证失败？', status: '已回复', time: '2026-07-08' },
+  { id: 3, question: '社区好友排行榜怎么看不到自己？', status: '已回复', time: '2026-07-07' }
 ])
 
 // ===== 方法 =====
@@ -569,8 +1096,10 @@ const filteredFAQs = computed(() => {
     const tabMap = {
       guide: '学习指南',
       feature: '功能使用',
+      career: '学程',
+      community: '社区',
       account: '账号管理',
-      community: '社区'
+      api: 'API配置'
     }
     const tag = tabMap[activeTab.value]
     if (tag) {
@@ -622,20 +1151,40 @@ async function submitAsk() {
 
   askSubmitting.value = true
   try {
-    // 模拟提交
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    const newHistory = {
-      id: askHistory.value.length + 1,
-      question: askContent.value || '（含图片提问）',
-      status: '处理中',
-      time: new Date().toISOString().slice(0, 10)
+    const response = await fetch('/api/qa/submit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        user_id: authStore.user?.id || '',
+        user_email: authStore.user?.email || '',
+        user_nickname: authStore.user?.nickname || '用户',
+        question: askContent.value.trim() || '（图片提问）',
+        has_image: !!uploadedImage.value,
+        image_data: uploadedImage.value || null
+      })
+    })
+
+    const result = await response.json()
+
+    if (response.ok) {
+      const newHistory = {
+        id: askHistory.value.length + 1,
+        question: askContent.value.trim() || '（含图片提问）',
+        status: '待回复',
+        time: new Date().toISOString().slice(0, 10)
+      }
+      askHistory.value.unshift(newHistory)
+      ElMessage.success('✅ 问题已发送，我们会通过邮件回复你')
+      askContent.value = ''
+      removeImage()
+    } else {
+      ElMessage.error(result.message || '发送失败，请稍后重试')
     }
-    askHistory.value.unshift(newHistory)
-    ElMessage.success('✅ 问题已提交，AI 正在处理...')
-    askContent.value = ''
-    removeImage()
   } catch (error) {
-    ElMessage.error('提交失败，请稍后重试')
+    console.error('提交问题失败:', error)
+    ElMessage.error('网络错误，请稍后重试')
   } finally {
     askSubmitting.value = false
   }
@@ -705,7 +1254,6 @@ async function submitAsk() {
   margin: 14px 0;
 }
 
-/* ===== 搜索 ===== */
 .search-section {
   margin: 4px 0 14px;
 }
@@ -740,7 +1288,6 @@ async function submitAsk() {
   font-size: 14px;
 }
 
-/* ===== Tab ===== */
 .tab-section {
   display: flex;
   gap: 8px;
@@ -768,7 +1315,6 @@ async function submitAsk() {
   color: #409eff;
 }
 
-/* ===== FAQ ===== */
 .faq-list {
   display: flex;
   flex-direction: column;
@@ -865,7 +1411,6 @@ async function submitAsk() {
   margin: 6px 0;
 }
 
-/* ===== 即时答疑 ===== */
 .qa-divider {
   display: flex;
   align-items: center;
@@ -976,7 +1521,6 @@ async function submitAsk() {
   opacity: 0.6;
 }
 
-/* ===== 提问历史 ===== */
 .ask-history {
   margin-top: 14px;
   padding: 12px 16px;
@@ -1029,7 +1573,6 @@ async function submitAsk() {
   padding: 12px 0;
 }
 
-/* ===== 响应式 ===== */
 @media (max-width: 640px) {
   .qa-page {
     padding: 12px 10px;

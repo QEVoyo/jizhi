@@ -19,19 +19,21 @@
           <div class="message-content">{{ msg.content }}</div>
         </div>
 
-        <div v-if="thinking" class="message assistant thinking-message">
+        <!-- ===== 调用 Agent 状态（显示1秒后消失） ===== -->
+        <div v-if="callingAgent" class="message assistant calling-message">
           <div class="message-content">
-            <div class="thinking-indicator">
-              <span class="thinking-icon">{{ thinkingIcon }}</span>
-              <span class="thinking-text">{{ thinkingText }}</span>
-              <span class="thinking-dots">
+            <div class="calling-indicator">
+              <span class="calling-icon">{{ callingIcon }}</span>
+              <span class="calling-text">{{ callingText }}</span>
+              <span class="calling-dots">
                 <span></span><span></span><span></span>
               </span>
             </div>
           </div>
         </div>
 
-        <div v-else-if="isLoading && !thinking" class="message assistant">
+        <!-- ===== 加载中（备用） ===== -->
+        <div v-else-if="isLoading" class="message assistant">
           <div class="message-content loading-dots">
             <span></span><span></span><span></span>
           </div>
@@ -95,9 +97,9 @@ const sessionStore = useSessionStore()
 
 const inputText = ref('')
 const isLoading = ref(false)
-const thinking = ref(false)
-const thinkingText = ref('')
-const thinkingIcon = ref('')
+const callingAgent = ref(false)
+const callingIcon = ref('')
+const callingText = ref('')
 const messagesRef = ref(null)
 const uploadedImages = ref([])
 
@@ -113,10 +115,11 @@ function scrollToBottom() {
   })
 }
 
-function detectIntent(text) {
-  const planKeywords = ['规划', '计划', '安排', '学习路径', '该怎么学', '先学什么', '学习路线', '给我规划']
-  const generateKeywords = ['生成', '出题', '给我一道题', '练习题', '题目', '给我出', '出一道', '生成题目']
-  const evaluateKeywords = ['评估', '评价', '批改', '看看我写', '帮我改', '检查一下', '帮我评估']
+// ===== 降级关键词匹配（仅当 AI 意图分类失败时使用） =====
+function fallbackDetectIntent(text) {
+  const planKeywords = ['规划', '计划', '安排', '学习路径', '该怎么学', '先学什么', '学习路线', '给我规划', '怎么学习', '学习计划', '路径规划', '学习方案', '怎么开始']
+  const generateKeywords = ['生成', '出题', '给我一道题', '练习题', '题目', '给我出', '出一道', '生成题目', '高数题', '数学题', '物理题', '英语题', '编程题', '算法题', '数据结构题', '给我题', '来道题', '来一题', '练练手', '做题', '练习', '试卷', '考题']
+  const evaluateKeywords = ['评估', '评价', '批改', '看看我写', '帮我改', '检查一下', '帮我评估', '觉得我', '怎么样', '水平', '怎么样的人', '什么水平', '帮我看看']
 
   if (planKeywords.some(k => text.includes(k))) return 'plan'
   if (generateKeywords.some(k => text.includes(k))) return 'generate'
@@ -124,12 +127,43 @@ function detectIntent(text) {
   return 'chat'
 }
 
+// ===== 调用后端 AI 意图分类 =====
+async function detectIntent(text) {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/chat/detect-intent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authStore.token}`
+      },
+      body: JSON.stringify({ text: text.slice(0, 200) })
+    })
+    const data = await response.json()
+    if (data.intent && ['plan', 'generate', 'evaluate', 'chat'].includes(data.intent)) {
+      return data.intent
+    }
+    return fallbackDetectIntent(text)
+  } catch {
+    return fallbackDetectIntent(text)
+  }
+}
+
 function getAgentInfo(intent) {
   const map = {
-    'plan': { icon: '📋', label: '规划 Agent 思考中' },
-    'generate': { icon: '📖', label: '生成 Agent 思考中' },
-    'evaluate': { icon: '🔍', label: '评估 Agent 思考中' },
-    'chat': { icon: '💬', label: '思考中' }
+    'plan': { icon: '📋', label: '调用规划 Agent' },
+    'generate': { icon: '📖', label: '调用生成 Agent' },
+    'evaluate': { icon: '🔍', label: '调用评估 Agent' },
+    'chat': { icon: '💬', label: '调用 Chat Agent' }
+  }
+  return map[intent] || map['chat']
+}
+
+function getAgentDone(intent) {
+  const map = {
+    'plan': '✅ 规划 Agent 已完成',
+    'generate': '✅ 生成 Agent 已完成',
+    'evaluate': '✅ 评估 Agent 已完成',
+    'chat': '✅ Chat Agent 已完成'
   }
   return map[intent] || map['chat']
 }
@@ -160,20 +194,30 @@ async function sendMessage() {
     messageContent = text ? `${text}\n\n📷 已上传 ${uploadedImages.value.length} 张图片` : `📷 已上传 ${uploadedImages.value.length} 张图片`
   }
 
-  const intent = detectIntent(text || '图片')
+  // ===== AI 意图分类 =====
+  const intent = await detectIntent(text || '图片')
   const agentInfo = getAgentInfo(intent)
+  const doneLabel = getAgentDone(intent)
 
+  // 添加用户消息
   sessionStore.addMessage(sessionStore.currentSessionId, 'user', messageContent)
   inputText.value = ''
   const images = [...uploadedImages.value]
   uploadedImages.value = []
   scrollToBottom()
 
+  // ===== 显示调用 Agent 状态 =====
   isLoading.value = true
-  thinking.value = true
-  thinkingIcon.value = agentInfo.icon
-  thinkingText.value = agentInfo.label
+  callingAgent.value = true
+  callingIcon.value = agentInfo.icon
+  callingText.value = agentInfo.label
   scrollToBottom()
+
+  // 等待1秒后开始流式输出
+  await new Promise(resolve => setTimeout(resolve, 1000))
+
+  // 隐藏调用状态，准备流式输出
+  callingAgent.value = false
 
   try {
     const history = sessionStore
@@ -186,17 +230,19 @@ async function sendMessage() {
     if (images.length) {
       const lastUserMsg = finalMessages[finalMessages.length - 1]
       if (lastUserMsg && lastUserMsg.role === 'user') {
-        lastUserMsg.content = `${lastUserMsg.content}\n\n[已上传 ${images.length} 张图片，请分析]`
+        const imageData = images.map(img => img.url).join(',')
+        lastUserMsg.content = `${lastUserMsg.content}\n\n[图片数据: ${imageData}]`
       }
     }
 
     const response = await sendChatMessage(finalMessages, authStore.user.id, 0.7, intent)
-    thinking.value = false
 
+    // ===== 流式读取 =====
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let fullContent = ''
 
+    // 创建助手消息占位
     sessionStore.addMessage(sessionStore.currentSessionId, 'assistant', '')
     const msgs = sessionStore.getMessages(sessionStore.currentSessionId)
     const lastIndex = msgs.length - 1
@@ -211,19 +257,12 @@ async function sendMessage() {
       scrollToBottom()
     }
 
-    if (intent === 'generate' && fullContent.length > 20) {
-      const keyword = fullContent.slice(0, 30)
-      await saveLog(authStore.user.id, keyword)
-    }
+    // ===== 内容输出完成后，追加"已完成"标记 =====
+    msgs[lastIndex].content = fullContent + `\n\n${doneLabel}`
+    sessionStore.saveSessions()
+    scrollToBottom()
 
-    const actionMap = {
-      'plan': 'use_plan_agent',
-      'generate': 'use_generate_agent',
-      'evaluate': 'use_evaluate_agent',
-      'chat': 'chat'
-    }
-    await recordAction(authStore.user.id, actionMap[intent] || 'chat')
-
+    // ===== 后处理 =====
     const allMsgs = sessionStore.getMessages(sessionStore.currentSessionId)
     if (allMsgs.length === 2) {
       try {
@@ -249,9 +288,46 @@ async function sendMessage() {
       }
     }
 
+    const actionMap = {
+      'plan': 'use_plan_agent',
+      'generate': 'use_generate_agent',
+      'evaluate': 'use_evaluate_agent',
+      'chat': 'chat'
+    }
+    await recordAction(authStore.user.id, actionMap[intent] || 'chat')
+
+    // 【仅生成 Agent】提取摘要写入学习日志
+    if (intent === 'generate' && fullContent.length > 20) {
+    console.log('=== 进入生成日志写入逻辑 ===')
+    console.log('=== fullContent 长度:', fullContent.length)
+      try {
+        const summaryRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/chat/summary`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authStore.token}`
+          },
+          body: JSON.stringify({
+            content: fullContent,
+            user_id: authStore.user.id
+          })
+        })
+        const summaryData = await summaryRes.json()
+        console.log('=== 摘要结果:', summaryData)
+        if (summaryData.summary) {
+          await saveLog(authStore.user.id, summaryData.summary)
+        }
+      } catch (error) {
+        console.error('提取摘要或写入日志失败:', error)
+        const fallbackSummary = fullContent.replace(/\n/g, ' ').slice(0, 50) + (fullContent.length > 50 ? '...' : '')
+        await saveLog(authStore.user.id, fallbackSummary)
+      }
+    }
+
   } catch (error) {
     console.error('发送失败:', error)
-    thinking.value = false
+    callingAgent.value = false
+    isLoading.value = false
     ElMessage.error('发送失败: ' + (error.message || '网络错误'))
     const msgs = sessionStore.getMessages(sessionStore.currentSessionId)
     if (msgs.length > 0 && msgs[msgs.length - 1].content === '') {
@@ -260,14 +336,18 @@ async function sendMessage() {
     }
   } finally {
     isLoading.value = false
-    thinking.value = false
+    callingAgent.value = false
     scrollToBottom()
   }
 }
 
 onMounted(() => {
-  if (!sessionStore.currentSessionId && !sessionStore.sessions.length) {
+  sessionStore.loadSessions()
+  if (!sessionStore.sessions.length) {
     sessionStore.createSession('新对话')
+  }
+  if (!sessionStore.currentSessionId && sessionStore.sessions.length) {
+    sessionStore.switchSession(sessionStore.sessions[0].id)
   }
   scrollToBottom()
 })
@@ -346,37 +426,38 @@ onMounted(() => {
   word-break: break-word;
 }
 
-.thinking-message {
+/* ===== 调用 Agent 状态 ===== */
+.calling-message {
   background: rgba(128, 128, 128, 0.03) !important;
   border: 1px solid var(--border-color);
 }
-.thinking-indicator {
+.calling-indicator {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.thinking-icon {
+.calling-icon {
   font-size: 18px;
 }
-.thinking-text {
+.calling-text {
   font-size: 14px;
   color: var(--text-secondary);
 }
-.thinking-dots {
+.calling-dots {
   display: flex;
   gap: 3px;
   align-items: center;
 }
-.thinking-dots span {
+.calling-dots span {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: var(--text-muted);
   animation: thinkingBounce 1.4s infinite both;
 }
-.thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
-.thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
-.thinking-dots span:nth-child(3) { animation-delay: 0s; }
+.calling-dots span:nth-child(1) { animation-delay: -0.32s; }
+.calling-dots span:nth-child(2) { animation-delay: -0.16s; }
+.calling-dots span:nth-child(3) { animation-delay: 0s; }
 
 @keyframes thinkingBounce {
   0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
@@ -525,7 +606,7 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.04) !important;
   color: var(--text-primary) !important;
 }
-[data-theme="dark"] .thinking-message {
+[data-theme="dark"] .calling-message {
   background: rgba(255, 255, 255, 0.02) !important;
 }
 

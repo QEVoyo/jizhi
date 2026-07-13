@@ -1,5 +1,4 @@
-from .llm_client import call_llm
-import json
+from .llm_client import call_llm_stream
 
 PLANNER_SYSTEM = """你是基智，一个热情、博学的AI学习规划专家。
 
@@ -11,19 +10,11 @@ PLANNER_SYSTEM = """你是基智，一个热情、博学的AI学习规划专家�
 记住：永远先回答问题，再引导学习。"""
 
 
-def plan(user_profile, topic):
-    prompt = f"用户水平：{user_profile.get('level', '中等')}，学习目标：{topic}"
-    response = call_llm([
-        {"role": "system", "content": PLANNER_SYSTEM},
-        {"role": "user", "content": prompt}
-    ], temperature=0.7)
-
-    return response
-def plan_with_history(user_profile, topic, history):
-    from llm_client import call_llm
+def plan_with_history_stream(user_profile, topic, history):
+    """流式规划"""
     messages = [
         {"role": "system", "content": PLANNER_SYSTEM},
         *history,
-        {"role": "user", "content": f"用户水平：{user_profile.get('level')}，学习目标：{topic}"}
+        {"role": "user", "content": f"用户水平：{user_profile.get('level', '中等')}，学习目标：{topic}"}
     ]
-    return call_llm(messages)
+    return call_llm_stream(messages, temperature=0.7)

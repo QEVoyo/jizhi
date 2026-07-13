@@ -85,7 +85,6 @@
         @collect="handleCollect"
         @comment="toggleComment"
         @user-click="goUserProfile"
-        @post-click="goPostDetail"
         @report="handleReport"
         @delete="handleDelete"
       />
@@ -134,8 +133,7 @@ const activeFilter = ref('all')
 
 const filterTabs = [
   { key: 'all', label: '全部' },
-  { key: 'hot', label: '最热' },
-  { key: 'following', label: '关注' }
+  { key: 'friends', label: '好友' }
 ]
 
 // ===== 方法 =====
@@ -155,7 +153,8 @@ async function loadPosts(reset = true) {
       user_id: authStore.user.id,
       page: page.value,
       page_size: 20,
-      search: searchKeyword.value
+      search: searchKeyword.value,
+      filter_type: activeFilter.value
     })
     if (reset) {
       posts.value = res.posts || []
@@ -165,6 +164,7 @@ async function loadPosts(reset = true) {
     hasMore.value = (res.posts || []).length === 20
     page.value++
   } catch (error) {
+    console.error('加载动态失败:', error)
     ElMessage.error('加载动态失败')
   } finally {
     loading.value = false
@@ -194,13 +194,14 @@ async function handlePublish() {
   try {
     await createPost({
       user_id: authStore.user.id,
-      content: publishContent.value
+      content: publishContent.value.trim()
     })
     ElMessage.success('发布成功')
     publishContent.value = ''
     loadPosts(true)
   } catch (error) {
-    ElMessage.error('发布失败')
+    console.error('发布失败:', error)
+    ElMessage.error(error.response?.data?.detail || '发布失败')
   } finally {
     publishing.value = false
   }
@@ -244,10 +245,6 @@ function toggleComment(postId) {
 
 function goUserProfile(userId) {
   router.push(`/community/user/${userId}`)
-}
-
-function goPostDetail(postId) {
-  router.push(`/post/${postId}`)
 }
 
 function handleReport(post) {

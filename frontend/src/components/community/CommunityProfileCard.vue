@@ -110,7 +110,7 @@
           </div>
           <div class="user-info">
             <div class="user-name">{{ profile?.nickname || '用户' }}</div>
-            <div class="user-account">{{ profile?.account || '未设置' }}</div>
+            <div class="user-account">{{ profile?.user_account || '未设置' }}</div>
             <div class="user-bio">{{ profile?.bio || '这个人很懒，什么都没写~' }}</div>
             <div class="user-meta">
               <span class="meta-badge level">Lv.{{ userLevel }}</span>
@@ -344,7 +344,7 @@
               </div>
               <div class="user-info">
                 <div class="user-name">{{ profile?.nickname || '用户' }}</div>
-                <div class="user-account">{{ profile?.account || '未设置' }}</div>
+                <div class="user-account">{{ profile?.user_account || '未设置' }}</div>
                 <div class="user-bio">{{ profile?.bio || '这个人很懒，什么都没写~' }}</div>
                 <div class="user-meta">
                   <span class="meta-badge level">Lv.{{ userLevel }}</span>

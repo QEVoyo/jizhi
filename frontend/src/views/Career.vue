@@ -22,7 +22,7 @@
               </div>
               <div class="rank-level-display">
                 <span class="level-label">Lv.{{ userLevel }}</span>
-                <span class="level-points">{{ points }} 分</span>
+                <span class="level-points">{{ levelPoints }} 分</span>
               </div>
               <div class="rank-progress">
                 <div class="progress-track">
@@ -211,7 +211,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const taskData = ref({ seed: [], daily: [], long: [], achievements: [] })
-const stats = ref({ points: 0, rank: '启程', sub_rank: 1 })
+const stats = ref({ points: 0, level_points: 0, rank: '启程', sub_rank: 1 })
 const loading = ref(true)
 const refreshUsed = ref(false)
 const bonusClaimed = ref(false)
@@ -230,6 +230,8 @@ const allDailyDone = computed(() => {
 })
 
 const points = computed(() => stats.value.points || 0)
+const levelPoints = computed(() => stats.value.level_points || 0)
+
 const rank = computed(() => stats.value.rank || '启程')
 const subRank = computed(() => stats.value.sub_rank || 1)
 const rankIcon = computed(() => RANK_ICONS[rank.value] || '◈')
@@ -238,33 +240,37 @@ const rankColor = computed(() => RANK_COLORS[rank.value] || '#888')
 const rankSubSymbol = computed(() => SUB_SYMBOLS[subRank.value] || '○')
 const rankIndex = computed(() => RANK_ORDER.indexOf(rank.value) || 0)
 
-// ===== 等级计算（等差数列） =====
-const userLevel = computed(() => {
+// ===== 等级计算（使用 level_points，等差数列） =====
+function calcLevel(lp) {
   let level = 1
   let totalNeeded = 2
-  while (points.value >= totalNeeded) {
+  while (lp >= totalNeeded) {
     level++
     totalNeeded += (level + 1)
   }
   return level
-})
+}
+
+const userLevel = computed(() => calcLevel(levelPoints.value))
 
 const levelProgress = computed(() => {
   let used = 0
+  const lp = levelPoints.value
   for (let i = 1; i < userLevel.value; i++) {
     used += (i + 1)
   }
-  const currentProgress = points.value - used
+  const currentProgress = lp - used
   const currentNeeded = userLevel.value + 1
   return Math.min(100, (currentProgress / currentNeeded) * 100)
 })
 
 const nextLevelPoints = computed(() => {
   let used = 0
+  const lp = levelPoints.value
   for (let i = 1; i <= userLevel.value; i++) {
     used += (i + 1)
   }
-  return used - points.value
+  return used - lp
 })
 
 const rankProgress = computed(() => {

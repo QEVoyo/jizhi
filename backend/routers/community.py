@@ -6,7 +6,9 @@ from config import settings
 import httpx
 import uuid
 import re
+from utils.email import send_report_email
 from collections import defaultdict
+from utils.notification import create_notification
 
 router = APIRouter(prefix="/community", tags=["社区"])
 
@@ -76,40 +78,77 @@ async def create_post(user_id: str, data: PostCreate):
         "topic": topic
     }
 
+    print(f"=== 发布动态，数据: {post_data} ===")
+
     async with httpx.AsyncClient() as client:
         url = f"{settings.SUPABASE_URL}/rest/v1/posts"
         res = await client.post(url, headers=headers, json=post_data)
+
+        print(f"=== Supabase 状态码: {res.status_code} ===")
+        print(f"=== Supabase 响应: {res.text} ===")
+
         if res.status_code not in [200, 201]:
             raise HTTPException(status_code=400, detail=f"发布失败: {res.text}")
-        return res.json()
+
+        # Supabase 返回空响应体时，手动返回成功
+        if not res.text:
+            return {"success": True, "message": "发布成功", "id": None}
+
+        try:
+            return res.json()
+        except:
+            return {"success": True, "message": "发布成功", "id": None}
 
 
 @router.get("/posts")
 async def get_posts(
-        user_id: str = Query(...),
-        topic: Optional[str] = Query(None),
-        search: Optional[str] = Query(None),
-        page: int = Query(1, ge=1),
-        page_size: int = Query(20, ge=1, le=50)
+    user_id: str = Query(...),
+    topic: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    filter_type: str = Query("all"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=50)
 ):
-    """获取动态列表"""
+    """获取动态列表（支持全部/好友筛选）"""
     headers = get_supabase_headers()
-
     offset = (page - 1) * page_size
-    url = f"{settings.SUPABASE_URL}/rest/v1/posts?select=*,profiles!user_id(nickname,avatar_url,user_account)&order=created_at.desc&limit={page_size}&offset={offset}"
-
-    if topic:
-        url += f"&topic=eq.{topic}"
-    if search:
-        url += f"&content=ilike.%{search}%"
 
     async with httpx.AsyncClient() as client:
+        # ===== 获取好友ID列表 =====
+        friend_ids = []
+        if filter_type == "friends":
+            friends_url = f"{settings.SUPABASE_URL}/rest/v1/friendships?status=eq.accepted&or=(user_id.eq.{user_id},friend_id.eq.{user_id})&select=user_id,friend_id"
+            friends_res = await client.get(friends_url, headers=headers)
+            if friends_res.status_code == 200:
+                friendships = friends_res.json()
+                for f in friendships:
+                    if f["user_id"] == user_id:
+                        friend_ids.append(f["friend_id"])
+                    else:
+                        friend_ids.append(f["user_id"])
+                friend_ids = list(set(friend_ids))
+            if not friend_ids:
+                return {"posts": [], "total": 0, "page": page, "page_size": page_size}
+
+        # ===== 构建查询 =====
+        url = f"{settings.SUPABASE_URL}/rest/v1/posts?select=*,profiles!user_id(nickname,avatar_url,user_account)&order=created_at.desc&limit={page_size}&offset={offset}"
+
+        if filter_type == "friends" and friend_ids:
+            ids_str = ",".join([f"\"{id}\"" for id in friend_ids])
+            url += f"&user_id=in.({ids_str})"
+
+        if topic:
+            url += f"&topic=eq.{topic}"
+        if search:
+            url += f"&content=ilike.%{search}%"
+
         res = await client.get(url, headers=headers)
         if res.status_code != 200:
             return {"posts": [], "total": 0}
 
         posts = res.json()
 
+        # ===== 点赞/收藏状态 =====
         for post in posts:
             like_check = await client.get(
                 f"{settings.SUPABASE_URL}/rest/v1/post_likes?post_id=eq.{post['id']}&user_id=eq.{user_id}",
@@ -129,13 +168,17 @@ async def get_posts(
             )
             post["comments"] = comments_res.json() if comments_res.status_code == 200 else []
 
+        # ===== 总数统计 =====
         count_url = f"{settings.SUPABASE_URL}/rest/v1/posts?select=id&count=exact"
+        if filter_type == "friends" and friend_ids:
+            ids_str = ",".join([f"\"{id}\"" for id in friend_ids])
+            count_url += f"&user_id=in.({ids_str})"
         if topic:
             count_url += f"&topic=eq.{topic}"
         if search:
             count_url += f"&content=ilike.%{search}%"
         count_res = await client.get(count_url, headers=headers)
-        total = count_res.json() if count_res.status_code == 200 else 0
+        total = len(count_res.json()) if count_res.status_code == 200 else 0
 
         return {"posts": posts, "total": total, "page": page, "page_size": page_size}
 
@@ -787,18 +830,57 @@ async def create_report(user_id: str, data: ReportCreate):
     """举报动态或评论"""
     headers = get_supabase_headers()
 
-    report_data = {
-        "reporter_id": user_id,
-        "target_type": data.target_type,
-        "target_id": data.target_id,
-        "reason": data.reason
-    }
-
     async with httpx.AsyncClient(timeout=30.0) as client:
+        # 1. 获取举报人昵称
+        profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=nickname"
+        profile_res = await client.get(profile_url, headers=headers)
+        nickname = "用户"
+        if profile_res.status_code == 200 and profile_res.json():
+            nickname = profile_res.json()[0].get("nickname", "用户")
+
+        # 2. 获取被举报内容
+        target_content = "（内容已删除）"
+        target_author = "未知用户"
+        if data.target_type == "post":
+            post_url = f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{data.target_id}&select=content,user_id,profiles!user_id(nickname)"
+            post_res = await client.get(post_url, headers=headers)
+            if post_res.status_code == 200 and post_res.json():
+                post = post_res.json()[0]
+                target_content = post.get("content", "（内容已删除）")[:200]
+                if post.get("profiles"):
+                    target_author = post.get("profiles", {}).get("nickname", "未知用户")
+        elif data.target_type == "comment":
+            comment_url = f"{settings.SUPABASE_URL}/rest/v1/comments?id=eq.{data.target_id}&select=content,user_id,profiles!user_id(nickname)"
+            comment_res = await client.get(comment_url, headers=headers)
+            if comment_res.status_code == 200 and comment_res.json():
+                comment = comment_res.json()[0]
+                target_content = comment.get("content", "（内容已删除）")[:200]
+                if comment.get("profiles"):
+                    target_author = comment.get("profiles", {}).get("nickname", "未知用户")
+
+        # 3. 插入举报记录
+        report_data = {
+            "reporter_id": user_id,
+            "target_type": data.target_type,
+            "target_id": data.target_id,
+            "reason": data.reason
+        }
+
         url = f"{settings.SUPABASE_URL}/rest/v1/reports"
         res = await client.post(url, headers=headers, json=report_data)
         if res.status_code not in [200, 201]:
-            raise HTTPException(status_code=400, detail="举报失败")
+            raise HTTPException(status_code=400, detail=f"举报失败: {res.text}")
+
+        # 4. 发邮件
+        send_report_email(
+            reporter_nickname=nickname,
+            target_type=data.target_type,
+            target_id=data.target_id,
+            reason=data.reason,
+            target_content=target_content,
+            target_author=target_author
+        )
+
         return {"success": True, "message": "举报已提交"}
 
 
@@ -878,6 +960,16 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...)):
         act_res = await client.get(activities_url, headers=headers)
         activities = act_res.json() if act_res.status_code == 200 else []
 
+        # ===== 获取用户资料卡设置 =====
+        settings_url = f"{settings.SUPABASE_URL}/rest/v1/profile_card_settings?user_id=eq.{user_id}&select=selected_topics,selected_achievements"
+        settings_res = await client.get(settings_url, headers=headers)
+        selected_topics = []
+        selected_achievements = []
+        if settings_res.status_code == 200 and settings_res.json():
+            settings_data = settings_res.json()[0]
+            selected_topics = settings_data.get("selected_topics", [])
+            selected_achievements = settings_data.get("selected_achievements", [])
+
         friend_check_url = f"{settings.SUPABASE_URL}/rest/v1/friendships?status=eq.accepted&or=(user_id.eq.{current_user_id},friend_id.eq.{current_user_id})"
         friend_res = await client.get(friend_check_url, headers=headers)
         friendships = friend_res.json() if friend_res.status_code == 200 else []
@@ -901,7 +993,9 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...)):
             "is_friend": is_friend,
             "request_status": request_status,
             "mastery_data": mastery_data,
-            "achievements": achievements
+            "achievements": achievements,
+            "selected_topics": selected_topics,
+            "selected_achievements": selected_achievements
         }
 
 
@@ -1124,3 +1218,75 @@ async def create_notification(
         if res.status_code not in [200, 201]:
             print(f"创建通知失败: {res.text}")
         return res.status_code in [200, 201]
+
+@router.get("/friends/rank")
+async def get_friends_rank(user_id: str = Query(...)):
+    """获取好友段位排行榜（含自己）"""
+    headers = get_supabase_headers()
+
+    RANK_WEIGHT = {
+        "传说": 7,
+        "臻境": 6,
+        "笃行": 5,
+        "致知": 4,
+        "明理": 3,
+        "求索": 2,
+        "启程": 1
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # 1. 获取好友列表
+        friends_url = f"{settings.SUPABASE_URL}/rest/v1/friendships?status=eq.accepted&or=(user_id.eq.{user_id},friend_id.eq.{user_id})&select=user_id,friend_id"
+        friends_res = await client.get(friends_url, headers=headers)
+        if friends_res.status_code != 200:
+            return {"rank": []}
+
+        friendships = friends_res.json()
+
+        # 2. 提取好友ID列表
+        friend_ids = []
+        for f in friendships:
+            if f["user_id"] == user_id:
+                friend_ids.append(f["friend_id"])
+            else:
+                friend_ids.append(f["user_id"])
+        friend_ids = list(set(friend_ids))
+
+        # ===== 关键：把自己也加进去 =====
+        friend_ids.append(user_id)
+
+        if not friend_ids:
+            return {"rank": []}
+
+        # 3. 查询 profiles
+        ids_str = ",".join([f"\"{id}\"" for id in friend_ids])
+        profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=in.({ids_str})&select=id,nickname,avatar_url,user_account"
+        profile_res = await client.get(profile_url, headers=headers)
+        profiles = {p["id"]: p for p in (profile_res.json() if profile_res.status_code == 200 else [])}
+
+        # 4. 查询 user_stats
+        stats_url = f"{settings.SUPABASE_URL}/rest/v1/user_stats?user_id=in.({ids_str})&select=user_id,points,rank,sub_rank"
+        stats_res = await client.get(stats_url, headers=headers)
+        stats = {s["user_id"]: s for s in (stats_res.json() if stats_res.status_code == 200 else [])}
+
+        # 5. 组装数据
+        rank_list = []
+        for uid in friend_ids:
+            profile = profiles.get(uid, {})
+            stat = stats.get(uid, {})
+            rank_list.append({
+                "user_id": uid,
+                "nickname": profile.get("nickname", "用户"),
+                "avatar_url": profile.get("avatar_url", ""),
+                "user_account": profile.get("user_account", ""),
+                "points": stat.get("points", 0),
+                "rank": stat.get("rank", "启程"),
+                "sub_rank": stat.get("sub_rank", 1),
+                "rank_weight": RANK_WEIGHT.get(stat.get("rank", "启程"), 1),
+                "is_self": uid == user_id  # ← 标记自己
+            })
+
+        # 6. 排序
+        rank_list.sort(key=lambda x: (-x["rank_weight"], -x["sub_rank"], -x["points"]))
+
+        return {"rank": rank_list}

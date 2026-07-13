@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from config import settings
@@ -6,6 +6,14 @@ import httpx
 from datetime import datetime
 
 router = APIRouter(prefix="/tools", tags=["工具"])
+
+
+def get_supabase_headers():
+    return {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
 
 
 # ========== 打卡 ==========
@@ -295,3 +303,29 @@ async def get_report(user_id: str):
         except Exception as e:
             print(f"学情报告错误: {e}")
             raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/learning-log")
+async def delete_learning_log(user_id: str = Query(...), log_id: str = Query(...)):
+    """删除单条学习日志"""
+    headers = get_supabase_headers()
+
+    async with httpx.AsyncClient() as client:
+        # 先获取当前日志
+        get_url = f"{settings.SUPABASE_URL}/rest/v1/learning_logs?user_id=eq.{user_id}&select=data"
+        res = await client.get(get_url, headers=headers)
+        if res.status_code != 200 or not res.json():
+            raise HTTPException(status_code=404, detail="日志不存在")
+
+        logs = res.json()[0].get("data", [])
+        # 过滤掉要删除的日志
+        new_logs = [log for log in logs if log.get("id") != log_id]
+
+        if len(new_logs) == len(logs):
+            raise HTTPException(status_code=404, detail="日志条目不存在")
+
+        # 更新
+        update_url = f"{settings.SUPABASE_URL}/rest/v1/learning_logs?user_id=eq.{user_id}"
+        await client.patch(update_url, headers=headers, json={"data": new_logs})
+
+        return {"success": True}

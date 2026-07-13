@@ -351,6 +351,7 @@
 </template>
 
 <script setup>
+import { recordAction } from '@/api/career'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -361,7 +362,6 @@ import {
   addQuestionToSet
 } from '@/api/questions'
 import { searchBilibili } from '@/api/video'
-import { recordAction } from '@/api/career'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()

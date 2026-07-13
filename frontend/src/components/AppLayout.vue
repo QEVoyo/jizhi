@@ -48,7 +48,7 @@ function toggleSidebar() {
   background: var(--card-bg);
   backdrop-filter: blur(16px);
   border-right: 1px solid var(--border-color);
-  padding: 16px 14px 80px 14px;
+  padding: 16px 14px 10px 14px;
   flex-shrink: 0;
   overflow-y: auto;
   transition: width 0.3s ease, padding 0.3s ease;

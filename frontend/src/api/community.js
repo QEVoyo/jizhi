@@ -13,7 +13,12 @@ export function getPost(postId, userId) {
 }
 
 export function createPost(data) {
-  return request.post('/community/post', null, { params: { user_id: data.user_id }, data }).then(res => res.data)
+  return request.post('/community/post', {
+    content: data.content,
+    topic: data.topic || null
+  }, {
+    params: { user_id: data.user_id }
+  }).then(res => res.data)
 }
 
 export function deletePost(postId, userId) {
@@ -126,7 +131,14 @@ export function handleShare(shareId, action, userId) {
 // ============================================================
 
 export function reportContent(data) {
-  return request.post('/community/report', null, { params: { user_id: data.user_id }, data }).then(res => res.data)
+  const payload = {
+    target_type: data.target_type,
+    target_id: data.target_id,
+    reason: data.reason
+  }
+  return request.post('/community/report', payload, {
+    params: { user_id: data.user_id }
+  }).then(res => res.data)
 }
 
 // ============================================================
@@ -194,4 +206,8 @@ export function getUnreadCount(userId) {
 export function markMessagesRead(userId, friendId) {
   return request.put(`/community/messages/read/${friendId}`, null, { params: { user_id: userId } })
     .then(res => res.data)
+}
+
+export function getFriendsRank(userId) {
+  return request.get('/community/friends/rank', { params: { user_id: userId } }).then(res => res.data)
 }

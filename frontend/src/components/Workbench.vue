@@ -128,8 +128,12 @@
           <div v-if="activeSections.includes('timer')" class="section-body">
             <div v-if="activeTimer" class="active-timer">
               <div class="timer-display">
-                <span class="timer-name"><i class="fas fa-play"></i> {{ activeTimer.name }}</span>
-                <span class="timer-time">{{ formatTime(activeTimer.remaining) }}</span>
+                <span class="timer-name">
+                  <i v-if="activeTimer.type === 'stopwatch'" class="fas fa-play"></i>
+                  <i v-else class="fas fa-hourglass-start"></i>
+                  {{ activeTimer.name }}
+                </span>
+                <span class="timer-time">{{ formatTime(activeTimer.displaySeconds) }}</span>
               </div>
               <div class="timer-controls">
                 <el-button size="small" class="action-btn" @click="pauseTimer">
@@ -185,7 +189,7 @@
           </div>
         </div>
 
-        <!-- ===== 学习日志 ===== -->
+        <!-- ===== 学习日志（按日期分组 + 实时刷新） ===== -->
         <div class="workbench-section">
           <div class="section-header" @click="toggleSection('logs')">
             <i class="fas fa-book"></i>
@@ -196,14 +200,17 @@
           <div v-if="activeSections.includes('logs')" class="section-body">
             <div v-if="!logs.length" class="empty-state">暂无学习日志</div>
             <div v-else>
-              <div v-for="log in logs.slice(0, 10)" :key="log.id" class="log-item">
-                <span class="log-date"><i class="fas fa-calendar"></i> {{ log.date }}</span>
-                <span class="log-keyword">{{ log.keyword }}</span>
+              <div v-for="(group, date) in groupedLogs" :key="date" class="log-group">
+                <div class="log-group-date">{{ date }}</div>
+                <div v-for="log in group" :key="log.id" class="log-item">
+                  <span class="log-time">{{ log.time || '--:--' }}</span>
+                  <span class="log-keyword">{{ log.keyword }}</span>
+                  <button class="log-delete-btn" @click="handleDeleteLog(log.id)">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
               </div>
             </div>
-            <el-button size="small" type="danger" class="action-btn" @click="handleClearLogs">
-              <i class="fas fa-trash"></i> 清空
-            </el-button>
           </div>
         </div>
 
@@ -233,10 +240,10 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useToolsStore } from '@/stores/tools'
-import { getLearningLogs, clearLearningLogs, getReport } from '@/api/tools'
+import { getLearningLogs, clearLearningLogs, deleteLearningLog, getReport } from '@/api/tools'
 import { addLearningLog as apiAddLog } from '@/api/tools'
 import { recordAction } from '@/api/career'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const authStore = useAuthStore()
 const toolsStore = useToolsStore()
@@ -244,8 +251,13 @@ const toolsStore = useToolsStore()
 const isOpen = ref(false)
 const activeSections = ref([])
 
+let logTimer = null
+
 function toggleWorkbench() {
   isOpen.value = !isOpen.value
+  if (isOpen.value) {
+    loadLogs()
+  }
 }
 
 function toggleSection(name) {
@@ -335,38 +347,38 @@ function startTimer(template) {
     ElMessage.warning('已有计时器在运行')
     return
   }
+  const totalSeconds = template.type === 'countdown' ? template.duration_minutes * 60 : 0
   activeTimer.value = {
     id: template.id,
     name: template.name,
     type: template.type,
-    duration: template.duration_minutes || 0,
-    remaining: template.type === 'countdown' ? template.duration_minutes * 60 : 0,
-    elapsed: 0,
+    displaySeconds: totalSeconds,
     paused: false,
-    startTime: Date.now()
+    totalSeconds: totalSeconds
   }
   startTimerLoop()
 }
 
 function startTimerLoop() {
-  if (timerInterval) clearInterval(timerInterval)
+  if (timerInterval) {
+    clearInterval(timerInterval)
+    timerInterval = null
+  }
   timerInterval = setInterval(() => {
     if (!activeTimer.value || activeTimer.value.paused) return
-    const now = Date.now()
-    const elapsed = Math.floor((now - activeTimer.value.startTime) / 1000)
+
     if (activeTimer.value.type === 'countdown') {
-      const remaining = activeTimer.value.remaining - elapsed
-      if (remaining <= 0) {
-        activeTimer.value.remaining = 0
+      activeTimer.value.displaySeconds -= 1
+      if (activeTimer.value.displaySeconds <= 0) {
+        activeTimer.value.displaySeconds = 0
         clearInterval(timerInterval)
         timerInterval = null
-        ElMessage.success(`倒计时结束！${activeTimer.value.name}`)
-        recordAction(authStore.user.id, 'use_timer')
+        ElMessage.success(`⏰ ${activeTimer.value.name} 时间到！`)
+        recordAction(authStore.user.id, 'timer_complete')
         return
       }
-      activeTimer.value.remaining = remaining
     } else {
-      activeTimer.value.elapsed = elapsed
+      activeTimer.value.displaySeconds += 1
     }
   }, 1000)
 }
@@ -374,13 +386,13 @@ function startTimerLoop() {
 function pauseTimer() {
   if (!activeTimer.value) return
   activeTimer.value.paused = !activeTimer.value.paused
-  if (!activeTimer.value.paused) {
-    const now = Date.now()
-    if (activeTimer.value.type === 'countdown') {
-      activeTimer.value.startTime = now - (activeTimer.value.duration * 60 - activeTimer.value.remaining) * 1000
-    } else {
-      activeTimer.value.startTime = now - activeTimer.value.elapsed * 1000
+  if (activeTimer.value.paused) {
+    if (timerInterval) {
+      clearInterval(timerInterval)
+      timerInterval = null
     }
+  } else {
+    startTimerLoop()
   }
 }
 
@@ -392,19 +404,35 @@ function stopTimer() {
   activeTimer.value = null
 }
 
-function completeStopwatch() {
+async function completeStopwatch() {
   if (!activeTimer.value || activeTimer.value.type !== 'stopwatch') return
-  const minutes = Math.floor(activeTimer.value.elapsed / 60)
-  if (minutes > 0) {
-    const keyword = `学习了「${activeTimer.value.name}」${minutes}分钟`
-    addLog(keyword)
-    ElMessage.success(`${keyword}！已记录到学习日志`)
-    recordAction(authStore.user.id, 'use_timer')
+  const totalSeconds = activeTimer.value.displaySeconds
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  let timeStr = ''
+  if (minutes > 0 && seconds > 0) {
+    timeStr = `${minutes}分${seconds}秒`
+  } else if (minutes > 0) {
+    timeStr = `${minutes}分钟`
+  } else {
+    timeStr = `${seconds}秒`
+  }
+
+  if (totalSeconds > 0) {
+    const keyword = `学习了「${activeTimer.value.name}」${timeStr}`
+    await addLog(keyword)
+    ElMessage.success(`✅ ${keyword}，已记录到学习日志`)
+    await recordAction(authStore.user.id, 'use_timer')
+  } else {
+    ElMessage.warning('计时太短，未记录')
   }
   stopTimer()
 }
 
 function handleDeleteTimer(id) {
+  if (activeTimer.value && activeTimer.value.id === id) {
+    stopTimer()
+  }
   toolsStore.deleteTimerTemplate(id)
   toolsStore.saveTimerData(authStore.user.id, toolsStore.timerTemplates)
 }
@@ -426,7 +454,12 @@ const logs = ref([])
 async function loadLogs() {
   try {
     const data = await getLearningLogs(authStore.user.id)
-    logs.value = data.logs || []
+    const rawLogs = data.logs || []
+    logs.value = rawLogs.sort((a, b) => {
+      const timeA = a.created_at || a.date || ''
+      const timeB = b.created_at || b.date || ''
+      return timeB.localeCompare(timeA)
+    })
   } catch (e) {
     console.error('加载日志失败', e)
   }
@@ -441,15 +474,41 @@ async function addLog(keyword) {
   }
 }
 
-async function handleClearLogs() {
+async function handleDeleteLog(logId) {
   try {
-    await clearLearningLogs(authStore.user.id)
-    logs.value = []
-    ElMessage.success('已清空')
-  } catch (e) {
-    ElMessage.error('清空失败')
+    await ElMessageBox.confirm('确定要删除这条日志吗？', '确认删除', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await deleteLearningLog(authStore.user.id, logId)
+    await loadLogs()
+    ElMessage.success('已删除')
+  } catch {
+    // 用户取消
   }
 }
+
+const groupedLogs = computed(() => {
+  const groups = {}
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+
+  logs.value.forEach(log => {
+    const date = log.date || log.created_at?.slice(0, 10) || '未知日期'
+    let displayDate = date
+    if (date === todayStr) {
+      displayDate = '今天'
+    } else if (date === yesterdayStr) {
+      displayDate = '昨天'
+    }
+    if (!groups[displayDate]) {
+      groups[displayDate] = []
+    }
+    groups[displayDate].push(log)
+  })
+  return groups
+})
 
 // ===== 学情报告 =====
 const reportContent = ref('')
@@ -479,11 +538,16 @@ async function generateReport() {
   }
 }
 
+// ===== 生命周期 =====
 onMounted(() => {
   toolsStore.loadCheckin(authStore.user.id)
   toolsStore.loadCountdown(authStore.user.id)
   toolsStore.loadTimer(authStore.user.id)
   loadLogs()
+
+  logTimer = setInterval(() => {
+    loadLogs()
+  }, 30000)
 })
 
 onUnmounted(() => {
@@ -491,10 +555,34 @@ onUnmounted(() => {
     clearInterval(timerInterval)
     timerInterval = null
   }
+  if (logTimer) {
+    clearInterval(logTimer)
+    logTimer = null
+  }
 })
 </script>
 
 <style scoped>
+/* ===== 强制移除所有列表符号 ===== */
+.workbench-dropdown ul,
+.workbench-dropdown ol,
+.workbench-dropdown li,
+.log-group ul,
+.log-group ol,
+.log-group li,
+.log-item {
+  list-style: none !important;
+  list-style-type: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+.log-item::marker {
+  content: none !important;
+  display: none !important;
+  font-size: 0 !important;
+  color: transparent !important;
+}
+
 .workbench-wrapper {
   position: relative;
   margin-top: 4px;
@@ -657,7 +745,6 @@ onUnmounted(() => {
   transform: scale(1.02);
 }
 
-/* ===== 数字输入框样式（重点修复） ===== */
 .number-input {
   width: 90px !important;
 }
@@ -714,7 +801,6 @@ onUnmounted(() => {
   cursor: not-allowed !important;
 }
 
-/* ===== 深色适配 ===== */
 [data-theme="dark"] .number-input :deep(.el-input-number .el-input__wrapper) {
   background: rgba(255, 255, 255, 0.03) !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
@@ -768,24 +854,76 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
+/* ===== 学习日志 ===== */
+.log-group {
+  margin-bottom: 8px;
+  padding-left: 0 !important;
+  list-style: none !important;
+}
+.log-group ul,
+.log-group ol {
+  padding-left: 0 !important;
+  list-style: none !important;
+}
+.log-group-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 4px 0 2px 0;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.06);
+  margin-bottom: 4px;
+}
 .log-item {
   display: flex;
-  gap: 10px;
-  padding: 3px 0;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
   font-size: 13px;
-  border-radius: 4px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.04);
   transition: all 0.2s ease;
+  list-style: none !important;
+  list-style-type: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+.log-item::marker {
+  content: none !important;
+  display: none !important;
+  font-size: 0 !important;
+  color: transparent !important;
 }
 .log-item:hover {
   background: rgba(128, 128, 128, 0.03);
   transform: translateX(2px);
 }
+.log-item:hover .log-delete-btn {
+  opacity: 1;
+}
 .log-date {
   color: var(--text-muted);
-  min-width: 80px;
+  font-size: 12px;
+  min-width: 60px;
+  flex-shrink: 0;
 }
 .log-keyword {
   color: var(--text-primary);
+  flex: 1;
+}
+.log-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.log-delete-btn:hover {
+  color: #f56c6c;
+  background: rgba(245, 108, 108, 0.08);
 }
 
 .report-result {
@@ -798,7 +936,6 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
-/* ===== 所有按钮悬浮 ===== */
 .action-btn {
   transition: all 0.3s ease !important;
 }

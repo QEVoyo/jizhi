@@ -33,6 +33,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/evaluation-center',
+    name: 'EvaluationCenter',
+    component: () => import('@/views/EvaluationCenter.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/career',
     name: 'Career',
     component: () => import('@/views/Career.vue'),
@@ -80,6 +86,23 @@ const routes = [
     component: () => import('@/views/GenerateFromMastery.vue'),
     meta: { requiresAuth: true }
   },
+  {
+  path: '/evaluation-report',
+  name: 'EvaluationReport',
+  component: () => import('@/views/EvaluationReport.vue'),
+  meta: { requiresAuth: true }
+  },
+  {
+  path: '/profile-card',
+  name: 'ProfileCard',
+  component: () => import('@/views/ProfileCard.vue'),
+  meta: { requiresAuth: true }
+  },
+  {
+  path: '/animation-demo',
+  name: 'AnimationDemo',
+  component: () => import('@/views/AnimationDemo.vue')
+  },
   // ===== 社区 =====
   {
     path: '/community',
@@ -96,6 +119,11 @@ const routes = [
         path: 'friends',
         name: 'CommunityFriends',
         component: () => import('@/components/community/CommunityFriends.vue')
+      },
+      {
+        path: 'rank',
+        name: 'CommunityRank',
+        component: () => import('@/components/community/Rank.vue')
       },
       {
         path: 'collections',
@@ -136,6 +164,13 @@ const routes = [
     path: '/message',
     name: 'MessageCenter',
     component: () => import('@/components/MessageCenter.vue'),
+    meta: { requiresAuth: true }
+  },
+  // ===== API管理 =====
+  {
+    path: '/api-center',
+    name: 'ApiCenter',
+    component: () => import('@/views/ApiCenter.vue'),
     meta: { requiresAuth: true }
   }
 ]

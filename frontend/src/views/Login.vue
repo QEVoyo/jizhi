@@ -104,13 +104,13 @@ import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
 import { ElMessage } from 'element-plus'
 import BubbleBackground from '@/components/BubbleBackground.vue'
+import { recordAction } from '@/api/career'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const sessionStore = useSessionStore()
 
-// 从 URL 参数读取 tab，支持 ?tab=register
 const activeTab = ref(route.query.tab === 'register' ? 'register' : 'login')
 const loginLoading = ref(false)
 const registerLoading = ref(false)
@@ -143,12 +143,18 @@ async function handleLogin() {
     loginForm.password,
     rememberMe.value
   )
-  console.log('=== 登录结果 ===', result)  // 新增这一行
+  console.log('=== 登录结果 ===', result)
 
   loginLoading.value = false
 
   if (result && result.success) {
     sessionStore.createSession('新对话')
+    // 记录登录行为（后端会判断是否为第一次）
+    try {
+      await recordAction(result.user?.id || authStore.user?.id, 'login')
+    } catch (e) {
+      console.error('记录登录行为失败:', e)
+    }
     ElMessage.success('登录成功！')
     router.push('/home')
   } else {

@@ -16,42 +16,42 @@
 
     <!-- ===== 导航菜单 ===== -->
     <nav class="nav-menu">
-  <div class="nav-item" @click="goHome" :title="isCollapsed ? '主界面' : ''">
-    <i class="fas fa-house"></i>
-    <span>主界面</span>
-  </div>
-  <div
-    class="nav-item"
-    :class="{ active: currentPage === 'rank' }"
-    @click="goRank"
-    :title="isCollapsed ? '登攀' : ''"
-  >
-    <i class="fas fa-mountain"></i>
-    <span>登攀</span>
-  </div>
-  <div
-    class="nav-item"
-    :class="{ active: currentPage === 'tasks' }"
-    @click="goTasks"
-    :title="isCollapsed ? '勤耕' : ''"
-  >
-    <i class="fas fa-seedling"></i>
-    <span>勤耕</span>
-  </div>
-  <div
-    class="nav-item"
-    :class="{ active: currentPage === 'achievements' }"
-    @click="goAchievements"
-    :title="isCollapsed ? '拾贝' : ''"
-  >
-    <i class="fas fa-gem"></i>
-    <span>拾贝</span>
-  </div>
-  <div class="nav-item back-item" @click="goCareer" :title="isCollapsed ? '返回学程' : ''">
-    <i class="fas fa-arrow-left"></i>
-    <span>返回学程</span>
-  </div>
-</nav>
+      <div class="nav-item" @click="goHome" :title="isCollapsed ? '主界面' : ''">
+        <i class="fas fa-house"></i>
+        <span>主界面</span>
+      </div>
+      <div
+        class="nav-item"
+        :class="{ active: currentPage === 'rank' }"
+        @click="goRank"
+        :title="isCollapsed ? '登攀' : ''"
+      >
+        <i class="fas fa-mountain"></i>
+        <span>登攀</span>
+      </div>
+      <div
+        class="nav-item"
+        :class="{ active: currentPage === 'tasks' }"
+        @click="goTasks"
+        :title="isCollapsed ? '勤耕' : ''"
+      >
+        <i class="fas fa-seedling"></i>
+        <span>勤耕</span>
+      </div>
+      <div
+        class="nav-item"
+        :class="{ active: currentPage === 'achievements' }"
+        @click="goAchievements"
+        :title="isCollapsed ? '拾贝' : ''"
+      >
+        <i class="fas fa-gem"></i>
+        <span>拾贝</span>
+      </div>
+      <div class="nav-item back-item" @click="goCareer" :title="isCollapsed ? '返回学程' : ''">
+        <i class="fas fa-arrow-left"></i>
+        <span>返回学程</span>
+      </div>
+    </nav>
 
     <!-- ===== 底部固定 ===== -->
     <div class="sidebar-footer">
@@ -180,7 +180,20 @@ function handleClickOutside() {
 }
 
 const rankData = ref({ points: 0, rank: '启程', sub_rank: 1 })
-const userLevel = ref(1)
+
+// ✅ 等差数列计算等级（与登攀页面一致）
+function calcLevel(points) {
+  let level = 1
+  let totalNeeded = 2
+  while (points >= totalNeeded) {
+    level++
+    totalNeeded += (level + 1)
+  }
+  return level
+}
+
+const userLevel = computed(() => calcLevel(rankData.value.points || 0))
+
 const rankName = computed(() => rankData.value.rank || '启程')
 const rankIcon = computed(() => RANK_ICONS[rankName.value] || '◈')
 const rankColor = computed(() => RANK_COLORS[rankName.value] || '#888')
@@ -190,7 +203,6 @@ async function loadRankData() {
   try {
     const data = await getUserStats(authStore.user.id)
     rankData.value = data
-    userLevel.value = Math.floor((data.points || 0) / 100) + 1
   } catch (error) {
     console.error('加载段位数据失败', error)
   }
@@ -258,8 +270,8 @@ async function submitFeedback() {
 
 function handleLogout() {
   ElMessageBox.confirm('确定要退出登录吗？', '确认退出')
-    .then(() => {
-      authStore.logout()
+    .then(async () => {
+      await authStore.logout()
       ElMessage.success('已退出')
       router.push('/login')
     })
