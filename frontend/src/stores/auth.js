@@ -23,8 +23,12 @@ export const useAuthStore = defineStore('auth', () => {
         nickname: res.nickname,
         user_account: res.user_account,
         avatar_url: res.avatar_url,
-        bio: res.bio
+        bio: res.bio,
+        learning_stage: res.learning_stage || '',
+        grade: res.grade || '',
+        major: res.major || ''
       }
+setUser(user.value)
       setToken(res.access_token)
       setUser(user.value)
 

@@ -55,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getMistakes } from '@/api/questions'
@@ -67,12 +67,6 @@ const authStore = useAuthStore()
 
 const mistakes = ref([])
 const mistakeTab = ref('learning')
-const loading = ref(false)
-
-// 监听 mistakes 变化，自动更新
-watch(mistakes, (newVal) => {
-  console.log('错题本已更新:', newVal.length)
-}, { deep: true })
 
 const learningMistakes = computed(() =>
   mistakes.value.filter(m => m.mistake_status === 'learning')
@@ -126,20 +120,16 @@ function getColor(score) {
 }
 
 async function loadMistakes() {
-  loading.value = true
   try {
     mistakes.value = await getMistakes(authStore.user.id)
   } catch (error) {
     ElMessage.error('加载错题失败')
-  } finally {
-    loading.value = false
   }
 }
 
 function reviewMistake(mistake) {
-  sessionStorage.setItem('current_question', JSON.stringify(mistake))
-  sessionStorage.setItem('from_mistake_book', 'true')
-  router.push('/do-question')
+  // ✅ 直接带 ID 跳转，绝不生成新题
+  router.push(`/do-question/${mistake.id}`)
 }
 
 onMounted(loadMistakes)
@@ -208,7 +198,6 @@ onMounted(loadMistakes)
   text-align: center;
 }
 
-/* ===== 深色适配 ===== */
 [data-theme="dark"] .mistake-item {
   background: rgba(255, 255, 255, 0.02);
   border-color: rgba(255, 255, 255, 0.06);
@@ -217,7 +206,6 @@ onMounted(loadMistakes)
   border-color: rgba(255, 255, 255, 0.12);
 }
 
-/* ===== 响应式 ===== */
 @media (max-width: 640px) {
   .mistake-item {
     flex-direction: column;

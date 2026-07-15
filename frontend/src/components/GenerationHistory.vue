@@ -53,7 +53,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { getGenerationHistory, getQuestionDetail } from '@/api/questions'
+import { getGenerationHistory } from '@/api/questions'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 
@@ -65,7 +65,6 @@ const searchQuery = ref('')
 const typeFilter = ref('all')
 const filterMenuVisible = ref(false)
 const filterRef = ref(null)
-const loading = ref(false)
 
 const filterOptions = [
   { value: 'all', label: '全部' },
@@ -128,24 +127,16 @@ function getStatus(status) {
 }
 
 async function loadHistory() {
-  loading.value = true
   try {
     history.value = await getGenerationHistory(authStore.user.id)
   } catch (error) {
     ElMessage.error('加载历史失败')
-  } finally {
-    loading.value = false
   }
 }
 
-async function practiceHistory(h) {
-  try {
-    const question = await getQuestionDetail(h.question_id)
-    sessionStorage.setItem('current_question', JSON.stringify(question))
-    router.push('/do-question')
-  } catch (error) {
-    ElMessage.error('加载题目失败')
-  }
+function practiceHistory(h) {
+  // ✅ 直接带 ID 跳转，绝不生成新题
+  router.push(`/do-question/${h.question_id}`)
 }
 
 function handleClickOutside(event) {

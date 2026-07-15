@@ -5,7 +5,7 @@
 
       <div v-if="setData" class="set-header">
         <h2>📁 {{ setData.name }}</h2>
-        <p>{{ setData.description || '无描述' }}</p>
+        <p>{{ setData.description || '无描述' }}</p >
         <div class="set-meta">
           <span>📅 {{ formatDate(setData.created_at) }}</span>
           <span>📝 {{ questionIds.length }} 道题</span>
@@ -132,10 +132,10 @@ async function removeQuestion(qId) {
   }
 }
 
+// ✅ 核心修复：直接带 ID 跳转
 function practiceQuestion(q) {
-  sessionStorage.setItem('current_question', JSON.stringify(q))
   sessionStorage.setItem('from_set_detail', 'true')
-  router.push('/do-question')
+  router.push(`/do-question/${q.id}`)
 }
 
 function goBack() {

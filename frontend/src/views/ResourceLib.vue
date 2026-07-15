@@ -52,7 +52,7 @@
     <!-- ===== Tabs ===== -->
     <el-tabs v-model="activeTab" class="resource-tabs" @tab-click="handleTabClick">
       <el-tab-pane label="🤖 生成题目" name="generate">
-        <GenerateForm />
+        <GenerateForm @success="onGenerateSuccess" />
       </el-tab-pane>
       <el-tab-pane label="📁 我的题集" name="sets">
         <QuestionSets />
@@ -61,7 +61,7 @@
         <MistakeBook />
       </el-tab-pane>
       <el-tab-pane label="📜 生成历史" name="history">
-        <GenerationHistory />
+        <GenerationHistory ref="historyRef" />
       </el-tab-pane>
       <el-tab-pane label="📊 评估中心" name="evaluation">
         <div class="evaluation-placeholder">
@@ -94,7 +94,6 @@
 </template>
 
 <script setup>
-import { recordAction } from '@/api/career'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -111,6 +110,7 @@ const authStore = useAuthStore()
 const activeTab = ref('generate')
 const masteryData = ref([])
 const loadingMastery = ref(false)
+const historyRef = ref(null)
 
 const weakPoints = computed(() =>
   masteryData.value.filter(p => p.mastery_score < 60).sort((a, b) => a.mastery_score - b.mastery_score)
@@ -178,6 +178,29 @@ async function loadMastery() {
     ElMessage.error('加载掌握度失败')
   } finally {
     loadingMastery.value = false
+  }
+}
+
+// ==========================================
+// ✅ 生成成功回调（接收参数）
+// ==========================================
+function onGenerateSuccess(result) {
+  // 1. 刷新掌握度看板
+  loadMastery()
+
+  // 2. 刷新生成历史
+  if (historyRef.value && typeof historyRef.value.refresh === 'function') {
+    historyRef.value.refresh()
+  }
+
+  // 3. 关键：只有拿到了完整数据，才跳转做题
+  if (result && result.id) {
+    console.log('✅ 生成成功，准备跳转做题:', result)
+    sessionStorage.setItem('current_question', JSON.stringify(result))
+    router.push('/do-question')
+  } else {
+    console.warn('⚠️ 生成成功但数据不完整:', result)
+    ElMessage.success('✅ 题目已生成并保存，可在生成历史中查看！')
   }
 }
 

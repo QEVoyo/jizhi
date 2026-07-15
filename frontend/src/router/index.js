@@ -62,12 +62,22 @@ const routes = [
     component: () => import('@/views/CareerAchievements.vue'),
     meta: { requiresAuth: true }
   },
+  // ================== 做题路由（必须两条都写） ==================
   {
-    path: '/do-question',
+    // 带 ID 的路径（用于从错题本、历史、题集、规划详情点进去）
+    path: '/do-question/:taskId',
     name: 'DoQuestion',
+    component: () => import('@/views/DoQuestion.vue'),
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
+    // 不带 ID 的路径（用于从资源库点击“生成题目”后直接跳转做题）
+    path: '/do-question',
     component: () => import('@/views/DoQuestion.vue'),
     meta: { requiresAuth: true }
   },
+  // ============================================================
   {
     path: '/mastery-board',
     name: 'MasteryBoard',
@@ -87,21 +97,45 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-  path: '/evaluation-report',
-  name: 'EvaluationReport',
-  component: () => import('@/views/EvaluationReport.vue'),
-  meta: { requiresAuth: true }
+    path: '/evaluation-report',
+    name: 'EvaluationReport',
+    component: () => import('@/views/EvaluationReport.vue'),
+    meta: { requiresAuth: true }
   },
   {
-  path: '/profile-card',
-  name: 'ProfileCard',
-  component: () => import('@/views/ProfileCard.vue'),
-  meta: { requiresAuth: true }
+    path: '/evaluation-table',
+    name: 'EvaluationTable',
+    component: () => import('@/views/EvaluationTable.vue'),
+    meta: { requiresAuth: true }
   },
   {
-  path: '/animation-demo',
-  name: 'AnimationDemo',
-  component: () => import('@/views/AnimationDemo.vue')
+    path: '/learning-plan',
+    name: 'LearningPlan',
+    component: () => import('@/views/LearningPlan.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/profile-card',
+    name: 'ProfileCard',
+    component: () => import('@/views/ProfileCard.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/plan-preview',
+    name: 'PlanPreview',
+    component: () => import('@/views/PlanPreview.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/plan-detail/:id',
+    name: 'PlanDetail',
+    component: () => import('@/views/PlanDetail.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/animation-demo',
+    name: 'AnimationDemo',
+    component: () => import('@/views/AnimationDemo.vue')
   },
   // ===== 社区 =====
   {

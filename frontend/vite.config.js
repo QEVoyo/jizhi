@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'three/addons': 'three/examples/jsm'
     },
   },
   server: {

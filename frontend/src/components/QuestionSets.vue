@@ -201,8 +201,8 @@ function viewSet(id) {
 }
 
 function practiceSet(set) {
-  sessionStorage.setItem('practice_set', JSON.stringify(set))
-  router.push('/do-question')
+  // 正确做法：跳转到题集详情页，让用户在里面挑题做
+  router.push({ path: '/set-detail', query: { id: set.id } })
 }
 
 onMounted(loadSets)

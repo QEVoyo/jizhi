@@ -8,7 +8,8 @@ from pathlib import Path
 from routers import feedback
 from routers import profile_card
 from routers import evaluation
-from routers import auth, career, chat, questions, tools, video
+from routers import learning_plan
+from routers import video
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 app = FastAPI(title="基智学习助手 API", version="1.0.0")
@@ -22,6 +23,7 @@ app.add_middleware(
         "https://frontend-ebon-gamma-45.vercel.app",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:5174",  # 加上 5174 以防你用了其他端口
         "http://localhost:8000",
     ],
     allow_credentials=True,
@@ -41,6 +43,8 @@ app.include_router(profile_card.router)
 app.include_router(feedback.router)
 app.include_router(qa.router)
 app.include_router(evaluation.router)
+app.include_router(learning_plan.router)
+
 @app.get("/")
 def root():
     return {"message": "基智学习助手后端已启动"}

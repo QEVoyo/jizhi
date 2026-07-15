@@ -13,23 +13,30 @@
       </el-avatar>
 
       <div v-if="!isCollapsed" class="user-detail">
+        <!-- 第一行：昵称 -->
         <div class="user-name-row">
           <span class="user-name">{{ authStore.user?.nickname || '用户' }}</span>
-          <span class="user-account">{{ authStore.user?.account || '' }}</span>
         </div>
-        <div class="user-status-wrapper" @click.stop>
-          <span class="status-dot" :class="userStatusClass" />
-          <span class="status-text" @click="toggleStatusMenu">{{ userStatusText }}</span>
-          <i class="fas fa-chevron-down status-arrow" :class="{ rotated: statusMenuVisible }" @click="toggleStatusMenu" />
-        </div>
-      </div>
 
-      <!-- ===== 段位 ===== -->
-      <div v-if="!isCollapsed" class="rank-display">
-        <span class="rank-icon" :style="{ color: rankColor }">{{ rankIcon }}</span>
-        <span class="rank-name" :style="{ color: rankColor }">{{ rankName }}</span>
-        <span class="rank-sub" :style="{ color: rankColor }">{{ rankSubSymbol }}</span>
-        <span class="rank-level">Lv.{{ userLevel }}</span>
+        <!-- 第二行：账号 | 段位 | Lv -->
+        <div class="user-row-middle">
+          <span class="user-account">{{ authStore.user?.user_account || '' }}</span>
+          <span class="user-rank-tag" :style="{ color: rankColor }">
+            {{ rankIcon }} {{ rankName }}
+          </span>
+          <span class="user-level-tag">Lv.{{ userLevel }}</span>
+        </div>
+
+        <!-- 第三行：年级 | 专业 + 状态 -->
+        <div class="user-row-bottom">
+          <span class="user-grade">{{ authStore.user?.grade || '未设置' }}</span>
+          <span class="user-major">{{ authStore.user?.major || '' }}</span>
+          <span class="user-status-wrapper" @click.stop>
+            <span class="status-dot" :class="userStatusClass" />
+            <span class="status-text" @click="toggleStatusMenu">{{ userStatusText }}</span>
+            <i class="fas fa-chevron-down status-arrow" :class="{ rotated: statusMenuVisible }" @click="toggleStatusMenu" />
+          </span>
+        </div>
       </div>
     </div>
 
@@ -272,7 +279,6 @@ function handleClickOutside() {
 
 const rankData = ref({ points: 0, level_points: 0, rank: '启程', sub_rank: 1 })
 
-// ✅ 等差数列计算等级（使用 level_points）
 function calcLevel(lp) {
   let level = 1
   let totalNeeded = 2
@@ -284,7 +290,6 @@ function calcLevel(lp) {
 }
 
 const userLevel = computed(() => calcLevel(rankData.value.level_points || 0))
-
 const rankName = computed(() => rankData.value.rank || '启程')
 const rankIcon = computed(() => RANK_ICONS[rankName.value] || '◈')
 const rankColor = computed(() => RANK_COLORS[rankName.value] || '#888')
@@ -417,23 +422,23 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 样式保持不变 */
 .sidebar-content {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  gap: 8px;
+  min-height: 95vh;
+  gap: 6px;
   position: relative;
 }
+
 .sidebar-logo {
   width: 28px;
   height: 28px;
   object-fit: contain;
   flex-shrink: 0;
 }
+
 .sidebar-content.collapsed .logo-text,
 .sidebar-content.collapsed .user-detail,
-.sidebar-content.collapsed .rank-display,
 .sidebar-content.collapsed .nav-item span,
 .sidebar-content.collapsed .footer-btn span {
   display: none;
@@ -471,6 +476,7 @@ onUnmounted(() => {
   font-size: 16px;
   margin: 0;
 }
+
 .logo-section {
   display: flex;
   align-items: center;
@@ -485,11 +491,6 @@ onUnmounted(() => {
   transform: scale(0.98);
 }
 
-.logo-icon {
-  font-size: 24px;
-  color: var(--text-primary);
-  flex-shrink: 0;
-}
 .logo-text {
   font-size: 20px;
   font-weight: 700;
@@ -497,108 +498,151 @@ onUnmounted(() => {
   letter-spacing: 1px;
 }
 
+/* ===== 用户信息 ===== */
 .user-section {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.04);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 .user-section:hover {
-  background: rgba(255, 255, 255, 0.10);
-  transform: translateY(-1px);
+  background: rgba(255,255,255,0.08);
 }
 [data-theme="dark"] .user-section {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255,255,255,0.02);
 }
 [data-theme="dark"] .user-section:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255,255,255,0.06);
 }
 
 .user-avatar {
   flex-shrink: 0;
   border: 2px solid var(--border-color);
 }
+
 .user-detail {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  gap: 1px;
 }
+
+/* 第一行：昵称 */
 .user-name-row {
   display: flex;
   align-items: center;
-  gap: 8px;
 }
 .user-name {
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 14px;
-  white-space: nowrap;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+/* 第二行：账号 | 段位 | Lv */
+.user-row-middle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 .user-account {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.user-rank-tag {
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(128,128,128,0.06);
+  padding: 0 8px;
+  border-radius: 10px;
+}
+.user-level-tag {
+  font-size: 11px;
+  font-weight: 500;
+  color: #409EFF;
+  background: rgba(64,158,255,0.10);
+  padding: 0 8px;
+  border-radius: 10px;
+}
+
+/* 第三行：年级 | 专业 + 状态 */
+.user-row-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.user-grade {
   font-size: 11px;
   color: var(--text-muted);
-  opacity: 0.6;
+  background: rgba(128,128,128,0.06);
+  padding: 0 6px;
+  border-radius: 4px;
+}
+.user-major {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 80px;
 }
 .user-status-wrapper {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 2px 0;
+  padding: 1px 4px;
   border-radius: 4px;
   transition: all 0.2s ease;
-  user-select: none;
+  margin-left: auto;
 }
 .user-status-wrapper:hover {
   color: var(--text-primary);
+  background: rgba(255,255,255,0.04);
 }
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
 }
-.status-dot.online { background: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.4); }
+.status-dot.online { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.3); }
 .status-dot.offline { background: #6b7280; }
-.status-dot.invisible { background: #8b5cf6; box-shadow: 0 0 8px rgba(139, 92, 246, 0.4); }
+.status-dot.invisible { background: #8b5cf6; box-shadow: 0 0 8px rgba(139,92,246,0.3); }
+.status-text { font-size: 11px; }
+.status-arrow { font-size: 9px; transition: transform 0.3s ease; }
+.status-arrow.rotated { transform: rotate(180deg); }
 
-.status-text {
-  font-size: 12px;
-}
-.status-arrow {
-  font-size: 10px;
-  transition: transform 0.3s ease;
-}
-.status-arrow.rotated {
-  transform: rotate(180deg);
-}
-
+/* ===== 状态下拉菜单 ===== */
 .status-dropdown {
   position: absolute;
-  top: 118px;
+  top: 120px;
   left: 80px;
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255,255,255,0.10);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
   padding: 4px 0;
   min-width: 90px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
   z-index: 100;
 }
 [data-theme="dark"] .status-dropdown {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0,0,0,0.35);
 }
 .status-option-item {
   display: flex;
@@ -613,30 +657,14 @@ onUnmounted(() => {
   margin: 2px 4px;
 }
 .status-option-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.08);
   color: var(--text-primary);
   transform: translateX(2px);
 }
 .status-option-item.active {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255,255,255,0.10);
   color: var(--text-primary);
 }
-
-.rank-display {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 13px;
-  padding: 4px 8px;
-  border-radius: 10px;
-  background: rgba(128, 128, 128, 0.06);
-  flex-shrink: 0;
-  margin-left: auto;
-}
-.rank-icon { font-size: 14px; }
-.rank-name { font-weight: 600; font-size: 13px; }
-.rank-sub { font-size: 13px; }
-.rank-level { font-size: 11px; color: var(--text-muted); margin-left: 2px; }
 
 .nav-menu {
   display: flex;
@@ -655,26 +683,31 @@ onUnmounted(() => {
   transition: all 0.3s ease;
   cursor: pointer;
 }
-.nav-item i { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
+.nav-item i {
+  font-size: 18px;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.08);
   color: var(--text-primary);
   transform: translateX(4px);
 }
 .nav-item.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.08);
   color: var(--text-primary);
 }
 [data-theme="dark"] .nav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255,255,255,0.05);
 }
 [data-theme="dark"] .nav-item.active {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255,255,255,0.06);
 }
 
 .msg-badge {
   margin-left: auto;
-  background: rgba(128, 128, 128, 0.25);
+  background: rgba(128,128,128,0.25);
   color: var(--text-secondary);
   font-size: 11px;
   font-weight: 600;
@@ -686,11 +719,11 @@ onUnmounted(() => {
   transition: all 0.3s ease;
 }
 [data-theme="dark"] .msg-badge {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255,255,255,0.10);
   color: var(--text-secondary);
 }
 .nav-item:hover .msg-badge {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255,255,255,0.15);
   color: var(--text-primary);
 }
 
@@ -703,14 +736,14 @@ onUnmounted(() => {
 
 .session-section {
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255,255,255,0.04);
   backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255,255,255,0.04);
   padding: 6px 10px;
   margin-top: 2px;
 }
 [data-theme="dark"] .session-section {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255,255,255,0.02);
 }
 .session-header {
   display: flex;
@@ -721,60 +754,105 @@ onUnmounted(() => {
   padding: 2px 0;
   cursor: pointer;
 }
-.session-header i { font-size: 14px; margin-right: 4px; }
-.session-header .fa-chevron-down { transition: transform 0.3s ease; }
-.session-header .fa-chevron-down.rotated { transform: rotate(180deg); }
-.session-actions { display: flex; gap: 2px; }
+.session-header i {
+  font-size: 14px;
+  margin-right: 4px;
+}
+.session-header .fa-chevron-down {
+  transition: transform 0.3s ease;
+}
+.session-header .fa-chevron-down.rotated {
+  transform: rotate(180deg);
+}
+.session-actions {
+  display: flex;
+  gap: 2px;
+}
 .icon-btn {
-  background: none; border: none; color: var(--text-muted); cursor: pointer;
-  padding: 4px 6px; border-radius: 6px; font-size: 13px; transition: all 0.2s ease;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: all 0.2s ease;
 }
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.08);
   color: var(--text-primary);
   transform: scale(1.05);
 }
 .icon-btn-sm {
-  background: none; border: none; color: var(--text-muted); cursor: pointer;
-  padding: 2px 4px; border-radius: 4px; font-size: 11px; transition: all 0.2s ease;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+  transition: all 0.2s ease;
 }
 .icon-btn-sm:hover {
   color: #f56c6c;
   transform: scale(1.1);
 }
-.session-list { margin-top: 6px; max-height: 150px; overflow-y: auto; }
+.session-list {
+  margin-top: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+}
 .session-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 4px 6px; border-radius: 6px; font-size: 13px; cursor: pointer;
-  color: var(--text-secondary); transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
 }
 .session-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255,255,255,0.06);
   transform: translateX(2px);
 }
 .session-item.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.08);
   color: var(--text-primary);
 }
-.session-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.session-empty { padding: 6px 0; font-size: 12px; color: var(--text-muted); text-align: center; }
+.session-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-empty {
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
 
 .sidebar-footer {
   border-top: 1px solid var(--border-color);
   padding-top: 8px;
+  padding-bottom: 0;        /* ← 去掉底部内边距 */
+  margin-bottom: 0;         /* ← 确保底部不留白 */
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin-top: auto;
 }
+
 .theme-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 4px 8px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.03);
 }
 .theme-options {
   display: flex;
@@ -799,13 +877,13 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 .theme-btn:hover {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255,255,255,0.10);
   transform: scale(1.08);
   color: var(--text-primary);
 }
 .theme-btn.active {
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 0 0 2px rgba(128, 128, 128, 0.12);
+  background: rgba(255,255,255,0.12);
+  box-shadow: 0 0 0 2px rgba(128,128,128,0.12);
   color: var(--text-primary);
 }
 .sidebar-content.collapsed .theme-btn {
@@ -823,23 +901,25 @@ onUnmounted(() => {
   padding: 8px 12px;
   border: none;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.03);
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s ease;
 }
-.footer-btn i { font-size: 16px; }
+.footer-btn i {
+  font-size: 16px;
+}
 .feedback-btn:hover {
-  background: rgba(64, 158, 255, 0.12);
-  border-color: rgba(64, 158, 255, 0.2);
+  background: rgba(64,158,255,0.12);
+  border-color: rgba(64,158,255,0.2);
   color: #409eff;
   transform: translateY(-2px);
 }
 .logout-btn:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.2);
+  background: rgba(239,68,68,0.12);
+  border-color: rgba(239,68,68,0.2);
   color: #ef4444;
   transform: translateY(-2px);
 }
@@ -850,8 +930,8 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 8px 14px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.06);
   cursor: pointer;
   transition: all 0.3s ease;
   color: var(--text-secondary);
@@ -859,38 +939,42 @@ onUnmounted(() => {
   user-select: none;
 }
 .custom-select:hover {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.12);
   transform: translateY(-1px);
 }
 [data-theme="dark"] .custom-select {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255,255,255,0.03);
 }
-.select-display { color: var(--text-primary); }
+.select-display {
+  color: var(--text-primary);
+}
 .select-arrow {
   font-size: 12px;
   color: var(--text-muted);
   transition: transform 0.3s ease;
 }
-.select-arrow.rotated { transform: rotate(180deg); }
+.select-arrow.rotated {
+  transform: rotate(180deg);
+}
 
 .custom-select-dropdown {
   position: absolute;
   top: 44px;
   left: 0;
   right: 0;
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255,255,255,0.10);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
   padding: 4px 0;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
   z-index: 100;
   min-width: 160px;
 }
 [data-theme="dark"] .custom-select-dropdown {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0,0,0,0.35);
 }
 .select-option {
   padding: 8px 14px;
@@ -902,12 +986,12 @@ onUnmounted(() => {
   margin: 2px 4px;
 }
 .select-option:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.08);
   color: var(--text-primary);
   transform: translateX(2px);
 }
 .select-option.active {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255,255,255,0.10);
   color: var(--text-primary);
 }
 
@@ -925,37 +1009,36 @@ onUnmounted(() => {
   position: relative;
 }
 .feedback-dialog :deep(.el-textarea__inner) {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255,255,255,0.05) !important;
+  border-color: rgba(255,255,255,0.06) !important;
   color: var(--text-primary) !important;
   border-radius: 10px !important;
   transition: all 0.3s ease !important;
 }
 .feedback-dialog :deep(.el-textarea__inner:hover) {
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255,255,255,0.15) !important;
 }
 [data-theme="dark"] .feedback-dialog :deep(.el-textarea__inner) {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255,255,255,0.04) !important;
 }
 .feedback-dialog :deep(.el-textarea__inner:focus) {
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255,255,255,0.2) !important;
 }
 .feedback-dialog :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255,255,255,0.05) !important;
+  border-color: rgba(255,255,255,0.06) !important;
   border-radius: 10px !important;
   transition: all 0.3s ease !important;
 }
 .feedback-dialog :deep(.el-input__wrapper:hover) {
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255,255,255,0.15) !important;
 }
 [data-theme="dark"] .feedback-dialog :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255,255,255,0.04) !important;
 }
 </style>
 
 <style>
-/* ===== 反馈弹窗 ===== */
 .feedback-dialog-wrapper {
   --el-dialog-bg-color: transparent;
 }
@@ -964,17 +1047,17 @@ onUnmounted(() => {
   backdrop-filter: none !important;
 }
 .feedback-dialog-wrapper .el-dialog {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255,255,255,0.08) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
   border-radius: 16px !important;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.2) !important;
 }
 [data-theme="dark"] .feedback-dialog-wrapper .el-dialog {
-  background: rgba(0, 0, 0, 0.3) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4) !important;
+  background: rgba(0,0,0,0.3) !important;
+  border-color: rgba(255,255,255,0.06) !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4) !important;
 }
 .feedback-dialog-wrapper .el-dialog__header {
   padding: 16px 20px 0;
@@ -990,22 +1073,22 @@ onUnmounted(() => {
   padding: 0 20px 16px;
 }
 .feedback-dialog-wrapper .el-button {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
   color: var(--text-secondary) !important;
   border-radius: 8px !important;
   transition: all 0.3s ease !important;
 }
 .feedback-dialog-wrapper .el-button:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255,255,255,0.12) !important;
   transform: translateY(-2px);
 }
 .feedback-dialog-wrapper .el-button--primary {
-  background: rgba(64, 158, 255, 0.15) !important;
-  border-color: rgba(64, 158, 255, 0.2) !important;
+  background: rgba(64,158,255,0.15) !important;
+  border-color: rgba(64,158,255,0.2) !important;
   color: #66b1ff !important;
 }
 .feedback-dialog-wrapper .el-button--primary:hover {
-  background: rgba(64, 158, 255, 0.25) !important;
+  background: rgba(64,158,255,0.25) !important;
 }
 </style>

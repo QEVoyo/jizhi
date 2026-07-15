@@ -1,8 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
 from config import settings
 import httpx
 import time
+import uuid
+from PIL import Image
+import io
+import random
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
@@ -20,13 +24,11 @@ async def login(req: LoginRequest):
         "Content-Type": "application/json"
     }
 
-    # 判断是邮箱还是账号
     if "@" in req.login_input:
         email = req.login_input
         url = f"{settings.SUPABASE_URL}/auth/v1/token?grant_type=password"
         data = {"email": email, "password": req.password}
     else:
-        # 先通过账号查邮箱
         search_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?user_account=eq.{req.login_input}"
         async with httpx.AsyncClient() as client:
             search_res = await client.get(search_url, headers=headers)
@@ -38,7 +40,6 @@ async def login(req: LoginRequest):
         url = f"{settings.SUPABASE_URL}/auth/v1/token?grant_type=password"
         data = {"email": email, "password": req.password}
 
-    # 调用 Supabase 登录
     async with httpx.AsyncClient() as client:
         res = await client.post(url, headers=headers, json=data)
 
@@ -55,7 +56,6 @@ async def login(req: LoginRequest):
         user_id = user.get("id")
         access_token = user_data.get("access_token")
 
-        # 获取用户资料
         profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
         profile_res = await client.get(profile_url, headers=headers)
 
@@ -63,6 +63,9 @@ async def login(req: LoginRequest):
         nickname = None
         avatar_url = None
         bio = None
+        learning_stage = None
+        grade = None
+        major = None
 
         if profile_res.status_code == 200 and profile_res.json():
             profile = profile_res.json()[0]
@@ -70,6 +73,9 @@ async def login(req: LoginRequest):
             nickname = profile.get("nickname")
             avatar_url = profile.get("avatar_url")
             bio = profile.get("bio")
+            learning_stage = profile.get("learning_stage")
+            grade = profile.get("grade")
+            major = profile.get("major")
 
         return {
             "id": user_id,
@@ -78,7 +84,10 @@ async def login(req: LoginRequest):
             "user_account": user_account,
             "nickname": nickname,
             "avatar_url": avatar_url,
-            "bio": bio
+            "bio": bio,
+            "learning_stage": learning_stage,
+            "grade": grade,
+            "major": major
         }
 
 
@@ -100,12 +109,10 @@ async def register(req: RegisterRequest):
     data = {"email": req.email, "password": req.password}
 
     async with httpx.AsyncClient() as client:
-        # 调用 Supabase 注册
         res = await client.post(signup_url, headers=headers, json=data, timeout=30)
 
         if res.status_code != 200:
             error_msg = res.text
-            # Supabase 邮箱已存在的错误码是 422 或 400，信息包含 "already registered" 或 "User already registered"
             if "already registered" in error_msg.lower() or "user already" in error_msg.lower():
                 raise HTTPException(status_code=400, detail="该邮箱已注册")
             raise HTTPException(status_code=400, detail=f"注册失败: {error_msg}")
@@ -115,11 +122,8 @@ async def register(req: RegisterRequest):
         if not user_id:
             user_id = user_data.get("user", {}).get("id")
 
-        # 生成账号（简化版，后续完善）
-        import random
         user_account = str(random.randint(10000000, 99999999))
 
-        # 创建 profiles
         profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles"
         profile_data = {
             "id": user_id,
@@ -142,7 +146,6 @@ async def register(req: RegisterRequest):
 
 @router.get("/profile/{user_id}")
 async def get_profile(user_id: str):
-    """获取用户资料"""
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -164,7 +167,10 @@ async def get_profile(user_id: str):
             "nickname": profile.get("nickname"),
             "user_account": profile.get("user_account"),
             "avatar_url": profile.get("avatar_url"),
-            "bio": profile.get("bio")
+            "bio": profile.get("bio"),
+            "learning_stage": profile.get("learning_stage"),
+            "grade": profile.get("grade"),
+            "major": profile.get("major")
         }
 
 
@@ -175,7 +181,6 @@ class UpdateNicknameRequest(BaseModel):
 
 @router.put("/update-nickname")
 async def update_nickname(req: UpdateNicknameRequest):
-    """更新用户昵称"""
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -201,7 +206,6 @@ class UpdateBioRequest(BaseModel):
 
 @router.put("/update-bio")
 async def update_bio(req: UpdateBioRequest):
-    """更新用户简介"""
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -220,18 +224,45 @@ async def update_bio(req: UpdateBioRequest):
         return {"success": True, "bio": req.bio}
 
 
-from fastapi import UploadFile, File
-import uuid
-import httpx
-from PIL import Image
-import io
+class UpdateLearningInfoRequest(BaseModel):
+    user_id: str
+    learning_stage: str
+    grade: str
+    major: str
+
+
+@router.put("/update-learning-info")
+async def update_learning_info(req: UpdateLearningInfoRequest):
+    """更新学习信息（学习阶段、年级、专业/方向）"""
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{req.user_id}"
+    data = {
+        "learning_stage": req.learning_stage,
+        "grade": req.grade,
+        "major": req.major
+    }
+
+    async with httpx.AsyncClient() as client:
+        res = await client.patch(url, headers=headers, json=data, timeout=30)
+
+        if res.status_code not in [200, 204]:
+            raise HTTPException(status_code=400, detail="更新学习信息失败")
+
+        return {
+            "success": True,
+            "learning_stage": req.learning_stage,
+            "grade": req.grade,
+            "major": req.major
+        }
 
 
 @router.post("/upload-avatar/{user_id}")
 async def upload_avatar(user_id: str, file: UploadFile = File(...)):
-    """上传头像"""
-
-    # 1. 读取并压缩图片
     contents = await file.read()
     img = Image.open(io.BytesIO(contents))
     img = img.resize((200, 200))
@@ -240,11 +271,9 @@ async def upload_avatar(user_id: str, file: UploadFile = File(...)):
     img.save(img_bytes_io, format='PNG')
     compressed_bytes = img_bytes_io.getvalue()
 
-    # 2. 生成文件路径
     timestamp = str(int(time.time()))
     file_path = f"{user_id}/{timestamp}.png"
 
-    # 3. 上传到 Supabase Storage
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -261,7 +290,6 @@ async def upload_avatar(user_id: str, file: UploadFile = File(...)):
 
         public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/avatars/{file_path}"
 
-        # 4. 更新 profiles 表中的 avatar_url
         profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
         profile_headers = {
             "apikey": settings.SUPABASE_KEY,
@@ -282,7 +310,6 @@ async def upload_avatar(user_id: str, file: UploadFile = File(...)):
 
 @router.put("/status")
 async def update_status(user_id: str = Query(...), status: str = Query(...)):
-    """更新用户在线状态"""
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -299,3 +326,55 @@ async def update_status(user_id: str = Query(...), status: str = Query(...)):
         if res.status_code not in [200, 204]:
             raise HTTPException(status_code=400, detail="更新状态失败")
         return {"success": True, "status": status}
+
+
+@router.post("/logout")
+async def logout():
+    return {"success": True}
+
+
+class UpdatePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@router.put("/update-password")
+async def update_password(req: UpdatePasswordRequest, user_id: str = Query(...)):
+    """修改密码"""
+    # 先验证旧密码
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    # 获取用户邮箱
+    profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
+    async with httpx.AsyncClient() as client:
+        profile_res = await client.get(profile_url, headers=headers)
+        if profile_res.status_code != 200 or not profile_res.json():
+            raise HTTPException(status_code=404, detail="用户不存在")
+        email = profile_res.json()[0].get("email")
+
+        # 验证旧密码
+        verify_url = f"{settings.SUPABASE_URL}/auth/v1/token?grant_type=password"
+        verify_data = {"email": email, "password": req.old_password}
+        verify_res = await client.post(verify_url, headers=headers, json=verify_data)
+
+        if verify_res.status_code != 200:
+            raise HTTPException(status_code=401, detail="当前密码错误")
+
+        # 修改密码
+        update_url = f"{settings.SUPABASE_URL}/auth/v1/user"
+        update_headers = {
+            "apikey": settings.SUPABASE_KEY,
+            "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+            "Content-Type": "application/json"
+        }
+        update_data = {"password": req.new_password}
+        update_res = await client.put(update_url, headers=update_headers, json=update_data)
+
+        if update_res.status_code != 200:
+            raise HTTPException(status_code=400, detail="修改密码失败")
+
+        return {"success": True, "message": "密码修改成功"}

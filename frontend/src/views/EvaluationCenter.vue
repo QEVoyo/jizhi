@@ -37,11 +37,11 @@
             <div class="card-desc">知识点掌握度评估与建议</div>
           </div>
 
-          <!-- 4. 学习建议 -->
-          <div class="evaluation-card" @click="goAdvice">
-            <div class="card-icon">💡</div>
-            <div class="card-title">学习建议</div>
-            <div class="card-desc">AI 生成个性化学习建议</div>
+          <!-- 4. 学习规划 -->
+          <div class="evaluation-card" @click="goPlan">
+            <div class="card-icon">🚀</div>
+            <div class="card-title">学习规划</div>
+            <div class="card-desc">基于诊断生成个性化学习规划</div>
           </div>
         </div>
       </div>
@@ -51,7 +51,6 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 
@@ -68,11 +67,11 @@ function goProfile() {
 }
 
 function goAssessment() {
-  ElMessage.info('评估表功能开发中')
+  router.push('/evaluation-table')
 }
 
-function goAdvice() {
-  ElMessage.info('学习建议功能开发中')
+function goPlan() {
+  router.push('/learning-plan')
 }
 </script>
 

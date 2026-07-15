@@ -9,222 +9,214 @@
         <h2>📝 练习</h2>
       </div>
 
-      <!-- 题目信息 -->
-      <div class="question-meta">
-        <div class="difficulty-ring">
-          <svg viewBox="0 0 60 60" class="ring-svg">
-            <circle cx="30" cy="30" r="25" fill="none" stroke="rgba(128,128,128,0.12)" stroke-width="5"/>
-            <circle
-              cx="30"
-              cy="30"
-              r="25"
-              fill="none"
-              :stroke="diffColor"
-              stroke-width="5"
-              stroke-linecap="round"
-              :stroke-dasharray="157.08"
-              :stroke-dashoffset="157.08 * (1 - difficultyScore / 10)"
-              transform="rotate(-90 30 30)"
-            />
-          </svg>
-          <div class="ring-label">
-            <span class="ring-score">{{ difficultyScore.toFixed(1) }}</span>
-            <span class="ring-text">难度</span>
-          </div>
-        </div>
-
-        <div class="meta-right">
-          <div class="meta-item">
-            <span class="meta-label">分类</span>
-            <span class="meta-value">{{ question.category || '未分类' }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">知识点</span>
-            <span class="meta-value">{{ question.normalized_topic || question.topic || '未知' }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">题型</span>
-            <span class="meta-value">{{ getTypeDisplay(question.question_type) }}</span>
-          </div>
-        </div>
+      <div v-if="loading" class="loading-state">
+        <div class="loader"></div>
+        <span>加载中...</span>
       </div>
 
-      <el-divider />
-
-      <!-- 题目内容 -->
-      <div class="question-content">
-        <h3>{{ question.title }}</h3>
-      </div>
-
-      <!-- 答题区 -->
-      <div class="answer-area">
-        <!-- 选择题 -->
-        <el-radio-group v-if="question.question_type === 'choice'" v-model="userAnswer" class="choice-group">
-          <el-radio
-            v-for="(opt, key) in question.options"
-            :key="key"
-            :label="key"
-            class="choice-item"
-          >
-            {{ key }}. {{ opt }}
-          </el-radio>
-        </el-radio-group>
-
-        <!-- 判断题 -->
-        <el-radio-group v-else-if="question.question_type === 'judge'" v-model="userAnswer" class="judge-group">
-          <el-radio label="正确" class="judge-item">正确</el-radio>
-          <el-radio label="错误" class="judge-item">错误</el-radio>
-        </el-radio-group>
-
-        <!-- 填空题 -->
-        <el-input
-          v-else-if="question.question_type === 'fill'"
-          v-model="userAnswer"
-          placeholder="请输入答案..."
-          size="large"
-        />
-
-        <!-- 简答题/论述题 -->
-        <el-input
-          v-else-if="question.question_type === 'essay'"
-          v-model="userAnswer"
-          type="textarea"
-          :rows="5"
-          placeholder="请输入你的回答..."
-        />
-
-        <!-- 编程题 -->
-        <el-input
-          v-else-if="question.question_type === 'coding'"
-          v-model="userAnswer"
-          type="textarea"
-          :rows="6"
-          :placeholder="question.starter_code || '# 请在这里编写代码'"
-        />
-
-        <!-- 计算题 -->
-        <el-input
-          v-else-if="question.question_type === 'calculation'"
-          v-model="userAnswer"
-          type="textarea"
-          :rows="4"
-          placeholder="请写出计算过程和答案..."
-        />
-
-        <!-- 默认 -->
-        <el-input v-else v-model="userAnswer" placeholder="请输入答案..." size="large" />
-      </div>
-
-      <el-divider />
-
-      <!-- 评估结果 -->
-      <div v-if="evaluated && evaluationResult" class="evaluation">
-        <div v-if="evaluationResult.is_correct" class="correct">
-          <i class="fas fa-check-circle"></i> 回答正确！
-        </div>
-        <div v-else class="incorrect">
-          <i class="fas fa-times-circle"></i> 回答错误
-        </div>
-
-        <!-- ===== 新增：正确答案 ===== -->
-        <div class="correct-answer">
-          <span class="label">✅ 正确答案：</span>
-          <span class="answer">{{ evaluationResult.correct_answer || '无' }}</span>
-        </div>
-
-        <!-- ===== 新增：用户答案 ===== -->
-        <div class="user-answer-display">
-          <span class="label">📝 你的答案：</span>
-          <span class="answer">{{ userAnswer || '未作答' }}</span>
-        </div>
-
-        <div class="mastery-section">
-          <span class="mastery-label">掌握程度</span>
-          <div class="mastery-bar">
-            <div
-              class="mastery-fill"
-              :style="{
-                width: (evaluationResult.mastery_score || 50) + '%',
-                background: getColor(evaluationResult.mastery_score || 50)
-              }"
-            />
+      <div v-else>
+        <!-- 题目信息 -->
+        <div class="question-meta">
+          <div class="difficulty-ring">
+            <svg viewBox="0 0 60 60" class="ring-svg">
+              <circle cx="30" cy="30" r="25" fill="none" stroke="rgba(128,128,128,0.12)" stroke-width="5"/>
+              <circle
+                cx="30"
+                cy="30"
+                r="25"
+                fill="none"
+                :stroke="diffColor"
+                stroke-width="5"
+                stroke-linecap="round"
+                :stroke-dasharray="157.08"
+                :stroke-dashoffset="157.08 * (1 - difficultyScore / 10)"
+                transform="rotate(-90 30 30)"
+              />
+            </svg>
+            <div class="ring-label">
+              <span class="ring-score">{{ difficultyScore.toFixed(1) }}</span>
+              <span class="ring-text">难度</span>
+            </div>
           </div>
-          <span class="mastery-score">{{ evaluationResult.mastery_score || 50 }}%</span>
+
+          <div class="meta-right">
+            <div class="meta-item">
+              <span class="meta-label">分类</span>
+              <span class="meta-value">{{ question.category || '未分类' }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">知识点</span>
+              <span class="meta-value">{{ question.topic || '未知' }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">题型</span>
+              <span class="meta-value">{{ getTypeDisplay(question.question_type) }}</span>
+            </div>
+          </div>
         </div>
 
-        <!-- ===== 新增：详细解析 ===== -->
-        <div v-if="evaluationResult.detailed_analysis" class="detail-analysis">
-          <div class="analysis-title">📖 详细解析</div>
-          <div class="analysis-content">{{ evaluationResult.detailed_analysis }}</div>
+        <el-divider />
+
+        <div class="question-content">
+          <h3>{{ question.title || question.question_content || '题目' }}</h3>
         </div>
 
-        <div class="eval-text">
-          <strong>📝 评估：</strong>{{ evaluationResult.evaluation }}
-        </div>
-        <div class="eval-text">
-          <strong>💡 建议：</strong>{{ evaluationResult.suggestion }}
-        </div>
-
-        <!-- ===== 新增：视频推荐 ===== -->
-        <div v-if="videos.length > 0" class="video-section">
-          <div class="video-header">
-            <span class="video-title">📺 相关视频讲解</span>
-            <a
-              :href="`https://search.bilibili.com/all?keyword=${encodeURIComponent(searchKeyword)}`"
-              target="_blank"
-              class="more-link"
+        <div class="answer-area">
+          <el-radio-group v-if="question.question_type === 'choice'" v-model="userAnswer" class="choice-group">
+            <el-radio
+              v-for="(opt, key) in question.options"
+              :key="key"
+              :label="key"
+              class="choice-item"
             >
-              查看更多 →
-            </a>
+              {{ key }}. {{ opt }}
+            </el-radio>
+          </el-radio-group>
+
+          <el-radio-group v-else-if="question.question_type === 'judge'" v-model="userAnswer" class="judge-group">
+            <el-radio label="正确" class="judge-item">正确</el-radio>
+            <el-radio label="错误" class="judge-item">错误</el-radio>
+          </el-radio-group>
+
+          <el-input
+            v-else-if="question.question_type === 'fill'"
+            v-model="userAnswer"
+            placeholder="请输入答案..."
+            size="large"
+          />
+
+          <el-input
+            v-else-if="question.question_type === 'essay'"
+            v-model="userAnswer"
+            type="textarea"
+            :rows="5"
+            placeholder="请输入你的回答..."
+          />
+
+          <el-input
+            v-else-if="question.question_type === 'coding'"
+            v-model="userAnswer"
+            type="textarea"
+            :rows="6"
+            :placeholder="question.starter_code || '# 请在这里编写代码'"
+          />
+
+          <el-input
+            v-else-if="question.question_type === 'calculation'"
+            v-model="userAnswer"
+            type="textarea"
+            :rows="4"
+            placeholder="请写出计算过程和答案..."
+          />
+
+          <el-input v-else v-model="userAnswer" placeholder="请输入答案..." size="large" />
+        </div>
+
+        <el-divider />
+
+        <div v-if="evaluated && evaluationResult" class="evaluation">
+          <div v-if="evaluationResult.is_correct" class="correct">
+            <i class="fas fa-check-circle"></i> 回答正确！
           </div>
-          <div class="video-grid">
-            <div
-              v-for="video in videos"
-              :key="video.bvid"
-              class="video-card"
-              @click="openVideo(video)"
-            >
-              <img
-  :src="video.pic"
-  :alt="video.title"
-  loading="lazy"
-  referrerpolicy="no-referrer"
-  @error="handleImageError(video)"
-/>
-              <div class="video-info">
-                <div class="video-title-text">{{ video.title }}</div>
-                <div class="video-meta">
-                  <span>{{ video.author }}</span>
-                  <span>👁 {{ formatNumber(video.play) }}</span>
+          <div v-else class="incorrect">
+            <i class="fas fa-times-circle"></i> 回答错误
+          </div>
+
+          <div class="correct-answer">
+            <span class="label">✅ 正确答案：</span>
+            <span class="answer">{{ evaluationResult.correct_answer || '无' }}</span>
+          </div>
+
+          <div class="user-answer-display">
+            <span class="label">📝 你的答案：</span>
+            <span class="answer">{{ userAnswer || '未作答' }}</span>
+          </div>
+
+          <div class="mastery-section">
+            <span class="mastery-label">掌握程度</span>
+            <div class="mastery-bar">
+              <div
+                class="mastery-fill"
+                :style="{
+                  width: (evaluationResult.mastery_score || 50) + '%',
+                  background: getColor(evaluationResult.mastery_score || 50)
+                }"
+              />
+            </div>
+            <span class="mastery-score">{{ evaluationResult.mastery_score || 50 }}%</span>
+          </div>
+
+          <div v-if="evaluationResult.detailed_analysis" class="detail-analysis">
+            <div class="analysis-title">📖 详细解析</div>
+            <div class="analysis-content">{{ evaluationResult.detailed_analysis }}</div>
+          </div>
+
+          <div class="eval-text">
+            <strong>📝 评估：</strong>{{ evaluationResult.evaluation }}
+          </div>
+          <div class="eval-text">
+            <strong>💡 建议：</strong>{{ evaluationResult.suggestion }}
+          </div>
+
+          <div v-if="videos.length > 0" class="video-section">
+            <div class="video-header">
+              <span class="video-title">📺 相关视频讲解</span>
+              <a
+                :href="`https://search.bilibili.com/all?keyword=${encodeURIComponent(searchKeyword)}`"
+                target="_blank"
+                class="more-link"
+              >
+                查看更多 →
+              </a>
+            </div>
+            <div class="video-grid">
+              <div
+                v-for="video in videos"
+                :key="video.bvid"
+                class="video-card"
+                @click="openVideo(video)"
+              >
+                <img
+                  :src="video.pic"
+                  :alt="video.title"
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
+                  @error="handleImageError(video)"
+                />
+                <div class="video-info">
+                  <div class="video-title-text">{{ video.title }}</div>
+                  <div class="video-meta">
+                    <span>{{ video.author }}</span>
+                    <span>👁 {{ formatNumber(video.play) }}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div v-else-if="videoSearched && !videoLoading && !videos.length" class="video-empty">
-          📺 暂无相关视频推荐
+          <div v-else-if="videoSearched && !videoLoading && !videos.length" class="video-empty">
+            📺 暂无相关视频推荐
+          </div>
+
+          <el-button type="primary" @click="resetEvaluation">继续练习 →</el-button>
         </div>
 
-        <el-button type="primary" @click="resetEvaluation">继续练习 →</el-button>
-      </div>
-
-      <!-- 按钮区 -->
-      <div v-else class="action-buttons">
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">
-          <i class="fas fa-paper-plane"></i> 提交
-        </el-button>
-        <el-button :loading="regenerating" @click="handleRegenerate">
-          <i class="fas fa-sync"></i> 重新生成
-        </el-button>
-        <el-button @click="showAddToSet = true">
-          <i class="fas fa-folder-plus"></i> 加入题集
-        </el-button>
-        <el-button @click="showChangeType = true">
-          <i class="fas fa-arrows-rotate"></i> 换题型
-        </el-button>
-        <el-button @click="showHint">
-          <i class="fas fa-lightbulb"></i> 提示
-        </el-button>
+        <div v-else class="action-buttons">
+          <el-button type="primary" :loading="submitting" @click="handleSubmit">
+            <i class="fas fa-paper-plane"></i> 提交
+          </el-button>
+          <el-button :loading="regenerating" @click="handleRegenerate">
+            <i class="fas fa-sync"></i> 重新生成
+          </el-button>
+          <el-button @click="showAddToSet = true">
+            <i class="fas fa-folder-plus"></i> 加入题集
+          </el-button>
+          <el-button @click="showChangeType = true">
+            <i class="fas fa-arrows-rotate"></i> 换题型
+          </el-button>
+          <el-button @click="showHint">
+            <i class="fas fa-lightbulb"></i> 提示
+          </el-button>
+        </div>
       </div>
     </div>
 
@@ -312,7 +304,7 @@
       </template>
     </el-dialog>
 
-    <!-- ===== 新增：视频播放弹窗 ===== -->
+    <!-- ===== 视频播放弹窗 ===== -->
     <el-dialog
       v-model="videoDialogVisible"
       :title="currentVideo?.title || '视频播放'"
@@ -351,9 +343,8 @@
 </template>
 
 <script setup>
-import { recordAction } from '@/api/career'
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
   evaluateAnswer,
@@ -365,8 +356,10 @@ import { searchBilibili } from '@/api/video'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
+const loading = ref(true)
 const question = ref({})
 const userAnswer = ref('')
 const evaluated = ref(false)
@@ -376,18 +369,15 @@ const regenerating = ref(false)
 const changingType = ref(false)
 const addingSetId = ref(null)
 
-// 换题型
 const showChangeType = ref(false)
 const changeMode = ref('random')
 const selectedTypes = ref([])
 const targetType = ref('')
 const availableTypes = ref([])
 
-// 加入题集
 const showAddToSet = ref(false)
 const questionSets = ref([])
 
-// ===== 新增：视频相关 =====
 const videos = ref([])
 const videoLoading = ref(false)
 const videoSearched = ref(false)
@@ -395,7 +385,9 @@ const searchKeyword = ref('')
 const videoDialogVisible = ref(false)
 const currentVideo = ref(null)
 
-const difficultyScore = computed(() => question.value.difficulty_score || 5)
+const difficultyScore = computed(() => {
+  return question.value.difficulty_score || 5
+})
 
 const diffColor = computed(() => {
   const s = difficultyScore.value / 10
@@ -444,37 +436,16 @@ function getColor(score) {
   return '#006600'
 }
 
-// ===== 新增：格式化数字 =====
 function formatNumber(num) {
   if (!num) return '0'
   if (num >= 10000) return (num / 10000).toFixed(1) + '万'
   return num.toString()
 }
 
-function loadQuestion() {
-  const stored = sessionStorage.getItem('current_question')
-  if (stored) {
-    try {
-      question.value = JSON.parse(stored)
-      const currentType = question.value.question_type || 'choice'
-      const displayType = typeDisplayMap[currentType] || '选择题'
-      availableTypes.value = allTypes.filter(t => t !== displayType)
-      selectedTypes.value = [...availableTypes.value]
-      if (availableTypes.value.length) {
-        targetType.value = availableTypes.value[0]
-      }
-    } catch {
-      ElMessage.error('加载题目失败')
-      router.back()
-    }
-  } else {
-    ElMessage.warning('没有找到题目')
-    router.back()
-  }
-}
 function handleImageError(video) {
-  video.pic = '' // 图片加载失败时隐藏
+  video.pic = ''
 }
+
 async function loadQuestionSets() {
   try {
     questionSets.value = await getQuestionSets(authStore.user.id)
@@ -483,7 +454,6 @@ async function loadQuestionSets() {
   }
 }
 
-// ===== 新增：搜索视频 =====
 async function searchVideos(keyword) {
   if (!keyword) return
   videoLoading.value = true
@@ -504,14 +474,96 @@ async function searchVideos(keyword) {
   }
 }
 
-// ===== 新增：打开视频弹窗 =====
 function openVideo(video) {
   currentVideo.value = video
   videoDialogVisible.value = true
 }
 
+// ============================================================
+// ✅ 核心加载逻辑：绝不重新生成旧题
+// ============================================================
+async function loadQuestion() {
+  loading.value = true
+
+  // 1. 优先从路由取 taskId（错题本/历史/规划详情）
+  const taskId = route.params.taskId
+  if (taskId) {
+    try {
+      // 直接去后端取这道题的完整数据
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/questions/${taskId}`, {
+        headers: { 'Authorization': `Bearer ${authStore.token}` }
+      })
+      if (!res.ok) throw new Error('获取题目失败')
+      const data = await res.json()
+
+      question.value = data
+      evaluated.value = false
+      evaluationResult.value = null
+      userAnswer.value = ''
+      initUI(question.value)
+      loading.value = false
+      return
+    } catch (error) {
+      console.error('加载题目失败:', error)
+      ElMessage.error('加载题目失败')
+      router.back()
+      loading.value = false
+      return
+    }
+  }
+
+  // 2. 如果没 ID，读缓存（规划详情跳转）
+  const stored = sessionStorage.getItem('current_question')
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored)
+      question.value = parsed
+      initUI(question.value)
+      loading.value = false
+      return
+    } catch {}
+  }
+
+  // 3. 什么都没有，才生成（资源库直接点生成）
+  const query = route.query
+  try {
+    const newQuestion = await generateQuestion({
+      user_id: authStore.user.id,
+      category: query.category || '通用',
+      topic: query.topic || '',
+      question_type: query.questionType || '选择题',
+      difficulty: '中等',
+      extra: ''
+    })
+    question.value = newQuestion
+    initUI(question.value)
+  } catch (error) {
+    ElMessage.error('生成题目失败')
+    router.back()
+  } finally {
+    loading.value = false
+  }
+}
+
+function initUI(q) {
+  const currentType = q.question_type || 'choice'
+  const displayType = typeDisplayMap[currentType] || '选择题'
+  availableTypes.value = allTypes.filter(t => t !== displayType)
+  selectedTypes.value = [...availableTypes.value]
+  if (availableTypes.value.length) {
+    targetType.value = availableTypes.value[0]
+  }
+
+  if (q.question_type === 'choice' &&
+      (!q.options || Object.keys(q.options).length === 0)) {
+    q.options = { 'A': '选项 A', 'B': '选项 B', 'C': '选项 C', 'D': '选项 D' }
+  }
+}
+
+// ============================================================
+// ✅ 核心提交逻辑：更新掌握度 + 错题状态
+// ============================================================
 async function handleSubmit() {
-  console.log('=== handleSubmit 被调用 ===')  // 👈 加这行
   if (!userAnswer.value) {
     ElMessage.warning('请先作答')
     return
@@ -525,20 +577,31 @@ async function handleSubmit() {
       user_id: authStore.user.id
     })
 
-    if (sessionStorage.getItem('from_mistake_book') === 'true' && result.mastery_score >= 60) {
-      await recordAction(authStore.user.id, 'conquer_mistake')
+    // 如果是错题本进来的，且掌握度 >= 60，自动更新为“已攻克”
+    const fromMistake = sessionStorage.getItem('from_mistake_book')
+    if (fromMistake === 'true' && result.mastery_score >= 60) {
+      try {
+        await fetch(`${import.meta.env.VITE_BACKEND_URL}/questions/${question.value.id}/mistake-status`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authStore.token}`
+          },
+          body: JSON.stringify({ status: 'conquered' })
+        })
+        sessionStorage.removeItem('from_mistake_book')
+        ElMessage.success('🎉 错题已攻克！')
+      } catch (err) {
+        console.error('更新错题状态失败:', err)
+      }
     }
 
     evaluationResult.value = result
     evaluated.value = true
 
-    // ===== 新增：评估完成后搜索视频 =====
-    const knowledgePoints = result.knowledge_points || []
-    const topic = question.value.normalized_topic || question.value.topic || ''
-    const searchTerms = [...knowledgePoints]
-    if (topic && !searchTerms.includes(topic)) {
-      searchTerms.push(topic)
-    }
+    const searchTerms = []
+    const topic = question.value.topic || ''
+    if (topic) searchTerms.push(topic)
     const typeName = getTypeDisplay(question.value.question_type)
     const keyword = searchTerms.length > 0
       ? searchTerms[0] + (typeName ? ' ' + typeName : '')
@@ -558,7 +621,6 @@ function resetEvaluation() {
   evaluated.value = false
   evaluationResult.value = null
   userAnswer.value = ''
-  // ===== 新增：重置视频状态 =====
   videos.value = []
   videoSearched.value = false
   videoLoading.value = false
@@ -582,7 +644,6 @@ async function handleRegenerate() {
       difficulty: diff,
       extra: ''
     })
-    sessionStorage.setItem('current_question', JSON.stringify(newQuestion))
     question.value = newQuestion
     resetEvaluation()
     const currentType = newQuestion.question_type || 'choice'
@@ -629,7 +690,6 @@ async function handleChangeType() {
       extra: ''
     })
 
-    sessionStorage.setItem('current_question', JSON.stringify(newQuestion))
     question.value = newQuestion
     resetEvaluation()
 
@@ -749,6 +809,26 @@ onMounted(loadQuestion)
   transform: translateX(-2px);
 }
 
+/* ===== 加载状态 ===== */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  gap: 16px;
+  color: var(--text-muted);
+}
+.loader {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(64, 158, 255, 0.1);
+  border-top-color: #409EFF;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ===== 难度圆环 + 信息 ===== */
 .question-meta {
   display: flex;
@@ -818,7 +898,6 @@ onMounted(loadQuestion)
   font-weight: 500;
 }
 
-/* ===== 题目内容 ===== */
 .question-content h3 {
   font-size: 20px;
   line-height: 1.8;
@@ -826,7 +905,6 @@ onMounted(loadQuestion)
   font-weight: 500;
 }
 
-/* ===== 答题区 ===== */
 .answer-area {
   margin: 20px 0;
 }
@@ -882,7 +960,6 @@ onMounted(loadQuestion)
   background: rgba(64, 158, 255, 0.06);
 }
 
-/* ===== 评估结果 ===== */
 .evaluation {
   padding: 24px 28px;
   border-radius: 14px;
@@ -904,7 +981,6 @@ onMounted(loadQuestion)
   font-size: 20px;
 }
 
-/* ===== 新增：正确答案 & 用户答案 ===== */
 .correct-answer,
 .user-answer-display {
   margin: 8px 0;
@@ -957,7 +1033,6 @@ onMounted(loadQuestion)
   text-align: right;
 }
 
-/* ===== 新增：详细解析 ===== */
 .detail-analysis {
   margin: 12px 0;
   padding: 14px 16px;
@@ -988,7 +1063,6 @@ onMounted(loadQuestion)
   color: var(--text-primary);
 }
 
-/* ===== 新增：视频推荐 ===== */
 .video-section {
   margin: 16px 0;
   padding: 14px 16px;
@@ -1080,7 +1154,6 @@ onMounted(loadQuestion)
   text-align: center;
 }
 
-/* ===== 按钮区 ===== */
 .action-buttons {
   display: flex;
   gap: 12px;
@@ -1107,7 +1180,6 @@ onMounted(loadQuestion)
   background: rgba(64, 158, 255, 0.2) !important;
 }
 
-/* ===== 弹窗样式 ===== */
 .change-type-dialog {
   padding: 4px 0;
 }
@@ -1182,7 +1254,6 @@ onMounted(loadQuestion)
   margin-bottom: 12px;
 }
 
-/* ===== 新增：视频弹窗 ===== */
 .video-dialog :deep(.el-dialog) {
   background: rgba(255, 255, 255, 0.06) !important;
   backdrop-filter: blur(24px) !important;
@@ -1254,7 +1325,6 @@ onMounted(loadQuestion)
   transform: translateY(-2px);
 }
 
-/* ===== 输入框深色适配 ===== */
 [data-theme="dark"] :deep(.el-input__wrapper) {
   background: rgba(255, 255, 255, 0.05) !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
@@ -1301,7 +1371,6 @@ onMounted(loadQuestion)
   background: rgba(255, 255, 255, 0.03);
 }
 
-/* ===== 响应式 ===== */
 @media (max-width: 640px) {
   .question-page {
     padding: 12px 10px;
