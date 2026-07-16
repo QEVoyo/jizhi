@@ -15,7 +15,10 @@ export function getPost(postId, userId) {
 export function createPost(data) {
   return request.post('/community/post', {
     content: data.content,
-    topic: data.topic || null
+    topic: data.topic || null,
+    title: data.title || null,
+    tags: data.tags || null,
+    images: data.images || null
   }, {
     params: { user_id: data.user_id }
   }).then(res => res.data)

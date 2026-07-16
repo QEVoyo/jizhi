@@ -16,7 +16,10 @@ router = APIRouter(prefix="/community", tags=["社区"])
 # ========== 模型定义 ==========
 class PostCreate(BaseModel):
     content: str
+    title: Optional[str] = None
     topic: Optional[str] = None
+    tags: Optional[str] = None
+    images: Optional[str] = None
 
 
 class CommentCreate(BaseModel):
@@ -63,34 +66,67 @@ def get_supabase_headers():
 
 @router.post("/post")
 async def create_post(user_id: str, data: PostCreate):
-    """发布动态"""
+    """发布动态（修复标签和图片写入）"""
     headers = get_supabase_headers()
+    import json
 
+    # 1. 提取话题
     topic = data.topic
     if not topic and "#" in data.content:
         matches = re.findall(r'#([^\s#]+)', data.content)
         if matches:
             topic = matches[0]
 
+    # 2. 处理标签（兼容字符串或JSON数组）
+    tag_list = []
+    if data.tags:
+        try:
+            tag_list = json.loads(data.tags)
+            if not isinstance(tag_list, list):
+                tag_list = []
+        except:
+            tag_list = [t.strip() for t in data.tags.split(',') if t.strip()]
+
+    # 3. 处理图片（兼容字符串或JSON数组）
+    image_list = []
+    if data.images:
+        try:
+            image_list = json.loads(data.images)
+            if not isinstance(image_list, list):
+                image_list = []
+        except:
+            image_list = [img.strip() for img in data.images.split(',') if img.strip()]
+
+    # 4. 构建要存入数据库的数据
     post_data = {
         "user_id": user_id,
+        "title": data.title,
         "content": data.content,
-        "topic": topic
+        "topic": topic,
+        "tags": tag_list,
+        "images": image_list,
+        "like_count": 0,
+        "comment_count": 0,
+        "collect_count": 0,
+        "created_at": datetime.now().astimezone().isoformat()
     }
 
-    print(f"=== 发布动态，数据: {post_data} ===")
+    # ========== 🚨 强制打印到终端 ==========
+    print("\n" + "=" * 50)
+    print("🔥 最终入库数据:")
+    print("title:", post_data.get("title"))
+    print("tags:", post_data.get("tags"))
+    print("images:", post_data.get("images"))
+    print("=" * 50 + "\n")
+    # =======================================
 
     async with httpx.AsyncClient() as client:
         url = f"{settings.SUPABASE_URL}/rest/v1/posts"
         res = await client.post(url, headers=headers, json=post_data)
 
-        print(f"=== Supabase 状态码: {res.status_code} ===")
-        print(f"=== Supabase 响应: {res.text} ===")
-
         if res.status_code not in [200, 201]:
             raise HTTPException(status_code=400, detail=f"发布失败: {res.text}")
 
-        # Supabase 返回空响应体时，手动返回成功
         if not res.text:
             return {"success": True, "message": "发布成功", "id": None}
 
@@ -130,7 +166,7 @@ async def get_posts(
             if not friend_ids:
                 return {"posts": [], "total": 0, "page": page, "page_size": page_size}
 
-        # ===== 构建查询 =====
+        # ===== 👇 关键修复：在 select 里加上 title, tags, images =====
         url = f"{settings.SUPABASE_URL}/rest/v1/posts?select=*,profiles!user_id(nickname,avatar_url,user_account)&order=created_at.desc&limit={page_size}&offset={offset}"
 
         if filter_type == "friends" and friend_ids:

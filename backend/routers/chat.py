@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 
-# 添加项目根目录到 Python 路径
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
@@ -13,7 +12,6 @@ import json
 import httpx
 from datetime import datetime
 
-# 导入流式版本
 from agents.planner import plan_with_history_stream
 from agents.generator import generate_with_history_stream
 from agents.evaluator import evaluate_with_history_stream
@@ -50,9 +48,14 @@ class TitleRequest(BaseModel):
     response: str
 
 
+class VisionRequest(BaseModel):
+    user_id: str
+    image_url: str
+    question: str = "请描述这张图片的内容"
+
+
 @router.post("/detect-intent")
 async def detect_intent(req: IntentRequest):
-    """用 AI 判断用户意图（plan / generate / evaluate / chat）"""
     if not req.text or len(req.text) < 2:
         return {"intent": "chat"}
 
@@ -79,14 +82,11 @@ async def detect_intent(req: IntentRequest):
 
 @router.post("/send")
 async def chat(req: ChatRequest):
-    """发送消息，流式返回，支持多 Agent"""
     user_profile = {"level": "中等", "style": "喜欢例子"}
 
-    # 获取用户最后一条消息
     user_message = req.messages[-1].get("content", "") if req.messages else ""
     history = req.messages[:-1] if req.messages else []
 
-    # 根据 intent 选择 Agent，统一返回流式
     if req.intent == "plan":
         stream = plan_with_history_stream(user_profile, user_message, history)
         return StreamingResponse(stream_generator(stream), media_type="text/plain")
@@ -100,22 +100,34 @@ async def chat(req: ChatRequest):
         return StreamingResponse(stream_generator(stream), media_type="text/plain")
 
     else:
-        # chat 模式
         messages_with_system = req.messages + [{"role": "system", "content": "你是基智，一个热情、博学的AI学习助手。"}]
         stream = call_llm_stream(messages_with_system, temperature=req.temperature)
         return StreamingResponse(stream_generator(stream), media_type="text/plain")
 
 
 def stream_generator(stream):
-    """将 OpenAI 流式响应转换为纯文本流"""
     for chunk in stream:
         if chunk.choices[0].delta.content:
             yield chunk.choices[0].delta.content
 
+def doubao_stream_generator(stream):
+    """专门解析豆包（VolcEngine）流式响应的生成器（逐字追加版）"""
+    for line in stream:
+        if line:
+            if line.startswith("data:") and line != "data: [DONE]":
+                try:
+                    data = json.loads(line[5:])
+                    if "choices" in data and len(data["choices"]) > 0:
+                        delta = data["choices"][0].get("delta", {})
+                        if "content" in delta:
+                            # 豆包一个 token 是单个字或词，直接原样推送
+                            yield delta["content"]
+                except:
+                    continue
+
 
 @router.post("/log")
 async def save_log(req: LogRequest):
-    """保存学习日志"""
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -153,18 +165,10 @@ async def save_log(req: LogRequest):
 
 @router.post("/summary")
 async def extract_summary(req: SummaryRequest):
-    """提取生成内容的极简标签（不超过10个字）"""
     prompt = f"""请将以下内容的核心要点提炼为**极简标签**（不超过10个字），用于记录用户的学习日志。只输出标签，不要其他内容。
 
 内容：
 {req.content[:1500]}
-
-示例：
-- 用户问了一道高数题 → "高数题"
-- 用户让生成英语题 → "英语题"  
-- 用户学了微积分 → "微积分"
-- 用户做了编程题 → "编程题"
-- 用户问旋转体体积 → "旋转体体积"
 
 只输出极简标签（不超过10个字）："""
 
@@ -182,7 +186,6 @@ async def extract_summary(req: SummaryRequest):
 
 @router.post("/title")
 async def generate_title(req: TitleRequest):
-    """根据对话内容生成标题"""
     prompt = f"""请根据以下对话内容，生成一个简短的标题（不超过15个字）：
 
 用户问题：{req.content[:200]}
@@ -200,6 +203,21 @@ AI回答：{req.response[:200]}
         title = req.content[:20] + ('...' if len(req.content) > 20 else '')
         return {"title": title}
 
+
+@router.post("/vision")
+async def handle_vision(req: VisionRequest):
+    """豆包多模态图片理解 - 真流式输出"""
+    from utils.volc_client import VolcClient
+
+    client = VolcClient()
+    stream = client.vision_stream(req.image_url, req.question)
+
+    return StreamingResponse(
+        doubao_stream_generator(stream),  # 👈 换用豆包专用解析生成器
+        media_type="text/plain"
+    )
+
+
 class AdviceRequest(BaseModel):
     prompt: str
     user_id: str
@@ -207,7 +225,6 @@ class AdviceRequest(BaseModel):
 
 @router.post("/advice")
 async def generate_advice(req: AdviceRequest):
-    """生成学习建议"""
     from agents.llm_client import call_llm
     try:
         result = call_llm([{"role": "user", "content": req.prompt}], temperature=0.5)

@@ -5,7 +5,7 @@ from config import settings
 
 
 class VolcClient:
-    """火山引擎豆包API客户端"""
+    """火山引擎豆包API客户端（支持流式）"""
 
     def __init__(self):
         self.api_key = settings.ARK_API_KEY
@@ -17,10 +17,7 @@ class VolcClient:
         print(f"=== 接入点ID: {self.endpoint_id} ===")
 
     def chat(self, messages: List[Dict[str, str]], temperature: float = 0.8) -> str:
-        """调用角色模型对话"""
-        print("=== volc_client.chat 被调用 ===")
-        print(f"=== 消息数量: {len(messages)} ===")
-
+        """调用角色模型对话（非流式）"""
         url = f"{self.base_url}/chat/completions"
 
         body = {
@@ -37,59 +34,58 @@ class VolcClient:
         }
 
         try:
-            print("=== 准备发送请求到火山API ===")
             resp = requests.post(url, headers=headers, json=body, timeout=30)
-            print(f"=== 火山API状态: {resp.status_code} ===")
-            print(f"=== 火山API返回: {resp.text[:500]} ===")
-
             if resp.status_code == 200:
                 data = resp.json()
                 if "choices" in data and len(data["choices"]) > 0:
                     return data["choices"][0]["message"]["content"]
-                else:
-                    print(f"=== 返回格式异常: {data} ===")
-                    return "小基今天有点累了，明天再聊吧~"
-            elif resp.status_code == 401:
-                print("=== 认证失败 ===")
-                return "小基说：主人，API Key 好像不对哦，检查一下吧~"
-            else:
-                print(f"=== 请求失败: {resp.status_code} ===")
                 return "小基今天有点累了，明天再聊吧~"
+            return "小基今天有点累了，明天再聊吧~"
         except Exception as e:
             print(f"=== 调用火山API异常: {e} ===")
             return "嗯嗯，我在听！你继续说~"
 
-    def chat_with_image(self, messages: List[Dict], temperature: float = 0.8) -> str:
-        """图片理解对话"""
-        print("=== volc_client.chat_with_image 被调用 ===")
-        print(f"=== 消息数量: {len(messages)} ===")
+    def vision_stream(self, image_url: str, prompt: str = "请描述这张图片的内容"):
+        """
+        豆包多模态图片理解 - 真流式输出
+        """
+        vision_endpoint = settings.VOLC_VISION_ENDPOINT_ID
 
         url = f"{self.base_url}/chat/completions"
-
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": image_url}}
+                ]
+            }
+        ]
         body = {
-            "model": settings.VOLC_VISION_ENDPOINT_ID,
+            "model": vision_endpoint,
             "messages": messages,
-            "temperature": temperature,
+            "temperature": 0.8,
             "max_tokens": 2048,
-            "stream": False
+            "stream": True  # 👈 开启真流式
         }
-
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
         }
 
         try:
-            print("=== 准备发送图片理解请求 ===")
-            resp = requests.post(url, headers=headers, json=body, timeout=30)
-            print(f"=== 火山API状态: {resp.status_code} ===")
-            print(f"=== 火山API返回: {resp.text[:500]} ===")
-
-            if resp.status_code == 200:
-                data = resp.json()
-                if "choices" in data and len(data["choices"]) > 0:
-                    return data["choices"][0]["message"]["content"]
-            return "图片理解失败了，再试一次吧~"
+            response = requests.post(url, headers=headers, json=body, stream=True, timeout=30)
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    if line.startswith("data:") and line != "data: [DONE]":
+                        try:
+                            data = json.loads(line[5:])
+                            if "choices" in data and len(data["choices"]) > 0:
+                                delta = data["choices"][0].get("delta", {})
+                                if "content" in delta:
+                                    yield delta["content"]
+                        except:
+                            continue
         except Exception as e:
-            print(f"=== 图片理解异常: {e} ===")
-            return "看不太清楚这张图呢~"
+            yield f"图片理解出错: {str(e)}"

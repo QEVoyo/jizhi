@@ -207,7 +207,7 @@
           <el-button :loading="regenerating" @click="handleRegenerate">
             <i class="fas fa-sync"></i> 重新生成
           </el-button>
-          <el-button @click="showAddToSet = true">
+          <el-button @click="handleAddToSet">
             <i class="fas fa-folder-plus"></i> 加入题集
           </el-button>
           <el-button @click="showChangeType = true">
@@ -448,8 +448,24 @@ function handleImageError(video) {
 
 async function loadQuestionSets() {
   try {
-    questionSets.value = await getQuestionSets(authStore.user.id)
-  } catch {
+    const token = authStore.token
+    const userId = authStore.user.id
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+
+    const res = await fetch(`${baseUrl}/questions/set/list/${userId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    const data = await res.json()
+
+    questionSets.value = (data || []).map(s => ({
+      ...s,
+      question_ids: Array.isArray(s.question_ids) ? s.question_ids : []
+    }))
+  } catch (e) {
+    console.error('加载题集失败:', e)
     questionSets.value = []
   }
 }
@@ -711,6 +727,7 @@ async function handleChangeType() {
 }
 
 function handleAddToSet() {
+  console.log('🔵 打开弹窗, 加载题集')
   showAddToSet.value = true
   loadQuestionSets()
 }
@@ -718,8 +735,16 @@ function handleAddToSet() {
 async function handleAddToSetConfirm(setId) {
   addingSetId.value = setId
   try {
-    await addQuestionToSet(setId, question.value.id)
-    await recordAction(authStore.user.id, 'add_to_set')
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+    const res = await fetch(`${baseUrl}/questions/set/${setId}/add/${question.value.id}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    if (!res.ok) throw new Error('加入失败')
+
     ElMessage.success('已加入题集')
     await loadQuestionSets()
   } catch (error) {
@@ -1239,7 +1264,7 @@ onMounted(loadQuestion)
 }
 .set-name {
   font-weight: 500;
-  color: var(--text-primary);
+  color: #ff0000;
 }
 .set-count {
   font-size: 12px;

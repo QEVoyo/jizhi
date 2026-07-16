@@ -8,28 +8,69 @@
 
     <el-divider />
 
-    <!-- ===== 发布动态 ===== -->
+    <!-- ===== 发布动态（多行表单结构） ===== -->
     <div class="publish-section">
       <div class="publish-wrapper">
         <el-avatar :size="40" :src="authStore.user?.avatar_url || ''" class="publish-avatar">
           {{ authStore.user?.nickname?.[0] || 'U' }}
         </el-avatar>
-        <div class="publish-input-wrapper">
+
+        <div class="publish-form">
+          <!-- 1. 标题 -->
+          <el-input
+            v-model="publishTitle"
+            placeholder="标题（选填）..."
+            class="publish-title"
+          />
+
+          <!-- 2. 正文内容 -->
           <el-input
             v-model="publishContent"
             type="textarea"
-            :rows="2"
-            placeholder="分享你的学习心得..."
+            :rows="3"
+            placeholder="分享你的学习心得或问题..."
             maxlength="500"
             show-word-limit
-            class="publish-input"
-            @focus="isPublishingFocused = true"
-            @blur="isPublishingFocused = false"
+            class="publish-textarea"
           />
-          <div class="publish-actions">
-            <el-button type="primary" :loading="publishing" @click="handlePublish">
+
+          <!-- 3. 底部工具栏：标签 + 图片 + 发布 -->
+          <div class="publish-toolbar">
+            <!-- 左侧：标签和图片 -->
+            <div class="publish-left">
+              <el-input
+                v-model="publishTags"
+                placeholder="标签（逗号分隔）"
+                size="small"
+                style="width: 160px;"
+                clearable
+              />
+              <el-upload
+                ref="uploadRef"
+                action="#"
+                :auto-upload="false"
+                :limit="1"
+                accept="image/*"
+                :on-change="handleImageSelect"
+                :on-remove="handleImageRemove"
+                :show-file-list="false"
+              >
+                <el-button size="small" :type="uploadedImage ? 'success' : 'default'">
+                  <i class="fas fa-image"></i> 图片
+                </el-button>
+              </el-upload>
+            </div>
+
+            <!-- 右侧：发布按钮 -->
+            <el-button type="primary" :loading="publishing" @click="handlePublish" size="small">
               <i class="fas fa-paper-plane"></i> 发布
             </el-button>
+          </div>
+
+          <!-- 4. 图片预览 -->
+          <div v-if="uploadedImage" class="upload-preview-box">
+            <img :src="uploadedImage" alt="预览" />
+            <i class="fas fa-times remove-img-icon" @click="removeImage"></i>
           </div>
         </div>
       </div>
@@ -62,7 +103,7 @@
       </div>
     </div>
 
-    <!-- ===== 动态列表 ===== -->
+    <!-- ===== 动态列表（此处用 PostCard 循环渲染，所有格式由 PostCard 控制） ===== -->
     <div class="post-list">
       <!-- 加载状态 -->
       <div v-if="loading" class="loading-state">
@@ -76,7 +117,7 @@
         <span>成为第一个发布动态的人吧！</span>
       </div>
 
-      <!-- 动态卡片 -->
+      <!-- 👇 这里使用 PostCard.vue 组件渲染每一条动态，最终显示效果取决于 PostCard.vue -->
       <PostCard
         v-for="post in posts"
         :key="post.id"
@@ -119,24 +160,85 @@ import {
 const router = useRouter()
 const authStore = useAuthStore()
 
-// ===== 状态 =====
 const posts = ref([])
 const loading = ref(false)
 const loadingMore = ref(false)
 const page = ref(1)
 const hasMore = ref(true)
+
+// 发布相关
+const publishTitle = ref('')
 const publishContent = ref('')
+const publishTags = ref('')
+const uploadedImage = ref(null)
+const uploadRef = ref(null)
 const publishing = ref(false)
-const isPublishingFocused = ref(false)
+
 const searchKeyword = ref('')
 const activeFilter = ref('all')
-
 const filterTabs = [
   { key: 'all', label: '全部' },
   { key: 'friends', label: '好友' }
 ]
 
-// ===== 方法 =====
+// ===== 图片处理 =====
+const handleImageSelect = (uploadFile) => {
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    uploadedImage.value = e.target.result
+  }
+  reader.readAsDataURL(uploadFile.raw)
+}
+
+const removeImage = () => {
+  uploadedImage.value = null
+  if (uploadRef.value) {
+    uploadRef.value.clearFiles()
+  }
+}
+
+const handleImageRemove = () => {
+  removeImage()
+}
+
+// ===== 核心发布 =====
+async function handlePublish() {
+  if (!publishContent.value.trim() && !uploadedImage.value) {
+    ElMessage.warning('请输入内容或添加图片')
+    return
+  }
+
+  publishing.value = true
+  try {
+    // 将标签字符串转为数组
+    const tags = publishTags.value.split(',').map(t => t.trim()).filter(Boolean)
+
+    // 构造要传给后端的数据对象
+    const postData = {
+      user_id: authStore.user.id,
+      title: publishTitle.value.trim(),
+      content: publishContent.value.trim(),
+      tags: tags.length > 0 ? JSON.stringify(tags) : null,
+      images: uploadedImage.value ? [uploadedImage.value] : null
+    }
+
+    await createPost(postData)
+
+    ElMessage.success('发布成功')
+    publishTitle.value = ''
+    publishContent.value = ''
+    publishTags.value = ''
+    uploadedImage.value = null
+    loadPosts(true)
+  } catch (error) {
+    console.error('发布失败:', error)
+    ElMessage.error(error.response?.data?.detail || '发布失败')
+  } finally {
+    publishing.value = false
+  }
+}
+
+// ===== 基础功能 =====
 async function loadPosts(reset = true) {
   if (reset) {
     page.value = 1
@@ -183,28 +285,6 @@ function switchFilter(key) {
 
 function handleSearch() {
   loadPosts(true)
-}
-
-async function handlePublish() {
-  if (!publishContent.value.trim()) {
-    ElMessage.warning('请输入内容')
-    return
-  }
-  publishing.value = true
-  try {
-    await createPost({
-      user_id: authStore.user.id,
-      content: publishContent.value.trim()
-    })
-    ElMessage.success('发布成功')
-    publishContent.value = ''
-    loadPosts(true)
-  } catch (error) {
-    console.error('发布失败:', error)
-    ElMessage.error(error.response?.data?.detail || '发布失败')
-  } finally {
-    publishing.value = false
-  }
 }
 
 async function handleLike(post) {
@@ -327,42 +407,72 @@ onMounted(() => {
 .publish-avatar {
   flex-shrink: 0;
 }
-.publish-input-wrapper {
+.publish-form {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
-.publish-input :deep(.el-textarea__inner) {
+.publish-title :deep(.el-input__wrapper),
+.publish-textarea :deep(.el-textarea__inner) {
   background: rgba(255, 255, 255, 0.04) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 12px !important;
-  color: var(--text-primary) !important;
-  resize: none;
-  transition: all 0.3s ease !important;
-}
-.publish-input :deep(.el-textarea__inner:focus) {
-  border-color: rgba(64, 158, 255, 0.4) !important;
-  box-shadow: 0 0 0 4px rgba(64, 158, 255, 0.06) !important;
-}
-.publish-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-.publish-actions .el-button {
   border-radius: 10px !important;
-  padding: 8px 24px !important;
+  color: var(--text-primary) !important;
+}
+.publish-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.publish-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.publish-left .el-button {
+  border-radius: 8px !important;
+}
+.publish-toolbar .el-button--primary {
+  border-radius: 8px !important;
+  padding: 8px 20px !important;
   background: rgba(64, 158, 255, 0.10) !important;
   border: 1px solid rgba(64, 158, 255, 0.15) !important;
   color: #409eff !important;
   transition: all 0.3s ease !important;
 }
-.publish-actions .el-button:hover {
+.publish-toolbar .el-button--primary:hover {
   background: rgba(64, 158, 255, 0.20) !important;
   transform: translateY(-2px);
 }
-.publish-actions .el-button:active {
-  transform: translateY(0) scale(0.97);
+
+.upload-preview-box {
+  position: relative;
+  display: inline-block;
+  margin-top: 4px;
+}
+.upload-preview-box img {
+  max-width: 120px;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.remove-img-icon {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  padding: 4px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+}
+.remove-img-icon:hover {
+  background: rgba(0,0,0,0.8);
 }
 
 /* ===== 工具栏 ===== */
@@ -477,10 +587,19 @@ onMounted(() => {
   .publish-avatar {
     align-self: flex-start;
   }
-  .publish-actions {
-    width: 100%;
+  .publish-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
   }
-  .publish-actions .el-button {
+  .publish-left {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .publish-left .el-input {
+    flex: 1;
+    min-width: 120px;
+  }
+  .publish-toolbar .el-button--primary {
     width: 100%;
   }
   .toolbar {
