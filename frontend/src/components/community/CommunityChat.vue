@@ -1228,7 +1228,7 @@ onMounted(() => {
 .q-title {
   flex: 1;
   font-size: 14px;
-  color: var(--text-primary);
+  color: #409eff;
 }
 .q-type {
   font-size: 12px;
@@ -1263,15 +1263,15 @@ onMounted(() => {
 .set-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: #409eff;
 }
 .set-count {
   font-size: 12px;
-  color: var(--text-muted);
+  color: #409eff;
 }
 .set-expand-icon {
   transition: transform 0.3s ease;
-  color: var(--text-muted);
+  color: #409eff;
   font-size: 14px;
 }
 .set-expand-icon.expanded {
@@ -1317,7 +1317,7 @@ onMounted(() => {
 }
 .sq-title {
   font-size: 13px;
-  color: var(--text-primary);
+  color: #409eff;
   font-weight: 500;
 }
 .sq-preview {
