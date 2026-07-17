@@ -9,6 +9,7 @@ import re
 from utils.email import send_report_email
 from collections import defaultdict
 from utils.notification import create_notification
+import json
 
 router = APIRouter(prefix="/community", tags=["社区"])
 
@@ -40,6 +41,7 @@ class PrivateMessageCreate(BaseModel):
     media_url: Optional[str] = None
     question_id: Optional[str] = None
     question_set_id: Optional[str] = None
+    question_data: Optional[dict] = None  # ✅ 新增这一行
 
 
 class QuestionSetShareCreate(BaseModel):
@@ -59,7 +61,12 @@ def get_supabase_headers():
         "Content-Type": "application/json"
     }
 
-
+def get_supabase_service_headers():
+    return {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json"
+    }
 # ============================================================
 # 1. 动态广场
 # ============================================================
@@ -149,7 +156,7 @@ async def get_posts(
     headers = get_supabase_headers()
     offset = (page - 1) * page_size
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         # ===== 获取好友ID列表 =====
         friend_ids = []
         if filter_type == "friends":
@@ -278,20 +285,38 @@ async def delete_post(post_id: str, user_id: str = Query(...)):
 @router.post("/post/{post_id}/like")
 async def like_post(post_id: str, user_id: str):
     """点赞动态"""
-    headers = get_supabase_headers()
+    # 用 service role key 绕过 RLS
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json"
+    }
 
     async with httpx.AsyncClient() as client:
+        # 1. 检查是否已点赞
         check_url = f"{settings.SUPABASE_URL}/rest/v1/post_likes?post_id=eq.{post_id}&user_id=eq.{user_id}"
         check_res = await client.get(check_url, headers=headers)
         if check_res.json():
             return {"success": False, "message": "已点赞"}
 
+        # 2. 插入点赞记录
         like_data = {"post_id": post_id, "user_id": user_id}
         await client.post(f"{settings.SUPABASE_URL}/rest/v1/post_likes", headers=headers, json=like_data)
+
+        # 3. 获取当前 like_count
+        get_res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}&select=like_count",
+            headers=headers
+        )
+        current_count = 0
+        if get_res.status_code == 200 and get_res.json():
+            current_count = get_res.json()[0].get("like_count", 0)
+
+        # 4. 更新 like_count
         await client.patch(
             f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}",
             headers=headers,
-            json={"like_count": "like_count + 1"}
+            json={"like_count": current_count + 1}
         )
         return {"success": True, "message": "点赞成功"}
 
@@ -304,10 +329,20 @@ async def unlike_post(post_id: str, user_id: str):
     async with httpx.AsyncClient() as client:
         url = f"{settings.SUPABASE_URL}/rest/v1/post_likes?post_id=eq.{post_id}&user_id=eq.{user_id}"
         await client.delete(url, headers=headers)
+
+        # 先查当前 like_count
+        get_res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}&select=like_count",
+            headers=headers
+        )
+        current_count = 0
+        if get_res.status_code == 200 and get_res.json():
+            current_count = get_res.json()[0].get("like_count", 0)
+
         await client.patch(
             f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}",
             headers=headers,
-            json={"like_count": "like_count - 1"}
+            json={"like_count": max(0, current_count - 1)}
         )
         return {"success": True}
 
@@ -694,6 +729,7 @@ async def send_private_message(user_id: str, data: PrivateMessageCreate):
         "media_url": data.media_url,
         "question_id": data.question_id,
         "question_set_id": data.question_set_id,
+        "question_data": data.question_data,  # ✅ 新增这一行
         "is_read": False
     }
 
@@ -750,12 +786,13 @@ async def send_private_message(user_id: str, data: PrivateMessageCreate):
 
 @router.get("/messages/{friend_id}")
 async def get_private_messages(
-        user_id: str = Query(...),
-        friend_id: str = Path(..., description="好友ID")
+    user_id: str = Query(...),
+    friend_id: str = Path(..., description="好友ID")
 ):
     """获取与某好友的聊天记录"""
     headers = get_supabase_headers()
-    url = f"{settings.SUPABASE_URL}/rest/v1/private_messages?or=(sender_id.eq.{user_id},receiver_id.eq.{user_id})&order=created_at.asc"
+    # 👇 加上 question_data
+    url = f"{settings.SUPABASE_URL}/rest/v1/private_messages?or=(sender_id.eq.{user_id},receiver_id.eq.{user_id})&order=created_at.asc&select=*,question_data"
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         res = await client.get(url, headers=headers)
@@ -1171,7 +1208,7 @@ async def xiaoji_vision(
     ]
 
     volc_client = VolcClient()
-    response = volc_client.chat_with_image(messages)
+    response = volc_client.chat(messages, temperature=0.8)
 
     assistant_msg = {
         "user_id": user_id,
@@ -1326,3 +1363,348 @@ async def get_friends_rank(user_id: str = Query(...)):
         rank_list.sort(key=lambda x: (-x["rank_weight"], -x["sub_rank"], -x["points"]))
 
         return {"rank": rank_list}
+
+# ============================================================
+# 小基语音功能
+# ============================================================
+
+@router.post("/xiaoji/tts")
+async def xiaoji_tts(data: dict = Body(...)):
+    """文字转语音"""
+    from utils.xunfei_client import XunfeiClient
+    import base64
+
+    client = XunfeiClient()
+    text = data.get("text", "")
+    speed = data.get("speed", 5)
+    volume = data.get("volume", 5)
+    voice_name = data.get("voice_name", "xiaoyan")
+
+    if not text:
+        raise HTTPException(status_code=400, detail="text 不能为空")
+
+    audio_data = client.get_tts_audio(text, speed, volume, 5, voice_name)
+
+    if not audio_data:
+        raise HTTPException(status_code=500, detail="语音合成失败")
+
+    return {
+        "success": True,
+        "audio_base64": base64.b64encode(audio_data).decode("utf-8"),
+        "format": "wav"
+    }
+
+
+@router.post("/xiaoji/asr")
+async def xiaoji_asr(data: dict = Body(...)):
+    """语音转文字 - 使用讯飞 ASR"""
+    from utils.xunfei_client import XunfeiClient
+    import base64
+
+    client = XunfeiClient()
+    audio_base64 = data.get("audio_base64", "")
+    audio_format = data.get("format", "wav")
+
+    if not audio_base64:
+        raise HTTPException(status_code=400, detail="audio_base64 不能为空")
+
+    try:
+        audio_bytes = base64.b64decode(audio_base64)
+        result = client.speech_to_text(audio_bytes, audio_format)
+
+        if not result:
+            raise HTTPException(status_code=500, detail="语音识别失败")
+
+        return {"success": True, "text": result}
+    except Exception as e:
+        print(f"ASR 错误: {e}")
+        raise HTTPException(status_code=500, detail=f"ASR 错误: {str(e)}")
+
+# ============================================================
+# 小基 - 题目评价接口
+# ============================================================
+
+@router.post("/xiaoji/evaluate-question")
+async def xiaoji_evaluate_question(
+    user_id: str = Query(...),
+    data: dict = Body(...)
+):
+    """小基评价用户发送的题目 - 4维度输出"""
+    from agents.llm_client import call_llm
+
+    question = data.get("question", {})
+    if not question:
+        raise HTTPException(status_code=400, detail="请提供题目")
+
+    # ===== 提取题目信息 =====
+    question_title = question.get("title", "")
+    question_content = question.get("question_content", "") or question.get("title", "")
+    question_type = question.get("question_type", "未知")
+    difficulty = question.get("difficulty_score", 5)
+    correct_answer = question.get("answer", "未提供")
+    explanation = question.get("explanation", "")
+
+    # ===== 获取用户昵称 =====
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+    }
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=nickname"
+        profile_res = await client.get(profile_url, headers=headers)
+        nickname = profile_res.json()[0].get("nickname", "同学") if profile_res.json() else "同学"
+
+    # ===== 4维度 Prompt =====
+    eval_prompt = f"""你是一位资深学习导师，请从4个维度评价用户发送的题目。
+
+【题目信息】
+标题：{question_title}
+内容：{question_content}
+题型：{question_type}
+难度：{difficulty}
+正确答案：{correct_answer}
+解析：{explanation}
+
+请按以下4个维度输出，每个维度用 ## 标题分隔：
+
+## 📖 理解题目
+- 这道题在考什么知识点？
+- 题目的核心难点是什么？
+
+## 📊 评估
+- 这道题对用户来说难度如何？
+- 用户可能在哪一步卡住？
+
+## 💡 解析思路
+- 给出解题思路（不要直接给答案）
+- 关键步骤和提示
+
+## 📚 学习规划
+- 如果用户做对了，接下来应该学什么？
+- 如果用户没做对，应该补什么知识点？
+- 给出具体的学习建议
+
+请用温暖、鼓励的语气，像朋友一样自然。不要直接给答案，要引导用户思考。
+"""
+
+    messages = [
+        {"role": "system", "content": f"你是小基，一个温暖幽默的学习伙伴。用户叫「{nickname}」。"},
+        {"role": "user", "content": eval_prompt}
+    ]
+
+    try:
+        response = call_llm(messages, temperature=0.7)
+
+        # ===== 保存到数据库 =====
+        headers = {
+            "apikey": settings.SUPABASE_KEY,
+            "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+            "Content-Type": "application/json"
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            assistant_msg = {
+                "user_id": user_id,
+                "role": "assistant",
+                "content": response,
+                "is_evaluation": True
+            }
+            await client.post(
+                f"{settings.SUPABASE_URL}/rest/v1/xiaoji_messages",
+                headers=headers,
+                json=assistant_msg
+            )
+
+        return {"reply": response}
+
+    except Exception as e:
+        print(f"评价失败: {e}")
+        raise HTTPException(status_code=500, detail=f"评价失败: {str(e)}")
+
+
+@router.post("/xiaoji/evaluate-set")
+async def xiaoji_evaluate_set(
+    user_id: str = Query(...),
+    data: dict = Body(...)
+):
+    """
+    小基评价用户发送的整个题集
+    """
+    from agents.llm_client import call_llm
+
+    set_data = data.get("set", {})
+    questions = data.get("questions", [])
+
+    if not set_data or not questions:
+        raise HTTPException(status_code=400, detail="请提供题集数据")
+
+    # 获取掌握度
+    headers = get_supabase_headers()
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        mastery_url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&select=normalized_topic,mastery_score"
+        mastery_res = await client.get(mastery_url, headers=headers)
+        qs = mastery_res.json() if mastery_res.status_code == 200 else []
+        topic_mastery = {}
+        for q in qs:
+            topic = q.get("normalized_topic") or q.get("topic") or "未分类"
+            if topic not in topic_mastery:
+                topic_mastery[topic] = {"sum": 0, "count": 0}
+            topic_mastery[topic]["sum"] += q.get("mastery_score", 0)
+            topic_mastery[topic]["count"] += 1
+        mastery_summary = [f"{t}: {round(d['sum']/d['count'])}%" for t, d in topic_mastery.items()]
+        mastery_text = "用户的知识点掌握度：\n" + "\n".join(mastery_summary) if mastery_summary else "暂无掌握度数据"
+
+    # 构建题集评价 Prompt
+    set_name = set_data.get("name", "未命名题集")
+    question_count = len(questions)
+
+    eval_prompt = f"""用户发送了一个题集「{set_name}」，包含 {question_count} 道题目。
+
+【用户掌握度数据】
+{mastery_text}
+
+【题集题目列表】
+{json.dumps([{
+    "title": q.get("title", ""),
+    "type": q.get("question_type", ""),
+    "difficulty": q.get("difficulty_score", 5)
+} for q in questions], ensure_ascii=False, indent=2)}
+
+请从以下几个维度评价这个题集：
+1. 这个题集的整体难度和主题是什么
+2. 用户当前的掌握度与这个题集的匹配度如何
+3. 哪些题目用户可能会觉得困难
+4. 给出整体鼓励和学习建议
+5. 如果题集难度适中，夸夸用户选得好
+6. 如果题集偏难，告诉用户不用着急
+
+用温暖、鼓励的语气回复。"""
+
+    try:
+        profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=nickname"
+        profile_res = await client.get(profile_url, headers=headers)
+        nickname = profile_res.json()[0].get("nickname", "同学") if profile_res.json() else "同学"
+
+        messages = [
+            {"role": "system", "content": f"你是小基，一个温暖幽默的学习伙伴。用户叫「{nickname}」。"},
+            {"role": "user", "content": eval_prompt}
+        ]
+
+        response = call_llm(messages, temperature=0.7)
+
+        # 保存
+        assistant_msg = {
+            "user_id": user_id,
+            "role": "assistant",
+            "content": response,
+            "is_evaluation": True
+        }
+        await client.post(
+            f"{settings.SUPABASE_URL}/rest/v1/xiaoji_messages",
+            headers=headers,
+            json=assistant_msg
+        )
+
+        return {"reply": response}
+
+    except Exception as e:
+        print(f"评价题集失败: {e}")
+        raise HTTPException(status_code=500, detail=f"评价失败: {str(e)}")
+
+
+
+@router.post("/xiaoji/evaluate-question-stream")
+async def xiaoji_evaluate_question_stream(
+    user_id: str = Query(...),
+    data: dict = Body(...)
+):
+    """流式评价题目 - 4个智能体依次输出"""
+    from agents.llm_client import call_llm_stream
+    from fastapi.responses import StreamingResponse
+
+    question = data.get("question", {})
+    if not question:
+        raise HTTPException(status_code=400, detail="请提供题目")
+
+    question_title = question.get("title", "")
+    question_content = question.get("question_content", "") or question.get("title", "")
+    question_type = question.get("question_type", "未知")
+    difficulty = question.get("difficulty_score", 5)
+    correct_answer = question.get("answer", "未提供")
+    explanation = question.get("explanation", "")
+
+    eval_prompt = f"""你是一位资深学习导师，请从4个维度评价用户发送的题目。
+
+【题目信息】
+标题：{question_title}
+内容：{question_content}
+题型：{question_type}
+难度：{difficulty}
+正确答案：{correct_answer}
+解析：{explanation}
+
+请按以下4个维度输出，每个维度用 ## 标题分隔：
+
+## 📖 理解题目
+- 这道题在考什么知识点？
+- 题目的核心难点是什么？
+
+## 📊 评估
+- 这道题对用户来说难度如何？
+- 用户可能在哪一步卡住？
+
+## 💡 解析思路
+- 给出解题思路（不要直接给答案）
+- 关键步骤和提示
+
+## 📚 学习规划
+- 如果用户做对了，接下来应该学什么？
+- 如果用户没做对，应该补什么知识点？
+
+请用温暖、鼓励的语气，像朋友一样自然。不要直接给答案，要引导用户思考。
+"""
+
+    # 获取用户昵称
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+    }
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=nickname"
+        profile_res = await client.get(profile_url, headers=headers)
+        nickname = profile_res.json()[0].get("nickname", "同学") if profile_res.json() else "同学"
+
+    messages = [
+        {"role": "system", "content": f"你是小基，一个温暖幽默的学习伙伴。用户叫「{nickname}」。"},
+        {"role": "user", "content": eval_prompt}
+    ]
+
+    stream = call_llm_stream(messages, temperature=0.7)
+
+    async def generate():
+        full_content = ""
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                content = chunk.choices[0].delta.content
+                full_content += content
+                yield content
+
+        # 保存到数据库
+        headers = {
+            "apikey": settings.SUPABASE_KEY,
+            "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+            "Content-Type": "application/json"
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            assistant_msg = {
+                "user_id": user_id,
+                "role": "assistant",
+                "content": full_content,
+                "is_evaluation": True
+            }
+            await client.post(
+                f"{settings.SUPABASE_URL}/rest/v1/xiaoji_messages",
+                headers=headers,
+                json=assistant_msg
+            )
+
+    return StreamingResponse(generate(), media_type="text/plain")

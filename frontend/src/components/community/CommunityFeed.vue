@@ -215,12 +215,12 @@ async function handlePublish() {
 
     // 构造要传给后端的数据对象
     const postData = {
-      user_id: authStore.user.id,
-      title: publishTitle.value.trim(),
-      content: publishContent.value.trim(),
-      tags: tags.length > 0 ? JSON.stringify(tags) : null,
-      images: uploadedImage.value ? [uploadedImage.value] : null
-    }
+  user_id: authStore.user.id,
+  title: publishTitle.value.trim(),
+  content: publishContent.value.trim(),
+  tags: tags.length > 0 ? JSON.stringify(tags) : null,
+  images: uploadedImage.value ? JSON.stringify([uploadedImage.value]) : null  // ✅ 改成字符串
+}
 
     await createPost(postData)
 
@@ -292,13 +292,14 @@ async function handleLike(post) {
     if (post.is_liked) {
       await unlikePost(post.id, authStore.user.id)
       post.is_liked = false
-      post.like_count--
+      post.like_count = Math.max(0, (post.like_count || 0) - 1)
     } else {
       await likePost(post.id, authStore.user.id)
       post.is_liked = true
-      post.like_count++
+      post.like_count = (post.like_count || 0) + 1
     }
   } catch (error) {
+    console.error('操作失败:', error)
     ElMessage.error('操作失败')
   }
 }

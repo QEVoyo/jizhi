@@ -43,7 +43,7 @@
         class="post-image-wrapper"
         @click="previewImage(img)"
       >
-        < img :src="img" :alt="'图片' + (idx+1)" class="post-image" loading="lazy" />
+        <img :src="img" :alt="'图片' + (idx+1)" class="post-image" loading="lazy" />
       </div>
     </div>
 

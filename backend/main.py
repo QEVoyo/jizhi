@@ -10,6 +10,7 @@ from routers import profile_card
 from routers import evaluation
 from routers import learning_plan
 from routers import video
+from routers import xiaoji
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 app = FastAPI(title="基智学习助手 API", version="1.0.0")
@@ -44,6 +45,7 @@ app.include_router(feedback.router)
 app.include_router(qa.router)
 app.include_router(evaluation.router)
 app.include_router(learning_plan.router)
+app.include_router(xiaoji.router)
 
 @app.get("/")
 def root():

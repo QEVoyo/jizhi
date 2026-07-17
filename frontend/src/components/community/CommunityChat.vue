@@ -21,6 +21,12 @@
         <el-button text class="action-btn" @click="toggleVoice" :class="{ active: voiceEnabled }">
           <i :class="voiceEnabled ? 'fas fa-volume-up' : 'fas fa-volume-mute'"></i>
         </el-button>
+        <el-button v-if="isXiaoji" text class="action-btn" @click="goSettings">
+          <i class="fas fa-cog"></i>
+        </el-button>
+        <el-button v-if="isXiaoji" text class="action-btn" @click="goCall">
+          <i class="fas fa-phone"></i>
+        </el-button>
       </div>
     </div>
 
@@ -36,8 +42,8 @@
           <div class="empty-icon">
             <i class="fas fa-comment-dots"></i>
           </div>
-          <p class="empty-title">{{ isXiaoji ? '开始和小基聊天' : '暂无消息' }}</p >
-          <p class="empty-desc">{{ isXiaoji ? '小基是一个温暖的学习伙伴，随时陪你聊天' : '开始你们的对话吧' }}</p >
+          <p class="empty-title">{{ isXiaoji ? '开始和小基聊天' : '暂无消息' }}</p>
+          <p class="empty-desc">{{ isXiaoji ? '小基是一个温暖的学习伙伴，随时陪你聊天' : '开始你们的对话吧' }}</p>
         </div>
         <div
           v-for="msg in messages"
@@ -55,10 +61,30 @@
           </div>
 
           <div class="message-content-wrapper">
-            <div v-if="msg.image_url" class="message-image" @click="previewImage(msg.image_url)">
-              <img :src="msg.image_url" alt="图片" />
-              <span v-if="msg.content && msg.content !== '[图片]'" class="image-caption">{{ msg.content }}</span>
+            <!-- 图片 -->
+        <div v-if="msg.image_url" class="message-image" @click="previewImage(msg.image_url)">
+        <img
+            :src="msg.image_url"
+            alt="图片"
+            @error="msg.image_url = '/images/placeholder.png'"
+        />
+        <span v-if="msg.content && msg.content !== '[图片]'" class="image-caption">{{ msg.content }}</span>
+        </div>
+            <!-- 题目卡片 -->
+            <div v-else-if="msg.question_id" class="message-card question-card" @click="goDoQuestion(msg)">
+              <div class="card-header">
+                <span class="card-icon">📝</span>
+                <span class="card-title">{{ msg.question_title || '题目' }}</span>
+                <span class="card-badge">{{ msg.question_type || '题目' }}</span>
+              </div>
+              <div class="card-body">
+                <span class="card-preview">{{ msg.question_content || msg.question_title || '点击查看题目详情' }}</span>
+              </div>
+              <div class="card-footer">
+                <span class="card-hint">点击去做题 →</span>
+              </div>
             </div>
+            <!-- 文本 -->
             <div v-else class="message-bubble">
               <span class="message-text">{{ msg.content }}</span>
             </div>
@@ -70,6 +96,104 @@
 
     <el-dialog v-model="imagePreviewVisible" width="80%" class="image-preview-dialog" destroy-on-close>
       <img :src="previewImageUrl" alt="预览" class="preview-image" />
+    </el-dialog>
+
+    <!-- ===== 发送题目弹窗 ===== -->
+    <el-dialog
+      v-model="showQuestionDialog"
+      title="📤 发送题目"
+      width="560px"
+      destroy-on-close
+      class="custom-glass-dialog"
+    >
+      <div class="question-dialog">
+        <el-tabs v-model="questionTab" class="custom-glass-tabs">
+          <el-tab-pane label="生成历史" name="history">
+            <div v-if="historyQuestions.length === 0" class="empty-tip">
+              暂无生成历史
+            </div>
+            <div
+              v-for="q in historyQuestions"
+              :key="q.id"
+              class="question-item"
+              @click="sendQuestionToFriend(q)"
+            >
+              <span class="q-title">{{ q.title || q.question_content || '未命名题目' }}</span>
+              <span class="q-type">{{ getTypeName(q.question_type) }}</span>
+              <el-button size="small" type="primary">发送</el-button>
+            </div>
+          </el-tab-pane>
+
+          <el-tab-pane label="题集" name="sets">
+            <div v-if="questionSets.length === 0" class="empty-tip">
+              暂无题集
+            </div>
+            <div
+              v-for="s in questionSets"
+              :key="s.id"
+              class="set-item-wrapper"
+            >
+              <div class="set-item" @click="toggleSetExpand(s.id)">
+                <div class="set-info">
+                  <span class="set-name">{{ s.name }}</span>
+                  <span class="set-count">{{ s.question_ids?.length || 0 }} 道题</span>
+                  <el-icon :class="{ expanded: expandedSetId === s.id }" class="set-expand-icon">
+                    <i class="fas fa-chevron-down"></i>
+                  </el-icon>
+                </div>
+              </div>
+              <div v-if="expandedSetId === s.id" class="set-questions-list">
+                <div v-if="setQuestionsMap[s.id] === null" class="loading-tip">
+                  <i class="fas fa-spinner fa-spin"></i> 加载中...
+                </div>
+                <div v-else-if="setQuestionsMap[s.id]?.length === 0" class="empty-tip">
+                  该题集暂无题目
+                </div>
+                <div
+                  v-for="q in setQuestionsMap[s.id] || []"
+                  :key="q.id"
+                  class="set-question-item"
+                  @click="sendQuestionToFriend(q)"
+                >
+                  <div class="sq-info">
+                    <span class="sq-title">{{ q.title || q.question_content || '未命名题目' }}</span>
+                    <span v-if="q.question_content && q.question_content !== q.title" class="sq-preview">
+                      {{ q.question_content.slice(0, 40) }}{{ q.question_content.length > 40 ? '...' : '' }}
+                    </span>
+                  </div>
+                  <span class="sq-type">{{ getTypeName(q.question_type) }}</span>
+                  <el-button size="small" type="primary">发送</el-button>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+    </el-dialog>
+
+    <!-- ===== 题集预览弹窗 ===== -->
+    <el-dialog
+      v-model="showPreviewDialog"
+      title="📚 题集详情"
+      width="600px"
+      destroy-on-close
+      class="custom-glass-dialog"
+    >
+      <div class="preview-content">
+        <div class="preview-set">
+          <p><strong>题集名称：</strong>{{ previewSetData?.name }}</p>
+          <p><strong>描述：</strong>{{ previewSetData?.description || '无描述' }}</p>
+          <p><strong>题目数量：</strong>{{ previewSetData?.question_ids?.length || 0 }}</p>
+          <div v-if="previewSetQuestions.length > 0" class="set-questions-list">
+            <p><strong>包含题目：</strong></p>
+            <div v-for="(q, idx) in previewSetQuestions" :key="idx" class="set-question-item">
+              <span class="sq-index">{{ idx + 1 }}.</span>
+              <span class="sq-title">{{ q.title || q.question_content || '未命名题目' }}</span>
+              <span class="sq-type">{{ getTypeName(q.question_type) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </el-dialog>
 
     <div class="chat-input-wrapper">
@@ -90,8 +214,8 @@
           <button class="tool-btn" @click="triggerImageUpload">
             <i class="fas fa-image"></i>
           </button>
-          <button class="tool-btn" @click="showShareMenu = !showShareMenu">
-            <i class="fas fa-share-alt"></i>
+          <button class="tool-btn" @click="openSendQuestion">
+            <i class="fas fa-paper-plane"></i>
           </button>
           <input ref="fileInputRef" type="file" accept="image/*" style="display: none" @change="handleImageSelect" />
         </div>
@@ -103,17 +227,6 @@
             <i v-else class="fas fa-spinner fa-spin"></i>
           </button>
         </div>
-      </div>
-    </div>
-
-    <div v-if="showShareMenu" class="share-menu" @click.stop>
-      <div class="share-options">
-        <button class="share-option" @click="shareQuestion">
-          <i class="fas fa-pen"></i> 分享题目
-        </button>
-        <button class="share-option" @click="shareSet">
-          <i class="fas fa-folder"></i> 分享题集
-        </button>
       </div>
     </div>
   </div>
@@ -130,8 +243,9 @@ import {
   sendXiaojiMessage,
   xiaojiVision,
   getXiaojiMessages,
-  getFriends  // 新增
+  getFriends
 } from '@/api/community'
+import { getGenerationHistory, getQuestionSets, getQuestionDetail } from '@/api/questions'
 
 const router = useRouter()
 const route = useRoute()
@@ -146,6 +260,31 @@ const chatPartner = ref({
   avatar: '',
   status: 'offline'
 })
+
+// ===== 聊天 =====
+const messages = ref([])
+const inputContent = ref('')
+const loading = ref(false)
+const sending = ref(false)
+const voiceInputActive = ref(false)
+const voiceEnabled = ref(true)
+const fileInputRef = ref(null)
+const messageListRef = ref(null)
+const uploadedImage = ref(null)
+const imagePreviewVisible = ref(false)
+const previewImageUrl = ref('')
+const recognition = ref(null)
+
+// ===== 发送题目 =====
+const showQuestionDialog = ref(false)
+const questionTab = ref('history')
+const historyQuestions = ref([])
+const questionSets = ref([])
+const expandedSetId = ref(null)
+const setQuestionsMap = ref({})
+const showPreviewDialog = ref(false)
+const previewSetData = ref(null)
+const previewSetQuestions = ref([])
 
 // ===== 加载好友信息 =====
 async function loadPartnerInfo() {
@@ -169,7 +308,6 @@ async function loadPartnerInfo() {
         status: friend.status || 'offline'
       }
     } else {
-      // 如果好友列表里没有，可能是还没刷新，用默认值
       chatPartner.value = {
         name: '用户',
         avatar: '',
@@ -185,19 +323,10 @@ async function loadPartnerInfo() {
   }
 }
 
-const messages = ref([])
-const inputContent = ref('')
-const loading = ref(false)
-const sending = ref(false)
-const voiceInputActive = ref(false)
-const voiceEnabled = ref(true)
-const showShareMenu = ref(false)
-const fileInputRef = ref(null)
-const messageListRef = ref(null)
-const uploadedImage = ref(null)
-const imagePreviewVisible = ref(false)
-const previewImageUrl = ref('')
-const recognition = ref(null)
+function getTypeName(type) {
+  const map = { choice: '选择题', fill: '填空题', judge: '判断题', essay: '简答题', calculation: '计算题', coding: '编程题' }
+  return map[type] || type || '题目'
+}
 
 function goBack() {
   router.push('/community/friends')
@@ -211,9 +340,29 @@ function goUserProfile() {
   router.push(`/community/user/${friendId}`)
 }
 
+function goSettings() {
+  router.push('/xiaoji/settings')
+}
+
+function goCall() {
+  router.push('/xiaoji/call')
+}
+
+function goDoQuestion(msg) {
+  // 如果消息里带了完整的题目数据，通过 URL 参数传递
+  if (msg.question_data) {
+    const encoded = encodeURIComponent(JSON.stringify(msg.question_data))
+    router.push(`/do-question/${msg.question_id}?data=${encoded}`)
+  } else if (msg.question_id) {
+    // 兼容旧数据：只有 ID，没有完整数据
+    router.push(`/do-question/${msg.question_id}`)
+  } else {
+    ElMessage.warning('题目数据不完整')
+  }
+}
+
 function formatTime(time) {
   if (!time) return ''
-  // 如果字符串没有 Z，手动加上 Z 强制按 UTC 解析
   let utcStr = time
   if (!time.endsWith('Z') && !time.includes('+')) {
     utcStr = time + 'Z'
@@ -226,6 +375,13 @@ function formatTime(time) {
 function previewImage(url) {
   previewImageUrl.value = url
   imagePreviewVisible.value = true
+}
+
+function scrollToBottom() {
+  const el = document.getElementById('messageList')
+  if (el) {
+    el.scrollTop = el.scrollHeight
+  }
 }
 
 async function loadMessages() {
@@ -247,13 +403,6 @@ async function loadMessages() {
   }
 }
 
-function scrollToBottom() {
-  const el = document.getElementById('messageList')
-  if (el) {
-    el.scrollTop = el.scrollHeight
-  }
-}
-
 function removeImage() {
   uploadedImage.value = null
   if (fileInputRef.value) {
@@ -264,6 +413,8 @@ function removeImage() {
 function triggerImageUpload() {
   fileInputRef.value?.click()
 }
+
+import { uploadImage } from '@/api/upload'  // 文件顶部加上
 
 function handleImageSelect(event) {
   const file = event.target.files[0]
@@ -276,6 +427,106 @@ function handleImageSelect(event) {
   event.target.value = ''
 }
 
+// ===== 发送题目 =====
+async function openSendQuestion() {
+  showQuestionDialog.value = true
+  expandedSetId.value = null
+  setQuestionsMap.value = {}
+  try {
+    const res = await getGenerationHistory(authStore.user.id)
+    historyQuestions.value = res || []
+  } catch {
+    historyQuestions.value = []
+  }
+  try {
+    const res = await getQuestionSets(authStore.user.id)
+    questionSets.value = res || []
+  } catch {
+    questionSets.value = []
+  }
+}
+
+async function toggleSetExpand(setId) {
+  if (expandedSetId.value === setId) {
+    expandedSetId.value = null
+    return
+  }
+  expandedSetId.value = setId
+  if (setQuestionsMap.value[setId] !== undefined) return
+  setQuestionsMap.value[setId] = null
+  const s = questionSets.value.find(item => item.id === setId)
+  if (s) {
+    const ids = s.question_ids || []
+    const qs = []
+    for (const id of ids) {
+      try {
+        const q = await getQuestionDetail(id)
+        if (q) qs.push(q)
+      } catch (e) {}
+    }
+    setQuestionsMap.value[setId] = qs
+  } else {
+    setQuestionsMap.value[setId] = []
+  }
+}
+
+// ===== 发送题目到好友（核心修复：携带完整题目数据） =====
+async function sendQuestionToFriend(q) {
+  showQuestionDialog.value = false
+  expandedSetId.value = null
+
+  // 构建完整的题目数据（不管来源是哪里）
+  const questionData = {
+    id: q.id,
+    title: q.title || q.question_content || '未命名题目',
+    question_type: q.question_type || 'choice',
+    question_content: q.question_content || q.title || '',
+    options: q.options || {},
+    answer: q.answer || '',
+    explanation: q.explanation || '',
+    difficulty_score: q.difficulty_score || 5,
+    category: q.category || '',
+    topic: q.topic || '',
+    source: q.source || 'generated'
+  }
+
+  const content = `📝 ${questionData.title}`
+
+  // 本地消息列表里也存一份完整数据
+  const userMsg = {
+    id: Date.now().toString(),
+    sender_id: authStore.user.id,
+    content: content,
+    question_id: q.id,
+    question_data: questionData,
+    question_title: questionData.title,
+    question_type: getTypeName(q.question_type),
+    question_content: q.question_content || q.title || '',
+    created_at: new Date().toISOString()
+  }
+  messages.value.push(userMsg)
+  await nextTick()
+  scrollToBottom()
+
+  sending.value = true
+  try {
+    // 发送给后端时也带上 question_data
+    await sendMessage(authStore.user.id, {
+      receiver_id: friendId,
+      message_type: 'text',
+      content: content,
+      question_id: q.id,
+      question_data: questionData
+    })
+  } catch {
+    ElMessage.error('发送失败')
+    messages.value = messages.value.filter(m => m.id !== userMsg.id)
+  } finally {
+    sending.value = false
+  }
+}
+
+// ===== 发送消息 =====
 async function handleSendMessage() {
   const content = inputContent.value.trim()
   const image = uploadedImage.value
@@ -288,7 +539,6 @@ async function handleSendMessage() {
   const currentContent = content
   const currentImage = image
 
-  // 显示用户消息
   let displayContent = currentContent
   if (currentImage && currentContent) {
     displayContent = currentContent + ' [图片]'
@@ -310,7 +560,6 @@ async function handleSendMessage() {
   scrollToBottom()
 
   if (isXiaoji.value) {
-    // ===== 小基聊天 =====
     if (currentImage) {
       sending.value = true
       try {
@@ -360,17 +609,15 @@ async function handleSendMessage() {
       sending.value = false
     }
   } else {
-    // ===== 真人好友聊天 =====
     sending.value = true
     try {
-      const res = await sendMessage(authStore.user.id, {
-      receiver_id: friendId,
-  message_type: currentImage ? 'image' : 'text',
-  content: currentContent || '[图片]',
-  media_url: currentImage || null
-})
-      // 真人消息后端会存，不需要前端再 push
-      // 但为了显示，可以保持 userMsg 已经在列表里
+      await sendMessage(authStore.user.id, {
+        receiver_id: friendId,
+        message_type: currentImage ? 'image' : 'text',
+        content: currentContent || '[图片]',
+        media_url: currentImage || null,  // ← currentImage 本身没问题
+        // 但你要确保 currentImage 存的是 URL，而不是 Base64
+      })
     } catch {
       ElMessage.error('发送失败')
       messages.value = messages.value.filter(m => m.id !== userMsg.id)
@@ -442,16 +689,6 @@ function stopVoiceInput() {
     recognition.value.stop()
   }
   voiceInputActive.value = false
-}
-
-function shareQuestion() {
-  showShareMenu.value = false
-  ElMessage.info('分享题目功能开发中')
-}
-
-function shareSet() {
-  showShareMenu.value = false
-  ElMessage.info('分享题集功能开发中')
 }
 
 onMounted(() => {
@@ -711,18 +948,73 @@ onMounted(() => {
   text-align: left;
 }
 
-/* ===== 输入区（上提 + 毛玻璃） ===== */
+/* ===== 题目卡片 ===== */
+.message-card {
+  padding: 12px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  min-width: 180px;
+}
+.message-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  border-color: rgba(64, 158, 255, 0.15);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-icon {
+  font-size: 18px;
+}
+.card-title {
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+}
+.card-badge {
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: rgba(64, 158, 255, 0.08);
+  color: #409eff;
+}
+.card-body {
+  margin: 4px 0;
+}
+.card-preview {
+  font-size: 13px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+.card-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.card-hint {
+  font-size: 11px;
+  color: #409eff;
+  opacity: 0.6;
+}
+
+/* ===== 输入区 ===== */
 .chat-input-wrapper {
-    position: fixed;
-    bottom: 45px;
-    left: 64px;
-    right: 0;
-    z-index: 100;
-    padding: 12px 20px 16px 20px;   /* 👈 左右加 padding */
-    background: rgba(255, 255, 255, 0.04);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  position: fixed;
+  bottom: 45px;
+  left: 64px;
+  right: 0;
+  z-index: 100;
+  padding: 12px 20px 16px 20px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .image-preview-thumb {
@@ -857,48 +1149,212 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.share-menu {
-  position: absolute;
-  bottom: 90px;
-  left: 16px;
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 6px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  z-index: 20;
+/* ===== 弹窗 ===== */
+.custom-glass-dialog :deep(.el-dialog) {
+  background: rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.08) !important;
 }
-.share-options {
+[data-theme="dark"] .custom-glass-dialog :deep(.el-dialog) {
+  background: rgba(0,0,0,0.35) !important;
+  border-color: rgba(255,255,255,0.04) !important;
+}
+.custom-glass-dialog :deep(.el-dialog__title) {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+}
+.custom-glass-dialog :deep(.el-dialog__body) {
+  padding: 16px 24px 24px !important;
+}
+.custom-glass-dialog :deep(.el-dialog__header) {
+  padding: 16px 24px 8px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+}
+.custom-glass-dialog :deep(.el-dialog__headerbtn) {
+  color: var(--text-secondary) !important;
+}
+.custom-glass-dialog :deep(.el-dialog__headerbtn:hover) {
+  color: var(--text-primary) !important;
+}
+
+.custom-glass-tabs :deep(.el-tabs__header) {
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+}
+.custom-glass-tabs :deep(.el-tabs__item) {
+  color: var(--text-secondary) !important;
+  font-size: 14px !important;
+}
+.custom-glass-tabs :deep(.el-tabs__item.is-active) {
+  color: var(--text-primary) !important;
+}
+.custom-glass-tabs :deep(.el-tabs__item:hover) {
+  color: var(--text-primary) !important;
+}
+.custom-glass-tabs :deep(.el-tabs__active-bar) {
+  background: #409eff !important;
+}
+
+.question-dialog {
+  max-height: 420px;
+  overflow-y: auto;
+}
+.question-dialog::-webkit-scrollbar {
+  width: 3px;
+}
+.question-dialog::-webkit-scrollbar-thumb {
+  background: rgba(128,128,128,0.12);
+  border-radius: 2px;
+}
+
+.question-item {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255,255,255,0.02);
 }
-.share-option {
+.question-item:hover {
+  background: rgba(64,158,255,0.04);
+  border-color: rgba(64,158,255,0.12);
+}
+.q-title {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.q-type {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 12px;
+}
+
+.set-item-wrapper {
+  margin-bottom: 6px;
+}
+.set-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255,255,255,0.02);
+}
+.set-item:hover {
+  background: rgba(139,92,246,0.04);
+  border-color: rgba(139,92,246,0.12);
+}
+.set-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+.set-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.set-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.set-expand-icon {
+  transition: transform 0.3s ease;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.set-expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.set-questions-list {
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(128,128,128,0.02);
+  border: 1px solid var(--border-color);
+  max-height: 200px;
+  overflow-y: auto;
+}
+.loading-tip {
+  text-align: center;
+  padding: 12px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.set-question-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid rgba(128,128,128,0.04);
 }
-.share-option:hover {
-  background: rgba(255, 255, 255, 0.06);
+.set-question-item:hover {
+  background: rgba(64,158,255,0.04);
+}
+.set-question-item:last-child {
+  border-bottom: none;
+}
+.sq-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sq-title {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.sq-preview {
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+.sq-type {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 8px;
+  border-radius: 4px;
+  background: rgba(128,128,128,0.04);
+}
+
+.preview-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.preview-set p {
+  margin: 6px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.preview-set p strong {
   color: var(--text-primary);
 }
-.share-option i {
-  font-size: 14px;
+
+.empty-tip {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 30px 0;
 }
 
 .image-preview-dialog :deep(.el-dialog) {
-  background: rgba(0, 0, 0, 0.8) !important;
-  backdrop-filter: blur(12px) !important;
+  background: rgba(0,0,0,0.8) !important;
   border: none !important;
-  border-radius: 12px !important;
 }
 .image-preview-dialog :deep(.el-dialog__body) {
   padding: 0 !important;
@@ -952,9 +1408,16 @@ onMounted(() => {
     width: 40px;
     height: 40px;
   }
-  .share-menu {
-    bottom: 84px;
-    left: 10px;
+  .message-card {
+    min-width: 140px;
+    padding: 8px 12px;
+  }
+  .question-dialog {
+    max-height: 320px;
+  }
+  .custom-glass-dialog :deep(.el-dialog) {
+    width: 92% !important;
+    margin: 0 auto !important;
   }
 }
 </style>

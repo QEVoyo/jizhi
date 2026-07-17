@@ -1,5 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import CommunityFriends from '@/components/community/CommunityFriends.vue'
+import XiaojiSettings from '@/components/XiaojiSettings.vue'
+import XiaojiCall from '@/components/XiaojiCall.vue'
 
 const routes = [
   {
@@ -62,9 +65,7 @@ const routes = [
     component: () => import('@/views/CareerAchievements.vue'),
     meta: { requiresAuth: true }
   },
-  // ================== 做题路由（必须两条都写） ==================
   {
-    // 带 ID 的路径（用于从错题本、历史、题集、规划详情点进去）
     path: '/do-question/:taskId',
     name: 'DoQuestion',
     component: () => import('@/views/DoQuestion.vue'),
@@ -72,12 +73,10 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    // 不带 ID 的路径（用于从资源库点击“生成题目”后直接跳转做题）
     path: '/do-question',
     component: () => import('@/views/DoQuestion.vue'),
     meta: { requiresAuth: true }
   },
-  // ============================================================
   {
     path: '/mastery-board',
     name: 'MasteryBoard',
@@ -137,7 +136,18 @@ const routes = [
     name: 'AnimationDemo',
     component: () => import('@/views/AnimationDemo.vue')
   },
-  // ===== 社区 =====
+  {
+    path: '/xiaoji/settings',
+    name: 'XiaojiSettings',
+    component: XiaojiSettings,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/xiaoji/call',
+    name: 'XiaojiCall',
+    component: XiaojiCall,
+    meta: { requiresAuth: true }
+  },
   {
     path: '/community',
     name: 'Community',
@@ -152,7 +162,7 @@ const routes = [
       {
         path: 'friends',
         name: 'CommunityFriends',
-        component: () => import('@/components/community/CommunityFriends.vue')
+        component: CommunityFriends
       },
       {
         path: 'rank',
@@ -186,21 +196,18 @@ const routes = [
       }
     ]
   },
-  // ===== Q&A =====
   {
     path: '/qa',
     name: 'QAPage',
     component: () => import('@/components/QAPage.vue'),
     meta: { requiresAuth: true }
   },
-  // ===== 消息中心 =====
   {
     path: '/message',
     name: 'MessageCenter',
     component: () => import('@/components/MessageCenter.vue'),
     meta: { requiresAuth: true }
   },
-  // ===== API管理 =====
   {
     path: '/api-center',
     name: 'ApiCenter',

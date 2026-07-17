@@ -116,11 +116,30 @@ async def get_question(question_id: str):
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}"
     }
-    url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}"
+
     async with httpx.AsyncClient() as client:
+        # 1. 先从 questions 表查
+        url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}"
         res = await client.get(url, headers=headers)
         if res.status_code == 200 and res.json():
             return res.json()[0]
+
+        # 2. 从 generation_history 表按 id 查
+        history_url = f"{settings.SUPABASE_URL}/rest/v1/generation_history?id=eq.{question_id}"
+        history_res = await client.get(history_url, headers=headers)
+        if history_res.status_code == 200 and history_res.json():
+            history = history_res.json()[0]
+            return {
+                "id": history.get("id"),
+                "title": history.get("title"),
+                "question_content": history.get("title"),
+                "question_type": history.get("question_type"),
+                "category": history.get("category"),
+                "topic": history.get("topic"),
+                "difficulty_score": 5,
+                "source": "generation_history"
+            }
+
         raise HTTPException(status_code=404, detail="题目不存在")
 
 

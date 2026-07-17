@@ -499,13 +499,30 @@ function openVideo(video) {
 // ✅ 核心加载逻辑：绝不重新生成旧题
 // ============================================================
 async function loadQuestion() {
-  loading.value = true
+   loading.value = true
 
-  // 1. 优先从路由取 taskId（错题本/历史/规划详情）
+  // ✅ 0. 最优先：从 URL 参数获取完整题目数据（来自好友分享）
+  const dataParam = route.query.data
+  if (dataParam) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(dataParam))
+      question.value = parsed
+      evaluated.value = false
+      evaluationResult.value = null
+      userAnswer.value = ''
+      initUI(question.value)
+      loading.value = false
+      return
+    } catch (error) {
+      console.error('解析题目数据失败:', error)
+      // 解析失败就继续走下面的逻辑
+    }
+  }
+
+  // 1. 从路由取 taskId（错题本/历史/规划详情）
   const taskId = route.params.taskId
   if (taskId) {
     try {
-      // 直接去后端取这道题的完整数据
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/questions/${taskId}`, {
         headers: { 'Authorization': `Bearer ${authStore.token}` }
       })

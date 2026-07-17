@@ -1,11 +1,9 @@
 <template>
   <div class="community-sidebar">
-    <!-- Logo -->
     <div class="sidebar-logo" @click="goHome">
       <img src="/logo.png" alt="基智" />
     </div>
 
-    <!-- 导航 -->
     <nav class="sidebar-nav">
       <div
         v-for="item in navItems"
@@ -28,17 +26,17 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getFriendRequests, getUnreadCount } from '@/api/community'
 
-const unreadCount = ref(0)  // 新增
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
 const friendRequestCount = ref(0)
+const unreadCount = ref(0)
 
 const navItems = computed(() => [
   { key: 'feed', label: '动态广场', icon: 'fas fa-home', path: '/community' },
   { key: 'friends', label: '好友', icon: 'fas fa-users', path: '/community/friends', badge: friendRequestCount.value > 0 ? friendRequestCount.value : null },
-  { key: 'rank', label: '排行榜', icon: 'fas fa-trophy', path: '/community/rank' },  // ← 新增
+  { key: 'rank', label: '排行榜', icon: 'fas fa-trophy', path: '/community/rank' },
   { key: 'collections', label: '收藏', icon: 'fas fa-star', path: '/community/collections' },
   { key: 'my-posts', label: '我的发布', icon: 'fas fa-pen', path: '/community/my-posts' },
   { key: 'profile-card', label: '资料卡', icon: 'fas fa-id-card', path: '/community/profile-card' },
@@ -51,7 +49,7 @@ const activeTab = computed(() => {
   if (path.startsWith('/community/user/')) return null
   if (path === '/community' || path === '/community/') return 'feed'
   if (path.startsWith('/community/friends')) return 'friends'
-  if (path.startsWith('/community/rank')) return 'rank'  // ← 新增
+  if (path.startsWith('/community/rank')) return 'rank'
   if (path.startsWith('/community/collections')) return 'collections'
   if (path.startsWith('/community/my-posts')) return 'my-posts'
   if (path.startsWith('/community/profile-card')) return 'profile-card'

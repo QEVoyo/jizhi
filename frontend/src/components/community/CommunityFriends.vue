@@ -52,10 +52,12 @@
           <!-- ===== AI好友「小基」= 始终显示 ===== -->
           <div class="friend-card xiaoji-card">
             <div class="friend-info" @click="goChat('xiaoji')">
-              <el-avatar :size="44" src="/logo.png" class="friend-avatar xiaoji-avatar" />
+              <div class="friend-avatar-wrapper">
+                <img src="/images/xiaoji/xiaoji_idle.png" class="friend-avatar-full" />
+              </div>
               <div class="friend-detail">
                 <div class="friend-name-row">
-                  <span class="friend-name">🤖 小基</span>
+                  <span class="friend-name">小基</span>
                   <span class="friend-status-dot online"></span>
                 </div>
                 <span class="friend-account">AI 学习伙伴</span>
@@ -179,7 +181,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -192,6 +194,7 @@ import {
 } from '@/api/community'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const activeTab = ref('list')
@@ -312,27 +315,21 @@ function goUserProfile(userId) {
 
 function goChat(friendId) {
   if (friendId === 'xiaoji') {
-    router.push('/community/chat/xiaoji')
+    router.push('/xiaoji/call')
   } else {
     router.push(`/community/chat/${friendId}`)
   }
 }
 
-import { useRoute } from 'vue-router'  // 文件顶部加
-
-const route = useRoute()  // 在 router 下面加
-
 onMounted(() => {
-  loadData()
-  statusTimer = setInterval(() => {
-    loadData()
-  }, 30000)
-
-  // 新增：从 URL 参数恢复 Tab
   const tab = route.query.tab
   if (tab && ['list', 'requests', 'search'].includes(tab)) {
     activeTab.value = tab
   }
+  loadData()
+  statusTimer = setInterval(() => {
+    loadData()
+  }, 30000)
 })
 
 onUnmounted(() => {
@@ -463,8 +460,18 @@ onUnmounted(() => {
   background: rgba(64, 158, 255, 0.08);
   border-color: rgba(64, 158, 255, 0.25);
 }
-.xiaoji-avatar {
-  border: 2px solid rgba(64, 158, 255, 0.2);
+
+/* ===== 小基头像 ===== */
+.friend-avatar-wrapper {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.friend-avatar-full {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  display: block;
 }
 
 .friend-info,
@@ -511,7 +518,6 @@ onUnmounted(() => {
   color: var(--text-muted);
 }
 
-/* ===== 状态点 ===== */
 .friend-status-dot {
   width: 8px;
   height: 8px;
