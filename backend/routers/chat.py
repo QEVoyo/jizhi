@@ -96,15 +96,15 @@ async def chat(req: ChatRequest):
 
     if req.intent == "plan":
         stream = plan_with_history_stream(user_profile, user_message, history)
-        return StreamingResponse(stream_generator(stream), media_type="text/plain")
+        return StreamingResponse(stream_generator(stream), media_type="text/event-stream")
 
     elif req.intent == "generate":
         stream = generate_with_history_stream(user_message, user_profile, history)
-        return StreamingResponse(stream_generator(stream), media_type="text/plain")
+        return StreamingResponse(stream_generator(stream), media_type="text/event-stream")
 
     elif req.intent == "evaluate":
         stream = evaluate_with_history_stream(user_message, user_profile, user_message, history)
-        return StreamingResponse(stream_generator(stream), media_type="text/plain")
+        return StreamingResponse(stream_generator(stream), media_type="text/event-stream")
 
     else:
         messages_with_system = req.messages + [{"role": "system", "content": """你是基智，一个热情、博学的AI学习助手。
@@ -117,13 +117,12 @@ async def chat(req: ChatRequest):
 
 记住：你是学习助手，不是全知全能的神。"""}]
         stream = call_llm_stream(messages_with_system, temperature=req.temperature)
-        return StreamingResponse(stream_generator(stream), media_type="text/plain")
+        return StreamingResponse(stream_generator(stream), media_type="text/event-stream")
 
 
 def stream_generator(stream):
     for chunk in stream:
-        if chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+        yield chunk
 
 def doubao_stream_generator(stream):
     """专门解析豆包（VolcEngine）流式响应的生成器（逐字追加版）"""
@@ -229,7 +228,7 @@ async def handle_vision(req: VisionRequest):
 
     return StreamingResponse(
         doubao_stream_generator(stream),  # 👈 换用豆包专用解析生成器
-        media_type="text/plain"
+        media_type="text/event-stream"
     )
 
 
