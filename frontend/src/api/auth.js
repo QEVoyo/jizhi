@@ -10,9 +10,17 @@ export function login(loginInput, password) {
     })
 }
 
-export function register(email, password, nickname) {
-  return request.post('/auth/register', { email, password, nickname })
+// ✅ 修改：注册增加 code 参数
+export function register(email, password, code, nickname) {
+  return request.post('/auth/register', { email, password, code, nickname })
     .then(res => res.data)
+}
+
+// ✅ 新增：发送验证码
+export function sendVerificationCode(email) {
+  return request.post('/auth/send-code', null, {
+    params: { email }
+  }).then(res => res.data)
 }
 
 export function getProfile(userId) {
@@ -37,25 +45,27 @@ export function uploadAvatar(userId, file) {
     headers: { 'Content-Type': 'multipart/form-data' }
   }).then(res => res.data)
 }
-export function updatePassword(accessToken, newPassword) {
+
+export function updatePassword(userId, oldPassword, newPassword) {
   return request({
     url: '/auth/update-password',
     method: 'put',
-    data: { new_password: newPassword },
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
+    params: { user_id: userId },
+    data: { old_password: oldPassword, new_password: newPassword }
   }).then(res => res.data)
 }
+
 export function updateStatus(userId, status) {
   return request.put('/auth/status', null, {
     params: { user_id: userId, status }
   }).then(res => res.data)
 }
+
 // 临时占位，后端没有 /auth/logout 接口，直接返回成功
 export function logout() {
   return Promise.resolve({ success: true })
 }
+
 export function getUserInfo() {
   return Promise.resolve({ success: true, user: null })
 }

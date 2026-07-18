@@ -7,6 +7,7 @@ import httpx
 from datetime import datetime, timezone
 import json
 import re
+from utils.sensitive_words import check_content_safety
 
 router = APIRouter(prefix="/questions", tags=["题目"])
 
@@ -307,6 +308,20 @@ async def remove_question_from_set(set_id: str, question_id: str):
 @router.post("/generate")
 async def generate_question(data: dict):
     """AI 生成题目"""
+    # ✅ 内容安全过滤
+    topic = data.get("topic", "")
+    extra = data.get("extra", "")
+
+    if topic:
+        safe, reason = check_content_safety(topic)
+        if not safe:
+            raise HTTPException(status_code=400, detail=f"知识点包含敏感信息：{reason}")
+
+    if extra:
+        safe, reason = check_content_safety(extra)
+        if not safe:
+            raise HTTPException(status_code=400, detail=f"补充说明包含敏感信息：{reason}")
+
     from agents.llm_client import call_llm
     import random
 
@@ -323,7 +338,7 @@ async def generate_question(data: dict):
         "判断题": "judge",
         "简答题": "essay",
         "计算题": "calculation",
-        "论述题": "essay",  # 👈 新增，和简答题共用 essay
+        "论述题": "essay",
         "编程题": "coding"
     }
     q_type = type_map.get(question_type, "choice")
@@ -336,7 +351,6 @@ async def generate_question(data: dict):
         "编程题": "给出编程任务，提供 starter_code（初始代码模板）和 test_cases（测试用例）"
     }
 
-    # 难度分数映射
     difficulty_map = {
         "简单": 2.0,
         "中等": 6.0,
@@ -344,7 +358,6 @@ async def generate_question(data: dict):
     }
     difficulty_score = difficulty_map.get(difficulty, 6.0)
 
-    # 随机出题角度
     angles = [
         "概念理解",
         "代码示例",
@@ -408,19 +421,16 @@ async def generate_question(data: dict):
         )
         print(f"=== AI 原始返回 ===\n{response}\n=== 结束 ===")
 
-        # 提取 JSON
         try:
             result = extract_json_from_response(response)
         except ValueError as e:
             print(f"解析失败: {e}")
             raise HTTPException(status_code=500, detail=f"AI 返回格式错误: {str(e)}")
 
-        # 确保字段存在
         if "title" not in result:
             result["title"] = "题目生成失败"
         if "type" not in result:
             result["type"] = q_type
-        # 👇 不管 type 存不存在，都设置 question_type
         result["question_type"] = result.get("type", q_type)
         if "answer" not in result:
             result["answer"] = "请参考解析"
@@ -433,7 +443,6 @@ async def generate_question(data: dict):
         if "normalized_topic" not in result:
             result["normalized_topic"] = topic
 
-        # 保存到数据库
         if user_id:
             print(f"=== 开始保存题目，user_id: {user_id} ===")
             headers = {
@@ -457,7 +466,6 @@ async def generate_question(data: dict):
             }
             print(f"=== 要保存的数据: {question_data} ===")
 
-            # 添加 Prefer header 让 Supabase 返回插入的数据
             headers["Prefer"] = "return=representation"
 
             async with httpx.AsyncClient() as client:

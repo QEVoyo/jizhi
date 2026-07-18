@@ -11,7 +11,7 @@ from typing import List, Dict, Optional
 import json
 import httpx
 from datetime import datetime
-
+from utils.sensitive_words import check_content_safety
 from agents.planner import plan_with_history_stream
 from agents.generator import generate_with_history_stream
 from agents.evaluator import evaluate_with_history_stream
@@ -82,9 +82,16 @@ async def detect_intent(req: IntentRequest):
 
 @router.post("/send")
 async def chat(req: ChatRequest):
+    # ✅ 内容安全过滤
+    user_message = req.messages[-1].get("content", "") if req.messages else ""
+
+    if user_message:
+        safe, reason = check_content_safety(user_message)
+        if not safe:
+            raise HTTPException(status_code=400, detail=f"内容包含敏感信息：{reason}")
+
     user_profile = {"level": "中等", "style": "喜欢例子"}
 
-    user_message = req.messages[-1].get("content", "") if req.messages else ""
     history = req.messages[:-1] if req.messages else []
 
     if req.intent == "plan":
@@ -100,7 +107,15 @@ async def chat(req: ChatRequest):
         return StreamingResponse(stream_generator(stream), media_type="text/plain")
 
     else:
-        messages_with_system = req.messages + [{"role": "system", "content": "你是基智，一个热情、博学的AI学习助手。"}]
+        messages_with_system = req.messages + [{"role": "system", "content": """你是基智，一个热情、博学的AI学习助手。
+
+## ⚠️ 重要原则（防幻觉）：
+1. 如果用户的问题超出你的知识范围，请直接说"我不确定"或"我暂时无法回答这个问题"
+2. 不要编造任何事实、数据或代码
+3. 所有回答应基于已有知识，不要猜测或臆断
+4. 如果你对某个问题只有部分了解，请明确说明"我只知道部分信息"
+
+记住：你是学习助手，不是全知全能的神。"""}]
         stream = call_llm_stream(messages_with_system, temperature=req.temperature)
         return StreamingResponse(stream_generator(stream), media_type="text/plain")
 

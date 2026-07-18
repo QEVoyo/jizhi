@@ -10,6 +10,7 @@ from utils.email import send_report_email
 from collections import defaultdict
 from utils.notification import create_notification
 import json
+from utils.sensitive_words import check_content_safety
 
 router = APIRouter(prefix="/community", tags=["社区"])
 
@@ -74,6 +75,17 @@ def get_supabase_service_headers():
 @router.post("/post")
 async def create_post(user_id: str, data: PostCreate):
     """发布动态（修复标签和图片写入）"""
+    # ✅ 内容安全过滤
+    if data.content:
+        safe, reason = check_content_safety(data.content)
+        if not safe:
+            raise HTTPException(status_code=400, detail=f"动态内容包含敏感信息：{reason}")
+
+    if data.title:
+        safe, reason = check_content_safety(data.title)
+        if not safe:
+            raise HTTPException(status_code=400, detail=f"标题包含敏感信息：{reason}")
+
     headers = get_supabase_headers()
     import json
 
@@ -391,6 +403,12 @@ async def uncollect_post(post_id: str, user_id: str):
 @router.post("/post/{post_id}/comment")
 async def create_comment(post_id: str, user_id: str, data: CommentCreate):
     """发布评论"""
+    # ✅ 内容安全过滤
+    if data.content:
+        safe, reason = check_content_safety(data.content)
+        if not safe:
+            raise HTTPException(status_code=400, detail=f"评论包含敏感信息：{reason}")
+
     headers = get_supabase_headers()
 
     comment_data = {
@@ -719,6 +737,12 @@ async def mark_messages_read(
 @router.post("/message")
 async def send_private_message(user_id: str, data: PrivateMessageCreate):
     """发送私聊消息"""
+    # ✅ 内容安全过滤
+    if data.content:
+        safe, reason = check_content_safety(data.content)
+        if not safe:
+            raise HTTPException(status_code=400, detail=f"消息包含敏感信息：{reason}")
+
     headers = get_supabase_headers()
 
     message_data = {

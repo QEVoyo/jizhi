@@ -326,16 +326,16 @@ async function handleUpdatePassword() {
   if (newPassword.value !== confirmPassword.value) { ElMessage.warning('两次密码不一致'); return }
   try {
     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/auth/update-password?user_id=${authStore.user.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authStore.token}`
-      },
-      body: JSON.stringify({
-        old_password: oldPassword.value,
-        new_password: newPassword.value
-      })
-    })
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${authStore.token}`  // ✅ 用用户的 token
+  },
+  body: JSON.stringify({
+    old_password: oldPassword.value,
+    new_password: newPassword.value
+  })
+})
     const result = await response.json()
     if (result.success) {
       ElMessage.success('密码修改成功')

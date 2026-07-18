@@ -61,6 +61,29 @@
                 prefix-icon="Message"
               />
             </el-form-item>
+
+            <!-- ✅ 新增：验证码 -->
+            <el-form-item>
+              <div class="captcha-row">
+                <el-input
+                  v-model="registerForm.code"
+                  placeholder="验证码"
+                  size="large"
+                  prefix-icon="Key"
+                  class="captcha-input"
+                />
+                <el-button
+                  size="large"
+                  :loading="sendingCode"
+                  :disabled="codeCountdown > 0 || !registerForm.email"
+                  @click="handleSendCode"
+                  class="captcha-btn"
+                >
+                  {{ codeCountdown > 0 ? `${codeCountdown}s` : '获取验证码' }}
+                </el-button>
+              </div>
+            </el-form-item>
+
             <el-form-item>
               <el-input
                 v-model="registerForm.password"
@@ -98,7 +121,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
@@ -119,6 +142,11 @@ const registerError = ref('')
 const registerMsg = ref('')
 const rememberMe = ref(false)
 
+// ✅ 新增：验证码相关
+const sendingCode = ref(false)
+const codeCountdown = ref(0)
+let countdownTimer = null
+
 const loginForm = reactive({
   loginInput: '',
   password: ''
@@ -127,8 +155,50 @@ const loginForm = reactive({
 const registerForm = reactive({
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  code: ''  // ✅ 新增验证码字段
 })
+
+// ✅ 发送验证码
+async function handleSendCode() {
+  const email = registerForm.email.trim()
+  if (!email) {
+    ElMessage.warning('请先填写邮箱')
+    return
+  }
+  if (!email.includes('@')) {
+    ElMessage.warning('邮箱格式不正确')
+    return
+  }
+
+  sendingCode.value = true
+  try {
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+    const res = await fetch(`${baseUrl}/auth/send-code?email=${encodeURIComponent(email)}`, {
+      method: 'POST'
+    })
+    const data = await res.json()
+    if (data.success) {
+      ElMessage.success('验证码已发送，请查收邮箱')
+      codeCountdown.value = 60
+      if (countdownTimer) clearInterval(countdownTimer)
+      countdownTimer = setInterval(() => {
+        codeCountdown.value--
+        if (codeCountdown.value <= 0) {
+          clearInterval(countdownTimer)
+          countdownTimer = null
+        }
+      }, 1000)
+    } else {
+      ElMessage.error(data.message || '发送失败')
+    }
+  } catch (error) {
+    ElMessage.error('发送验证码失败')
+    console.error(error)
+  } finally {
+    sendingCode.value = false
+  }
+}
 
 async function handleLogin() {
   if (!loginForm.loginInput || !loginForm.password) {
@@ -149,7 +219,6 @@ async function handleLogin() {
 
   if (result && result.success) {
     sessionStore.createSession('新对话')
-    // 记录登录行为（后端会判断是否为第一次）
     try {
       await recordAction(result.user?.id || authStore.user?.id, 'login')
     } catch (e) {
@@ -163,9 +232,9 @@ async function handleLogin() {
 }
 
 async function handleRegister() {
-  const { email, password, confirmPassword } = registerForm
-  if (!email || !password) {
-    registerError.value = '请填写邮箱和密码'
+  const { email, password, confirmPassword, code } = registerForm
+  if (!email || !password || !code) {
+    registerError.value = '请填写完整信息'
     return
   }
   if (!email.includes('@')) {
@@ -184,18 +253,37 @@ async function handleRegister() {
   registerMsg.value = ''
   registerLoading.value = true
 
-  const result = await authStore.register(email, password, '')
+  const result = await authStore.register({
+    email: email,
+    password: password,
+    code: code,
+    nickname: ''
+  })
+
   registerLoading.value = false
 
   if (result.success) {
-    registerMsg.value = '验证邮件已发送，请查收邮箱并点击验证链接。'
+    registerMsg.value = '🎉 注册成功！请前往登录'
     registerForm.email = ''
     registerForm.password = ''
     registerForm.confirmPassword = ''
+    registerForm.code = ''
+    // 切换到登录 Tab
+    setTimeout(() => {
+      activeTab.value = 'login'
+    }, 1500)
   } else {
-    registerError.value = result.error
+    registerError.value = result.message || '注册失败'
   }
 }
+
+// 组件卸载时清除定时器
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
+})
 </script>
 
 <style scoped>
@@ -324,6 +412,31 @@ async function handleRegister() {
   font-size: 13px;
   margin-top: 10px;
   text-align: center;
+}
+
+/* ✅ 验证码行 */
+.captcha-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.captcha-input {
+  flex: 1;
+}
+.captcha-btn {
+  flex-shrink: 0;
+  width: 130px;
+  background: rgba(128, 128, 128, 0.06) !important;
+  border: 1px solid rgba(128, 128, 128, 0.10) !important;
+  color: var(--text-primary) !important;
+  border-radius: 12px !important;
+}
+.captcha-btn:hover:not(:disabled) {
+  background: rgba(128, 128, 128, 0.12) !important;
+}
+.captcha-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 :deep(.el-input__wrapper) {

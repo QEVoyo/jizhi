@@ -10,47 +10,45 @@ export const useAuthStore = defineStore('auth', () => {
 
   // ===== 登录 =====
   async function login(loginInput, password, rememberMe = false) {
-  try {
-    const res = await apiLogin(loginInput, password)
-    console.log('=== authStore 收到响应 ===', res)
+    try {
+      const res = await apiLogin(loginInput, password)
+      console.log('=== authStore 收到响应 ===', res)
 
-    // 只要返回了 id 和 access_token，就算登录成功
-    if (res && res.id && res.access_token) {
-      token.value = res.access_token
-      user.value = {
-        id: res.id,
-        email: res.email,
-        nickname: res.nickname,
-        user_account: res.user_account,
-        avatar_url: res.avatar_url,
-        bio: res.bio,
-        learning_stage: res.learning_stage || '',
-        grade: res.grade || '',
-        major: res.major || ''
-      }
-setUser(user.value)
-      setToken(res.access_token)
-      setUser(user.value)
+      if (res && res.id && res.access_token) {
+        token.value = res.access_token
+        user.value = {
+          id: res.id,
+          email: res.email,
+          nickname: res.nickname,
+          user_account: res.user_account,
+          avatar_url: res.avatar_url,
+          bio: res.bio,
+          learning_stage: res.learning_stage || '',
+          grade: res.grade || '',
+          major: res.major || ''
+        }
+        setToken(res.access_token)
+        setUser(user.value)
 
-      try {
-        await updateStatus(res.id, 'online')
-      } catch (e) {
-        console.error('更新在线状态失败:', e)
+        try {
+          await updateStatus(res.id, 'online')
+        } catch (e) {
+          console.error('更新在线状态失败:', e)
+        }
+        return { success: true, user: user.value }
       }
-      return { success: true, user: user.value }
+
+      return { success: false, message: res.message || '登录失败' }
+    } catch (error) {
+      console.error('登录异常:', error)
+      return { success: false, message: error.message || '登录失败' }
     }
-
-    return { success: false, message: res.message || '登录失败' }
-  } catch (error) {
-    console.error('登录异常:', error)
-    return { success: false, message: error.message || '登录失败' }
   }
-}
 
-  // ===== 注册 =====
+  // ===== 注册（✅ 改为接收对象参数，含 code） =====
   async function register(data) {
     try {
-      const res = await apiRegister(data)
+      const res = await apiRegister(data.email, data.password, data.code, data.nickname || '')
       if (res.success) {
         return { success: true }
       }
@@ -63,7 +61,6 @@ setUser(user.value)
   // ===== 退出登录 =====
   async function logout() {
     try {
-      // 👇 退出时更新状态为 offline
       if (user.value?.id) {
         try {
           await updateStatus(user.value.id, 'offline')
@@ -86,7 +83,6 @@ setUser(user.value)
     if (!user.value?.id) return
     try {
       await updateStatus(user.value.id, status)
-      // 本地也更新一下
       if (user.value) {
         user.value.status = status
         setUser(user.value)

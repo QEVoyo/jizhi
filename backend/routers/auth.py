@@ -1,12 +1,13 @@
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Header
 from pydantic import BaseModel
 from config import settings
 import httpx
 import time
 import uuid
+import random
 from PIL import Image
 import io
-import random
+from utils.email import send_verification_code_email
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
@@ -91,9 +92,57 @@ async def login(req: LoginRequest):
         }
 
 
+# ============================================================
+# ✅ 新增：发送验证码接口
+# ============================================================
+@router.post("/send-code")
+async def send_verification_code(email: str):
+    """发送邮箱验证码"""
+    # 生成6位数字验证码
+    code = ''.join(random.choices('0123456789', k=6))
+
+    # ✅ 用 Service Role Key（更高权限）
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    async with httpx.AsyncClient() as client:
+        # 删除该邮箱之前的旧验证码
+        delete_url = f"{settings.SUPABASE_URL}/rest/v1/email_verification_codes?email=eq.{email}"
+        delete_res = await client.delete(delete_url, headers=headers)
+        print(f"删除旧验证码: {delete_res.status_code}")
+
+        # 插入新验证码
+        insert_data = {
+            "email": email,
+            "code": code,
+            "expires_at": int(time.time()) + 600
+        }
+        insert_url = f"{settings.SUPABASE_URL}/rest/v1/email_verification_codes"
+        insert_res = await client.post(insert_url, headers=headers, json=insert_data)
+        print(f"插入验证码状态: {insert_res.status_code}")
+        print(f"插入验证码响应: {insert_res.text}")
+
+        if insert_res.status_code not in [200, 201]:
+            raise HTTPException(status_code=500, detail=f"保存验证码失败: {insert_res.text}")
+
+    # 发送邮件
+    success = send_verification_code_email(email, code)
+    if not success:
+        raise HTTPException(status_code=500, detail="邮件发送失败，请检查邮箱地址")
+
+    return {"success": True, "message": "验证码已发送"}
+
+
+# ============================================================
+# ✅ 修改：注册接口（新增 code 字段验证）
+# ============================================================
 class RegisterRequest(BaseModel):
     email: str
     password: str
+    code: str  # ✅ 新增验证码字段
     nickname: str = None
 
 
@@ -105,6 +154,30 @@ async def register(req: RegisterRequest):
         "Content-Type": "application/json"
     }
 
+    # ===== 1. 验证验证码 =====
+    async with httpx.AsyncClient() as client:
+        query_url = f"{settings.SUPABASE_URL}/rest/v1/email_verification_codes?email=eq.{req.email}&order=created_at.desc&limit=1"
+        res = await client.get(query_url, headers=headers)
+
+        if res.status_code != 200 or not res.json():
+            raise HTTPException(status_code=400, detail="请先获取验证码")
+
+        record = res.json()[0]
+
+        # 检查验证码是否正确
+        if record.get("code") != req.code:
+            raise HTTPException(status_code=400, detail="验证码错误")
+
+        # 检查是否过期
+        expires_at = record.get("expires_at")
+        if expires_at and time.time() > expires_at:
+            raise HTTPException(status_code=400, detail="验证码已过期，请重新获取")
+
+        # 检查是否已使用
+        if record.get("used", False):
+            raise HTTPException(status_code=400, detail="验证码已使用，请重新获取")
+
+    # ===== 2. 创建 Supabase 用户 =====
     signup_url = f"{settings.SUPABASE_URL}/auth/v1/signup"
     data = {"email": req.email, "password": req.password}
 
@@ -122,6 +195,7 @@ async def register(req: RegisterRequest):
         if not user_id:
             user_id = user_data.get("user", {}).get("id")
 
+        # ===== 3. 创建 profile =====
         user_account = str(random.randint(10000000, 99999999))
 
         profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles"
@@ -136,11 +210,16 @@ async def register(req: RegisterRequest):
         if profile_res.status_code not in [200, 201]:
             raise HTTPException(status_code=400, detail="创建用户资料失败")
 
+        # ===== 4. 标记验证码已使用 =====
+        update_url = f"{settings.SUPABASE_URL}/rest/v1/email_verification_codes?id=eq.{record['id']}"
+        await client.patch(update_url, headers=headers, json={"used": True})
+
         return {
+            "success": True,
             "id": user_id,
             "email": req.email,
             "user_account": user_account,
-            "message": "注册成功，请查收验证邮件"
+            "message": "注册成功"
         }
 
 
@@ -312,7 +391,7 @@ async def upload_avatar(user_id: str, file: UploadFile = File(...)):
 async def update_status(user_id: str = Query(...), status: str = Query(...)):
     headers = {
         "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",  # ← 改这里
         "Content-Type": "application/json"
     }
 
@@ -339,16 +418,18 @@ class UpdatePasswordRequest(BaseModel):
 
 
 @router.put("/update-password")
-async def update_password(req: UpdatePasswordRequest, user_id: str = Query(...)):
+async def update_password(
+    req: UpdatePasswordRequest,
+    user_id: str = Query(...),
+    authorization: str = Header(...)  # ✅ 接收用户的 token
+):
     """修改密码"""
-    # 先验证旧密码
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
         "Content-Type": "application/json"
     }
 
-    # 获取用户邮箱
     profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
     async with httpx.AsyncClient() as client:
         profile_res = await client.get(profile_url, headers=headers)
@@ -360,19 +441,21 @@ async def update_password(req: UpdatePasswordRequest, user_id: str = Query(...))
         verify_url = f"{settings.SUPABASE_URL}/auth/v1/token?grant_type=password"
         verify_data = {"email": email, "password": req.old_password}
         verify_res = await client.post(verify_url, headers=headers, json=verify_data)
-
         if verify_res.status_code != 200:
             raise HTTPException(status_code=401, detail="当前密码错误")
 
-        # 修改密码
-        update_url = f"{settings.SUPABASE_URL}/auth/v1/user"
+        # ✅ 修改密码：用用户自己的 token
         update_headers = {
             "apikey": settings.SUPABASE_KEY,
-            "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+            "Authorization": authorization,  # ← 用前端传过来的用户 token
             "Content-Type": "application/json"
         }
         update_data = {"password": req.new_password}
-        update_res = await client.put(update_url, headers=update_headers, json=update_data)
+        update_res = await client.put(
+            f"{settings.SUPABASE_URL}/auth/v1/user",
+            headers=update_headers,
+            json=update_data
+        )
 
         if update_res.status_code != 200:
             raise HTTPException(status_code=400, detail="修改密码失败")
