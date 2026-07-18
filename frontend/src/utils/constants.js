@@ -1,5 +1,5 @@
 // ===== 后端地址 =====
-export const BACKEND_URL = 'http://localhost:8000'
+export const BACKEND_URL = 'https://api.jizhi-learn.com'
 console.log('=== constants.js 加载了, BACKEND_URL:', 'https://api.jizhi-learn.com')  // 👈 加这行
 // ===== 题型映射 =====
 export const TYPE_MAP = {
