@@ -271,15 +271,14 @@ onUnmounted(() => {
   min-height: 100vh;
   padding: 20px;
   background: var(--bg-color);
-  /* ✅ 关联资源库背景图 */
-  background-image: url('@/assets/bg/resource_lib_bg.png');
+  background-image: url('/assets/bg/resource_lib_bg.png');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
 }
 
 [data-theme="dark"] .generate-page {
-  background-image: url('@/assets/bg/resource_lib_bl.jpg');
+  background-image: url('/assets/bg/resource_lib_bl.jpg');
 }
 
 .generate-container {
