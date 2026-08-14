@@ -88,7 +88,7 @@ export function handleFriendRequest(requestId, action, userId) {
 }
 
 export function deleteFriend(userId, friendId) {
-  return request.delete('/community/friends', { params: { user_id: userId, friend_id: friendId } }).then(res => res.data)
+  return request.delete(`/community/friends/${friendId}`, { params: { user_id: userId } }).then(res => res.data)
 }
 
 export function searchUsers(keyword, userId) {
@@ -213,4 +213,33 @@ export function markMessagesRead(userId, friendId) {
 
 export function getFriendsRank(userId) {
   return request.get('/community/friends/rank', { params: { user_id: userId } }).then(res => res.data)
+}
+
+// ===== 消息中心 =====
+export function getMessageHistory(params) {
+  return request.get('/community/messages/history', { params }).then(res => res.data)
+}
+
+export function markAllRead(userId, msgType = 'all') {
+  return request.put('/community/messages/read-all', null, { params: { user_id: userId, msg_type: msgType } }).then(res => res.data)
+}
+
+export function clearMessages(userId, msgType = 'all') {
+  return request.delete('/community/messages/clear', { params: { user_id: userId, msg_type: msgType } }).then(res => res.data)
+}
+
+export function deleteMessages(userId, ids) {
+  return request.delete('/community/messages', { params: { user_id: userId, ids } }).then(res => res.data)
+}
+
+export function getSidebarBadges(userId) {
+  return request.get('/community/sidebar-badges', { params: { user_id: userId } }).then(res => res.data)
+}
+
+export function getNotificationSettings(userId) {
+  return request.get('/community/notification-settings', { params: { user_id: userId } }).then(res => res.data)
+}
+
+export function updateNotificationSettings(data) {
+  return request.put('/community/notification-settings', data.data, { params: { user_id: data.user_id } }).then(res => res.data)
 }

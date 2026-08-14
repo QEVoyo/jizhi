@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { BACKEND_URL } from './constants'
-import { getToken, removeToken } from './storage'
+import { getToken, removeToken, removeUser } from './storage'
 import { useAuthStore } from '@/stores/auth'
 
 const request = axios.create({
@@ -22,12 +22,21 @@ request.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
+let isLoggingOut = false
+
 request.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isLoggingOut) {
+      isLoggingOut = true
       const authStore = useAuthStore()
-      authStore.logout()
+      // 先同步清除 Pinia 状态
+      authStore.token = null
+      authStore.user = null
+      // 同步清除 localStorage
+      removeToken()
+      removeUser()
+      // 跳转登录页
       window.location.href = '/login'
     }
     return Promise.reject(error)

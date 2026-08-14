@@ -1,12 +1,14 @@
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from pydantic import BaseModel
 from typing import Optional
 from config import settings
 import httpx
 import base64
 from utils.xunfei_client import XunfeiClient
+from utils.auth_middleware import get_current_user, verify_user_match
+from logging_config import logger
 
-print("🔥 xiaoji.py 已加载")
+logger.info("[xiaoji] router loaded")
 
 router = APIRouter(prefix="/xiaoji", tags=["小基"])
 
@@ -38,12 +40,7 @@ class ASRRequest(BaseModel):
 
 # ===== 辅助函数 =====
 
-def get_supabase_headers():
-    return {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-        "Content-Type": "application/json"
-    }
+from services.supabase import get_supabase_headers, get_supabase_service_headers
 
 
 # ============================================================
@@ -51,8 +48,9 @@ def get_supabase_headers():
 # ============================================================
 
 @router.get("/config/{user_id}")
-async def get_xiaoji_config(user_id: str):
+async def get_xiaoji_config(user_id: str, current_user: str = Depends(get_current_user)):
     """获取小基配置"""
+    verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -75,8 +73,9 @@ async def get_xiaoji_config(user_id: str):
 
 
 @router.put("/config/{user_id}")
-async def update_xiaoji_config(user_id: str, data: XiaojiConfigUpdate):
+async def update_xiaoji_config(user_id: str, data: XiaojiConfigUpdate, current_user: str = Depends(get_current_user)):
     """更新小基配置"""
+    verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
     update_data = {k: v for k, v in data.dict().items() if v is not None}
 
@@ -116,7 +115,7 @@ async def get_voice_list():
 @router.post("/tts")
 async def text_to_speech(data: TTSRequest):
     """文字转语音（TTS）"""
-    print(f"🔊 TTS 请求: {data.text[:50]}...")
+    logger.info(f"🔊 TTS 请求: {data.text[:50]}...")
 
     client = XunfeiClient()
 
@@ -141,7 +140,7 @@ async def text_to_speech(data: TTSRequest):
         }
 
     except Exception as e:
-        print(f"TTS 错误: {e}")
+        logger.info(f"TTS 错误: {e}")
         raise HTTPException(status_code=500, detail=f"TTS 错误: {str(e)}")
 
 
@@ -152,7 +151,7 @@ async def text_to_speech(data: TTSRequest):
 @router.post("/asr")
 async def speech_to_text(data: ASRRequest):
     """语音转文字（ASR）"""
-    print(f"🎤 ASR 请求: 音频长度 {len(data.audio_base64)} 字符")
+    logger.info(f"🎤 ASR 请求: 音频长度 {len(data.audio_base64)} 字符")
 
     try:
         audio_bytes = base64.b64decode(data.audio_base64)
@@ -165,7 +164,7 @@ async def speech_to_text(data: ASRRequest):
         return {"success": True, "text": result}
 
     except Exception as e:
-        print(f"ASR 错误: {e}")
+        logger.info(f"ASR 错误: {e}")
         raise HTTPException(status_code=500, detail=f"ASR 错误: {str(e)}")
 
 
@@ -177,10 +176,12 @@ async def speech_to_text(data: ASRRequest):
 async def get_xiaoji_messages(
     user_id: str,
     search: Optional[str] = Query(None),
+    current_user: str = Depends(get_current_user),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0)
 ):
     """获取小基聊天记录（支持搜索）"""
+    verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
 
     url = f"{settings.SUPABASE_URL}/rest/v1/xiaoji_messages?user_id=eq.{user_id}&order=created_at.desc&limit={limit}&offset={offset}"
@@ -197,8 +198,9 @@ async def get_xiaoji_messages(
 
 
 @router.delete("/message/{message_id}")
-async def delete_xiaoji_message(message_id: str, user_id: str = Query(...)):
+async def delete_xiaoji_message(message_id: str, user_id: str = Query(...), current_user: str = Depends(get_current_user)):
     """删除小基消息"""
+    verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -211,8 +213,9 @@ async def delete_xiaoji_message(message_id: str, user_id: str = Query(...)):
 
 
 @router.delete("/messages/{user_id}")
-async def clear_xiaoji_messages(user_id: str):
+async def clear_xiaoji_messages(user_id: str, current_user: str = Depends(get_current_user)):
     """清空小基聊天记录"""
+    verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
 
     async with httpx.AsyncClient(timeout=30.0) as client:

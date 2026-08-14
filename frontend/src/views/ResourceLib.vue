@@ -25,7 +25,7 @@
         <span class="legend-hint">薄弱 &lt;60%</span>
       </div>
 
-      <div v-if="loadingMastery" class="loading-text">加载中...</div>
+      <LoadingSpinner v-if="loadingMastery" variant="breathe" :flow-steps="['正在整理学习空间...', '正在同步最新数据...', '马上就好...']" />
       <div v-else-if="weakPoints.length" class="mastery-cards">
         <div
           v-for="(wp, idx) in weakPoints.slice(0, 4)"
@@ -72,9 +72,9 @@
               <div class="card-desc">查看学习进度、掌握度变化趋势</div>
             </div>
             <div class="evaluation-card" @click="goProfile">
-              <div class="card-icon">🧠</div>
-              <div class="card-title">六维画像</div>
-              <div class="card-desc">知识基础、认知风格、易错点偏好等</div>
+              <div class="card-icon">🪐</div>
+              <div class="card-title">维度宇宙</div>
+              <div class="card-desc">九维学习星图 · AI 深度画像 · 3D 探索</div>
             </div>
             <div class="evaluation-card" @click="goAssessment">
               <div class="card-icon">📋</div>
@@ -103,6 +103,7 @@ import MistakeBook from '@/components/MistakeBook.vue'
 import GenerationHistory from '@/components/GenerationHistory.vue'
 import { getMastery } from '@/api/questions'
 import { ElMessage } from 'element-plus'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

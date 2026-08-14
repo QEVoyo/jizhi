@@ -10,6 +10,13 @@
           <p class="subtitle">学如登山，步步高升</p>
           <el-divider />
 
+          <LoadingSpinner
+            v-if="loading"
+            variant="orbit"
+            :size="80"
+            :flow-steps="['正在查询好友数据...', '正在计算段位排名...', '正在生成排行榜单...']"
+          />
+
           <!-- ===== 当前段位 ===== -->
           <div class="rank-card">
             <!-- 段位行 -->
@@ -193,6 +200,7 @@ import AppLayout from '@/components/AppLayout.vue'
 import CareerSidebar from '@/components/CareerSidebar.vue'
 import { getUserStats } from '@/api/career'
 import { RANK_ICONS, RANK_COLORS, RANK_ORDER, SUB_SYMBOLS } from '@/utils/constants'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

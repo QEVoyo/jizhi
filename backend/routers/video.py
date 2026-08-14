@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any
 import asyncio
 import random
+from logging_config import logger
 
 router = APIRouter(prefix="/video", tags=["视频"])
 
@@ -33,10 +34,10 @@ async def search_bilibili(
 
     # 命中缓存
     if is_cache_valid(cache_key):
-        print(f"✅ 命中缓存: {cache_key}")
+        logger.info(f"✅ 命中缓存: {cache_key}")
         return cache[cache_key]
 
-    print(f"🔄 请求B站API: {cache_key}")
+    logger.info(f"🔄 请求B站API: {cache_key}")
 
     # ===== 多域名轮询 =====
     domains = [
@@ -85,17 +86,17 @@ async def search_bilibili(
                 # 存入缓存
                 cache[cache_key] = result
                 cache_time[cache_key] = datetime.now()
-                print(f"💾 已缓存: {cache_key}, 视频数: {len(videos)}")
+                logger.info(f"💾 已缓存: {cache_key}, 视频数: {len(videos)}")
                 return result
 
         except Exception as e:
             last_error = str(e)
-            print(f"⚠️ 域名 {domain} 失败: {e}")
+            logger.info(f"⚠️ 域名 {domain} 失败: {e}")
             await asyncio.sleep(0.5)  # 短暂等待后重试
             continue
 
     # ===== 所有域名都失败，返回空结果 =====
-    print(f"❌ 所有域名都失败: {last_error}")
+    logger.info(f"❌ 所有域名都失败: {last_error}")
     result = {"success": False, "message": "B站API暂时不可用", "videos": []}
 
     # 仍然缓存失败结果，避免频繁请求（缓存5分钟）
@@ -114,7 +115,7 @@ async def proxy_image(url: str):
             })
             return Response(content=resp.content, media_type="image/jpeg")
     except Exception as e:
-        print(f"❌ 图片代理错误: {e}")
+        logger.info(f"❌ 图片代理错误: {e}")
         return Response(content=b"", status_code=404)
 
 

@@ -12,8 +12,8 @@ export function getPlanDetail(planId) {
   return request.get(`/learning-plan/detail/${planId}`).then(res => res.data)
 }
 
-export function updateTaskStatus(taskId, status) {
-  return request.put('/learning-plan/task/status', { task_id: taskId, status }).then(res => res.data)
+export function updateTaskStatus(data) {
+  return request.put('/learning-plan/task/status', data).then(res => res.data)
 }
 
 export function deletePlan(planId) {

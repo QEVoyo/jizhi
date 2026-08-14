@@ -10,6 +10,12 @@
             </svg>
             返回
           </button>
+          <LoadingSpinner
+            v-if="loading"
+            variant="breathe"
+            :flow-steps="['正在展开计划详情...', '正在加载每日任务...', '马上就好...']"
+          />
+
           <h1>{{ plan.name || '规划详情' }}</h1>
           <span class="status-badge" :data-status="plan.status">
             {{ plan.status === 'active' ? '进行中' : plan.status === 'pending' ? '待开始' : '已完成' }}
@@ -164,6 +170,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getPlanDetail, updateTaskStatus } from '@/api/learningPlan'
 import { ElMessage } from 'element-plus'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -189,14 +196,17 @@ const days = computed(() => {
     const anyActive = dayTasks.some(t => t.status === 'active')
 
     const isFirstDay = index === 0
-    let isUnlocked = isFirstDay
-    if (!isFirstDay) {
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const isPastOrToday = dateStr <= todayStr
+    let isUnlocked = isFirstDay || isPastOrToday
+    if (!isFirstDay && !isPastOrToday) {
       const prevDate = new Date(current)
       prevDate.setDate(prevDate.getDate() - 1)
       const prevDateStr = prevDate.toISOString().slice(0, 10)
       const prevTasks = tasks.value.filter(t => t.date === prevDateStr)
-      const prevAllDone = prevTasks.length > 0 && prevTasks.every(t => t.status === 'completed')
-      isUnlocked = prevAllDone
+      const prevDone = prevTasks.filter(t => t.status === 'completed').length
+      const prevHalf = prevTasks.length > 0 && prevDone >= Math.ceil(prevTasks.length / 2)
+      isUnlocked = prevHalf
     }
 
     let status = 'locked'
@@ -271,7 +281,8 @@ function goToQuestion(q) {
   }
 
   if (q.status !== 'active') {
-    updateTaskStatus(q.id, 'active').catch(() => {})
+    const apiData = { task_id: q.id, status: 'active', plan_id: plan.value.id || '' }
+    updateTaskStatus(apiData).catch(() => {})
   }
 
   const questionData = {

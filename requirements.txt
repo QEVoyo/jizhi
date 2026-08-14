@@ -1,8 +1,1 @@
-streamlit
-openai
-python-dotenv
-requests
-matplotlib
-numpy
-pillow
-dashscope
+-r backend/requirements.txt

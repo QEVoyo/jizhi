@@ -24,24 +24,29 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { getFriendRequests, getUnreadCount } from '@/api/community'
+import { getFriendRequests, getSidebarBadges } from '@/api/community'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
 const friendRequestCount = ref(0)
-const unreadCount = ref(0)
+const unreadChatCount = ref(0)
 
 const navItems = computed(() => [
   { key: 'feed', label: '动态广场', icon: 'fas fa-home', path: '/community' },
-  { key: 'friends', label: '好友', icon: 'fas fa-users', path: '/community/friends', badge: friendRequestCount.value > 0 ? friendRequestCount.value : null },
+  { key: 'friends', label: '好友', icon: 'fas fa-users', path: '/community/friends', badge: friendBadge.value || null },
   { key: 'rank', label: '排行榜', icon: 'fas fa-trophy', path: '/community/rank' },
   { key: 'collections', label: '收藏', icon: 'fas fa-star', path: '/community/collections' },
   { key: 'my-posts', label: '我的发布', icon: 'fas fa-pen', path: '/community/my-posts' },
   { key: 'profile-card', label: '资料卡', icon: 'fas fa-id-card', path: '/community/profile-card' },
   { key: 'home', label: '返回主界面', icon: 'fas fa-arrow-left', path: '/home' }
 ])
+
+const friendBadge = computed(() => {
+  const total = friendRequestCount.value + unreadChatCount.value
+  return total > 0 ? (total > 99 ? '99+' : total) : null
+})
 
 const activeTab = computed(() => {
   const path = route.path
@@ -59,17 +64,26 @@ const activeTab = computed(() => {
 
 async function loadBadges() {
   try {
-    const [requestsRes, unreadRes] = await Promise.all([
-      getFriendRequests(authStore.user.id),
-      getUnreadCount(authStore.user.id)
+    const [badgesRes, requestsRes] = await Promise.all([
+      getSidebarBadges(authStore.user.id),
+      getFriendRequests(authStore.user.id)
     ])
+    const b = badgesRes.badges || {}
+    unreadChatCount.value = b.unread_chats || 0
     friendRequestCount.value = requestsRes.requests?.length || 0
-    unreadCount.value = unreadRes.count || 0
   } catch {
     friendRequestCount.value = 0
-    unreadCount.value = 0
+    unreadChatCount.value = 0
   }
 }
+
+let badgeTimer = null
+onMounted(() => {
+  loadBadges()
+  badgeTimer = setInterval(loadBadges, 30000)
+})
+import { onUnmounted } from 'vue'
+onUnmounted(() => { clearInterval(badgeTimer) })
 
 function switchTab(key) {
   if (key === 'home') {

@@ -86,7 +86,7 @@
 
         <!-- ===== 3. 六维雷达图 ===== -->
         <div class="table-section">
-          <h3>六维能力雷达</h3>
+          <h3>多维能力雷达</h3>
           <div ref="radarChartRef" style="width: 100%; height: 300px;"></div>
         </div>
 
@@ -382,7 +382,7 @@ async function loadData() {
   loading.value = true
   try {
     const res = await fetch(
-      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/evaluation/profile-data?user_id=${authStore.user.id}`,
+      `${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/evaluation/profile-data?user_id=${authStore.user.id}`,
       { headers: { Authorization: `Bearer ${authStore.token}` } }
     )
     const data = await res.json()

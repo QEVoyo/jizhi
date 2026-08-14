@@ -37,6 +37,7 @@
       >
         <i class="fas fa-seedling"></i>
         <span>勤耕</span>
+        <span v-if="taskBadge > 0" class="nav-badge">{{ taskBadge > 99 ? '99+' : taskBadge }}</span>
       </div>
       <div
         class="nav-item"
@@ -46,6 +47,7 @@
       >
         <i class="fas fa-gem"></i>
         <span>拾贝</span>
+        <span v-if="achieveBadge > 0" class="nav-badge">{{ achieveBadge > 99 ? '99+' : achieveBadge }}</span>
       </div>
       <div class="nav-item back-item" @click="goCareer" :title="isCollapsed ? '返回学程' : ''">
         <i class="fas fa-arrow-left"></i>
@@ -138,6 +140,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { getUserStats } from '@/api/career'
+import { getSidebarBadges } from '@/api/community'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { RANK_ICONS, RANK_COLORS, SUB_SYMBOLS } from '@/utils/constants'
 
@@ -239,7 +242,7 @@ async function submitFeedback() {
   }
   feedbackSubmitting.value = true
   try {
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/feedback/submit`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/feedback/submit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -278,13 +281,31 @@ function handleLogout() {
     .catch(() => {})
 }
 
+// ===== 角标 =====
+const taskBadge = ref(0)
+const achieveBadge = ref(0)
+let careerBadgeTimer = null
+
+async function loadBadges() {
+  if (!authStore.user?.id) return
+  try {
+    const res = await getSidebarBadges(authStore.user.id)
+    const b = res.badges || {}
+    taskBadge.value = b.career_tasks || 0
+    achieveBadge.value = b.career_achievements || 0
+  } catch { /* ignore */ }
+}
+
 onMounted(() => {
   loadRankData()
+  loadBadges()
   document.addEventListener('click', handleClickOutside)
+  careerBadgeTimer = setInterval(loadBadges, 30000)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  clearInterval(careerBadgeTimer)
 })
 </script>
 
@@ -401,6 +422,14 @@ onUnmounted(() => {
 }
 .nav-item.back-item:hover {
   color: var(--text-primary) !important;
+}
+.nav-badge {
+  margin-left: auto;
+  background: rgba(245,158,11,0.15);
+  color: #f59e0b;
+  font-size: 10px; font-weight: 700;
+  padding: 1px 7px; border-radius: 10px;
+  min-width: 18px; text-align: center; line-height: 1.6;
 }
 [data-theme="dark"] .nav-item:hover {
   background: rgba(255, 255, 255, 0.05);

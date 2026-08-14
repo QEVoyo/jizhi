@@ -169,12 +169,12 @@ const slides = [
   },
   {
     video: '/videos/slides/slide3.mp4',
-    label: '六维画像',
-    desc: '从知识基础、认知风格、易错偏好、学习目标、学习人格、兴趣领域六个维度构建动态学生画像。画像随学习数据更新，真正实现个性化学习诊断。',
-    tags: ['六维分析', '动态更新', '个性化诊断'],
-    iconSvg: `<svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M2 17l10 5 10-5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M2 12l10 5 10-5" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>`,
-    featureTitle: '六维画像',
-    featureDesc: '评估中心 · 知识基础 / 认知风格 / 学习目标'
+    label: '维度宇宙',
+    desc: '九维学习星图，AI 深度画像分析。知识星系、能力雷达、学习节奏、认知偏好、易错地图、成长轨迹、学习人格、兴趣星云——可拖拽缩放的 3D 探索体验。',
+    tags: ['九维星图', 'AI 洞察', '3D 可视化'],
+    iconSvg: `<svg viewBox="0 0 24 24" width="28" height="28"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.2" fill="none" opacity="0.5"/><ellipse cx="12" cy="12" rx="10" ry="3" stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.3" transform="rotate(-20 12 12)"/></svg>`,
+    featureTitle: '维度宇宙',
+    featureDesc: '九维学习星图 · AI 深度画像 · 3D 探索'
   },
   {
     video: '/videos/slides/slide4.mp4',

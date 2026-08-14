@@ -41,4 +41,22 @@ class Settings:
     XUNFEI_API_KEY = os.getenv("XUNFEI_API_KEY")
     XUNFEI_API_SECRET = os.getenv("XUNFEI_API_SECRET")
 
+    # ===== 微信公众平台测试号（网页扫码登录）=====
+    # 前往 https://mp.weixin.qq.com/debug/cgi-bin/sandbox?t=sandbox/login 扫码获取
+    WECHAT_WEB_APPID = os.getenv("WECHAT_WEB_APPID", "")
+    WECHAT_WEB_SECRET = os.getenv("WECHAT_WEB_SECRET", "")
+    # 微信小程序
+    WECHAT_MP_APPID = os.getenv("WECHAT_MP_APPID", "wx6db1f1a6e3f3969c")
+    WECHAT_MP_SECRET = os.getenv("WECHAT_MP_SECRET", "")
+
+    # ===== 自签 JWT（微信登录用，不依赖 Supabase）=====
+    JWT_SECRET = os.getenv("JWT_SECRET", "jizhi-dev-secret-change-in-production")
+    JWT_ALGORITHM = "HS256"
+    JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "720"))  # 30 天
+
+    # 前端地址（OAuth 回调后跳转用）— 公网部署默认值，本地开发用 .env 覆盖
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "https://jizhi-learn.com")
+    # 后端外网地址（微信 OAuth 回调用，手机扫码后微信浏览器要能访问到）
+    BACKEND_EXTERNAL_URL = os.getenv("BACKEND_EXTERNAL_URL", "https://api.jizhi-learn.com")
+
 settings = Settings()

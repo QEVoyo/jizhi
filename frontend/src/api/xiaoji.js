@@ -69,5 +69,5 @@ export function evaluateSet(userId, setData, questions) {
 }
 export function evaluateQuestionStream(userId, question) {
   // 流式接口用 fetch 直接调用，不需要封装
-  return `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/community/xiaoji/evaluate-question-stream?user_id=${userId}`
+  return `${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/community/xiaoji/evaluate-question-stream?user_id=${userId}`
 }

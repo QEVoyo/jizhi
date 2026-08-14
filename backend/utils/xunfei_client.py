@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 from typing import Optional
 from config import settings
+from logging_config import logger
 
 
 class XunfeiClient:
@@ -67,10 +68,10 @@ class XunfeiClient:
             if resp.status_code == 200:
                 return resp.content
             else:
-                print(f"TTS 错误: {resp.status_code} {resp.text}")
+                logger.info(f"TTS 错误: {resp.status_code} {resp.text}")
                 return None
         except Exception as e:
-            print(f"TTS 异常: {e}")
+            logger.info(f"TTS 异常: {e}")
             return None
 
     def speech_to_text(self, audio_data: bytes, format: str = "wav") -> Optional[str]:
@@ -111,14 +112,14 @@ class XunfeiClient:
                     data = json.loads(result["data"])
                     return data.get("result", {}).get("text", "").strip()
                 else:
-                    print(f"ASR 错误: {result.get('message', '未知错误')}")
+                    logger.info(f"ASR 错误: {result.get('message', '未知错误')}")
                     return None
             else:
-                print(f"ASR HTTP 错误: {resp.status_code} {resp.text}")
+                logger.info(f"ASR HTTP 错误: {resp.status_code} {resp.text}")
                 return None
 
         except Exception as e:
-            print(f"ASR 异常: {e}")
+            logger.info(f"ASR 异常: {e}")
             return None
 
     def _build_headers(self, url: str, body: dict) -> dict:

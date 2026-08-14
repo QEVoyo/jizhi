@@ -3,6 +3,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from config import settings
+from logging_config import logger
 
 
 def send_email(subject: str, body: str, to_email: str = None):
@@ -23,7 +24,7 @@ def send_email(subject: str, body: str, to_email: str = None):
             server.sendmail(settings.EMAIL_USER, to_email, msg.as_string())
         return True
     except Exception as e:
-        print(f"发送邮件失败: {e}")
+        logger.info(f"发送邮件失败: {e}")
         return False
 
 
@@ -176,5 +177,5 @@ def send_verification_code_email(to_email: str, code: str):
             server.sendmail(settings.EMAIL_USER, to_email, msg.as_string())
         return True
     except Exception as e:
-        print(f"发送邮件失败: {e}")
+        logger.info(f"发送邮件失败: {e}")
         return False

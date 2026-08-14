@@ -66,6 +66,47 @@ export function logout() {
   return Promise.resolve({ success: true })
 }
 
+export function updateLearningInfo(data) {
+  return request.put('/auth/update-learning-info', {
+    user_id: data.user_id,
+    learning_stage: data.learning_stage || '',
+    grade: data.grade || '',
+    major: data.major || '',
+    learning_goal: data.learning_goal || '',
+    difficulty_preference: data.difficulty_preference || '',
+    learning_style: data.learning_style || '',
+    daily_study_time: data.daily_study_time || ''
+  }).then(res => res.data)
+}
+
 export function getUserInfo() {
   return Promise.resolve({ success: true, user: null })
+}
+
+// ===== 微信扫码登录（公众号测试号）=====
+
+// 获取登录二维码 + 轮询 token
+export function getWechatQrcode(redirect = '/home') {
+  return request.get('/auth/wechat/qrcode', { params: { redirect } })
+    .then(res => res.data)
+}
+
+// 轮询：检查用户是否已扫码授权
+export function wechatPoll(pollToken) {
+  return request.get(`/auth/wechat/poll/${pollToken}`)
+    .then(res => res.data)
+}
+
+// ===== 微信绑定（已登录用户在个人中心绑微信）=====
+
+// 获取绑定微信的二维码
+export function getWechatBindQrcode() {
+  return request.get('/auth/wechat/bind-qrcode')
+    .then(res => res.data)
+}
+
+// 获取微信用户资料
+export function getWechatUser(userId) {
+  return request.get(`/auth/wechat/user/${userId}`)
+    .then(res => res.data)
 }

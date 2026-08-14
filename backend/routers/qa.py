@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from config import settings
@@ -7,6 +7,9 @@ import base64
 import io
 from email.mime.image import MIMEImage
 from datetime import datetime
+from utils.auth_middleware import get_current_user, verify_user_match
+from utils.admin_middleware import get_admin_headers
+from logging_config import logger
 
 router = APIRouter(prefix="/qa", tags=["Q&A"])
 
@@ -62,7 +65,7 @@ def send_qa_email_with_image(nickname: str, email: str, question: str, image_bas
             image.add_header('Content-Disposition', 'attachment', filename='提问图片.png')
             msg.attach(image)
         except Exception as e:
-            print(f"图片附件添加失败: {e}")
+            logger.info(f"图片附件添加失败: {e}")
 
     try:
         with smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
@@ -71,16 +74,34 @@ def send_qa_email_with_image(nickname: str, email: str, question: str, image_bas
             server.sendmail(settings.EMAIL_USER, settings.EMAIL_RECEIVER, msg.as_string())
         return True
     except Exception as e:
-        print(f"发送邮件失败: {e}")
+        logger.info(f"发送邮件失败: {e}")
         return False
 
 
 @router.post("/submit")
-async def submit_qa_question(data: QASubmitRequest):
-    """提交Q&A问题，发送邮件到管理员"""
-
+async def submit_qa_question(data: QASubmitRequest, current_user: str = Depends(get_current_user)):
+    """提交Q&A问题（发邮件 + 存DB）"""
+    verify_user_match(data.user_id, current_user)
     if not data.question or len(data.question) < 3:
         raise HTTPException(status_code=400, detail="问题至少3个字")
+
+    # 存入数据库（异步，失败不影响主流程）
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            # Q&A 可能带图片，存图片URL到DB（图片本身已通过邮件发送）
+            await client.post(
+                f"{settings.SUPABASE_URL}/rest/v1/user_qa",
+                headers=get_admin_headers(),
+                json={
+                    "user_id": data.user_id,
+                    "nickname": data.user_nickname or "用户",
+                    "email": data.user_email or "",
+                    "question": data.question,
+                    "image_url": None  # 图片通过邮件附件发送，DB只标记has_image
+                }
+            )
+    except Exception as e:
+        logger.info(f"Q&A存DB失败（不影响邮件发送）: {e}")
 
     success = send_qa_email_with_image(
         nickname=data.user_nickname,

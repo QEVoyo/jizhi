@@ -23,9 +23,12 @@
       <el-divider />
 
       <!-- ===== 加载状态 ===== -->
-      <div v-if="loading" class="loading-state">
-        <i class="fas fa-spinner fa-spin"></i> 加载中...
-      </div>
+      <LoadingSpinner
+        v-if="loading"
+        variant="orbit"
+        :size="80"
+        :flow-steps="['正在采集学习数据...', '正在分析掌握模式...', '正在计算多维画像...']"
+      />
 
       <!-- ===== 内容 ===== -->
       <div v-else class="report-content" ref="reportContentRef">
@@ -140,6 +143,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import { getMastery } from '@/api/questions'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 

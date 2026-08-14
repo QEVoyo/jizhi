@@ -11,6 +11,18 @@
 
           <el-divider />
 
+          <LoadingSpinner
+            v-if="loading"
+            variant="stages"
+            :stages="[
+              { label: '连接数据库', hint: '正在同步学程数据...' },
+              { label: '查询进度', hint: '正在统计学习记录...' },
+              { label: '整理结果', hint: '正在生成学程概览...' },
+              { label: '加载完成', hint: '' },
+            ]"
+            :stage-duration="800"
+          />
+
           <!-- ===== 段位 + 等级 ===== -->
           <div class="rank-section">
             <div class="rank-left">
@@ -206,6 +218,7 @@ import CareerSidebar from '@/components/CareerSidebar.vue'
 import { getTaskProgress, getUserStats, updateStats, recordAction } from '@/api/career'
 import { ElMessage } from 'element-plus'
 import { RANK_ICONS, RANK_COLORS, RANK_ORDER, SUB_SYMBOLS } from '@/utils/constants'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

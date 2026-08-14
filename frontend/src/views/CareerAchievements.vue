@@ -167,7 +167,17 @@
           <div v-if="!achievements.length && !loading" class="empty-state">
             📭 暂无成就数据
           </div>
-          <div v-if="loading" class="loading-state">⏳ 加载中...</div>
+          <LoadingSpinner
+            v-if="loading"
+            variant="stages"
+            :stages="[
+              { label: '连接数据库', hint: '正在获取成就列表...' },
+              { label: '查询进度', hint: '正在统计完成状态...' },
+              { label: '生成展示', hint: '正在渲染成就卡片...' },
+              { label: '加载完成', hint: '' },
+            ]"
+            :stage-duration="900"
+          />
         </div>
       </template>
     </AppLayout>
@@ -281,6 +291,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import AppLayout from '@/components/AppLayout.vue'
 import CareerSidebar from '@/components/CareerSidebar.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { getTaskProgress, recordAction, getUserStats } from '@/api/career'
 import { ElMessage } from 'element-plus'
 
@@ -663,7 +674,7 @@ async function claimAchievement(ach, event) {
     const endX = barRect ? barRect.left + barRect.width - 30 : window.innerWidth - 100
     const endY = barRect ? barRect.top + barRect.height / 2 : 60
 
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/career/achievement/claim`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/career/achievement/claim`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

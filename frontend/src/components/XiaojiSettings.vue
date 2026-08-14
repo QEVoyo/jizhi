@@ -5,7 +5,8 @@
       <el-button text class="back-btn" @click="goBack">
         <i class="fas fa-arrow-left"></i>
       </el-button>
-      <h2>🤖 小基设置</h2>
+      <img src="/images/xiaoji/xiaoji_idle.png" alt="小基" class="xiaoji-title-icon" />
+      <h2>小基设置</h2>
       <span class="dev-tag">Beta</span>
     </div>
 
@@ -335,6 +336,12 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.xiaoji-title-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 8px;
 }
 .settings-header h2 {
   margin: 0;
