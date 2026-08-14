@@ -1,0 +1,585 @@
+{
+  "paper_id": "ncre2_c_2024_03",
+  "syllabus_id": "ncre2-c",
+  "name": "2024年3月 计算机二级C语言 真题卷",
+  "paper_type": "real",
+  "year": 2024,
+  "month": 3,
+  "set_number": 1,
+  "source": "教育部教育考试院全国计算机等级考试（NCRE）历年真题整理",
+  "total_duration": 120,
+  "total_score": 100,
+  "available_score": 100,
+  "available_note": "全部题目均可在线作答，编程题自动判分。实际考试使用VC++ 2010环境，本平台支持GCC编译判分。",
+  "sections": [
+    {
+      "order": 1,
+      "name": "选择题 — 公共基础知识",
+      "duration_minutes": 15,
+      "section_score": 10,
+      "instruction": "本部分共10道选择题，每题1分，共10分。考察数据结构与算法、程序设计基础、软件工程基础与数据库设计基础。",
+      "question_type": "choice",
+      "questions": [
+        {
+          "index": 1,
+          "stem": "下列叙述中正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "算法的效率只与问题的规模有关，而与数据的存储结构无关" },
+            { "key": "B", "text": "算法的时间复杂度是指执行算法所需要的计算工作量" },
+            { "key": "C", "text": "数据的逻辑结构与存储结构是一一对应的" },
+            { "key": "D", "text": "算法的时间复杂度与空间复杂度一定相关" }
+          ],
+          "answer": "B",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "算法的时间复杂度就是执行算法所需的计算工作量。A错误：算法效率与存储结构有关。C错误：逻辑结构与存储结构不一定一一对应。D错误：时间复杂度与空间复杂度没有直接必然关系。"
+        },
+        {
+          "index": 2,
+          "stem": "下列叙述中正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "栈是先进后出的线性表" },
+            { "key": "B", "text": "队列是先进先出的线性表" },
+            { "key": "C", "text": "循环队列是非线性结构" },
+            { "key": "D", "text": "有序线性表既可以采用顺序存储结构，也可以采用链式存储结构" }
+          ],
+          "answer": "D",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "有序线性表可以采用顺序存储（数组）或链式存储（链表）。栈是LIFO（后进先出），队列是FIFO（先进先出），循环队列是线性结构。"
+        },
+        {
+          "index": 3,
+          "stem": "一棵二叉树共有25个结点，其中5个是叶子结点，则度为1的结点数为（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "16" },
+            { "key": "B", "text": "10" },
+            { "key": "C", "text": "6" },
+            { "key": "D", "text": "4" }
+          ],
+          "answer": "A",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "二叉树性质：n0=n2+1（叶子=度为2的结点+1）。n0=5，所以n2=4。总结点数n=n0+n1+n2=25，即5+n1+4=25，解得n1=16。"
+        },
+        {
+          "index": 4,
+          "stem": "对下列二叉树进行前序遍历的结果为（　）。\n（二叉树结构：根结点A，左子树B（左D右E），右子树C（左F右G））",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "D B E A F C G" },
+            { "key": "B", "text": "A B D E C F G" },
+            { "key": "C", "text": "D E B F G C A" },
+            { "key": "D", "text": "A B C D E F G" }
+          ],
+          "answer": "B",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "前序遍历顺序：根-左-右。先访问根A，再递归访问左子树B（依序B->D->E），再递归访问右子树C（依序C->F->G）。结果为A B D E C F G。"
+        },
+        {
+          "index": 5,
+          "stem": "结构化程序所要求的基本结构不包括（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "顺序结构" },
+            { "key": "B", "text": "GOTO跳转" },
+            { "key": "C", "text": "选择（分支）结构" },
+            { "key": "D", "text": "重复（循环）结构" }
+          ],
+          "answer": "B",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "结构化程序设计的三种基本结构是顺序、选择（分支）和循环。GOTO跳转不属于结构化程序设计的基本结构，滥用GOTO会导致程序可读性差。"
+        },
+        {
+          "index": 6,
+          "stem": "在软件设计中不使用的工具是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "系统结构图" },
+            { "key": "B", "text": "PAD图" },
+            { "key": "C", "text": "数据流图（DFD图）" },
+            { "key": "D", "text": "程序流程图" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "数据流图（DFD）用于需求分析阶段，不属于软件设计工具。系统结构图、PAD图、程序流程图都是软件设计中常用的工具。"
+        },
+        {
+          "index": 7,
+          "stem": "数据库设计中，用E-R图来描述信息结构但不涉及信息在计算机中的表示，它属于数据库设计的（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "需求分析阶段" },
+            { "key": "B", "text": "概念设计阶段" },
+            { "key": "C", "text": "逻辑设计阶段" },
+            { "key": "D", "text": "物理设计阶段" }
+          ],
+          "answer": "B",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "E-R图（实体-联系图）用于概念设计阶段，描述实体及其联系，不涉及具体的DBMS。概念设计是数据库设计的第二阶段。"
+        },
+        {
+          "index": 8,
+          "stem": "在E-R图中，用来表示实体联系的图形是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "椭圆形" },
+            { "key": "B", "text": "矩形" },
+            { "key": "C", "text": "菱形" },
+            { "key": "D", "text": "三角形" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "E-R图中：矩形表示实体，椭圆形表示属性，菱形表示实体之间的联系。这是E-R图的基本符号约定。"
+        },
+        {
+          "index": 9,
+          "stem": "软件测试的目的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "评估软件可靠性" },
+            { "key": "B", "text": "发现并改正程序中的错误" },
+            { "key": "C", "text": "改正程序中的错误" },
+            { "key": "D", "text": "发现程序中的错误" }
+          ],
+          "answer": "D",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "软件测试的目的是发现程序中的错误，而不是改正错误（改正是调试的任务），也不是证明程序没有错误。测试只能证明错误的存在，不能证明错误不存在。"
+        },
+        {
+          "index": 10,
+          "stem": "有三个关系R、S和T如下：\nR包含元组(A,1),(B,2)，S包含元组(B,2),(C,3)，T包含元组(A,1),(B,2),(C,3)。\n则由关系R和S得到关系T的操作是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "自然连接" },
+            { "key": "B", "text": "交" },
+            { "key": "C", "text": "除" },
+            { "key": "D", "text": "并" }
+          ],
+          "answer": "D",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "并运算的结果是R中所有元组加上S中在R中没有的元组，即所有元组的集合。T包含了R和S的全部元组，重复的(B,2)只保留一个，这是并运算的特征。"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "name": "选择题 — C语言基础",
+      "duration_minutes": 25,
+      "section_score": 30,
+      "instruction": "本部分共20道选择题，每题1.5分，共30分。考察C语言的基本语法、数据类型、运算符与表达式、控制结构、数组、函数、指针、文件操作等核心知识点。",
+      "question_type": "choice",
+      "questions": [
+        {
+          "index": 11,
+          "stem": "以下选项中，不能作为合法常量的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "1.234e04" },
+            { "key": "B", "text": "1.234e0.4" },
+            { "key": "C", "text": "1.234e+4" },
+            { "key": "D", "text": "1.234e0" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "C语言的科学计数法要求指数部分必须为整数（可带正负号）。B选项中0.4为小数，不符合规范，为非法常量。"
+        },
+        {
+          "index": 12,
+          "stem": "以下不合法的用户标识符是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "r3_t3" },
+            { "key": "B", "text": "Else" },
+            { "key": "C", "text": "6a" },
+            { "key": "D", "text": "_6" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "C语言规定标识符必须以字母或下划线开头。6a以数字开头，非法。Else与关键字else大小写不同，是合法的。下划线开头_6也是合法的。"
+        },
+        {
+          "index": 13,
+          "stem": "以下选项中，合法的C语言字符常量是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\"W\"" },
+            { "key": "B", "text": "'W'" },
+            { "key": "C", "text": "W" },
+            { "key": "D", "text": "\"\\\"\"" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "C语言中字符常量用单引号括起单个字符，'W'是合法的。双引号括起的是字符串常量。不加引号的W被视为标识符。"
+        },
+        {
+          "index": 14,
+          "stem": "以下选项中，不是C语言关键字的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "switch" },
+            { "key": "B", "text": "break" },
+            { "key": "C", "text": "Switch" },
+            { "key": "D", "text": "return" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "C语言是大小写敏感的语言。Switch首字母大写，不是C语言的关键字，可以作为用户标识符。switch、break、return都是关键字。"
+        },
+        {
+          "index": 15,
+          "stem": "执行语句：int w='A', x=14, y=15; w=((x||y)&&(w<'a')); 后，w的值为（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "-1" },
+            { "key": "B", "text": "NULL" },
+            { "key": "C", "text": "1" },
+            { "key": "D", "text": "0" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "(x||y)：x=14非零，y=15非零，逻辑或结果为1（真）。w<'a'即65<'a'(97)，结果为1。1&&1=1，w最终赋值为1。注意'A'的ASCII值为65。"
+        },
+        {
+          "index": 16,
+          "stem": "执行语句：int a=1, b=1, c=1; ++a||++b&&++c; 后，b的值为（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "0" },
+            { "key": "B", "text": "2" },
+            { "key": "C", "text": "3" },
+            { "key": "D", "text": "1" }
+          ],
+          "answer": "D",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "运算符优先级：&&高于||，等价于++a||(++b&&++c)。先计算++a=2（非零，真），逻辑或短路，右侧不再执行。因此b仍为初始值1。"
+        },
+        {
+          "index": 17,
+          "stem": "下列叙述中正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "printf()函数必须有输出项" },
+            { "key": "B", "text": "使用putchar()函数时必须在之前包含头文件stdio.h" },
+            { "key": "C", "text": "在C语言中，整数可以用二进制形式输出" },
+            { "key": "D", "text": "getchar()函数读入的是字符的ASCII码值" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "putchar()是stdio.h中的标准I/O函数，使用前必须包含该头文件。A错误：printf(\"Hello\")没有输出项也是合法的。C错误：C语言没有二进制输出格式符（只有%o八进制和%x十六进制）。D错误：getchar()读入的是字符本身不是ASCII码值。"
+        },
+        {
+          "index": 18,
+          "stem": "若a是int型变量，则执行表达式a=25/3后，a的值为（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "8.33" },
+            { "key": "B", "text": "8" },
+            { "key": "C", "text": "9" },
+            { "key": "D", "text": "7" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "C语言中两个整数相除（/）进行整除运算，结果为整数。25/3=8（小数部分被截断，不是四舍五入）。若要得到8.33需使用浮点数：25.0/3。"
+        },
+        {
+          "index": 19,
+          "stem": "设有定义：int x=1, y=2; 则表达式 x>y?(10+x,10-x):(20+y,20-y) 的值是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "22" },
+            { "key": "B", "text": "18" },
+            { "key": "C", "text": "11" },
+            { "key": "D", "text": "9" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "x=1, y=2，条件x>y为假(1>2为假)，执行冒号后的表达式(20+y,20-y)。逗号表达式从左到右计算，结果取最后一个表达式的值：20-y=20-2=18。"
+        },
+        {
+          "index": 20,
+          "stem": "设有定义：char c; 则以下能够正确为字符变量c赋值的语句是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "c = \"W\";" },
+            { "key": "B", "text": "c = W;" },
+            { "key": "C", "text": "c = 'W';" },
+            { "key": "D", "text": "c = '1234';" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "字符型变量用单引号赋值，'W'是一个字符常量。双引号\"W\"是字符串不能赋给char。不加引号的W被视为变量名。'1234'是多字符常量，虽能编译但值不确定。"
+        },
+        {
+          "index": 21,
+          "stem": "关于C语言中switch语句，以下叙述中错误的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "switch语句中case后面的表达式只能是整型常量表达式" },
+            { "key": "B", "text": "在每个case语句后应使用break语句，否则会继续执行下一个case" },
+            { "key": "C", "text": "switch语句可以替代多个if-else语句" },
+            { "key": "D", "text": "case后面的表达式可以是关系表达式" }
+          ],
+          "answer": "D",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "C语言中case后面必须是常量表达式（整型常量或字符常量），不能是关系表达式（如x>5这样的）。关系表达式的结果虽是整数，但不是编译时常量。"
+        },
+        {
+          "index": 22,
+          "stem": "若有定义：int a[10]; 则对a数组元素的正确引用是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "a[10]" },
+            { "key": "B", "text": "a[3.5]" },
+            { "key": "C", "text": "a(5)" },
+            { "key": "D", "text": "a[10-10]" }
+          ],
+          "answer": "D",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "a[10-10]即a[0]，合法引用。A错误：数组下标从0到9，a[10]越界。B错误：下标必须是整数，3.5非法。C错误：数组用方括号[]不是圆括号()。"
+        },
+        {
+          "index": 23,
+          "stem": "若有定义：int x, *pb; 则正确的赋值表达式是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "pb = &x" },
+            { "key": "B", "text": "pb = x" },
+            { "key": "C", "text": "*pb = &x" },
+            { "key": "D", "text": "*pb = *x" }
+          ],
+          "answer": "A",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "pb是指向int类型的指针变量，应将变量x的地址赋给它：pb=&x。B错误：不能将整数赋给指针。C错误：*pb表示指针指向的值，不能将地址赋给它。D错误：x不是指针不能解引用。"
+        },
+        {
+          "index": 24,
+          "stem": "下列程序的输出结果是（　）。\nint a=10; printf(\"%d\", a++);",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "11" },
+            { "key": "B", "text": "10" },
+            { "key": "C", "text": "9" },
+            { "key": "D", "text": "不确定" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "a++是后置自增，先使用a的当前值（10）参与表达式，然后再将a自增为11。因此printf输出的是自增前的值10。"
+        },
+        {
+          "index": 25,
+          "stem": "C语言中，下列叙述正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "宏替换是在运行时进行的" },
+            { "key": "B", "text": "宏替换是在预处理阶段完成的" },
+            { "key": "C", "text": "宏替换是编译完成后进行的" },
+            { "key": "D", "text": "C语言中没有宏替换功能" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "C语言中#define定义的宏在预处理阶段进行文本替换，发生在编译之前。预处理完成后才进入编译阶段。"
+        },
+        {
+          "index": 26,
+          "stem": "设有定义：double x=3.5; 则表达式 10+'b'+x*f 的值的类型为（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "int" },
+            { "key": "B", "text": "float" },
+            { "key": "C", "text": "double" },
+            { "key": "D", "text": "char" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "C语言的自动类型转换规则：向高级类型看齐。表达式中含有double类型的x，整个表达式的结果将自动转换为double类型。int->unsigned->long->double。"
+        },
+        {
+          "index": 27,
+          "stem": "以下函数定义的形式，正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "double fun(int x, int y)" },
+            { "key": "B", "text": "double fun(int x; int y)" },
+            { "key": "C", "text": "double fun(int x, y)" },
+            { "key": "D", "text": "double fun(int x, int y);" }
+          ],
+          "answer": "A",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "函数定义时参数之间用逗号分隔，每个参数都要单独声明类型。A正确。B错误：参数间用分号。C错误：y缺少类型声明。D错误：函数定义不能以分号结尾（那是声明）。"
+        },
+        {
+          "index": 28,
+          "stem": "在C语言中，以下关于数组的描述正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "数组的大小在定义时必须是常量表达式" },
+            { "key": "B", "text": "数组名代表数组中第一个元素的地址" },
+            { "key": "C", "text": "数组下标从1开始" },
+            { "key": "D", "text": "可以对整个数组进行赋值操作" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "数组名在表达式中代表首元素地址（常量指针）。A不完全正确（C99支持变长数组VLA）。C错误：下标从0开始。D错误：不能对数组名直接赋值，需逐个元素赋值。"
+        },
+        {
+          "index": 29,
+          "stem": "若有说明int m[3][4];，则对m数组元素的非法引用是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "m[0][2*1]" },
+            { "key": "B", "text": "m[1][3]" },
+            { "key": "C", "text": "m[4-2][0]" },
+            { "key": "D", "text": "m[0][4]" }
+          ],
+          "answer": "D",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "m是3行4列的二维数组，行下标0~2，列下标0~3。m[0][4]列下标为4，超出了0~3的范围，越界访问。其余选项下标均在合法范围内。"
+        },
+        {
+          "index": 30,
+          "stem": "若有定义：char s[]=\"Hello\";，则数组s的长度是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "5" },
+            { "key": "B", "text": "6" },
+            { "key": "C", "text": "7" },
+            { "key": "D", "text": "不确定" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "用双引号初始化字符数组时，编译器会自动在末尾添加字符串结束符'\\0'。\"Hello\"有5个可见字符加上'\\0'共6个，数组长度为6。"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "name": "编程题",
+      "duration_minutes": 60,
+      "section_score": 60,
+      "instruction": "本部分共3道编程题，每题20分，共60分。请在代码编辑区编写C语言程序，系统将自动使用GCC编译运行并与测试用例对比判分。注意：程序应包含必要的头文件，遵循题目要求的输入输出格式。",
+      "questions": [
+        {
+          "index": 31,
+          "question_type": "programming",
+          "title": "判断回文字符串",
+          "content": {
+            "stem": "编写一个函数fun，判断一个字符串是否为回文（顺读和倒读都一样，如\"LEVEL\"）。若是回文，函数返回1并在主函数中输出\"YES\"；否则返回0并输出\"NO\"。主函数已提供，只需编写fun函数。\n\n【函数原型】\nint fun(char *str);\n\n【输入格式】\n一个字符串（不含空格，长度不超过100）。\n\n【输出格式】\n\"YES\"或\"NO\"（不含引号，全大写）。",
+            "example": "【样例输入1】\nLEVEL\n【样例输出1】\nYES\n\n【样例输入2】\nhello\n【样例输出2】\nNO\n\n【样例输入3】\n12321\n【样例输出3】\nYES"
+          },
+          "score": 20,
+          "auto_grade": true,
+          "supported_languages": ["c"],
+          "test_cases": [
+            { "input": "LEVEL", "expected_output": "YES" },
+            { "input": "hello", "expected_output": "NO" },
+            { "input": "12321", "expected_output": "YES" },
+            { "input": "Ab", "expected_output": "NO" },
+            { "input": "a", "expected_output": "YES" }
+          ],
+          "answer": {
+            "reference_code": "#include <stdio.h>\n#include <string.h>\n\nint fun(char *str)\n{\n    int i, n = strlen(str);\n    for (i = 0; i < n / 2; i++)\n    {\n        if (str[i] != str[n - 1 - i])\n            return 0;\n    }\n    return 1;\n}\n\nint main()\n{\n    char s[101];\n    scanf(\"%s\", s);\n    if (fun(s))\n        printf(\"YES\\n\");\n    else\n        printf(\"NO\\n\");\n    return 0;\n}\n",
+            "explanation": "从字符串两端向中间比较对应字符，如果有任何一对字符不同，则不是回文返回0；全部相同返回1。单字符的字符串被认为是回文。"
+          },
+          "grading_rubric": {
+            "criteria": [
+              { "name": "正确性", "weight": 60, "description": "所有测试用例输出正确" },
+              { "name": "代码规范", "weight": 20, "description": "函数命名清晰，符合题目要求" },
+              { "name": "鲁棒性", "weight": 20, "description": "能正确处理边界情况（单字符、空串等）" }
+            ]
+          }
+        },
+        {
+          "index": 32,
+          "question_type": "programming",
+          "title": "查找能被7或11整除的整数",
+          "content": {
+            "stem": "编写函数fun，求出1到m之间（含m）能被7或11整除的所有整数，放入数组a中，并通过n返回这些数的个数。主函数中已调用该函数并输出结果。\n\n【函数原型】\nvoid fun(int m, int a[], int *n);\n\n【输入格式】\n一个正整数m（7 <= m <= 1000）。\n\n【输出格式】\n符合条件的整数，用空格分隔，输出在一行内。",
+            "example": "【样例输入1】\n50\n【样例输出1】\n7 11 14 21 22 28 33 35 42 44 49\n\n【样例输入2】\n20\n【样例输出2】\n7 11 14"
+          },
+          "score": 20,
+          "auto_grade": true,
+          "supported_languages": ["c"],
+          "test_cases": [
+            { "input": "50", "expected_output": "7 11 14 21 22 28 33 35 42 44 49" },
+            { "input": "20", "expected_output": "7 11 14" },
+            { "input": "7", "expected_output": "7" },
+            { "input": "10", "expected_output": "7" },
+            { "input": "77", "expected_output": "7 11 14 21 22 28 33 35 42 44 49 55 56 63 66 70 77" }
+          ],
+          "answer": {
+            "reference_code": "#include <stdio.h>\n\nvoid fun(int m, int a[], int *n)\n{\n    int i;\n    *n = 0;\n    for (i = 7; i <= m; i++)\n    {\n        if ((i % 7 == 0) || (i % 11 == 0))\n            a[(*n)++] = i;\n    }\n}\n\nint main()\n{\n    int m, a[1000], n, i;\n    scanf(\"%d\", &m);\n    fun(m, a, &n);\n    for (i = 0; i < n; i++)\n    {\n        if (i > 0) printf(\" \");\n        printf(\"%d\", a[i]);\n    }\n    printf(\"\\n\");\n    return 0;\n}\n",
+            "explanation": "从7开始遍历到m（小于7的数不可能被7或11整除），对每个数判断i%7==0或i%11==0，符合条件则存入数组。使用指针*n记录并返回个数。"
+          },
+          "grading_rubric": {
+            "criteria": [
+              { "name": "正确性", "weight": 60, "description": "所有测试用例输出正确" },
+              { "name": "代码规范", "weight": 20, "description": "函数原型符合题目要求" },
+              { "name": "输出格式", "weight": 20, "description": "数字间空格分隔，行末无多余空格" }
+            ]
+          }
+        },
+        {
+          "index": 33,
+          "question_type": "programming",
+          "title": "删除字符串尾部星号",
+          "content": {
+            "stem": "规定输入的字符串中只包含字母和*号。编写函数fun，将字符串尾部的*号全部删除，前面和中间的*号保留不动。\n\n【函数原型】\nvoid fun(char *s);\n\n【输入格式】\n一个字符串（只包含字母和*号，长度不超过100）。\n\n【输出格式】\n处理后的字符串。",
+            "example": "【样例输入1】\n****A*BC*DEF*G*******\n【样例输出1】\n****A*BC*DEF*G\n\n【样例输入2】\nhello****\n【样例输出2】\nhello\n\n【样例输入3】\n***abc***\n【样例输出3】\n***abc"
+          },
+          "score": 20,
+          "auto_grade": true,
+          "supported_languages": ["c"],
+          "test_cases": [
+            { "input": "****A*BC*DEF*G*******", "expected_output": "****A*BC*DEF*G" },
+            { "input": "hello****", "expected_output": "hello" },
+            { "input": "***abc***", "expected_output": "***abc" },
+            { "input": "test", "expected_output": "test" },
+            { "input": "****", "expected_output": "" }
+          ],
+          "answer": {
+            "reference_code": "#include <stdio.h>\n#include <string.h>\n\nvoid fun(char *s)\n{\n    int i;\n    char *p = s;\n    while (*p) p++;\n    p--;\n    while (p >= s && *p == '*') p--;\n    *(p + 1) = '\\0';\n}\n\nint main()\n{\n    char s[101];\n    scanf(\"%s\", s);\n    fun(s);\n    printf(\"%s\\n\", s);\n    return 0;\n}\n",
+            "explanation": "使用指针p先移动到字符串末尾，然后向前跳过所有*号。p最终停在最后一个非*字符的位置，将p+1处设为'\\0'即可截断字符串。注意处理全星号字符串的边界情况。"
+          },
+          "grading_rubric": {
+            "criteria": [
+              { "name": "正确性", "weight": 50, "description": "所有测试用例输出正确" },
+              { "name": "指针使用", "weight": 25, "description": "正确使用指针遍历字符串" },
+              { "name": "边界处理", "weight": 25, "description": "正确处理全部由星号组成的字符串等边界情况" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,957 @@
+{
+  "paper_id": "grad_english_2024",
+  "syllabus_id": "grad-english",
+  "name": "2024年全国硕士研究生招生考试 英语（一）真题",
+  "paper_type": "real",
+  "year": 2024,
+  "month": 12,
+  "set_number": 1,
+  "source": "教育部教育考试院",
+  "total_duration": 180,
+  "total_score": 100,
+  "available_score": 100,
+  "available_note": "考研英语（一）全部为笔试内容，满分100分，所有题型均支持在线练习。完形填空10分+阅读理解A节40分+阅读理解B节（新题型）10分+翻译（英译汉）10分+小作文10分+大作文20分。",
+  "sections": [
+    {
+      "order": 1,
+      "name": "Section I 完形填空（Use of English）",
+      "duration_minutes": 20,
+      "section_score": 10,
+      "instruction": "Read the following text. Choose the best word(s) for each numbered blank and mark A, B, C or D on the ANSWER SHEET. (10 points)",
+      "question_type": "cloze",
+      "passage": "There’s nothing more welcoming than a door opening for you. __(1)__ the need to be touched to open or close, automatic doors are essential in __(2)__ disabled access to buildings and helping provide general __(3)__ to commercial buildings.\n\nSelf-sliding doors began to emerge as a commercial product in 1960 after being invented six years __(4)__ by Americans Dee Horton and Lew Hewitt. They __(5)__ as a novelty feature, but as their use has grown, their __(6)__ have extended within our technologically advanced world. Particularly __(7)__ in busy locations and during times of emergency, the doors __(8)__ crowd management by reducing the obstacles put in people’s way.\n\n__(9)__ making access both in and out of buildings easier for people, the difference in the way many of these doors open helps to reduce the total area __(10)__ by them. Automatic doors often open to the side, with the panels sliding across one another. Replacing swing doors, these __(11)__ smaller spaces to maximise the usable space inside without having to __(12)__ the way for a large, sticking-out door. There are many different types of automatic door, with each __(13)__ specific signals to tell them when to open. __(14)__ these methods differ, the main __(15)__ remain the same.\n\nEach automatic door system __(16)__ the light, sound, weight, or movement in their vicinity as a signal. Sensor types are chosen to __(17)__ the different environments they are needed in. __(18)__, a busy road might not __(19)__ a motion-sensored door, as it would constantly be opening for passers-by. A pressure-sensitive mat would be more __(20)__ to limit the surveyed area.",
+      "questions": [
+        {
+          "blank_index": 1,
+          "question_type": "choice",
+          "stem": "____ the need to be touched to open or close, automatic doors are essential...",
+          "options": [
+            { "key": "A", "text": "Through" },
+            { "key": "B", "text": "Despite" },
+            { "key": "C", "text": "Besides" },
+            { "key": "D", "text": "Without" }
+          ],
+          "answer": "D",
+          "score": 0.5,
+          "explanation": "Without（不需要）。本句意为“自动门不需要接触即可开关”，Without表示“无需、没有”，符合上下文逻辑。Through表示“通过”、Despite表示“尽管”、Besides表示“除了”，均不符合句意。"
+        },
+        {
+          "blank_index": 2,
+          "question_type": "choice",
+          "stem": "...automatic doors are essential in ____ disabled access to buildings...",
+          "options": [
+            { "key": "A", "text": "revealing" },
+            { "key": "B", "text": "demanding" },
+            { "key": "C", "text": "improving" },
+            { "key": "D", "text": "promoting" }
+          ],
+          "answer": "C",
+          "score": 0.5,
+          "explanation": "improving（改善）。improve access to buildings意为“改善通往建筑物的通道”，与下文helping provide并列，描述自动门的积极作用。revealing（揭示）、demanding（要求）、promoting（推广）虽然可与access搭配但语义不当。"
+        },
+        {
+          "blank_index": 3,
+          "question_type": "choice",
+          "stem": "...helping provide general ____ to commercial buildings.",
+          "options": [
+            { "key": "A", "text": "experience" },
+            { "key": "B", "text": "convenience" },
+            { "key": "C", "text": "guidance" },
+            { "key": "D", "text": "reference" }
+          ],
+          "answer": "B",
+          "score": 0.5,
+          "explanation": "convenience（便利）。provide general convenience意为“提供普遍的便利”，符合自动门为商业建筑提供便利的语境。experience（体验）、guidance（指导）、reference（参考）均不符合。"
+        },
+        {
+          "blank_index": 4,
+          "question_type": "choice",
+          "stem": "...after being invented six years ____ by Americans Dee Horton and Lew Hewitt.",
+          "options": [
+            { "key": "A", "text": "previously" },
+            { "key": "B", "text": "successively" },
+            { "key": "C", "text": "repeatedly" },
+            { "key": "D", "text": "continuously" }
+          ],
+          "answer": "A",
+          "score": 0.5,
+          "explanation": "previously（之前）。six years previously意为“六年前”，指自动门在1960年作为商业产品面世，而发明是在此六年前（即1954年）。successively（连续地）、repeatedly（反复地）、continuously（持续地）均不能表达时间先后。"
+        },
+        {
+          "blank_index": 5,
+          "question_type": "choice",
+          "stem": "They ____ as a novelty feature, but as their use has grown...",
+          "options": [
+            { "key": "A", "text": "worked out" },
+            { "key": "B", "text": "started out" },
+            { "key": "C", "text": "stood out" },
+            { "key": "D", "text": "broke out" }
+          ],
+          "answer": "B",
+          "score": 0.5,
+          "explanation": "started out（起初是）。start out as意为“最初作为……开始”，描述自动门最初以新奇功能的面貌出现。worked out（解决/锻炼）、stood out（突出）、broke out（爆发）均不表示“起初”。"
+        },
+        {
+          "blank_index": 6,
+          "question_type": "choice",
+          "stem": "...but as their use has grown, their ____ have extended within our technologically advanced world.",
+          "options": [
+            { "key": "A", "text": "features" },
+            { "key": "B", "text": "aspects" },
+            { "key": "C", "text": "benefits" },
+            { "key": "D", "text": "functions" }
+          ],
+          "answer": "C",
+          "score": 0.5,
+          "explanation": "benefits（益处/好处）。their benefits have extended意为“它们的好处已经扩展”，下文具体说明了在繁忙场所和紧急情况下的好处。features（特征）、aspects（方面）、functions（功能）均不如benefits能概括后文。"
+        },
+        {
+          "blank_index": 7,
+          "question_type": "choice",
+          "stem": "Particularly ____ in busy locations and during times of emergency...",
+          "options": [
+            { "key": "A", "text": "useful" },
+            { "key": "B", "text": "helpful" },
+            { "key": "C", "text": "beneficial" },
+            { "key": "D", "text": "effective" }
+          ],
+          "answer": "A",
+          "score": 0.5,
+          "explanation": "useful（有用的）。particularly useful意为“特别有用”，是固定搭配。helpful（有帮助的）侧重对人的帮助，beneficial（有益的）侧重利益，effective（有效的）侧重效果，均不及useful自然贴切。"
+        },
+        {
+          "blank_index": 8,
+          "question_type": "choice",
+          "stem": "...the doors ____ crowd management by reducing the obstacles put in people’s way.",
+          "options": [
+            { "key": "A", "text": "serve as" },
+            { "key": "B", "text": "regard as" },
+            { "key": "C", "text": "look as" },
+            { "key": "D", "text": "act as" }
+          ],
+          "answer": "D",
+          "score": 0.5,
+          "explanation": "act as（充当/起……作用）。act as crowd management意为“起到人群管理的作用”。serve as也可表示“充当”但侧重服务功能，regard as（视为）、look as（看起来像）语法或语义不正确。"
+        },
+        {
+          "blank_index": 9,
+          "question_type": "choice",
+          "stem": "____ making access both in and out of buildings easier for people, the difference...",
+          "options": [
+            { "key": "A", "text": "As well as" },
+            { "key": "B", "text": "In addition to" },
+            { "key": "C", "text": "Apart from" },
+            { "key": "D", "text": "Except for" }
+          ],
+          "answer": "A",
+          "score": 0.5,
+          "explanation": "As well as（除了……之外还）。As well as doing...结构表示“除了做……之外”，用于连接两个并列的益处。In addition to后接名词/动名词（to doing），Apart from/Except for侧重“除……以外”，在此语境下as well as最自然。"
+        },
+        {
+          "blank_index": 10,
+          "question_type": "choice",
+          "stem": "...helps to reduce the total area ____ by them.",
+          "options": [
+            { "key": "A", "text": "taken" },
+            { "key": "B", "text": "held" },
+            { "key": "C", "text": "covered" },
+            { "key": "D", "text": "occupied" }
+          ],
+          "answer": "D",
+          "score": 0.5,
+          "explanation": "occupied（占据）。the total area occupied by them意为“它们占据的总面积”，occupy表示“占据/占用（空间）”。taken、held、covered均不如occupied常用和精确。"
+        },
+        {
+          "blank_index": 11,
+          "question_type": "choice",
+          "stem": "Replacing swing doors, these ____ smaller spaces to maximise the usable space inside...",
+          "options": [
+            { "key": "A", "text": "allow" },
+            { "key": "B", "text": "enable" },
+            { "key": "C", "text": "permit" },
+            { "key": "D", "text": "let" }
+          ],
+          "answer": "A",
+          "score": 0.5,
+          "explanation": "allow（允许/使能够）。allow smaller spaces to maximise...是allow sb/sth to do sth结构。enable也常用于enable sb/sth to do但侧重“赋能”，permit侧重“许可”，let用法为let sb/sth do（不带to），均不如此处的allow自然。"
+        },
+        {
+          "blank_index": 12,
+          "question_type": "choice",
+          "stem": "...without having to ____ the way for a large, sticking-out door.",
+          "options": [
+            { "key": "A", "text": "make" },
+            { "key": "B", "text": "pave" },
+            { "key": "C", "text": "clear" },
+            { "key": "D", "text": "open" }
+          ],
+          "answer": "C",
+          "score": 0.5,
+          "explanation": "clear（清除/清理）。clear the way是固定短语，意为“清出道路”，此处指不需要为平开门留出空间。make way也可表“让路”但侧重主动避让，pave the way（铺平道路）是比喻义，open the way（开辟道路）语义不当。"
+        },
+        {
+          "blank_index": 13,
+          "question_type": "choice",
+          "stem": "...with each ____ specific signals to tell them when to open.",
+          "options": [
+            { "key": "A", "text": "depending on" },
+            { "key": "B", "text": "counting on" },
+            { "key": "C", "text": "relying on" },
+            { "key": "D", "text": "focusing on" }
+          ],
+          "answer": "C",
+          "score": 0.5,
+          "explanation": "relying on（依靠/依赖）。each relying on specific signals意为“每一种（自动门）都依赖特定信号”。depending on（取决于）侧重条件关系，counting on（指望）侧重期待，focusing on（专注于）侧重注意力，均不如relying on准确。"
+        },
+        {
+          "blank_index": 14,
+          "question_type": "choice",
+          "stem": "____ these methods differ, the main ____ remain the same.",
+          "options": [
+            { "key": "A", "text": "Since" },
+            { "key": "B", "text": "Because" },
+            { "key": "C", "text": "While" },
+            { "key": "D", "text": "Although" }
+          ],
+          "answer": "D",
+          "score": 0.5,
+          "explanation": "Although（虽然/尽管）。Although these methods differ, the main principles remain the same意为“虽然这些方法各不相同，但基本原理保持不变”，表达让步转折关系。While也可表让步但侧重对比，Since/Because表原因，逻辑不对。"
+        },
+        {
+          "blank_index": 15,
+          "question_type": "choice",
+          "stem": "...the main ____ remain the same.",
+          "options": [
+            { "key": "A", "text": "concepts" },
+            { "key": "B", "text": "theories" },
+            { "key": "C", "text": "principles" },
+            { "key": "D", "text": "ideas" }
+          ],
+          "answer": "C",
+          "score": 0.5,
+          "explanation": "principles（原理/原则）。the main principles remain the same意为“基本原理保持不变”，符合科技类文章表达。concepts（概念）过于抽象，theories（理论）过于宏大，ideas（想法）不够正式。"
+        },
+        {
+          "blank_index": 16,
+          "question_type": "choice",
+          "stem": "Each automatic door system ____ the light, sound, weight, or movement in their vicinity as a signal.",
+          "options": [
+            { "key": "A", "text": "produces" },
+            { "key": "B", "text": "analyses" },
+            { "key": "C", "text": "examines" },
+            { "key": "D", "text": "processes" }
+          ],
+          "answer": "B",
+          "score": 0.5,
+          "explanation": "analyses（分析）。analyse...as a signal意为“将……作为信号来分析”，指自动门系统分析光线、声音等信号来判断何时开门。examines（检查）侧重仔细查看，processes（处理）侧重加工处理，produces（产生）语义相反。"
+        },
+        {
+          "blank_index": 17,
+          "question_type": "choice",
+          "stem": "Sensor types are chosen to ____ the different environments they are needed in.",
+          "options": [
+            { "key": "A", "text": "match" },
+            { "key": "B", "text": "fit" },
+            { "key": "C", "text": "suit" },
+            { "key": "D", "text": "complement" }
+          ],
+          "answer": "D",
+          "score": 0.5,
+          "explanation": "complement（补充/适配）。complement the different environments意为“适配/补充不同的环境”，强调传感器类型与环境需求之间的互补关系。match/fit/suit都表示“适合”，但complement更强调“相互补充、相得益彰”。"
+        },
+        {
+          "blank_index": 18,
+          "question_type": "choice",
+          "stem": "____, a busy road might not ____ a motion-sensored door...",
+          "options": [
+            { "key": "A", "text": "In contrast" },
+            { "key": "B", "text": "In addition" },
+            { "key": "C", "text": "For example" },
+            { "key": "D", "text": "As a result" }
+          ],
+          "answer": "C",
+          "score": 0.5,
+          "explanation": "For example（例如）。下文举了繁忙道路不适合动作感应门的例子来说明前文观点，因此需要用For example引出例子。In contrast表对比，In addition表递进，As a result表因果，均不符合上下文逻辑。"
+        },
+        {
+          "blank_index": 19,
+          "question_type": "choice",
+          "stem": "...a busy road might not ____ a motion-sensored door, as it would constantly be opening for passers-by.",
+          "options": [
+            { "key": "A", "text": "fit" },
+            { "key": "B", "text": "suit" },
+            { "key": "C", "text": "match" },
+            { "key": "D", "text": "apply to" }
+          ],
+          "answer": "B",
+          "score": 0.5,
+          "explanation": "suit（适合）。might not suit...意为“可能不适合”，suit强调“对……合适/适宜”。fit侧重尺寸大小合适，match侧重匹配/相称，apply to侧重适用于，均为不同侧重点的近义词，但suit在此语境最贴切。"
+        },
+        {
+          "blank_index": 20,
+          "question_type": "choice",
+          "stem": "A pressure-sensitive mat would be more ____ to limit the surveyed area.",
+          "options": [
+            { "key": "A", "text": "appropriate" },
+            { "key": "B", "text": "available" },
+            { "key": "C", "text": "accessible" },
+            { "key": "D", "text": "applicable" }
+          ],
+          "answer": "A",
+          "score": 0.5,
+          "explanation": "appropriate（合适的/恰当的）。more appropriate意为“更加合适”，即压力感应垫比动作感应门更适合。available（可用的）、accessible（可到达的）、applicable（适用的）均不能准确表达比较级语境下的“更适合”。"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "name": "Section II 阅读理解 Part A — Text 1",
+      "duration_minutes": 18,
+      "section_score": 10,
+      "instruction": "Read the following text. Answer the questions below by choosing A, B, C or D. (10 points, 2 points each)",
+      "passage": "Nearly 2,000 years ago, as the Romans began to pull out of Scotland, they left behind a curious treasure: 10 tons of nails, nearly a million of them. The nail hoard was discovered in 1960 in a four-meter-deep pit covered by two meters of gravel.\n\nWhy had the Romans buried a million nails? The likely explanation is that the withdrawal was rushed, and they didn’t want the local Caledonians getting their hands on 10 tons of weapons-grade iron. The Romans buried the nails so deep that they would not be discovered for almost two millennia.\n\nLater civilizations would value the skilled blacksmith’s labor in a nail even more than the raw material. As Roma Agrawal explains in her new delightful book “Nuts and Bolts,” early 17th-century Virginians would sometimes burn down their homes if they were planning to relocate. This was an attempt to recover the valuable nails, which could be reused after sifting the ashes.\n\nThe price of nails fell by 90% between the late 1700s and mid-1900s, as economist Daniel Sichel points out in a research paper. According to Sichel, although the falling price of nails was driven partly by cheaper iron and cheaper energy, most of the credit goes to nail manufacturers who simply found more efficient ways to turn steel into nails.\n\nNails themselves have changed over the years, but Sichel studied them because they haven’t changed much. Roman lamps and Roman chariots are very different from LED strips and sports cars, but Roman nails are still clearly nails. It would be absurd to try to track the changing price of sports cars since 1695, but to ask the same question of nails makes perfect sense.\n\nI make no apology for being obsessed by a particular feature of these objects: their price. I am an economist, after all. After writing two books about the history of inventions, one thing I’ve learnt is that while it is the enchantingly sophisticated technologies that get all the hype, it’s the cheap technologies that change the world. The Gutenberg printing press transformed civilisation not by changing the nature of writing but by changing its cost — and it would have achieved little without a parallel collapse in the price of surfaces to write on, thanks to an often-overlooked technology called paper. Solar panels had few niche uses until they became cheap; now they are transforming the global energy system.",
+      "questions": [
+        {
+          "question_number": 21,
+          "stem": "Why had the Romans buried a million nails according to the passage?",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "To build a foundation for future roads." },
+            { "key": "B", "text": "To prevent rust and erosion of iron." },
+            { "key": "C", "text": "To mark their territory in Scotland." },
+            { "key": "D", "text": "To hide them from the locals." }
+          ],
+          "answer": "D",
+          "score": 2,
+          "explanation": "定位到第二段：罗马人撤退匆忙，“they didn’t want the local Caledonians getting their hands on 10 tons of weapons-grade iron”，不想让当地喀里多尼亚人得到10吨武器级铁材。D选项“不让当地人发现它们”是对原文的准确转述。",
+          "ai_analysis_hint": "本题为细节定位题。关键信息在第二段第二句，答案几乎直接给出。考生需注意weapons-grade iron暗示钉子可用于制造武器，因此罗马人将其深埋以防落入敌手。"
+        },
+        {
+          "question_number": 22,
+          "stem": "The early 17th-century Virginians are mentioned in paragraph 3 to ____.",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "illustrate the high cost of building houses at that time." },
+            { "key": "B", "text": "criticize the wasteful use of natural resources." },
+            { "key": "C", "text": "demonstrate the abundance of iron in colonial America." },
+            { "key": "D", "text": "show the preciousness of nail-making technology at that time." }
+          ],
+          "answer": "D",
+          "score": 2,
+          "explanation": "例证题。第三段首句即论点：“Later civilizations would value the skilled blacksmith’s labor in a nail even more than the raw material.” 17世纪弗吉尼亚人烧房子回收钉子的事例正是为了说明当时制钉技术之珍贵。D选项精准概括。",
+          "ai_analysis_hint": "考研英语的例证题遵循“例子服务于观点”原则，答案通常在例子前一句（论点句）。考生切勿停留在例子本身，必须往上找作者想证明的观点。"
+        },
+        {
+          "question_number": 23,
+          "stem": "According to paragraph 4, what contributed most to the decline in nail prices?",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "Increased productivity." },
+            { "key": "B", "text": "Cheaper iron." },
+            { "key": "C", "text": "Cheaper energy." },
+            { "key": "D", "text": "Growing demand." }
+          ],
+          "answer": "A",
+          "score": 2,
+          "explanation": "定位第四段末句：虽然铁价和能源价格下降起了一定作用，但“most of the credit goes to nail manufacturers who simply found more efficient ways to turn steel into nails”，大部分功劳归于制造商找到了更高效的生产方式。A选项“生产力提高”即为此意。",
+          "ai_analysis_hint": "most of the credit goes to...是典型的最高级/强调表达，几乎是考点标配。考生应先定位此处，再看选项中哪个与‘found more efficient ways’同义替换。B/C选项都是次要因素（partly），D选项（需求增长）未提及。"
+        },
+        {
+          "question_number": 24,
+          "stem": "According to paragraph 5, Roman nails ____.",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "were different from modern nails in shape." },
+            { "key": "B", "text": "have remained basically the same since Roman times." },
+            { "key": "C", "text": "were of better quality than modern nails." },
+            { "key": "D", "text": "were mainly made of bronze." }
+          ],
+          "answer": "B",
+          "score": 2,
+          "explanation": "第五段明确指出“they haven’t changed much”和“Roman nails are still clearly nails”，说明钉子自罗马时代以来基本不变。作者还用罗马灯和战车与LED灯和跑车作对比，强调钉子形态的稳定性。",
+          "ai_analysis_hint": "对比逻辑是重要考点。作者用Roman lamps vs LED strips, Roman chariots vs sports cars的剧变，反衬nails的‘haven’t changed much’。通过对比找重点，是阅读理解的核心技巧。"
+        },
+        {
+          "question_number": 25,
+          "stem": "What is the author’s main argument in the last two paragraphs?",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "Cheap technologies bring about revolutionary change." },
+            { "key": "B", "text": "Economic analysis can explain all technological progress." },
+            { "key": "C", "text": "The printing press was the most important invention in history." },
+            { "key": "D", "text": "Solar panels will eventually replace fossil fuels entirely." }
+          ],
+          "answer": "A",
+          "score": 2,
+          "explanation": "最后两段的核心句为“it’s the cheap technologies that change the world”，作者以古腾堡印刷机和太阳能电池板为例，论证廉价技术如何带来革命性变化。A选项为该主旨的准确概括。",
+          "ai_analysis_hint": "末段的主旨句（topic sentence）往往在段落中间由转折词引出（but/while it is...that...）。作者强调cheap technologies改变世界，而非那些‘enchantingly sophisticated’的高科技。B选项all过于绝对，C/D选项仅为例证细节。"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "name": "Section II 阅读理解 Part A — Text 2",
+      "duration_minutes": 18,
+      "section_score": 10,
+      "instruction": "Read the following text. Answer the questions below by choosing A, B, C or D. (10 points, 2 points each)",
+      "passage": "Parenting tips obtained from hunter-gatherers in Africa may be the key to raising more contented children, researchers have suggested. The idea is based on studies of communities such as the Kung of Botswana, where each child is cared for by many adults. Kung children as young as four will help to look after younger ones, and “baby-wearing,” in which infants are carried in slings, is considered the norm.\n\nAccording to Dr. Nikhil Chaudhary, an evolutionary anthropologist at Cambridge University, these practices, known as alloparenting, could lead to less anxiety for both children and parents.\n\nDr. Annie Swanepoel, a child psychiatrist, believes that there are ways to incorporate them into western life. In Germany, one scheme has paired an old people’s home with a nursery. The residents help to look after the children, an arrangement akin to alloparenting. Another measure could be encouraging friendships between children in different school years to mimic the supervised mixed-age playgroups in hunter-gatherer communities.\n\nIn a paper published in the Journal of Child Psychology and Psychiatry, researchers said that the western nuclear family was a recent invention that broke with evolutionary history. This abrupt shift to an “intensive mothering narrative” which suggests that mothers should manage child care alone, was likely to have been harmful. “Such narratives can lead to maternal exhaustion and have dangerous consequences,” they wrote.\n\nBy contrast, in hunter-gatherer societies, adults other than the parents can provide almost half of a child’s care. One previous study looked at the people of the Democratic Republic of Congo. It found that infants had an average of 14 alloparents a day by the time they were 18 weeks old and were passed between caregivers eight times an hour.\n\nChaudhary said that parents now had less child care support from family and social networks than during most of human evolutionary history, but introducing additional caregivers could reduce stress and maternal depression, which could have a ‘knock-on’ benefit to a child’s wellbeing. An infant born into a hunter-gatherer society could have more than ten caregivers — this contrasts starkly with nursery settings in the UK where regulations can allow for a ratio of one carer to four children aged two to three.\n\nWhile hunter-gatherer children learn from observation and imitation in mixed-age playgroups, researchers said that western “instructive teaching,” where pupils are asked to sit still, could contribute to conditions such as attention deficit hyperactivity disorder (ADHD). Chaudhary said that Britain should explore the possibility that older siblings helping their parents might also enhance their own social development.",
+      "questions": [
+        {
+          "question_number": 26,
+          "stem": "According to the first two paragraphs, alloparenting refers to the practice of ____.",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "sharing childcare among community members." },
+            { "key": "B", "text": "hiring professional nannies for infants." },
+            { "key": "C", "text": "leaving children in daycare centers." },
+            { "key": "D", "text": "teaching parenting skills to young parents." }
+          ],
+          "answer": "A",
+          "score": 2,
+          "explanation": "定位第一段：博茨瓦纳Kung社区中“each child is cared for by many adults”，四岁孩童也帮忙照看更小的孩子，这被称为alloparenting（异亲抚育/共同育儿）。A选项“社区成员间分担育儿工作”精准概括。",
+          "ai_analysis_hint": "考研阅读中，定义类题目通常在第一段出现。考生注意：alloparenting的词根allo-表示‘其他/不同的’，结合文中的many adults、help to look after，可确定是社区共同育儿而非专业机构照看。"
+        },
+        {
+          "question_number": 27,
+          "stem": "The scheme in Germany is mentioned in paragraph 3 to illustrate ____.",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "the growing aging population problem in Europe." },
+            { "key": "B", "text": "an approach to integrating alloparenting into western society." },
+            { "key": "C", "text": "the failure of nuclear family in modern society." },
+            { "key": "D", "text": "the need for more nurseries in developed countries." }
+          ],
+          "answer": "B",
+          "score": 2,
+          "explanation": "例证题。第三段首句为观点句：Dr. Annie Swanepoel认为“there are ways to incorporate them into western life”，德国的养老院与托儿所配对项目正是将异亲抚育融入西方社会的实例。",
+          "ai_analysis_hint": "又一典型例证题。找到例子服务的那句话（段落主题句）即可找到答案。incorporate一词是关键信号词，意为‘融入/纳入’。"
+        },
+        {
+          "question_number": 28,
+          "stem": "According to paragraph 4, the “intensive mothering narrative” ____.",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "is a natural result of social development." },
+            { "key": "B", "text": "helps strengthen the mother-child emotional bond." },
+            { "key": "C", "text": "reflects the progress of women’s rights." },
+            { "key": "D", "text": "departs from the course of evolution." }
+          ],
+          "answer": "D",
+          "score": 2,
+          "explanation": "第四段指出西方核心家庭“broke with evolutionary history”（打断了进化史），而“intensive mothering narrative”要求母亲独自承担育儿责任，正是这种偏离进化过程的表现。D选项departs from与broke with同义替换。",
+          "ai_analysis_hint": "broke with evolutionary history是核心判断，否定色彩明显（broke表示‘断裂/决裂’）。A/B/C均为积极正面的描述，与文章的批判态度相悖，可直接排除。"
+        },
+        {
+          "question_number": 29,
+          "stem": "What can be inferred about the nurseries in the UK?",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "They provide high-quality care for children." },
+            { "key": "B", "text": "They should follow the German model exactly." },
+            { "key": "C", "text": "They ought to improve their carer-to-child ratio." },
+            { "key": "D", "text": "They have too few children to care for." }
+          ],
+          "answer": "C",
+          "score": 2,
+          "explanation": "第六段末句对比：狩猎采集社会婴儿有10多个照顾者，英国托儿所规定比例仅1:4，starkly contrasts（鲜明对比）暗示英国托儿所的看护比例应该改善。C选项据此推断。",
+          "ai_analysis_hint": "推断题需要‘多走一步’——文章只摆出了对比事实（1:4 vs 10+ caregivers），并未明说应该怎样。但‘starkly contrasts’的强烈语气暗示作者持批判态度，因此推断出‘应改进’是合理且必要的。"
+        },
+        {
+          "question_number": 30,
+          "stem": "Which of the following would be the best title for the text?",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "The Decline of the Nuclear Family in the West." },
+            { "key": "B", "text": "For a Happier Family: Learn from the Hunter-Gatherers." },
+            { "key": "C", "text": "The Science of Early Childhood Development." },
+            { "key": "D", "text": "How Modern Education Harms Children." }
+          ],
+          "answer": "B",
+          "score": 2,
+          "explanation": "主旨题。全文围绕从狩猎采集者（hunter-gatherers）借鉴alloparenting模式来提升家庭幸福感展开。开篇即点题：从非洲狩猎采集者获取的育儿经验可能是培养更满足的孩子的关键。B选项最全面。",
+          "ai_analysis_hint": "主旨题需覆盖文章核心信息：1) hunter-gatherers（研究对象）2) family/parenting（话题）3) learn from（作者对西方社会的建议态度）。A选项仅为局部内容，C/D选项过于宽泛或片面。"
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "name": "Section II 阅读理解 Part A — Text 3",
+      "duration_minutes": 18,
+      "section_score": 10,
+      "instruction": "Read the following text. Answer the questions below by choosing A, B, C or D. (10 points, 2 points each)",
+      "passage": "Rutkowski is a Polish digital artist who uses classical painting styles to create dreamy fantasy landscapes. He has made illustrations for games such as Sony’s Horizon Forbidden West, Ubisoft’s Anno, Dungeons & Dragons, and Magic: The Gathering. And he’s become a sudden hit in the new world of text-to-image AI generation.\n\nHis distinctive style is now one of the most commonly used prompts in the new open-source AI art generator Stable Diffusion, which was launched late last month. The tool, along with other popular image-generation AI models, allows anyone to create impressive images based on text prompts. For example, type in “Wizard with sword and a glowing orb of magic fire fights a fierce dragon Greg Rutkowski,” and the system will produce something that looks not a million miles away from works in Rutkowski’s style.\n\nBut these open-source programs are built by scraping images from the Internet, often without permission and proper attribution to artists. As a result, they are raising tricky questions about ethics and copyright. And artists like Rutkowski have had enough.\n\nAccording to the website Lexica, which tracks over 10 million images and prompts generated by Stable Diffusion, Rutkowski’s name has been used as a prompt around 93,000 times. Some of the world’s most famous artists, such as Michelangelo, Pablo Picasso, and Leonardo da Vinci, brought up around 2,000 prompts each or less. Rutkowski’s name also features as a prompt thousands of times in the Discord of another text-to-image generator, Midjourney. Rutkowski was initially surprised but thought it might be a good way to reach new audiences. Then he tried searching for his name to see if a piece he had worked on had been published. The online search brought back work that had his name attached to it but wasn’t his.\n\n“It’s been just a month. What about in a year? I probably won’t be able to find my work out there because [the internet] will be flooded with AI art,” Rutkowski says. “That’s concerning.”\n\nOther artists besides Rutkowski have been surprised by the apparent popularity of their work in text-to-image generators, and some are now fighting back. Karla Ortiz, an illustrator based in San Francisco who found her work in Stable Diffusion’s data set, has been raising awareness about the issues around AI art and copyright. Artists say they risk losing income as people start using AI-generated images based on copyrighted material for commercial purposes. But it’s also a lot more personal, Ortiz says, arguing that because art is so closely linked to a person, it could raise data protection and privacy problems.\n\n“There is a coalition growing within artist industries to figure out how to tackle or mitigate this,” says Ortiz. The group is in its early days of mobilization, which could involve pushing for new policies or regulation. One suggestion is that AI models could be trained on images in the public domain, and AI companies could forge partnerships with museums and artists, Ortiz says.",
+      "questions": [
+        {
+          "question_number": 31,
+          "stem": "What do we learn about Greg Rutkowski from the first two paragraphs?",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "He invented the Stable Diffusion AI system." },
+            { "key": "B", "text": "He is popular with the users of an AI art generator." },
+            { "key": "C", "text": "He has stopped creating digital art himself." },
+            { "key": "D", "text": "He works for the company that created AI art tools." }
+          ],
+          "answer": "B",
+          "score": 2,
+          "explanation": "前两段指出Rutkowski的风格成为Stable Diffusion中最常用的提示词之一，用户输入他的名字即可生成类似风格的作品。B选项“他受AI艺术生成器用户的欢迎”准确概括。A/C/D均与原文不符。",
+          "ai_analysis_hint": "前两段的关键信息：‘become a sudden hit’、‘most commonly used prompts’。这些都在说明Rutkowski在AI艺术生成领域意外走红，而非他本人参与AI工具的创造。"
+        },
+        {
+          "question_number": 32,
+          "stem": "According to paragraph 3, the open-source AI programs ____.",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "use only copyright-free images for training." },
+            { "key": "B", "text": "require artists to register their works in advance." },
+            { "key": "C", "text": "make unauthorized use of online images." },
+            { "key": "D", "text": "compensate artists for using their works." }
+          ],
+          "answer": "C",
+          "score": 2,
+          "explanation": "第三段明确写道“built by scraping images from the Internet, often without permission and proper attribution to artists”，即这些程序通过抓取互联网图片来构建数据库，往往未经许可和适当署名。C选项“未经授权使用网络图像”是原文的精确表述。",
+          "ai_analysis_hint": "without permission = unauthorized use，这是典型的同义替换考点。scraping images from the Internet是理解本段的关键，指‘从互联网抓取/爬取图像’。"
+        },
+        {
+          "question_number": 33,
+          "stem": "What worried Rutkowski when he searched for his own name online?",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "His original artworks were being stolen and sold." },
+            { "key": "B", "text": "His personal information was publicly exposed." },
+            { "key": "C", "text": "AI-generated work bearing his name was not his own." },
+            { "key": "D", "text": "His art style was being imitated by human artists." }
+          ],
+          "answer": "C",
+          "score": 2,
+          "explanation": "第四段末句：“The online search brought back work that had his name attached to it but wasn’t his.” 搜索结果出现了署名是他的但并非出自他手的AI生成作品。第五段他担心互联网将被AI艺术淹没，找不到自己真正的作品。C选项准确概括。",
+          "ai_analysis_hint": "had his name attached to it but wasn’t his——这句话是题眼。重点区分：不是作品被盗（A），而是AI生成了署他名字但非他所创的新作品。"
+        },
+        {
+          "question_number": 34,
+          "stem": "According to the last two paragraphs, Ortiz suggests that AI companies should ____.",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "stop developing image-generation technology." },
+            { "key": "B", "text": "hire more artists to supervise the models." },
+            { "key": "C", "text": "limit the use of their tools to professional artists." },
+            { "key": "D", "text": "adopt a different strategy for AI model training." }
+          ],
+          "answer": "D",
+          "score": 2,
+          "explanation": "末段Ortiz提出“AI models could be trained on images in the public domain, and AI companies could forge partnerships with museums and artists”，建议AI模型应使用公共领域图像训练并与博物馆和艺术家合作。D选项“采用不同的AI模型训练策略”概括了这一建议。",
+          "ai_analysis_hint": "Ortiz的建议分两层：1) 训练数据改用public domain图像（而非随意抓取）；2) 与博物馆和艺术家建立合作关系。这两点都是对当前训练策略的改变，因而D为最准确概括。"
+        },
+        {
+          "question_number": 35,
+          "stem": "Which of the following best summarizes the text?",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "Artists’ responses to AI art generation." },
+            { "key": "B", "text": "The technological breakthrough of Stable Diffusion." },
+            { "key": "C", "text": "The history of digital art creation." },
+            { "key": "D", "text": "Copyright law in the digital age." }
+          ],
+          "answer": "A",
+          "score": 2,
+          "explanation": "全文以Rutkowski为切入点，描述了AI艺术生成器对艺术家的影响，以及艺术家（Rutkowski、Ortiz等）的反应和应对措施。A选项“艺术家对AI艺术生成的回应”最全面。B/C/D或过于狭窄或偏离核心话题。",
+          "ai_analysis_hint": "全文结构：Rutkowski个人遭遇（提出问题）→其他艺术家也受影响（问题扩大）→Ortiz等组织反击并提出建议（回应/解决）。从个人到群体再到行动，‘艺术家的回应’是贯穿全文的主线。"
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "name": "Section II 阅读理解 Part A — Text 4",
+      "duration_minutes": 18,
+      "section_score": 10,
+      "instruction": "Read the following text. Answer the questions below by choosing A, B, C or D. (10 points, 2 points each)",
+      "passage": "The miracle of the Chesapeake Bay lies not in its depths, but in the complexity of its natural construction, the interaction of fresh and saline waters, and the mix of land and water. The shallows provide homes for hundreds of species while storing floodwaters, filtering pollutants from the water, and protecting nearby communities from potentially destructive storm surges.\n\nAll this was put at great risk late last month, when the US Supreme Court issued a ruling in a case that provides the US Environmental Protection Agency (EPA) far less authority to regulate wetlands and waterways. Specifically, a 5-4 majority decided that wetlands protected by the EPA under its Clean Water Act authority must have a “continuous surface connection” to bodies of water. This narrowing of the regulatory scope was a victory for builders, mining operators, and other commercial interests often at odds with environmental rules. And it carries “significant repercussions for water quality and flood control throughout the United States,” as Justice Brett Kavanaugh observed.\n\nIn Maryland, the good news is that there are many state laws in place to provide wetlands protections. But that’s a very shortsighted view, particularly when it comes to the Chesapeake Bay. The reality is that water, and the pollutants that so often come with it, don’t respect state boundaries. The Chesapeake Bay draws from a 64,000-square-mile watershed that extends into Virginia, Pennsylvania, New York, West Virginia, the District of Columbia, and Delaware. Will those jurisdictions extend the same protections now denied under Sackett v. EPA? Perhaps some, but all? That seems unlikely.\n\nIt is too easy, and misleading, to see such court rulings as merely standing up for the rights of land owners when the consequences can be so dire for their neighbors. And it’s a reminder that the EPA’s involvement in the Chesapeake Bay Program has long been crucial as the means to transcend the influence of deep-pocketed special interests in neighboring states. Pennsylvania farmers, to use one telling example, aren’t thinking about next year’s blue crab harvest in Maryland when they decide whether to spread animal waste on their fields, yet the runoff into nearby creeks can have enormous impacts downstream.\n\nAnd so we would call on state lawmakers from Richmond to Albany to consider reviewing their own wetlands protections and see for themselves the enormous stakes involved. We can offer them a visit to Blackwater National Wildlife Refuge in Dorchester County, where bald eagles fly over tidal marshes so shallow you could not paddle a boat across them, but teeming with aquatic life. It’s worth the scenic drive.",
+      "questions": [
+        {
+          "question_number": 36,
+          "stem": "The Chesapeake Bay is described in paragraph 1 as ____.",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "a valuable natural environment." },
+            { "key": "B", "text": "a controversial conservation area." },
+            { "key": "C", "text": "a place with commercial potential." },
+            { "key": "D", "text": "a headache for nearby communities." }
+          ],
+          "answer": "A",
+          "score": 2,
+          "explanation": "第一段用“miracle”描述切萨皮克湾，强调其自然构造的复杂性、淡咸水交互以及为数百种物种提供栖息地、储存洪水、过滤污染物、保护社区等生态功能。A选项“宝贵的自然环境”最能概括。",
+          "ai_analysis_hint": "miracle一词奠定了作者对Chesapeake Bay的正面评价基调。后文列举的provide homes, store floodwaters, filter pollutants, protect communities均指向其珍贵的生态价值。"
+        },
+        {
+          "question_number": 37,
+          "stem": "The U.S. Supreme Court’s ruling in the Idaho case ____.",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "reinforces water pollution control." },
+            { "key": "B", "text": "weakens the EPA’s regulatory power." },
+            { "key": "C", "text": "will end conflicts among local residents." },
+            { "key": "D", "text": "may face opposition from mining operators." }
+          ],
+          "answer": "B",
+          "score": 2,
+          "explanation": "第二段首句明确写道裁决“provides the US Environmental Protection Agency (EPA) far less authority to regulate wetlands and waterways”。B选项“削弱了EPA的监管权力”是对less authority的直接转述。",
+          "ai_analysis_hint": "far less authority是程度很强的否定表达。注意：裁决是5-4微弱多数通过的（暗示有争议），且Kavanaugh大法官也指出其有‘significant repercussions’（重大影响），表明即使支持方也承认后果严重。"
+        },
+        {
+          "question_number": 38,
+          "stem": "How does the author feel about the future of the Chesapeake Bay?",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "Worried." },
+            { "key": "B", "text": "Puzzled." },
+            { "key": "C", "text": "Optimistic." },
+            { "key": "D", "text": "Encouraged." }
+          ],
+          "answer": "A",
+          "score": 2,
+          "explanation": "作者在第三段指出仅靠马里兰州的州法保护是“shortsighted”（目光短浅的），因为水域跨越多个州，其他辖区不一定会提供同等的保护—“That seems unlikely.” 整体语气充满担忧。",
+          "ai_analysis_hint": "注意转折信号but：‘the good news is... But that’s a very shortsighted view’。好消息之后紧接的but才是作者的真实态度。shortsighted + seems unlikely奠定了担忧的基调。"
+        },
+        {
+          "question_number": 39,
+          "stem": "What can be inferred about the EPA’s involvement in the Chesapeake Bay Program?",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "It has restored the balance among neighboring jurisdictions." },
+            { "key": "B", "text": "It has triggered a radical reform in commercial fisheries." },
+            { "key": "C", "text": "It has set a fine example for other state authorities." },
+            { "key": "D", "text": "It has ensured the coordination of protection efforts." }
+          ],
+          "answer": "D",
+          "score": 2,
+          "explanation": "第四段指出EPA的参与“has long been crucial as the means to transcend the influence of deep-pocketed special interests in neighboring states”，即EPA的介入对于超越邻近州特殊利益集团的影响、确保跨州协调至关重要。D选项概括了“确保保护工作协调”这一功能。",
+          "ai_analysis_hint": "transcend the influence of...neighboring states = ensure coordination across states。EPA在这里充当了‘协调者’角色，解决各州之间‘各扫门前雪’的问题。"
+        },
+        {
+          "question_number": 40,
+          "stem": "The author holds that state lawmakers should ____.",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "be cautious about the influence of landowners." },
+            { "key": "B", "text": "attach due importance to wetlands protection." },
+            { "key": "C", "text": "recognize the need for wildlife refuges." },
+            { "key": "D", "text": "improve the wellbeing of endangered species." }
+          ],
+          "answer": "B",
+          "score": 2,
+          "explanation": "末段首句“we would call on state lawmakers from Richmond to Albany to consider reviewing their own wetlands protections and see for themselves the enormous stakes involved”，呼吁各州立法者审查各自的湿地保护措施，意识到巨大的利益攸关。B选项“对湿地保护给予应有重视”为最佳概括。",
+          "ai_analysis_hint": "末段call on state lawmakers to...是典型的倡议/呼吁句式。enormous stakes（巨大的利害关系）暗示湿地保护的重要性远超想象。作者邀请立法者参观Blackwater保护区是为了让他们亲眼看到湿地生态之美，从而激发保护意愿。"
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "name": "Section II 阅读理解 Part B — 新题型（概括句匹配）",
+      "duration_minutes": 18,
+      "section_score": 10,
+      "instruction": "The following paragraphs are taken from a discussion about whether museums should return artifacts to their countries of origin. You are going to read five people’s opinions and match each of them to one of the statements A–G that best summarizes the corresponding opinion. Two statements are extra and do not belong to any of the five people. (10 points, 2 points each)",
+      "passage": "The debate over whether museums should return cultural artifacts to their countries of origin has intensified in recent years. Below are the views of five contributors to the discussion.\n\n**(41) Hannah**\n\nSimply, there are people in Nigeria who cannot travel to the Smithsonian Institution to see that part of their history and culture represented by the Benin Bronzes. These should be available to them as part of their cultural heritage and history and as a source of national pride. There is no good reason that these artifacts should be beyond the ordinary reach of the educational objectives or inspiration of the generations to which they were left. They serve no purpose in a museum in the United States or elsewhere except as curious objects. They cannot be compared to works of art produced for sale which can be passed from hand to hand and place to place by purchase.\n\n**(42) Buck**\n\nWe know very exact reproductions of artwork can be and are regularly produced. Perhaps museums and governments might explore some role for the use of nearly exact reproductions as a means of resolving issues relating to returning works of art and antiquities. The context of any exhibit is more important to me than whether the object being displayed is 2,000 years old or 2 months old. In many cases the experts have a hard time agreeing on what is the real object and what is a forgery. Again, the story an exhibit is trying to tell is what matters. The monetary value of the objects on display is a distant second place in importance.\n\n**(43) Sara**\n\nWhen visiting the Baltimore Museum of Art, I came across a magnificent 15th-century Chinese sculpture. It inspired me to learn more about the culture that it represented. Artifacts in museums have the power to inspire, and perhaps spark that need to learn and understand the nature of their creators. Having said that, I do feel that whatever artifacts find their way to public museums should, in fact, be sanctioned as having been obtained on loan, legally purchased, or obtained by treaty. Stealing artifacts from other peoples’ cultures is obscene; it robs not only the physical objects, but the dignity and spirit of their creators.\n\n**(44) Victor**\n\nAncient art that is displayed in foreign countries by all means should be returned to the original country. The foreign countries have no right to hold back returning the items. I would ask that the foreign nations and the original country discuss the terms of transfer. Yes, there is the risk that the original will not have as good security as do the foreign countries. But look at what happened to Boston’s Gardner Museum theft in 1990, including the loss of Rembrandt, Vermeer, Manet and other masterpieces. Nothing is absolutely safe nowhere, and now Climate Change agitators are attacking publicly displayed work in European museums.\n\n**(45) Julia**\n\nTo those of you in the comments section who are having strong feelings about artifacts being removed from cities in the US and Britain and returned to their countries of origin, I would ask you to consider: why do you think Americans have more of a right to easily access the Benin Bronzes than people of Nigeria? Why are people who live within a day’s drive of London entitled to go and see the Elgin Marbles wherever they want, but the people of Athens aren’t? What intrinsic factors make the West a suitable home for these artifacts but preclude them from being preserved and displayed by their countries of origin? If your conclusion is that the West is better able to preserve these artifacts, think about why you’re assuming that to be true.",
+      "match_statements": [
+        { "label": "A", "text": "It is clear that the countries of origin have never been compensated for the stolen artifacts." },
+        { "label": "B", "text": "It is a flawed line of reasoning to argue against returning artifacts to their countries of origin." },
+        { "label": "C", "text": "Museum visitors can still learn as much from artifacts’ copies after the originals are returned." },
+        { "label": "D", "text": "Reproductions, even if perfectly made, cannot take the place of the authentic objects." },
+        { "label": "E", "text": "The real value of artifacts can only be recognized in their countries of origin rather than anywhere else." },
+        { "label": "F", "text": "Ways to get artifacts from other countries must be decent and lawful." },
+        { "label": "G", "text": "Concern over security is no excuse for refusing to return artifacts to their countries of origin." }
+      ],
+      "extra_statements": ["A", "D"],
+      "questions": [
+        {
+          "question_number": 41,
+          "stem": "Hannah",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "A" }, { "key": "B", "text": "B" }, { "key": "C", "text": "C" },
+            { "key": "D", "text": "D" }, { "key": "E", "text": "E" }, { "key": "F", "text": "F" }, { "key": "G", "text": "G" }
+          ],
+          "answer": "E",
+          "score": 2,
+          "explanation": "Hannah认为贝宁青铜器等文物在尼日利亚原产国才能真正发挥文化和教育价值，放在美国博物馆只是“curious objects”（猎奇物品）。这与E选项“文物的真正价值只能在其原产国被认识”完全对应。核心依据：“They serve no purpose in a museum in the United States or elsewhere except as curious objects.”"
+        },
+        {
+          "question_number": 42,
+          "stem": "Buck",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "A" }, { "key": "B", "text": "B" }, { "key": "C", "text": "C" },
+            { "key": "D", "text": "D" }, { "key": "E", "text": "E" }, { "key": "F", "text": "F" }, { "key": "G", "text": "G" }
+          ],
+          "answer": "C",
+          "score": 2,
+          "explanation": "Buck主张用近乎精确的复制品来解决文物归还争端，并强调“The context of any exhibit is more important...The story an exhibit is trying to tell is what matters.” 他认为展览的叙事和语境比展品本身的年代和真伪更重要。C选项“原件归还后，游客仍能从复制品中学到同样多的东西”精准概括。",
+          "ai_analysis_hint": "本题争议较大，D选项（复制品不能替代真品）是强干扰项。但Buck的核心论点是支持用复制品解决问题，强调‘故事/语境’比‘实物真伪’重要，因此答案选C而非D。"
+        },
+        {
+          "question_number": 43,
+          "stem": "Sara",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "A" }, { "key": "B", "text": "B" }, { "key": "C", "text": "C" },
+            { "key": "D", "text": "D" }, { "key": "E", "text": "E" }, { "key": "F", "text": "F" }, { "key": "G", "text": "G" }
+          ],
+          "answer": "F",
+          "score": 2,
+          "explanation": "Sara一方面肯定文物在博物馆中的启发力量，另一方面通过Having said that转折强调：进入公共博物馆的文物“should...be sanctioned as having been obtained on loan, legally purchased, or obtained by treaty”，偷窃“is obscene”。F选项“获取文物的方式必须正当合法”完整概括其立场。",
+          "ai_analysis_hint": "Having said that是Sara观点中的关键转折信号词——前半句谈文物的正面价值，后半句才亮出真正立场：合法获取是前提。"
+        },
+        {
+          "question_number": 44,
+          "stem": "Victor",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "A" }, { "key": "B", "text": "B" }, { "key": "C", "text": "C" },
+            { "key": "D", "text": "D" }, { "key": "E", "text": "E" }, { "key": "F", "text": "F" }, { "key": "G", "text": "G" }
+          ],
+          "answer": "G",
+          "score": 2,
+          "explanation": "Victor认为海外展出的古代艺术品理应归还，虽然有人担心原产国安全保障不足，但他用波士顿加德纳博物馆1990年失窃案为例反驳：“Nothing is absolutely safe nowhere.” G选项“安全顾虑不能成为拒绝归还的借口”精准概括其核心论点。",
+          "ai_analysis_hint": "Victor的观点结构：先立论（归还）→承认对方可能的反驳（安全顾虑）→用反例击破反驳（西方博物馆也不安全）→结论（安全不是借口）。这是典型的让步-反驳论证模式。"
+        },
+        {
+          "question_number": 45,
+          "stem": "Julia",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "A" }, { "key": "B", "text": "B" }, { "key": "C", "text": "C" },
+            { "key": "D", "text": "D" }, { "key": "E", "text": "E" }, { "key": "F", "text": "F" }, { "key": "G", "text": "G" }
+          ],
+          "answer": "B",
+          "score": 2,
+          "explanation": "Julia通过一连串反问质疑西方在文物归属上的特权思维：为什么美国人比尼日利亚人更有权看到贝宁青铜器？为什么伦敦附近居民可以随便看到埃尔金大理石雕而雅典人不可以？她最后指出如果你认为西方更适合保存这些文物，请反思这个假设本身。B选项“反对归还文物的论证思路是有缺陷的”准确概括了其对现有论证逻辑的批判。",
+          "ai_analysis_hint": "Julia的‘连环反问’是识别其观点的关键标志。她没有直接说‘应该归还’，而是通过揭露反对归还者的逻辑漏洞来间接论证。flawed line of reasoning精准对应这种‘质疑对方逻辑’的论证方式。"
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "name": "Section III 翻译 — 英译汉（Translation）",
+      "duration_minutes": 25,
+      "section_score": 10,
+      "instruction": "Read the following text carefully and then translate the underlined segments into Chinese. Write your answers on the ANSWER SHEET. (10 points, 2 points each)",
+      "passage_context": "African elephants’ remarkable ability to find food and water across vast savannahs has long fascinated scientists. A recent study published in the journal Animal Behaviour sheds new light on how these intelligent creatures navigate their environment so efficiently. The research suggests that elephants rely on a sophisticated combination of memory, spatial awareness, and their extraordinary sense of smell to locate resources across great distances.",
+      "questions": [
+        {
+          "index": 46,
+          "question_type": "translation",
+          "content": {
+            "source": "They sometimes travel more than sixty miles to find food or water, and are very good at working out where other elephants are—even when they are out of sight.",
+            "key_vocabulary": [
+              { "word": "working out", "meaning": "弄清楚/推算出" },
+              { "word": "out of sight", "meaning": "看不见/在视线之外" }
+            ]
+          },
+          "score": 2,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              { "name": "意思准确", "weight": 50, "description": "原文主要信息点是否全部翻译到位" },
+              { "name": "语言通顺", "weight": 30, "description": "中文表达是否流畅自然" },
+              { "name": "关键词处理", "weight": 20, "description": "“working out”“when they are out of sight”等关键表达是否翻译得当" }
+            ]
+          },
+          "answer": {
+            "reference_translation": "它们有时跋涉超过六十英里去寻找食物或水源，并且非常擅长弄清楚其他大象的位置——即便它们不在视线范围内。",
+            "grading_notes": "“working out”在此上下文中意为“弄清楚/推算出”而非“锻炼/解决”；“even when they are out of sight”需表达让步语气。"
+          }
+        },
+        {
+          "index": 47,
+          "question_type": "translation",
+          "content": {
+            "source": "The researchers are convinced that the elephants always know precisely where they are in relation to all the resources they need, and can therefore take shortcuts, as well as following familiar routes.",
+            "key_vocabulary": [
+              { "word": "are convinced that", "meaning": "确信/深信" },
+              { "word": "in relation to", "meaning": "相对于/相对位置" },
+              { "word": "take shortcuts", "meaning": "抄近路" },
+              { "word": "familiar routes", "meaning": "熟悉的路线" }
+            ]
+          },
+          "score": 2,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              { "name": "意思准确", "weight": 50, "description": "原文主要信息点是否全部翻译到位" },
+              { "name": "语言通顺", "weight": 30, "description": "中文表达是否流畅自然" },
+              { "name": "关键词处理", "weight": 20, "description": "“in relation to”“take shortcuts”等处理是否得当" }
+            ]
+          },
+          "answer": {
+            "reference_translation": "研究人员确信，大象始终精确地知道自己相对于所需资源的位置，因此它们既能沿着熟悉的路线行走，也能抄近路。",
+            "grading_notes": "“in relation to”翻译为“相对于”是关键，表示空间位置关系。“take shortcuts”意为“抄近路”。“as well as”连接两个并列成分，翻译时可用“既……也……”处理。"
+          }
+        },
+        {
+          "index": 48,
+          "question_type": "translation",
+          "content": {
+            "source": "One possibility was that they merely used their eyes and tried out the plants they found, but that would probably result in a lot of wasted time and energy, not least because their eyesight is actually not very good.",
+            "key_vocabulary": [
+              { "word": "merely", "meaning": "仅仅/只是" },
+              { "word": "tried out", "meaning": "尝试/试着品尝" },
+              { "word": "not least because", "meaning": "尤其是因为/相当程度上是因为" },
+              { "word": "eyesight", "meaning": "视力" }
+            ]
+          },
+          "score": 2,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              { "name": "意思准确", "weight": 50, "description": "原文主要信息点是否全部翻译到位" },
+              { "name": "语言通顺", "weight": 30, "description": "中文表达是否流畅自然" },
+              { "name": "关键词处理", "weight": 20, "description": "“not least because”结构是否处理得当" }
+            ]
+          },
+          "answer": {
+            "reference_translation": "一种可能性是，它们仅仅用眼睛看并尝试它们找到的植物，但这很可能会浪费大量时间和精力，相当程度上是因为它们的视力实际上并不是很好。",
+            "grading_notes": "“not least because”是难点，意为“相当程度上是因为/尤其是因为”，表示几个原因中最重要的那个。“tried out”∼“尝试/试着品尝”。"
+          }
+        },
+        {
+          "index": 49,
+          "question_type": "translation",
+          "content": {
+            "source": "The volatile chemicals produced by plants can be carried a long way, and they are very characteristic: Each plant or tree has its own particular odor signature.",
+            "key_vocabulary": [
+              { "word": "volatile", "meaning": "挥发性的/易挥发的" },
+              { "word": "carried a long way", "meaning": "传播到很远的地方" },
+              { "word": "characteristic", "meaning": "具有特征的/独特的" },
+              { "word": "odor signature", "meaning": "气味特征/气味标识" }
+            ]
+          },
+          "score": 2,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              { "name": "意思准确", "weight": 50, "description": "原文主要信息点是否全部翻译到位" },
+              { "name": "语言通顺", "weight": 30, "description": "中文表达是否流畅自然" },
+              { "name": "关键词处理", "weight": 20, "description": "“volatile”“odor signature”是否翻译准确" }
+            ]
+          },
+          "answer": {
+            "reference_translation": "植物产生的挥发性化学物质可以传播到很远的地方，并且它们非常具有特征性：每种植物或树木都有其独特的气味特征。",
+            "grading_notes": "“volatile”在化学上下文中意为“挥发性的”，而非“反复无常的”。“odor signature”可翻译为“气味特征”或“气味标识”，指每种植物独有的气味。"
+          }
+        },
+        {
+          "index": 50,
+          "question_type": "translation",
+          "content": {
+            "source": "The experiment showed that elephants may well use smell to identify patches of trees that are good to eat, and secondly to assess the quality of the trees within each patch.",
+            "key_vocabulary": [
+              { "word": "may well", "meaning": "很可能/大概率" },
+              { "word": "patches", "meaning": "一片区域/小块地" },
+              { "word": "assess", "meaning": "评估/评判" }
+            ]
+          },
+          "score": 2,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              { "name": "意思准确", "weight": 50, "description": "原文主要信息点是否全部翻译到位" },
+              { "name": "语言通顺", "weight": 30, "description": "中文表达是否流畅自然" },
+              { "name": "关键词处理", "weight": 20, "description": "“may well”“patches”“assess”是否翻译得当" }
+            ]
+          },
+          "answer": {
+            "reference_translation": "该实验表明，大象很可能使用嗅觉来识别哪些树木区域适合食用，其次用来评估每片区域内树木的质量。",
+            "grading_notes": "“may well”表示很大可能性，而非“也许”；“patches”在生态上下文中指“一片区域”；“secondly”表明嗅觉的第二个功能。"
+          }
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "name": "Section IV 写作 Part A — 小作文（应用文写作）",
+      "duration_minutes": 20,
+      "section_score": 10,
+      "instruction": "Directions: Read the following email from an international student and write a reply. Write your answer in about 100 words on the ANSWER SHEET. Do not use your own name in the email; use “Li Ming” instead. (10 points)",
+      "questions": [
+        {
+          "index": 51,
+          "question_type": "essay",
+          "content": {
+            "stem": "Read the email from your friend Paul and write a reply.\n\nDear Li Ming,\n\nI’ve got a class assignment to make an oral report on an ancient Chinese scientist, but I’m not sure how to prepare for it. Can you give me some advice? Thank you for your help.\n\nYours,\nPaul",
+            "requirements": [
+              "字数：约100词",
+              "文体：建议信（回复信）",
+              "内容包含：对Paul的问题表示理解，给出具体建议，表达祝愿",
+              "使用署名Li Ming",
+              "建议包括：如何选择科学家、如何搜集资料、如何组织口头报告内容等"
+            ]
+          },
+          "score": 10,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              { "name": "内容切题", "weight": 30, "description": "是否准确理解题目要求，回复内容是否切合Paul的问题" },
+              { "name": "格式规范", "weight": 20, "description": "书信格式是否规范（称呼、正文、署名）" },
+              { "name": "语言准确", "weight": 25, "description": "语法、拼写、标点是否正确" },
+              { "name": "内容丰富", "weight": 25, "description": "建议是否具体有用，是否涵盖多个方面" }
+            ],
+            "score_bands": [
+              { "range": "9-10", "label": "优秀", "description": "切题，格式规范，语言流畅，建议具体实用，基本无语言错误" },
+              { "range": "7-8", "label": "良好", "description": "切题，格式基本规范，文字连贯，有少量语言错误" },
+              { "range": "5-6", "label": "中等", "description": "基本切题，表达不够清楚，有较多语言错误" },
+              { "range": "3-4", "label": "及格", "description": "勉强切题，表达思想不清楚，语言错误较多" },
+              { "range": "0-2", "label": "不及格", "description": "条理不清，思路紊乱，语言支离破碎" }
+            ]
+          },
+          "answer": {
+            "sample_essay": "Dear Paul,\n\nI’m glad to hear from you and I’d be happy to help you prepare for your oral report on an ancient Chinese scientist.\n\nFirst, I suggest you choose a well-known figure such as Zhang Heng, who invented the world’s first seismograph, or Zu Chongzhi, who calculated pi to an impressive degree of accuracy. Once you have chosen your scientist, search for reliable information about their life story and major achievements through academic databases or library resources. When organizing your report, start with a brief introduction of the scientist’s background, then discuss their key discoveries and contributions, and finally explain why their work remains significant today. Remember to use simple and clear language so your classmates can easily follow your presentation.\n\nI hope these suggestions will be helpful. Please let me know if you need any further assistance.\n\nBest regards,\nLi Ming"
+          }
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "name": "Section IV 写作 Part B — 大作文（图画+图表作文）",
+      "duration_minutes": 35,
+      "section_score": 20,
+      "instruction": "Directions: Write an essay of 160–200 words based on the following picture and chart. In your essay, you should: 1) describe the picture and the chart briefly, 2) interpret the implied meaning, and 3) give your comments. Write your answer neatly on the ANSWER SHEET. (20 points)",
+      "questions": [
+        {
+          "index": 52,
+          "question_type": "essay",
+          "content": {
+            "stem": "请根据下面的图画和图表写一篇160–200词的英语短文。\n\n【左图——画面描述】：一幅漫画，描绘了居民健身区内有人在跑步、散步锻炼身体。其中一位居民感叹道：“家门口新建的公园真不错！”\n\n【右图——柱状图】：某城市公园数量统计，2020年406个、2021年532个、2022年670个，呈逐年增长趋势。",
+            "visual_description": {
+              "picture": "A cartoon showing residents exercising in a community fitness area — some jogging, some walking. One resident remarks: “It’s so marvellous and convenient to have a park built nearby!”",
+              "chart": "A bar chart displaying the number of parks in a certain city from 2020 to 2022: 406 in 2020, 532 in 2021, and 670 in 2022, showing a steady upward trend."
+            },
+            "requirements": [
+              "字数：160–200词",
+              "文体：议论文",
+              "必须包含：描述图画和图表、阐释寓意、发表评论",
+              "主题方向：公园建设与居民生活幸福感的关系，可联系“绿色发展”“城市规划”“全民健身”“美丽中国”等话题"
+            ]
+          },
+          "score": 20,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              { "name": "内容切题", "weight": 30, "description": "是否准确理解图画和图表传达的信息，是否完整覆盖三个写作要点" },
+              { "name": "结构完整", "weight": 20, "description": "是否有清晰的引言、正文、结论结构" },
+              { "name": "论证充分", "weight": 20, "description": "阐释是否深入，评论是否有说服力" },
+              { "name": "语言质量", "weight": 30, "description": "词汇丰富度、句型多样性、语法正确性、拼写和标点规范性" }
+            ],
+            "score_bands": [
+              { "range": "17-20", "label": "优秀", "description": "切题，结构完整，论证深入，表达流畅，词汇丰富，基本无语言错误" },
+              { "range": "13-16", "label": "良好", "description": "切题，结构基本完整，表达较清楚，有少量语言错误" },
+              { "range": "9-12", "label": "中等", "description": "基本切题，表达不够清楚，有较多语言错误" },
+              { "range": "5-8", "label": "及格", "description": "勉强切题，表达思想不清楚，语言错误相当多" },
+              { "range": "0-4", "label": "不及格", "description": "条理不清，思路紊乱，语言支离破碎" }
+            ]
+          },
+          "answer": {
+            "sample_essay": "The picture vividly depicts a scene in a community fitness area where residents are seen jogging and strolling, with one of them exclaiming, “It’s so marvellous and convenient to have a park built nearby!” The bar chart on the right further illustrates the rapid growth of parks in a certain city, with the number rising from 406 in 2020 to 532 in 2021 and reaching 670 in 2022.\n\nThe combination of the cartoon and the chart carries profound implications. On one level, it reflects the Chinese government’s sustained efforts to improve people’s living standards through the construction of public green spaces. The steady increase in park numbers demonstrates that urban planners are placing greater emphasis on environmental quality and residents’ wellbeing. On a deeper level, the picture highlights the growing public awareness of health and fitness. With more parks available, citizens are more motivated to step outdoors and engage in physical exercise, which contributes to both their physical and mental health.\n\nFrom my perspective, this trend should be wholeheartedly applauded. Parks not only serve as “green lungs” for cities but also provide essential spaces for social interaction and recreational activities. I suggest that local governments continue to invest in the construction and maintenance of public parks, ensuring that every neighbourhood has access to these invaluable community assets. Moreover, we as residents should make the most of these facilities by incorporating regular exercise into our daily routines. After all, a healthy and happy life is the ultimate goal of all social development."
+          }
+        }
+      ]
+    }
+  ]
+}

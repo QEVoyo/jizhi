@@ -1,0 +1,353 @@
+{
+  "paper_id": "ncre2_office_2024_03",
+  "syllabus_id": "ncre2-office",
+  "name": "2024年3月 计算机二级MS Office高级应用 真题卷",
+  "paper_type": "real",
+  "year": 2024,
+  "month": 3,
+  "set_number": 1,
+  "source": "教育部教育考试院全国计算机等级考试（NCRE）历年真题整理",
+  "total_duration": 120,
+  "total_score": 100,
+  "available_score": 20,
+  "available_note": "操作题（Word/Excel/PPT共80分）无法在线模拟，建议下载资源练习。本平台仅提供选择题（20分）在线作答。",
+  "sections": [
+    {
+      "order": 1,
+      "name": "选择题 — 计算机基础与公共基础知识",
+      "duration_minutes": 20,
+      "section_score": 20,
+      "instruction": "本部分共20道选择题，每题1分，共20分。考察计算机基础知识、数据结构与算法、软件工程、数据库、操作系统以及Office应用知识。",
+      "question_type": "choice",
+      "questions": [
+        {
+          "index": 1,
+          "stem": "下列关于计算机发展历程的说法，错误的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "第一台电子计算机ENIAC诞生于1946年" },
+            { "key": "B", "text": "第二代计算机采用晶体管" },
+            { "key": "C", "text": "第三代计算机采用集成电路，开始广泛应用于家庭" },
+            { "key": "D", "text": "第四代计算机以大规模、超大规模集成电路为核心" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "第三代计算机主要应用于企业和科研领域，家庭普及是第四代微型计算机出现后才逐步实现的。所以C选项中开始广泛应用于家庭的说法是错误的。"
+        },
+        {
+          "index": 2,
+          "stem": "下列关于随机存取存储器（RAM）的叙述，正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "RAM分静态RAM（SRAM）和动态RAM（DRAM）两大类" },
+            { "key": "B", "text": "DRAM中存储的数据无须刷新" },
+            { "key": "C", "text": "SRAM的集成度比DRAM高" },
+            { "key": "D", "text": "DRAM的存取速度比SRAM快" }
+          ],
+          "answer": "A",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "RAM确实分为SRAM和DRAM两大类。DRAM需要定期刷新（B错），DRAM集成度更高（C错），SRAM存取速度更快（D错）。Cache通常由SRAM实现。"
+        },
+        {
+          "index": 3,
+          "stem": "64位操作系统中的64位指的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "CPU的字长，即CPU每次能处理64位二进制数据" },
+            { "key": "B", "text": "操作系统最大支持64GB内存" },
+            { "key": "C", "text": "硬盘空间至少需要64GB" },
+            { "key": "D", "text": "显示器的分辨率为64位真彩色" }
+          ],
+          "answer": "A",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "64位指的是CPU的字长（Word Size），即CPU一次能处理数据的二进制位数。它决定了CPU的数据处理能力和寻址能力。"
+        },
+        {
+          "index": 4,
+          "stem": "计算机中组织和存储信息的基本单位是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "位（bit）" },
+            { "key": "B", "text": "字节（Byte）" },
+            { "key": "C", "text": "字（Word）" },
+            { "key": "D", "text": "字长" }
+          ],
+          "answer": "B",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "字节（Byte）是计算机中组织和存储信息的基本单位，1Byte=8bit。位是最小的数据单位，但不是存储的基本单位。"
+        },
+        {
+          "index": 5,
+          "stem": "下列关于进程的叙述中，错误的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "只有就绪状态下的进程可以进入运行状态" },
+            { "key": "B", "text": "只有运行状态下的进程可以进入终止状态" },
+            { "key": "C", "text": "进程一旦创建完成，就进入运行状态" },
+            { "key": "D", "text": "一个正在运行的进程，当运行时间片用完后将进入就绪状态" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "进程创建完成后先进入就绪状态，等待CPU分配时间片后才能进入运行状态，不会直接进入运行状态。这是进程三态模型的基本规则。"
+        },
+        {
+          "index": 6,
+          "stem": "下列叙述中正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "CPU可以直接存取硬盘中的数据" },
+            { "key": "B", "text": "高速缓冲存储器（Cache）一般用SRAM来实现" },
+            { "key": "C", "text": "存储在ROM中的信息断电后会全部丢失" },
+            { "key": "D", "text": "高级程序设计语言的编译系统属于应用软件" }
+          ],
+          "answer": "B",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "Cache通常由SRAM实现，速度快但成本高。CPU不能直接访问硬盘（需通过I/O），ROM断电不丢失数据，编译系统属于系统软件而非应用软件。"
+        },
+        {
+          "index": 7,
+          "stem": "一个栈的初始状态为空，现将元素1、2、3依次入栈，然后出栈一个元素，再将元素4、5入栈，最后将所有元素出栈。请问可能的出栈序列是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "1、2、3、4、5" },
+            { "key": "B", "text": "3、5、4、2、1" },
+            { "key": "C", "text": "3、4、5、2、1" },
+            { "key": "D", "text": "5、4、3、2、1" }
+          ],
+          "answer": "B",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "操作序列：(1)入1,2,3 (2)出栈->3出 (3)入4,5 (4)全出：栈中从底到顶为1,2,4,5，出栈顺序为5,4,2,1。因此总体顺序为3,5,4,2,1。"
+        },
+        {
+          "index": 8,
+          "stem": "一棵完全二叉树共有699个结点，则叶子结点数是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "349" },
+            { "key": "B", "text": "350" },
+            { "key": "C", "text": "351" },
+            { "key": "D", "text": "以上都不对" }
+          ],
+          "answer": "B",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "完全二叉树的叶子结点数=向上取整(n/2)。699/2=349.5，向上取整得350。这是完全二叉树的重要性质。"
+        },
+        {
+          "index": 9,
+          "stem": "关于线性链表的描述，下列选项中正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "存储空间不一定连续，且前件元素一定存储在后件元素的前面" },
+            { "key": "B", "text": "存储空间必须连续，且前件元素一定存储在后件元素的前面" },
+            { "key": "C", "text": "存储空间必须连续，且各元素的存储顺序是任意的" },
+            { "key": "D", "text": "存储空间不一定连续，且各元素的存储顺序是任意的" }
+          ],
+          "answer": "D",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "链式存储结构中，存储空间可以不连续，各元素的物理存储顺序也是任意的，通过指针来链接各节点并维护逻辑顺序。"
+        },
+        {
+          "index": 10,
+          "stem": "软件按功能分为应用软件、系统软件和支撑软件。下列软件中属于系统软件的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "教务管理系统" },
+            { "key": "B", "text": "MS Office" },
+            { "key": "C", "text": "操作系统" },
+            { "key": "D", "text": "Photoshop" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "操作系统是典型的系统软件，管理计算机软硬件资源。MS Office和Photoshop是应用软件，教务管理系统也是应用软件。"
+        },
+        {
+          "index": 11,
+          "stem": "在数据库设计中，E-R图转换成关系模式时，实体与联系通常都表示为（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "实体表示为属性，联系表示为关系" },
+            { "key": "B", "text": "实体表示为关系，联系表示为属性" },
+            { "key": "C", "text": "实体表示为关系，联系表示为关系" },
+            { "key": "D", "text": "实体表示为属性，联系表示为属性" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "在E-R图向关系模式转换时，实体和联系通常都表示为关系（二维表）。这是数据库逻辑设计的基本转换规则。"
+        },
+        {
+          "index": 12,
+          "stem": "每个学校有一名校长，且不同学校的校长可以是同一人，则实体学校和实体校长之间的联系是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "一对一" },
+            { "key": "B", "text": "多对多" },
+            { "key": "C", "text": "多对一" },
+            { "key": "D", "text": "一对多" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "多个学校可以对应同一个校长（不同学校校长可以是同一人），而每个学校只有一名校长。因此学校到校长是多对一的关系。"
+        },
+        {
+          "index": 13,
+          "stem": "下列对数据库的描述中不正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "数据库中的数据可以共享" },
+            { "key": "B", "text": "数据库减少了数据冗余" },
+            { "key": "C", "text": "数据库避免了一切数据的重复" },
+            { "key": "D", "text": "若系统是完全可以控制的，则系统可确保更新时的一致性" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "数据库可以减少数据冗余，但不能完全避免数据的重复。在某些情况下，适当的冗余（如为提高查询效率的反规范化）是被允许的。"
+        },
+        {
+          "index": 14,
+          "stem": "软件生命周期中的需求分析阶段的主要任务是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "确定软件开发方法" },
+            { "key": "B", "text": "确定软件系统的功能" },
+            { "key": "C", "text": "确定软件开发工具" },
+            { "key": "D", "text": "确定软件开发费用" }
+          ],
+          "answer": "B",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "需求分析阶段的核心任务是确定软件系统必须做什么（功能需求和非功能需求），输出需求规格说明书。"
+        },
+        {
+          "index": 15,
+          "stem": "在Excel中，A1和B1单元格均存放日期数据，要计算B1比A1晚多少天，以下说法正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "只能用=B1-A1计算" },
+            { "key": "B", "text": "只能用=DATEDIF(A1,B1,\"d\")计算" },
+            { "key": "C", "text": "只能用=DAYS(B1,A1)计算" },
+            { "key": "D", "text": "以上三种方法均可正确计算" }
+          ],
+          "answer": "D",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "三种方法都可以正确计算日期差。日期直接相减返回天数差；DATEDIF(A1,B1,\"d\")计算天数差；DAYS(B1,A1)也是计算天数差的函数。"
+        },
+        {
+          "index": 16,
+          "stem": "在Excel中，A1单元格存放18位身份证号，要从中提取出生年份来计算年龄，最优的公式是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "=YEAR(TODAY())-MID(A1,6,8)" },
+            { "key": "B", "text": "=YEAR(TODAY())-MID(A1,6,4)" },
+            { "key": "C", "text": "=YEAR(TODAY())-MID(A1,7,8)" },
+            { "key": "D", "text": "=YEAR(TODAY())-MID(A1,7,4)" }
+          ],
+          "answer": "D",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "身份证号第7位到第10位（共4位）是出生年份，MID(A1,7,4)正确截取。第6位开始截4位会多取到地址码，应为第7位开始。"
+        },
+        {
+          "index": 17,
+          "stem": "在Word中，插入可以随系统日期自动更新的日期，最快捷的方法是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "通过【插入】->【日期和时间】，勾选自动更新" },
+            { "key": "B", "text": "通过插入对象功能，插入一个可以链接到原文件的日期" },
+            { "key": "C", "text": "直接手动输入日期，然后将其格式设置为可以自动更新" },
+            { "key": "D", "text": "通过插入域的方式插入日期和时间" }
+          ],
+          "answer": "A",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "在Word中，【插入】->【日期和时间】->勾选自动更新可以快速插入一个每次打开文档自动更新为当前日期的日期。插入域（如DATE域）也可以实现但不如A直观快捷。"
+        },
+        {
+          "index": 18,
+          "stem": "关于Word中样式的描述，下列选项中错误的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "样式是一组格式的集合" },
+            { "key": "B", "text": "修改样式后，所有应用该样式的文本格式会自动更新" },
+            { "key": "C", "text": "Word中的样式只包括字体格式，不包括段落格式" },
+            { "key": "D", "text": "可以使用样式窗格管理文档中的样式" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "Word样式既包括字体格式（字体、字号、颜色等），也包括段落格式（对齐方式、行距、缩进等），还可以包括边框、底纹等。C选项的说法是错误的。"
+        },
+        {
+          "index": 19,
+          "stem": "在PowerPoint中，关于幻灯片母版的说法正确的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "一个演示文稿中只能有一个幻灯片母版" },
+            { "key": "B", "text": "修改母版不会影响已创建的幻灯片" },
+            { "key": "C", "text": "母版中设置的格式和内容会应用到所有使用该母版的幻灯片" },
+            { "key": "D", "text": "母版中不能插入图片和图形" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "母版中设置的格式和内容（如背景、LOGO、字体等）会统一应用到所有使用该母版的幻灯片上。一个演示文稿可以有多个母版，母版中也可以插入图片、图形等元素。"
+        },
+        {
+          "index": 20,
+          "stem": "关于Excel中数据排序的描述，下列选项错误的是（　）。",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "可以按行排序也可以按列排序" },
+            { "key": "B", "text": "可以对多列设置多个排序条件" },
+            { "key": "C", "text": "只能按数值大小排序，不能按颜色排序" },
+            { "key": "D", "text": "可以使用自定义序列进行排序" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "Excel支持多种排序方式，包括按数值、文本、日期排序，也可以按单元格颜色、字体颜色、条件格式图标等进行排序。C选项的说法只能按数值排序是错误的。"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "name": "操作题 — Word文档处理",
+      "duration_minutes": 30,
+      "section_score": 30,
+      "disabled": true,
+      "disabled_reason": "Word/Excel/PPT操作题无法在线模拟，建议下载资源练习。典型考点：样式与目录、邮件合并、页眉页脚、多级列表、题注与交叉引用等。",
+      "questions": []
+    },
+    {
+      "order": 3,
+      "name": "操作题 — Excel数据处理",
+      "duration_minutes": 30,
+      "section_score": 30,
+      "disabled": true,
+      "disabled_reason": "Word/Excel/PPT操作题无法在线模拟，建议下载资源练习。典型考点：VLOOKUP函数、数据透视表、图表制作、条件格式、公式与函数综合应用等。",
+      "questions": []
+    },
+    {
+      "order": 4,
+      "name": "操作题 — PowerPoint演示文稿",
+      "duration_minutes": 20,
+      "section_score": 20,
+      "disabled": true,
+      "disabled_reason": "Word/Excel/PPT操作题无法在线模拟，建议下载资源练习。典型考点：母版与版式、动画设置、SmartArt图形、幻灯片切换、主题应用等。",
+      "questions": []
+    }
+  ]
+}
