@@ -1,0 +1,584 @@
+{
+  "paper_id": "ncre2_python_2024_03",
+  "syllabus_id": "ncre2-python",
+  "name": "2024\u5e743\u6708 \u8ba1\u7b97\u673a\u4e8c\u7ea7Python \u771f\u9898\u5377",
+  "paper_type": "real",
+  "year": 2024,
+  "month": 3,
+  "set_number": 1,
+  "source": "\u6559\u80b2\u90e8\u6559\u80b2\u8003\u8bd5\u9662\u5168\u56fd\u8ba1\u7b97\u673a\u7b49\u7ea7\u8003\u8bd5\uff08NCRE\uff09\u5386\u5e74\u771f\u9898\u6574\u7406",
+  "total_duration": 120,
+  "total_score": 100,
+  "available_score": 100,
+  "available_note": "\u5168\u90e8\u9898\u76ee\u5747\u53ef\u5728\u7ebf\u4f5c\u7b54\uff0c\u7f16\u7a0b\u9898\u81ea\u52a8\u5224\u5206",
+  "sections": [
+    {
+      "order": 1,
+      "name": "\u9009\u62e9\u9898 \u2014 \u516c\u5171\u57fa\u7840\u77e5\u8bc6",
+      "duration_minutes": 15,
+      "section_score": 10,
+      "instruction": "\u672c\u90e8\u5206\u517110\u9053\u9009\u62e9\u9898\uff0c\u6bcf\u98981\u5206\uff0c\u517110\u5206\u3002\u8003\u5bdf\u6570\u636e\u7ed3\u6784\u4e0e\u7b97\u6cd5\u3001\u7a0b\u5e8f\u8bbe\u8ba1\u57fa\u7840\u3001\u8f6f\u4ef6\u5de5\u7a0b\u57fa\u7840\u4e0e\u6570\u636e\u5e93\u8bbe\u8ba1\u57fa\u7840\u3002",
+      "question_type": "choice",
+      "questions": [
+        {
+          "index": 1,
+          "stem": "\u4e0b\u5217\u53d9\u8ff0\u4e2d\u6b63\u786e\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u7b97\u6cd5\u5c31\u662f\u7a0b\u5e8f" },
+            { "key": "B", "text": "\u8bbe\u8ba1\u7b97\u6cd5\u65f6\u53ea\u9700\u8981\u8003\u8651\u6570\u636e\u7ed3\u6784\u7684\u8bbe\u8ba1" },
+            { "key": "C", "text": "\u8bbe\u8ba1\u7b97\u6cd5\u65f6\u53ea\u9700\u8981\u8003\u8651\u7ed3\u679c\u7684\u53ef\u9760\u6027" },
+            { "key": "D", "text": "\u4ee5\u4e0a\u4e09\u79cd\u8bf4\u6cd5\u90fd\u4e0d\u5bf9" }
+          ],
+          "answer": "D",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "\u7b97\u6cd5\u4e0d\u7b49\u4e8e\u7a0b\u5e8f\uff0c\u7a0b\u5e8f\u662f\u7b97\u6cd5\u7684\u5177\u4f53\u5b9e\u73b0\u3002\u8bbe\u8ba1\u7b97\u6cd5\u65f6\u65e2\u8981\u8003\u8651\u6570\u636e\u7ed3\u6784\uff0c\u4e5f\u8981\u8003\u8651\u7ed3\u679c\u53ef\u9760\u6027\uff0c\u4e24\u8005\u7f3a\u4e00\u4e0d\u53ef\u3002A\u3001B\u3001C\u9009\u9879\u5747\u7247\u9762\u3002"
+        },
+        {
+          "index": 2,
+          "stem": "\u4e00\u4e2a\u6808\u7684\u521d\u59cb\u72b6\u6001\u4e3a\u7a7a\u3002\u73b0\u5c06\u5143\u7d201\u30012\u30013\u3001A\u3001B\u3001C\u4f9d\u6b21\u5165\u6808\uff0c\u7136\u540e\u518d\u4f9d\u6b21\u51fa\u6808\uff0c\u5219\u5143\u7d20\u51fa\u6808\u7684\u987a\u5e8f\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "1\u30012\u30013\u3001A\u3001B\u3001C" },
+            { "key": "B", "text": "C\u3001B\u3001A\u30013\u30012\u30011" },
+            { "key": "C", "text": "C\u3001B\u3001A\u30011\u30012\u30013" },
+            { "key": "D", "text": "1\u30012\u30013\u3001C\u3001B\u3001A" }
+          ],
+          "answer": "B",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "\u6808\u9075\u5faa\u540e\u8fdb\u5148\u51fa\uff08LIFO\uff09\u539f\u5219\u3002\u6700\u5148\u8fdb\u6808\u7684\u5143\u7d20\uff081\uff09\u6700\u540e\u51fa\u6808\uff0c\u6700\u540e\u8fdb\u6808\u7684\u5143\u7d20\uff08C\uff09\u6700\u5148\u51fa\u6808\uff0c\u56e0\u6b64\u51fa\u6808\u987a\u5e8f\u4e3aC\u3001B\u3001A\u30013\u30012\u30011\u3002"
+        },
+        {
+          "index": 3,
+          "stem": "\u4e0b\u5217\u6570\u636e\u7ed3\u6784\u4e2d\uff0c\u5c5e\u4e8e\u975e\u7ebf\u6027\u7ed3\u6784\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u5faa\u73af\u961f\u5217" },
+            { "key": "B", "text": "\u5e26\u94fe\u961f\u5217" },
+            { "key": "C", "text": "\u4e8c\u53c9\u6811" },
+            { "key": "D", "text": "\u5e26\u94fe\u6808" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "\u4e8c\u53c9\u6811\u5c5e\u4e8e\u975e\u7ebf\u6027\u7ed3\u6784\uff0c\u6bcf\u4e2a\u8282\u70b9\u6700\u591a\u6709\u4e24\u4e2a\u540e\u7ee7\u3002\u961f\u5217\u548c\u6808\u65e0\u8bba\u5728\u987a\u5e8f\u8fd8\u662f\u94fe\u5f0f\u5b58\u50a8\u4e0b\u90fd\u662f\u7ebf\u6027\u7ed3\u6784\u3002"
+        },
+        {
+          "index": 4,
+          "stem": "\u5728\u6df1\u5ea6\u4e3a7\u7684\u6ee1\u4e8c\u53c9\u6811\u4e2d\uff0c\u53f6\u5b50\u7ed3\u70b9\u7684\u4e2a\u6570\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "31" },
+            { "key": "B", "text": "63" },
+            { "key": "C", "text": "64" },
+            { "key": "D", "text": "32" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "\u6df1\u5ea6\u4e3ak\u7684\u6ee1\u4e8c\u53c9\u6811\uff0c\u53f6\u5b50\u7ed3\u70b9\u6570\u4e3a2^(k-1)\u3002\u6df1\u5ea6\u4e3a7\u65f6\uff0c\u53f6\u5b50\u6570=2^6=64\u3002"
+        },
+        {
+          "index": 5,
+          "stem": "\u4e0b\u5217\u53d9\u8ff0\u4e2d\u6b63\u786e\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u5faa\u73af\u961f\u5217\u6709\u961f\u5934\u548c\u961f\u5c3e\u4e24\u4e2a\u6307\u9488\uff0c\u56e0\u6b64\u5faa\u73af\u961f\u5217\u662f\u975e\u7ebf\u6027\u7ed3\u6784" },
+            { "key": "B", "text": "\u5728\u5faa\u73af\u961f\u5217\u4e2d\uff0c\u53ea\u9700\u8981\u961f\u5934\u6307\u9488\u5c31\u80fd\u53cd\u6620\u961f\u5217\u4e2d\u5143\u7d20\u7684\u52a8\u6001\u53d8\u5316\u60c5\u51b5" },
+            { "key": "C", "text": "\u5728\u5faa\u73af\u961f\u5217\u4e2d\uff0c\u53ea\u9700\u8981\u961f\u5c3e\u6307\u9488\u5c31\u80fd\u53cd\u6620\u961f\u5217\u4e2d\u5143\u7d20\u7684\u52a8\u6001\u53d8\u5316\u60c5\u51b5" },
+            { "key": "D", "text": "\u5faa\u73af\u961f\u5217\u4e2d\u5143\u7d20\u7684\u4e2a\u6570\u662f\u7531\u961f\u5934\u6307\u9488\u548c\u961f\u5c3e\u6307\u9488\u5171\u540c\u51b3\u5b9a\u7684" }
+          ],
+          "answer": "D",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "\u5faa\u73af\u961f\u5217\u4e2d\u5143\u7d20\u4e2a\u6570\u9700\u7531\u961f\u5934front\u548c\u961f\u5c3erear\u4e24\u4e2a\u6307\u9488\u5171\u540c\u8ba1\u7b97\u3002\u5faa\u73af\u961f\u5217\u662f\u961f\u5217\u7684\u987a\u5e8f\u5b58\u50a8\u7ed3\u6784\uff0c\u4ecd\u5c5e\u4e8e\u7ebf\u6027\u7ed3\u6784\u3002"
+        },
+        {
+          "index": 6,
+          "stem": "\u4e0b\u5217\u5173\u4e8e\u7ebf\u6027\u94fe\u8868\u7684\u53d9\u8ff0\u4e2d\uff0c\u6b63\u786e\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u5404\u6570\u636e\u7ed3\u70b9\u7684\u5b58\u50a8\u7a7a\u95f4\u53ef\u4ee5\u4e0d\u8fde\u7eed\uff0c\u4f46\u5b83\u4eec\u7684\u5b58\u50a8\u987a\u5e8f\u4e0e\u903b\u8f91\u987a\u5e8f\u5fc5\u987b\u4e00\u81f4" },
+            { "key": "B", "text": "\u5404\u6570\u636e\u7ed3\u70b9\u7684\u5b58\u50a8\u987a\u5e8f\u4e0e\u903b\u8f91\u987a\u5e8f\u53ef\u4ee5\u4e0d\u4e00\u81f4\uff0c\u4f46\u5b83\u4eec\u7684\u5b58\u50a8\u7a7a\u95f4\u5fc5\u987b\u8fde\u7eed" },
+            { "key": "C", "text": "\u8fdb\u884c\u63d2\u5165\u4e0e\u5220\u9664\u65f6\uff0c\u4e0d\u9700\u8981\u79fb\u52a8\u8868\u4e2d\u7684\u5143\u7d20" },
+            { "key": "D", "text": "\u4ee5\u4e0a\u4e09\u79cd\u8bf4\u6cd5\u90fd\u4e0d\u5bf9" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "\u7ebf\u6027\u94fe\u8868\u5728\u63d2\u5165\u548c\u5220\u9664\u65f6\u53ea\u9700\u4fee\u6539\u6307\u9488\uff0c\u4e0d\u9700\u8981\u79fb\u52a8\u6570\u636e\u5143\u7d20\u3002\u94fe\u8868\u5b58\u50a8\u7a7a\u95f4\u53ef\u4ee5\u4e0d\u8fde\u7eed\uff0c\u5b58\u50a8\u987a\u5e8f\u4e0e\u903b\u8f91\u987a\u5e8f\u4e5f\u53ef\u4ee5\u4e0d\u4e00\u81f4\u3002"
+        },
+        {
+          "index": 7,
+          "stem": "\u8f6f\u4ef6\u6309\u529f\u80fd\u53ef\u4ee5\u5206\u4e3a\uff1a\u5e94\u7528\u8f6f\u4ef6\u3001\u7cfb\u7edf\u8f6f\u4ef6\u548c\u652f\u6491\u8f6f\u4ef6\uff08\u6216\u5de5\u5177\u8f6f\u4ef6\uff09\u3002\u4e0b\u9762\u5c5e\u4e8e\u5e94\u7528\u8f6f\u4ef6\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u7f16\u8bd1\u7a0b\u5e8f" },
+            { "key": "B", "text": "\u64cd\u4f5c\u7cfb\u7edf" },
+            { "key": "C", "text": "\u6559\u52a1\u7ba1\u7406\u7cfb\u7edf" },
+            { "key": "D", "text": "\u6c47\u7f16\u7a0b\u5e8f" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "\u6559\u52a1\u7ba1\u7406\u7cfb\u7edf\u662f\u4e3a\u7279\u5b9a\u7528\u6237\u9700\u6c42\u5f00\u53d1\u7684\u5e94\u7528\u8f6f\u4ef6\u3002\u7f16\u8bd1\u7a0b\u5e8f\u3001\u6c47\u7f16\u7a0b\u5e8f\u5c5e\u4e8e\u652f\u6491\u8f6f\u4ef6\uff0c\u64cd\u4f5c\u7cfb\u7edf\u5c5e\u4e8e\u7cfb\u7edf\u8f6f\u4ef6\u3002"
+        },
+        {
+          "index": 8,
+          "stem": "\u6570\u636e\u5e93\u8bbe\u8ba1\u4e2d\u53cd\u6620\u7528\u6237\u5bf9\u6570\u636e\u8981\u6c42\u7684\u6a21\u5f0f\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u5185\u6a21\u5f0f" },
+            { "key": "B", "text": "\u6982\u5ff5\u6a21\u5f0f" },
+            { "key": "C", "text": "\u5916\u6a21\u5f0f" },
+            { "key": "D", "text": "\u8bbe\u8ba1\u6a21\u5f0f" }
+          ],
+          "answer": "C",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "\u5916\u6a21\u5f0f\uff08\u5b50\u6a21\u5f0f\uff09\u662f\u7528\u6237\u6240\u770b\u5230\u7684\u6570\u636e\u89c6\u56fe\uff0c\u53cd\u6620\u7528\u6237\u5bf9\u6570\u636e\u7684\u8981\u6c42\u3002\u6982\u5ff5\u6a21\u5f0f\u662f\u5168\u4f53\u6570\u636e\u7684\u903b\u8f91\u7ed3\u6784\uff0c\u5185\u6a21\u5f0f\u662f\u6570\u636e\u7684\u7269\u7406\u5b58\u50a8\u7ed3\u6784\u3002"
+        },
+        {
+          "index": 9,
+          "stem": "\u6709\u4e09\u4e2a\u5173\u7cfbR\u3001S\u548cT\uff0c\u7531R\u548cS\u901a\u8fc7\u8fd0\u7b97\u5f97\u5230T\uff0c\u5176\u4e2dT\u5305\u542bR\u548cS\u7684\u516c\u5171\u5143\u7ec4\uff0c\u5219\u6240\u4f7f\u7528\u7684\u8fd0\u7b97\u4e3a\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u5e76" },
+            { "key": "B", "text": "\u81ea\u7136\u8fde\u63a5" },
+            { "key": "C", "text": "\u7b1b\u5361\u5c14\u79ef" },
+            { "key": "D", "text": "\u4ea4" }
+          ],
+          "answer": "D",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "\u4ea4\u8fd0\u7b97\u7684\u7ed3\u679c\u662f\u4e24\u4e2a\u5173\u7cfb\u4e2d\u540c\u65f6\u5b58\u5728\u7684\u5143\u7ec4\u3002\u81ea\u7136\u8fde\u63a5\u9700\u8981\u6709\u76f8\u540c\u5c5e\u6027\u5217\uff0c\u7b1b\u5361\u5c14\u79ef\u662f\u65e0\u6761\u4ef6\u62fc\u63a5\uff0c\u5e76\u662f\u5408\u5e76\u4e24\u4e2a\u5173\u7cfb\u7684\u6240\u6709\u5143\u7ec4\u3002"
+        },
+        {
+          "index": 10,
+          "stem": "\u8f6f\u4ef6\u751f\u547d\u5468\u671f\u4e2d\uff0c\u786e\u5b9a\u8f6f\u4ef6\u7cfb\u7edf\u8981\u505a\u4ec0\u4e48\u7684\u9636\u6bb5\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u9700\u6c42\u5206\u6790" },
+            { "key": "B", "text": "\u8f6f\u4ef6\u6d4b\u8bd5" },
+            { "key": "C", "text": "\u8f6f\u4ef6\u8bbe\u8ba1" },
+            { "key": "D", "text": "\u8f6f\u4ef6\u7ef4\u62a4" }
+          ],
+          "answer": "A",
+          "score": 1,
+          "auto_grade": true,
+          "explanation": "\u9700\u6c42\u5206\u6790\u9636\u6bb5\u7684\u4efb\u52a1\u662f\u786e\u5b9a\u8f6f\u4ef6\u7cfb\u7edf\u5fc5\u987b\u505a\u4ec0\u4e48\uff0c\u5373\u660e\u786e\u7528\u6237\u9700\u6c42\u3002\u8f6f\u4ef6\u8bbe\u8ba1\u9636\u6bb5\u662f\u786e\u5b9a\u600e\u4e48\u505a\uff0c\u6d4b\u8bd5\u9636\u6bb5\u662f\u9a8c\u8bc1\u505a\u5f97\u5bf9\u4e0d\u5bf9\u3002"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "name": "\u9009\u62e9\u9898 \u2014 Python\u8bed\u8a00\u57fa\u7840",
+      "duration_minutes": 25,
+      "section_score": 30,
+      "instruction": "\u672c\u90e8\u5206\u517120\u9053\u9009\u62e9\u9898\uff0c\u6bcf\u98981.5\u5206\uff0c\u517130\u5206\u3002\u8003\u5bdfPython\u8bed\u8a00\u7684\u57fa\u672c\u8bed\u6cd5\u3001\u6570\u636e\u7c7b\u578b\u3001\u63a7\u5236\u7ed3\u6784\u3001\u51fd\u6570\u4e0e\u6a21\u5757\u3001\u6587\u4ef6\u64cd\u4f5c\u53ca\u9762\u5411\u5bf9\u8c61\u7b49\u6838\u5fc3\u77e5\u8bc6\u70b9\u3002",
+      "question_type": "choice",
+      "questions": [
+        {
+          "index": 11,
+          "stem": "\u5173\u4e8ePython\u7a0b\u5e8f\u683c\u5f0f\u6846\u67b6\uff0c\u4ee5\u4e0b\u9009\u9879\u4e2d\u63cf\u8ff0\u9519\u8bef\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "Python\u8bed\u8a00\u7684\u7f29\u8fdb\u53ef\u4ee5\u91c7\u7528Tab\u952e\u5b9e\u73b0" },
+            { "key": "B", "text": "Python\u5355\u5c42\u7f29\u8fdb\u4ee3\u7801\u5c5e\u4e8e\u4e4b\u524d\u6700\u90bb\u8fd1\u7684\u4e00\u884c\u975e\u7f29\u8fdb\u4ee3\u7801\uff0c\u591a\u5c42\u7f29\u8fdb\u4ee3\u7801\u6839\u636e\u7f29\u8fdb\u5173\u7cfb\u51b3\u5b9a\u6240\u5c5e\u8303\u56f4" },
+            { "key": "C", "text": "\u5224\u65ad\u3001\u5faa\u73af\u3001\u51fd\u6570\u7b49\u8bed\u6cd5\u5f62\u5f0f\u80fd\u591f\u901a\u8fc7\u7f29\u8fdb\u5305\u542b\u4e00\u6279Python\u4ee3\u7801\uff0c\u8fdb\u800c\u8868\u8fbe\u5bf9\u5e94\u7684\u8bed\u4e49" },
+            { "key": "D", "text": "Python\u8bed\u8a00\u4e0d\u91c7\u7528\u4e25\u683c\u7684\u201c\u7f29\u8fdb\u201d\u6765\u8868\u660e\u7a0b\u5e8f\u7684\u683c\u5f0f\u6846\u67b6" }
+          ],
+          "answer": "D",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "Python\u8bed\u8a00\u91c7\u7528\u4e25\u683c\u7684\u7f29\u8fdb\u6765\u8868\u660e\u7a0b\u5e8f\u7684\u683c\u5f0f\u6846\u67b6\uff0c\u8fd9\u662fPython\u8bed\u6cd5\u7684\u6838\u5fc3\u7279\u5f81\u4e4b\u4e00\u3002D\u9009\u9879\u8bf4\u201c\u4e0d\u91c7\u7528\u4e25\u683c\u7f29\u8fdb\u201d\u663e\u7136\u662f\u9519\u8bef\u7684\u3002"
+        },
+        {
+          "index": 12,
+          "stem": "\u4ee5\u4e0b\u9009\u9879\u4e2d\u4e0d\u7b26\u5408Python\u8bed\u8a00\u53d8\u91cf\u547d\u540d\u89c4\u5219\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "I" },
+            { "key": "B", "text": "3_1" },
+            { "key": "C", "text": "_AI" },
+            { "key": "D", "text": "TempStr" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "Python\u6807\u8bc6\u7b26\u4e0d\u80fd\u4ee5\u6570\u5b57\u5f00\u5934\u3002'3_1'\u4ee5\u6570\u5b573\u5f00\u5934\uff0c\u4e0d\u7b26\u5408\u547d\u540d\u89c4\u5219\u3002\u4e0b\u5212\u7ebf\u5f00\u5934(_AI)\u548c\u5b57\u6bcd\u5f00\u5934(I\u3001TempStr)\u90fd\u662f\u5408\u6cd5\u7684\u3002"
+        },
+        {
+          "index": 13,
+          "stem": "\u4ee5\u4e0b\u9009\u9879\u4e2d\uff0c\u4e0d\u5c5e\u4e8ePython\u4fdd\u7559\u5b57\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "elif" },
+            { "key": "B", "text": "type" },
+            { "key": "C", "text": "except" },
+            { "key": "D", "text": "switch" }
+          ],
+          "answer": "D",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "Python\u6ca1\u6709switch\u4fdd\u7559\u5b57\u3002Python\u4f7f\u7528if-elif-else\u5b9e\u73b0\u591a\u5206\u652f\u9009\u62e9\u7ed3\u6784\u3002elif\u3001type\u3001except\u90fd\u662fPython\u7684\u4fdd\u7559\u5b57/\u5185\u7f6e\u51fd\u6570\u3002"
+        },
+        {
+          "index": 14,
+          "stem": "\u5173\u4e8ePython\u7684\u6ce8\u91ca\uff0c\u4ee5\u4e0b\u9009\u9879\u4e2d\u63cf\u8ff0\u9519\u8bef\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "Python\u8bed\u8a00\u7684\u5355\u884c\u6ce8\u91ca\u4ee5#\u5f00\u5934" },
+            { "key": "B", "text": "Python\u8bed\u8a00\u7684\u5355\u884c\u6ce8\u91ca\u4ee5\u5355\u5f15\u53f7 ' \u5f00\u5934" },
+            { "key": "C", "text": "Python\u8bed\u8a00\u7684\u591a\u884c\u6ce8\u91ca\u4ee5'''\uff08\u4e09\u4e2a\u5355\u5f15\u53f7\uff09\u5f00\u5934\u548c\u7ed3\u5c3e" },
+            { "key": "D", "text": "Python\u8bed\u8a00\u6709\u4e24\u79cd\u6ce8\u91ca\u65b9\u5f0f\uff1a\u5355\u884c\u6ce8\u91ca\u548c\u591a\u884c\u6ce8\u91ca" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "Python\u5355\u884c\u6ce8\u91ca\u4ee5#\u5f00\u5934\uff0c\u800c\u4e0d\u662f\u4ee5\u5355\u5f15\u53f7'\u5f00\u5934\u3002\u5355\u5f15\u53f7\u7528\u4e8e\u5b9a\u4e49\u5b57\u7b26\u4e32\uff0c\u4e09\u4e2a\u5355\u5f15\u53f7'''\u4e3b\u8981\u7528\u4e8e\u591a\u884c\u6ce8\u91ca\u6216\u6587\u6863\u5b57\u7b26\u4e32\uff08docstring\uff09\u3002"
+        },
+        {
+          "index": 15,
+          "stem": "\u4ee5\u4e0b\u4ee3\u7801\u7684\u8f93\u51fa\u7ed3\u679c\u662f\uff08\u3000\uff09\u3002\nx = 12.34\nprint(type(x))",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "<class 'int'>" },
+            { "key": "B", "text": "<class 'float'>" },
+            { "key": "C", "text": "<class 'bool'>" },
+            { "key": "D", "text": "<class 'complex'>" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "12.34\u662f\u6d6e\u70b9\u6570\uff08\u5c0f\u6570\uff09\uff0ctype()\u51fd\u6570\u8fd4\u56de\u5176\u7c7b\u578b\u4e3a<class 'float'>\u3002"
+        },
+        {
+          "index": 16,
+          "stem": "\u5173\u4e8ePython\u5b57\u7b26\u4e32\u7684\u63cf\u8ff0\u4e2d\uff0c\u9519\u8bef\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u5b57\u7b26\u4e32\u662f\u5b57\u7b26\u7684\u5e8f\u5217\uff0c\u53ef\u4ee5\u6309\u7167\u5355\u4e2a\u5b57\u7b26\u6216\u8005\u5b57\u7b26\u7247\u6bb5\u8fdb\u884c\u7d22\u5f15" },
+            { "key": "B", "text": "\u5b57\u7b26\u4e32\u5305\u62ec\u4e24\u79cd\u5e8f\u53f7\u4f53\u7cfb\uff1a\u6b63\u5411\u9012\u589e\u548c\u53cd\u5411\u9012\u51cf" },
+            { "key": "C", "text": "Python\u5b57\u7b26\u4e32\u63d0\u4f9b\u533a\u95f4\u8bbf\u95ee\u65b9\u5f0f\uff0c\u91c7\u7528[N:M]\u683c\u5f0f\uff0c\u8868\u793a\u5b57\u7b26\u4e32\u4e2d\u4eceN\u5230M\u7684\u7d22\u5f15\u5b50\u5b57\u7b26\u4e32\uff08\u5305\u542bN\u548cM\uff09" },
+            { "key": "D", "text": "\u5b57\u7b26\u4e32\u662f\u7528\u4e00\u5bf9\u53cc\u5f15\u53f7\"\"\u6216\u8005\u5355\u5f15\u53f7''\u62ec\u8d77\u6765\u7684\u96f6\u4e2a\u6216\u591a\u4e2a\u5b57\u7b26" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "[N:M]\u5207\u7247\u64cd\u4f5c\u8868\u793a\u4ece\u7d22\u5f15N\u5f00\u59cb\u5230M-1\u7ed3\u675f\uff0c\u5305\u542bN\u4f46\u4e0d\u5305\u542bM\u3002\u8fd9\u662f\u5178\u578b\u7684\u201c\u5de6\u95ed\u53f3\u5f00\u201d\u533a\u95f4\u3002"
+        },
+        {
+          "index": 17,
+          "stem": "\u8868\u8fbe\u5f0f 3 * 2 ** 3 \u7684\u503c\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "216" },
+            { "key": "B", "text": "24" },
+            { "key": "C", "text": "18" },
+            { "key": "D", "text": "48" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "Python\u8fd0\u7b97\u7b26\u4f18\u5148\u7ea7\uff1a**\uff08\u5e42\u8fd0\u7b97\uff09\u9ad8\u4e8e*\u3002\u5148\u8ba1\u7b972**3=8\uff0c\u518d\u8ba1\u7b973*8=24\u3002"
+        },
+        {
+          "index": 18,
+          "stem": "\u6267\u884c\u4ee5\u4e0b\u4ee3\u7801\u540e\uff0cx\u7684\u503c\u662f\uff08\u3000\uff09\u3002\nx = 5\nif x > 10:\n    x = x * 2\nelse:\n    x = x + 2",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "5" },
+            { "key": "B", "text": "7" },
+            { "key": "C", "text": "10" },
+            { "key": "D", "text": "12" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "x\u521d\u59cb\u503c\u4e3a5\uff0c\u6761\u4ef6x>10\u4e3aFalse\uff0c\u6267\u884celse\u5206\u652f\uff1ax=5+2=7\u3002"
+        },
+        {
+          "index": 19,
+          "stem": "\u4ee5\u4e0b\u9009\u9879\u4e2d\uff0c\u54ea\u4e2a\u4e0d\u662fPython\u7684\u5185\u7f6e\u6570\u636e\u7c7b\u578b\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "list" },
+            { "key": "B", "text": "tuple" },
+            { "key": "C", "text": "array" },
+            { "key": "D", "text": "set" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "array\u4e0d\u662fPython\u5185\u7f6e\u6570\u636e\u7c7b\u578b\uff0c\u9700\u8981\u901a\u8fc7import array\u6216\u4f7f\u7528NumPy\u7b49\u5e93\u6765\u4f7f\u7528\u3002list\u3001tuple\u3001set\u3001dict\u90fd\u662fPython\u5185\u7f6e\u7684\u5e8f\u5217/\u96c6\u5408\u7c7b\u578b\u3002"
+        },
+        {
+          "index": 20,
+          "stem": "\u7ed9\u51fa\u5982\u4e0b\u4ee3\u7801\uff1a\ns = 'Hello World'\nprint(s[::-1])\n\u4e0a\u8ff0\u4ee3\u7801\u7684\u8f93\u51fa\u7ed3\u679c\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "Hello" },
+            { "key": "B", "text": "World" },
+            { "key": "C", "text": "Hello World" },
+            { "key": "D", "text": "dlroW olleH" }
+          ],
+          "answer": "D",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "s[::-1]\u8868\u793a\u4ee5\u6b65\u957f-1\u5bf9\u5b57\u7b26\u4e32\u8fdb\u884c\u5207\u7247\uff0c\u5373\u53cd\u8f6c\u6574\u4e2a\u5b57\u7b26\u4e32\u3002'Hello World'\u53cd\u8f6c\u540e\u4e3a'dlroW olleH'\u3002"
+        },
+        {
+          "index": 21,
+          "stem": "\u4ee5\u4e0b\u5173\u4e8ePython\u5217\u8868\u7684\u63cf\u8ff0\u4e2d\uff0c\u6b63\u786e\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u5217\u8868\u4e2d\u7684\u5143\u7d20\u5fc5\u987b\u662f\u540c\u4e00\u7c7b\u578b" },
+            { "key": "B", "text": "\u5217\u8868\u662f\u4e0d\u53ef\u53d8\u7684\u5e8f\u5217" },
+            { "key": "C", "text": "\u5217\u8868\u4e2d\u7684\u5143\u7d20\u53ef\u4ee5\u901a\u8fc7\u7d22\u5f15\u6765\u8bbf\u95ee" },
+            { "key": "D", "text": "\u5217\u8868\u7684\u957f\u5ea6\u5728\u521b\u5efa\u540e\u4e0d\u80fd\u6539\u53d8" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "\u5217\u8868\uff08list\uff09\u662f\u53ef\u53d8\u5e8f\u5217\uff0c\u5143\u7d20\u7c7b\u578b\u53ef\u4ee5\u4e0d\u540c\uff0c\u957f\u5ea6\u53ef\u4ee5\u52a8\u6001\u6539\u53d8\uff0c\u901a\u8fc7\u7d22\u5f15\u6765\u8bbf\u95ee\u5143\u7d20\u3002A\uff08\u5fc5\u987b\u540c\u7c7b\u578b\uff09\u9519\uff0cB\uff08\u4e0d\u53ef\u53d8\uff09\u9519\uff0cD\uff08\u957f\u5ea6\u4e0d\u80fd\u53d8\uff09\u9519\u3002"
+        },
+        {
+          "index": 22,
+          "stem": "\u5728Python\u4e2d\uff0c\u4ee5\u4e0b\u54ea\u4e2a\u51fd\u6570\u7528\u4e8e\u4ece\u7528\u6237\u83b7\u53d6\u8f93\u5165\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "scanf()" },
+            { "key": "B", "text": "cin()" },
+            { "key": "C", "text": "input()" },
+            { "key": "D", "text": "read()" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "Python\u4f7f\u7528input()\u51fd\u6570\u83b7\u53d6\u7528\u6237\u8f93\u5165\uff0c\u8fd4\u56de\u503c\u4e3a\u5b57\u7b26\u4e32\u7c7b\u578b\u3002scanf()\u662fC\u8bed\u8a00\u7684\uff0ccin()\u662fC++\u7684\u3002read()\u7528\u4e8e\u6587\u4ef6\u8bfb\u53d6\u3002"
+        },
+        {
+          "index": 23,
+          "stem": "\u5173\u4e8ePython\u7684\u5f02\u5e38\u5904\u7406\uff0c\u4ee5\u4e0b\u9009\u9879\u4e2d\u63cf\u8ff0\u9519\u8bef\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u7a0b\u5e8f\u5f02\u5e38\u53d1\u751f\u7ecf\u8fc7\u59a5\u5584\u5904\u7406\u540e\u53ef\u4ee5\u7ee7\u7eed\u6267\u884c" },
+            { "key": "B", "text": "\u5f02\u5e38\u8bed\u53e5\u53ef\u4ee5\u4e0eelse\u548cfinaly\u4fdd\u7559\u5b57\u914d\u5408\u4f7f\u7528" },
+            { "key": "C", "text": "\u7f16\u7a0b\u8bed\u8a00\u4e2d\u7684\u5f02\u5e38\u548c\u9519\u8bef\u662f\u5b8c\u5168\u76f8\u540c\u7684\u6982\u5ff5" },
+            { "key": "D", "text": "Python\u901a\u8fc7try\u3001except\u7b49\u4fdd\u7559\u5b57\u8fdb\u884c\u5f02\u5e38\u5904\u7406" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "\u5f02\u5e38\u548c\u9519\u8bef\u4e0d\u662f\u5b8c\u5168\u76f8\u540c\u7684\u6982\u5ff5\u3002\u5f02\u5e38\uff08Exception\uff09\u662f\u53ef\u4ee5\u88ab\u6355\u83b7\u548c\u5904\u7406\u7684\uff0c\u800c\u67d0\u4e9b\u9519\u8bef\uff08\u5982\u8bed\u6cd5\u9519\u8befSyntaxError\uff09\u5728\u7f16\u8bd1\u9636\u6bb5\u5c31\u4f1a\u5bfc\u81f4\u7a0b\u5e8f\u65e0\u6cd5\u8fd0\u884c\u3002"
+        },
+        {
+          "index": 24,
+          "stem": "\u5173\u4e8e\u9762\u5411\u5bf9\u8c61\u7684\u7ee7\u627f\uff0c\u4ee5\u4e0b\u9009\u9879\u4e2d\u63cf\u8ff0\u6b63\u786e\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u7ee7\u627f\u662f\u6307\u4e00\u7ec4\u5bf9\u8c61\u6240\u5177\u6709\u7684\u76f8\u4f3c\u6027\u8d28" },
+            { "key": "B", "text": "\u7ee7\u627f\u662f\u6307\u7c7b\u4e4b\u95f4\u5171\u4eab\u5c5e\u6027\u548c\u64cd\u4f5c\u7684\u673a\u5236" },
+            { "key": "C", "text": "\u7ee7\u627f\u662f\u6307\u5404\u5bf9\u8c61\u4e4b\u95f4\u7684\u5171\u540c\u6027\u8d28" },
+            { "key": "D", "text": "\u7ee7\u627f\u662f\u6307\u4e00\u4e2a\u5bf9\u8c61\u5177\u6709\u53e6\u4e00\u4e2a\u5bf9\u8c61\u7684\u6027\u8d28" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "\u7ee7\u627f\uff08Inheritance\uff09\u662f\u9762\u5411\u5bf9\u8c61\u7f16\u7a0b\u4e2d\u7c7b\u4e4b\u95f4\u5171\u4eab\u5c5e\u6027\u548c\u65b9\u6cd5\u7684\u673a\u5236\uff0c\u5b50\u7c7b\u53ef\u4ee5\u7ee7\u627f\u7236\u7c7b\u7684\u5c5e\u6027\u548c\u65b9\u6cd5\u3002A\u548cC\u63cf\u8ff0\u7684\u662f\u201c\u7c7b\u201d\u7684\u6982\u5ff5\u800c\u975e\u7ee7\u627f\uff0cD\u63cf\u8ff0\u4e0d\u591f\u51c6\u786e\u3002"
+        },
+        {
+          "index": 25,
+          "stem": "\u5728Python\u4e2d\uff0c\u4ee5\u4e0b\u54ea\u4e2a\u9009\u9879\u7528\u4e8e\u5bfc\u5165math\u6a21\u5757\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "include math" },
+            { "key": "B", "text": "using math" },
+            { "key": "C", "text": "import math" },
+            { "key": "D", "text": "load math" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "Python\u4f7f\u7528import\u5173\u952e\u5b57\u5bfc\u5165\u6a21\u5757\uff0c\u8bed\u6cd5\u4e3a'import \u6a21\u5757\u540d'\u3002include\u662fC/C++\u7684\uff0cusing\u662fC#/C++\u547d\u540d\u7a7a\u95f4\u5173\u952e\u5b57\u3002"
+        },
+        {
+          "index": 26,
+          "stem": "\u5173\u4e8ePython\u7684\u5faa\u73af\u7ed3\u6784\uff0c\u4ee5\u4e0b\u8bf4\u6cd5\u9519\u8bef\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "Python\u63d0\u4f9b\u4e86for\u5faa\u73af\u548cwhile\u5faa\u73af" },
+            { "key": "B", "text": "for\u5faa\u73af\u53ef\u4ee5\u904d\u5386\u4efb\u4f55\u53ef\u8fed\u4ee3\u5bf9\u8c61" },
+            { "key": "C", "text": "Python\u4e2d\u6709do...while\u5faa\u73af" },
+            { "key": "D", "text": "break\u8bed\u53e5\u53ef\u4ee5\u8df3\u51fa\u5f53\u524d\u5faa\u73af" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "Python\u4e2d\u6ca1\u6709do...while\u5faa\u73af\u3002Python\u53ea\u6709for\u5faa\u73af\u548cwhile\u5faa\u73af\u4e24\u79cd\u5faa\u73af\u7ed3\u6784\u3002C\u8bed\u8a00\u548cJava\u7b49\u8bed\u8a00\u624d\u6709do...while\u7ed3\u6784\u3002"
+        },
+        {
+          "index": 27,
+          "stem": "\u8fd0\u884c\u4e0b\u9762\u7684\u4ee3\u7801\uff1a\nd = {'a': 1, 'b': 2}\nd['c'] = 3\nprint(len(d))\n\u8f93\u51fa\u7ed3\u679c\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "1" },
+            { "key": "B", "text": "2" },
+            { "key": "C", "text": "3" },
+            { "key": "D", "text": "\u62a5\u9519" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "\u521d\u59cb\u5b57\u5178\u67092\u4e2a\u952e\u503c\u5bf9\uff0cd['c']=3\u6dfb\u52a0\u4e86\u7b2c3\u4e2a\uff0clen(d)\u8fd4\u56de3\u3002\u5b57\u5178\u662f\u53ef\u53d8\u7c7b\u578b\uff0c\u53ef\u4ee5\u52a8\u6001\u6dfb\u52a0\u952e\u503c\u5bf9\u3002"
+        },
+        {
+          "index": 28,
+          "stem": "\u4e0b\u5217\u9009\u9879\u4e2d\uff0c\u54ea\u4e2a\u51fd\u6570\u7528\u4e8e\u83b7\u53d6\u5217\u8868\u4e2d\u5143\u7d20\u7684\u4e2a\u6570\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "count()" },
+            { "key": "B", "text": "size()" },
+            { "key": "C", "text": "len()" },
+            { "key": "D", "text": "length()" }
+          ],
+          "answer": "C",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "Python\u4e2d\u4f7f\u7528\u5185\u7f6e\u51fd\u6570len()\u6765\u83b7\u53d6\u5217\u8868\u3001\u5b57\u7b26\u4e32\u3001\u5b57\u5178\u7b49\u5bb9\u5668\u7684\u957f\u5ea6\u3002list.count(x)\u662f\u7edf\u8ba1\u67d0\u5143\u7d20\u51fa\u73b0\u6b21\u6570\uff0c\u4e0d\u662f\u83b7\u53d6\u5217\u8868\u603b\u957f\u5ea6\u3002"
+        },
+        {
+          "index": 29,
+          "stem": "\u5173\u4e8ePython\u6587\u4ef6\u64cd\u4f5c\uff0c\u4ee5\u4e0b\u8bf4\u6cd5\u6b63\u786e\u7684\u662f\uff08\u3000\uff09\u3002",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "\u6253\u5f00\u6587\u4ef6\u540e\uff0c\u5373\u4f7f\u4e0d\u8c03\u7528close()\u4e5f\u4e0d\u4f1a\u9020\u6210\u8d44\u6e90\u6cc4\u9732" },
+            { "key": "B", "text": "\u4f7f\u7528with\u8bed\u53e5\u6253\u5f00\u6587\u4ef6\u53ef\u4ee5\u81ea\u52a8\u5173\u95ed\u6587\u4ef6" },
+            { "key": "C", "text": "Python\u53ea\u80fd\u8bfb\u53d6\u6587\u672c\u6587\u4ef6\uff0c\u4e0d\u80fd\u8bfb\u53d6\u4e8c\u8fdb\u5236\u6587\u4ef6" },
+            { "key": "D", "text": "open()\u51fd\u6570\u53ea\u80fd\u4ee5\u53ea\u8bfb\u6a21\u5f0f\u6253\u5f00\u6587\u4ef6" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "with\u8bed\u53e5\uff08\u4e0a\u4e0b\u6587\u7ba1\u7406\u5668\uff09\u53ef\u4ee5\u786e\u4fdd\u6587\u4ef6\u5728\u4f7f\u7528\u540e\u81ea\u52a8\u5173\u95ed\uff0c\u662f\u6700\u4f73\u5b9e\u8df5\u3002open()\u652f\u6301\u591a\u79cd\u6a21\u5f0f\uff08r\u3001w\u3001a\u3001rb\u3001wb\u7b49\uff09\uff0c\u65e2\u80fd\u8bfb\u6587\u672c\u4e5f\u80fd\u8bfb\u4e8c\u8fdb\u5236\u6587\u4ef6\u3002"
+        },
+        {
+          "index": 30,
+          "stem": "\u4ee5\u4e0b\u4ee3\u7801\u7684\u8f93\u51fa\u7ed3\u679c\u662f\uff08\u3000\uff09\u3002\na = [1, 2, 3]\nb = a\nb[0] = 100\nprint(a[0])",
+          "question_type": "choice",
+          "options": [
+            { "key": "A", "text": "1" },
+            { "key": "B", "text": "100" },
+            { "key": "C", "text": "2" },
+            { "key": "D", "text": "\u62a5\u9519" }
+          ],
+          "answer": "B",
+          "score": 1.5,
+          "auto_grade": true,
+          "explanation": "\u5728Python\u4e2d\uff0cb=a\u662f\u5f15\u7528\u4f20\u9012\uff08\u6d45\u62f7\u8d1d\uff09\uff0ca\u548cb\u6307\u5411\u540c\u4e00\u4e2a\u5217\u8868\u5bf9\u8c61\u3002\u4fee\u6539b[0]\u4f1a\u540c\u65f6\u5f71\u54cda[0]\uff0c\u56e0\u6b64\u8f93\u51fa100\u3002\u5982\u9700\u6df1\u62f7\u8d1d\u5e94\u4f7f\u7528a.copy()\u6216copy.deepcopy()\u3002"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "name": "\u7f16\u7a0b\u9898",
+      "duration_minutes": 60,
+      "section_score": 60,
+      "instruction": "\u672c\u90e8\u5206\u51713\u9053\u7f16\u7a0b\u9898\uff0c\u6bcf\u989820\u5206\uff0c\u517160\u5206\u3002\u8bf7\u5728\u4ee3\u7801\u7f16\u8f91\u533a\u7f16\u5199\u7a0b\u5e8f\uff0c\u7cfb\u7edf\u5c06\u81ea\u52a8\u7f16\u8bd1\u8fd0\u884c\u5e76\u4e0e\u6d4b\u8bd5\u7528\u4f8b\u5bf9\u6bd4\u5224\u5206\u3002\u6ce8\u610f\uff1a\u7a0b\u5e8f\u5e94\u80fd\u5904\u7406\u591a\u7ec4\u8f93\u5165\uff0c\u9075\u5faa\u9898\u76ee\u8981\u6c42\u7684\u8f93\u5165\u8f93\u51fa\u683c\u5f0f\u3002",
+      "questions": [
+        {
+          "index": 31,
+          "question_type": "programming",
+          "title": "\u8ba1\u7b97\u5076\u6570\u4e4b\u548c",
+          "content": {
+            "stem": "\u7f16\u5199\u7a0b\u5e8f\uff0c\u8ba1\u7b97\u4ece1\u5230n\u4e4b\u95f4\uff08\u5305\u542bn\uff09\u6240\u6709\u5076\u6570\u7684\u548c\u3002n\u7531\u7528\u6237\u8f93\u5165\uff08\u6b63\u6574\u6570\uff09\u3002\n\n\u3010\u8f93\u5165\u683c\u5f0f\u3011\n\u4e00\u4e2a\u6b63\u6574\u6570n\uff081 \u2264 n \u2264 10000\uff09\u3002\n\n\u3010\u8f93\u51fa\u683c\u5f0f\u3011\n\u4e00\u4e2a\u6574\u6570\uff0c\u8868\u793a1\u5230n\u4e4b\u95f4\u6240\u6709\u5076\u6570\u7684\u548c\u3002",
+            "example": "\u3010\u6837\u4f8b\u8f93\u51651\u3011\n10\n\u3010\u6837\u4f8b\u8f93\u51fa1\u3011\n30\n\n\u3010\u6837\u4f8b\u8f93\u51652\u3011\n100\n\u3010\u6837\u4f8b\u8f93\u51fa2\u3011\n2550\n\n\u3010\u6837\u4f8b\u8bf4\u660e\u3011\n1-10\u4e4b\u95f4\u7684\u5076\u6570\u67092\u30014\u30016\u30018\u300110\uff0c\u548c\u4e3a30\u3002"
+          },
+          "score": 20,
+          "auto_grade": true,
+          "supported_languages": ["python3"],
+          "test_cases": [
+            { "input": "10", "expected_output": "30" },
+            { "input": "100", "expected_output": "2550" },
+            { "input": "1", "expected_output": "0" },
+            { "input": "2", "expected_output": "2" },
+            { "input": "50", "expected_output": "650" }
+          ],
+          "answer": {
+            "reference_code": "n = int(input())\ntotal = 0\nfor i in range(2, n + 1, 2):\n    total += i\nprint(total)\n",
+            "explanation": "\u4f7f\u7528range(2, n+1, 2)\u76f4\u63a5\u6b65\u957f\u4e3a2\u904d\u5386\u6240\u6709\u5076\u6570\uff0c\u7d2f\u52a0\u6c42\u548c\u3002\u65f6\u95f4\u590d\u6742\u5ea6O(n)\uff0c\u4e5f\u53ef\u76f4\u63a5\u7528\u7b49\u5dee\u6570\u5217\u516c\u5f0f\uff1acount=n//2\uff0csum=count*(count+1)\u3002"
+          },
+          "grading_rubric": {
+            "criteria": [
+              { "name": "\u6b63\u786e\u6027", "weight": 60, "description": "\u6240\u6709\u6d4b\u8bd5\u7528\u4f8b\u8f93\u51fa\u6b63\u786e" },
+              { "name": "\u4ee3\u7801\u89c4\u8303", "weight": 20, "description": "\u53d8\u91cf\u547d\u540d\u6e05\u6670\uff0c\u6709\u9002\u5f53\u6ce8\u91ca" },
+              { "name": "\u6548\u7387", "weight": 20, "description": "\u7b97\u6cd5\u65f6\u95f4\u590d\u6742\u5ea6\u5408\u7406" }
+            ]
+          }
+        },
+        {
+          "index": 32,
+          "question_type": "programming",
+          "title": "\u7edf\u8ba1\u5b57\u7b26\u4e32\u4e2d\u7684\u5b57\u7b26\u9891\u6b21",
+          "content": {
+            "stem": "\u7f16\u5199\u7a0b\u5e8f\uff0c\u8f93\u5165\u4e00\u4e2a\u5b57\u7b26\u4e32\uff0c\u7edf\u8ba1\u5176\u4e2d\u6bcf\u4e2a\u5b57\u7b26\uff08\u533a\u5206\u5927\u5c0f\u5199\uff09\u51fa\u73b0\u7684\u6b21\u6570\uff0c\u5e76\u6309\u5b57\u7b26\u7684ASCII\u7801\u4ece\u5c0f\u5230\u5927\u6392\u5e8f\u8f93\u51fa\u3002\n\n\u3010\u8f93\u5165\u683c\u5f0f\u3011\n\u4e00\u884c\u5b57\u7b26\u4e32\uff08\u957f\u5ea6\u4e0d\u8d85\u8fc7100\uff09\u3002\n\n\u3010\u8f93\u51fa\u683c\u5f0f\u3011\n\u6bcf\u884c\u8f93\u51fa\u4e00\u4e2a\u5b57\u7b26\u53ca\u5176\u51fa\u73b0\u6b21\u6570\uff0c\u683c\u5f0f\u4e3a\u201c\u5b57\u7b26:\u6b21\u6570\u201d\uff0c\u6309\u5b57\u7b26ASCII\u7801\u5347\u5e8f\u6392\u5217\u3002",
+            "example": "\u3010\u6837\u4f8b\u8f93\u51651\u3011\nhello\n\u3010\u6837\u4f8b\u8f93\u51fa1\u3011\ne:1\nh:1\nl:2\no:1\n\n\u3010\u6837\u4f8b\u8f93\u51652\u3011\nHello World\n\u3010\u6837\u4f8b\u8f93\u51fa2\u3011\n :1\nH:1\nW:1\nd:1\ne:1\nl:3\no:2\nr:1\n\n\u3010\u6837\u4f8b\u8bf4\u660e\u3011\n\u7a7a\u683c\u5b57\u7b26\u4e5f\u8981\u7edf\u8ba1\u3002\u5927\u5199\u5b57\u6bcd\u7684ASCII\u7801\u5c0f\u4e8e\u5c0f\u5199\u5b57\u6bcd\u3002"
+          },
+          "score": 20,
+          "auto_grade": true,
+          "supported_languages": ["python3"],
+          "test_cases": [
+            { "input": "hello", "expected_output": "e:1\nh:1\nl:2\no:1" },
+            { "input": "Hello World", "expected_output": " :1\nH:1\nW:1\nd:1\ne:1\nl:3\no:2\nr:1" },
+            { "input": "aaa", "expected_output": "a:3" },
+            { "input": "ABCabc", "expected_output": "A:1\nB:1\nC:1\na:1\nb:1\nc:1" }
+          ],
+          "answer": {
+            "reference_code": "s = input()\nchar_count = {}\nfor c in s:\n    if c in char_count:\n        char_count[c] += 1\n    else:\n        char_count[c] = 1\nfor k in sorted(char_count.keys()):\n    print(f\"{k}:{char_count[k]}\")\n",
+            "explanation": "\u4f7f\u7528\u5b57\u5178\u5b58\u50a8\u5b57\u7b26\u9891\u6b21\uff0c\u904d\u5386\u5b57\u7b26\u4e32\u7d2f\u8ba1\u3002sorted()\u5bf9\u952e\u6309ASCII\u7801\u6392\u5e8f\u3002\u672c\u9898\u8003\u5bdf\u5b57\u5178\u7684\u4f7f\u7528\u3001\u5b57\u7b26\u4e32\u904d\u5386\u548c\u6392\u5e8f\u3002"
+          },
+          "grading_rubric": {
+            "criteria": [
+              { "name": "\u6b63\u786e\u6027", "weight": 60, "description": "\u6240\u6709\u6d4b\u8bd5\u7528\u4f8b\u8f93\u51fa\u6b63\u786e\uff0c\u5305\u62ec\u7a7a\u683c\u7b49\u7279\u6b8a\u5b57\u7b26" },
+              { "name": "\u8f93\u51fa\u683c\u5f0f", "weight": 20, "description": "\u8f93\u51fa\u683c\u5f0f\u4e25\u683c\u7b26\u5408\u9898\u76ee\u8981\u6c42" },
+              { "name": "\u4ee3\u7801\u8d28\u91cf", "weight": 20, "description": "\u4f7f\u7528\u5408\u9002\u7684\u6570\u636e\u7ed3\u6784\uff08\u5b57\u5178\uff09\uff0c\u6392\u5e8f\u6b63\u786e" }
+            ]
+          }
+        },
+        {
+          "index": 33,
+          "question_type": "programming",
+          "title": "\u7b5b\u9009\u8303\u56f4\u5185\u7684\u7d20\u6570",
+          "content": {
+            "stem": "\u7f16\u5199\u7a0b\u5e8f\uff0c\u8f93\u5165\u4e24\u4e2a\u6b63\u6574\u6570m\u548cn\uff08m \u2264 n\uff09\uff0c\u8f93\u51fam\u5230n\u4e4b\u95f4\uff08\u5305\u542bm\u548cn\uff09\u7684\u6240\u6709\u7d20\u6570\uff0c\u6bcf\u884c\u8f93\u51fa5\u4e2a\uff0c\u6bcf\u4e2a\u6570\u53545\u4e2a\u5b57\u7b26\u5bbd\u5ea6\u53f3\u5bf9\u9f50\u3002\u5982\u679c\u6ca1\u6709\u7d20\u6570\uff0c\u5219\u8f93\u51fa\u201c\u65e0\u201d\uff08\u4e0d\u542b\u5f15\u53f7\uff09\u3002\n\n\u3010\u8f93\u5165\u683c\u5f0f\u3011\n\u4e00\u884c\u4e24\u4e2a\u6b63\u6574\u6570m\u548cn\uff0c\u7528\u7a7a\u683c\u5206\u9694\uff081 \u2264 m \u2264 n \u2264 1000\uff09\u3002\n\n\u3010\u8f93\u51fa\u683c\u5f0f\u3011\n\u6bcf\u884c\u6700\u591a5\u4e2a\u7d20\u6570\uff0c\u6bcf\u4e2a\u6570\u53545\u4e2a\u5b57\u7b26\u5bbd\u5ea6\u53f3\u5bf9\u9f50\u3002\u6ca1\u6709\u7d20\u6570\u5219\u8f93\u51fa\u201c\u65e0\u201d\u3002",
+            "example": "\u3010\u6837\u4f8b\u8f93\u51651\u3011\n10 30\n\u3010\u6837\u4f8b\u8f93\u51fa1\u3011\n   11   13   17   19   23\n   29\n\n\u3010\u6837\u4f8b\u8f93\u51652\u3011\n1 1\n\u3010\u6837\u4f8b\u8f93\u51fa2\u3011\n\u65e0"
+          },
+          "score": 20,
+          "auto_grade": true,
+          "supported_languages": ["python3"],
+          "test_cases": [
+            { "input": "10 30", "expected_output": "   11   13   17   19   23\n   29" },
+            { "input": "1 1", "expected_output": "\u65e0" },
+            { "input": "2 10", "expected_output": "    2    3    5    7" },
+            { "input": "90 100", "expected_output": "   97" },
+            { "input": "14 16", "expected_output": "\u65e0" }
+          ],
+          "answer": {
+            "reference_code": "import math\n\ndef is_prime(x):\n    if x < 2:\n        return False\n    for i in range(2, int(math.sqrt(x)) + 1):\n        if x % i == 0:\n            return False\n    return True\n\nm, n = map(int, input().split())\nprimes = []\nfor num in range(m, n + 1):\n    if is_prime(num):\n        primes.append(num)\n\nif len(primes) == 0:\n    print('\u65e0')\nelse:\n    for i in range(0, len(primes), 5):\n        line = ''\n        for j in range(i, min(i + 5, len(primes))):\n            line += f'{primes[j]:5d}'\n        print(line)\n",
+            "explanation": "\u4f7f\u7528\u8bd5\u9664\u6cd5\u5224\u65ad\u7d20\u6570\uff08\u53ea\u9700\u8bd5\u5230sqrt(x)\uff09\u3002\u6536\u96c6\u6240\u6709\u7d20\u6570\u540e\uff0c\u6309\u6bcf\u884c5\u4e2a\u683c\u5f0f\u5316\u8f93\u51fa\u3002'\u65e0'\u7528\u4e2d\u6587\u8f93\u51fa\u3002\u672c\u9898\u8003\u5bdf\u7d20\u6570\u5224\u65ad\u7b97\u6cd5\u548c\u683c\u5f0f\u5316\u8f93\u51fa\u3002"
+          },
+          "grading_rubric": {
+            "criteria": [
+              { "name": "\u6b63\u786e\u6027", "weight": 50, "description": "\u6240\u6709\u6d4b\u8bd5\u7528\u4f8b\u8f93\u51fa\u6b63\u786e" },
+              { "name": "\u683c\u5f0f\u5316\u8f93\u51fa", "weight": 25, "description": "\u6bcf\u884c5\u4e2a\u3001\u53f3\u5bf9\u9f505\u5b57\u7b26\u5bbd\u5ea6" },
+              { "name": "\u6548\u7387", "weight": 25, "description": "\u5224\u65ad\u7d20\u6570\u65f6\u4f7f\u7528sqrt\u4f18\u5316\uff0c\u65f6\u95f4\u590d\u6742\u5ea6\u5408\u7406" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

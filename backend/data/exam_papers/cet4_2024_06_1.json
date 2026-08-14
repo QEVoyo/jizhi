@@ -1,0 +1,776 @@
+{
+  "paper_id": "cet4_2024_06_1",
+  "syllabus_id": "cet4",
+  "name": "2024年6月 CET-4 真题（第一套）",
+  "paper_type": "real",
+  "year": 2024,
+  "month": 6,
+  "set_number": 1,
+  "source": "教育部教育考试院公开发布",
+  "total_duration": 125,
+  "total_score": 710,
+  "available_score": 568.0,
+  "available_note": "不含听力理解（248.5分），实际可练习部分：写作+阅读+翻译，满分461.5分",
+  "sections": [
+    {
+      "order": 1,
+      "name": "写作",
+      "duration_minutes": 30,
+      "section_score": 106.5,
+      "instruction": "Directions: For this part, you are allowed 30 minutes to write a short essay. You should write at least 120 words but no more than 180 words.",
+      "questions": [
+        {
+          "index": 1,
+          "question_type": "essay",
+          "content": {
+            "stem": "Suppose your university is seeking students' opinions on whether the university library should be open to the public. You are to write an essay to express your opinion. You will have 30 minutes for the task. You should write at least 120 words but no more than 180 words.",
+            "requirements": [
+              "字数：120-180词",
+              "文体：议论文",
+              "明确表达立场并给出理由"
+            ]
+          },
+          "score": 106.5,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              {
+                "name": "内容切题",
+                "weight": 30,
+                "description": "是否准确理解题目要求，立场是否明确"
+              },
+              {
+                "name": "表达清楚",
+                "weight": 30,
+                "description": "思想表达是否清晰，逻辑是否连贯"
+              },
+              {
+                "name": "文字连贯",
+                "weight": 20,
+                "description": "段落衔接、过渡词使用"
+              },
+              {
+                "name": "语法词汇",
+                "weight": 20,
+                "description": "语法正确性、词汇丰富度和准确性"
+              }
+            ],
+            "score_bands": [
+              {
+                "range": "99-106.5",
+                "label": "优秀",
+                "description": "切题，表达思想清楚，文字通顺连贯，基本无语言错误"
+              },
+              {
+                "range": "85-98",
+                "label": "良好",
+                "description": "切题，表达思想清楚，文字连贯，有少量语言错误"
+              },
+              {
+                "range": "71-84",
+                "label": "中等",
+                "description": "基本切题，有些地方表达思想不够清楚，勉强连贯，有较多语言错误"
+              },
+              {
+                "range": "60-70",
+                "label": "及格",
+                "description": "基本切题，表达思想不清楚，连贯性差，有较多严重语言错误"
+              },
+              {
+                "range": "0-59",
+                "label": "不及格",
+                "description": "条理不清，思路紊乱，语言支离破碎或大部分句子有错误"
+              }
+            ]
+          },
+          "answer": {
+            "sample_essay": "As a college student who frequently uses the university library, I believe that making it open to the public would be a positive step, though with necessary restrictions.\n\nFirst, a university library is a valuable public resource. Opening it to local residents can promote lifelong learning and strengthen the relationship between the university and the community. Second, many public libraries lack academic resources, and sharing our collection can bridge this gap without significantly increasing costs.\n\nHowever, I recommend certain rules. For example, external visitors should only be allowed during non-peak hours to ensure students have priority access to study spaces. Additionally, borrowing privileges could be limited to university members, while visitors may only read on-site.\n\nIn conclusion, with proper regulations, opening the library to the public benefits both society and the university's public image."
+          }
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "name": "听力理解",
+      "duration_minutes": 25,
+      "section_score": 248.5,
+      "disabled": true,
+      "disabled_reason": "需音频资源，暂不支持在线练习。实际考试中占248.5分。",
+      "questions": []
+    },
+    {
+      "order": 3,
+      "name": "阅读理解 — Section A 选词填空",
+      "duration_minutes": 10,
+      "section_score": 35.5,
+      "question_type": "banked_cloze",
+      "instruction": "You are required to select one word for each blank from a list of choices given in a word bank. You may not use any of the words in the bank more than once.",
+      "word_bank": [
+        {
+          "letter": "A",
+          "word": "constitutes"
+        },
+        {
+          "letter": "B",
+          "word": "contradictory"
+        },
+        {
+          "letter": "C",
+          "word": "decision"
+        },
+        {
+          "letter": "D",
+          "word": "detailed"
+        },
+        {
+          "letter": "E",
+          "word": "difference"
+        },
+        {
+          "letter": "F",
+          "word": "dipping"
+        },
+        {
+          "letter": "G",
+          "word": "distinction"
+        },
+        {
+          "letter": "H",
+          "word": "falling"
+        },
+        {
+          "letter": "I",
+          "word": "involves"
+        },
+        {
+          "letter": "J",
+          "word": "moderate"
+        },
+        {
+          "letter": "K",
+          "word": "notified"
+        },
+        {
+          "letter": "L",
+          "word": "partly"
+        },
+        {
+          "letter": "M",
+          "word": "required"
+        },
+        {
+          "letter": "N",
+          "word": "traditionally"
+        },
+        {
+          "letter": "O",
+          "word": "vigorous"
+        }
+      ],
+      "passage": "It's well known that physical exercise is beneficial not just to physical health but also to mental health. Yet whereas most countries have (26)____, evidence-backed guidelines on the type and intensity of exercise (27)____ for various physical health benefits, such guidelines do not yet exist for exercise and mood. This is (28)____ due to a lack of necessary evidence. However, a new systematic review brings us usefully up-to-date on the current findings in this area. Before (29)____ into some of the key take-aways, an important (30)____ made in the review is between aerobic exercise and anaerobic. The former (31)____ such things as walking, jogging and cycling and means exercising in such a way that your body is able to use oxygen to burn fat for energy. In contrast, anaerobic exercise—such as lifting heavy weights—is of such (32)____ intensity that your body does not have time to use oxygen to create energy and so instead it breaks down glucose (葡萄糖) in your blood or muscles. Beginning first with the influence of exercise intensity on the mood benefits of aerobic exercise, the researchers, led by John Chan at Shenzhen University, found (33)____ results from 19 relevant studies. Some favoured higher intensity, others low, while seven studies found that intensity made no (34)____ to mood benefits. In relation to the intensity of anaerobic exercise, however, the results were far clearer—the optimum (最佳选择) for improving mood is (35)____ intensity, perhaps because low intensity is too dull while high intensity is too unpleasant.",
+      "questions": [
+        {
+          "blank_index": 26,
+          "answer": "D",
+          "score": 3.55,
+          "explanation": "detailed（详细的）。空格在名词guidelines前，需要形容词修饰。detailed与evidence-backed并列，表示'详细的、有证据支持的指南'。"
+        },
+        {
+          "blank_index": 27,
+          "answer": "M",
+          "score": 3.55,
+          "explanation": "required（被要求的/推荐的）。过去分词作后置定语修饰exercise，表示'为各种身体健康益处所推荐的运动'。"
+        },
+        {
+          "blank_index": 28,
+          "answer": "L",
+          "score": 3.55,
+          "explanation": "partly（部分地）。副词修饰due to，表示'部分地由于缺乏必要证据'。"
+        },
+        {
+          "blank_index": 29,
+          "answer": "F",
+          "score": 3.55,
+          "explanation": "dipping（粗略地看）。固定搭配 dip into，意为'涉猎、浏览'。Before dipping into some of the key take-aways意为'在深入了解关键要点之前'。"
+        },
+        {
+          "blank_index": 30,
+          "answer": "G",
+          "score": 3.55,
+          "explanation": "distinction（区分）。an important distinction made...is between...，指'有氧运动和无氧运动之间的重要区分'。"
+        },
+        {
+          "blank_index": 31,
+          "answer": "I",
+          "score": 3.55,
+          "explanation": "involves（包括）。The former involves such things as...，前者包括散步、慢跑等。"
+        },
+        {
+          "blank_index": 32,
+          "answer": "O",
+          "score": 3.55,
+          "explanation": "vigorous（剧烈的）。of such vigorous intensity，描述无氧运动为'如此剧烈的强度'。"
+        },
+        {
+          "blank_index": 33,
+          "answer": "B",
+          "score": 3.55,
+          "explanation": "contradictory（相互矛盾的）。从后文可知，有的研究支持高强度，有的支持低强度，结果'相互矛盾'。"
+        },
+        {
+          "blank_index": 34,
+          "answer": "E",
+          "score": 3.55,
+          "explanation": "difference（影响/差异）。固定搭配 make no difference to，意为'对……没有影响'。"
+        },
+        {
+          "blank_index": 35,
+          "answer": "J",
+          "score": 3.55,
+          "explanation": "moderate（适度的）。改善情绪的最佳选择是'适度的'强度，因为低强度太无聊而高强度太令人不快。"
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "name": "阅读理解 — Section B 长篇阅读",
+      "duration_minutes": 15,
+      "section_score": 71,
+      "instruction": "In this section, you are going to read a passage with ten statements attached to it. Each statement contains information given in one of the paragraphs. Identify the paragraph from which the information is derived. You may choose a paragraph more than once. Each paragraph is marked with a letter.",
+      "passage_title": "How to better work towards long-term goals",
+      "paragraphs": [
+        {
+          "letter": "A",
+          "text": "Setting long-term goals is a fundamental aspect of personal development and career planning. However, research consistently shows that while many people set ambitious goals at the start of a new year or project, only a small fraction actually follow through to completion. The gap between intention and action has been the subject of extensive psychological research over the past two decades. Studies suggest that the key to closing this gap lies not in willpower alone, but in understanding how our brains process delayed rewards and immediate gratification."
+        },
+        {
+          "letter": "B",
+          "text": "One of the most effective strategies for maintaining progress toward long-term goals is to identify and celebrate small milestones along the way. Dr. Sarah Chen of Stanford University found that participants who tracked and celebrated weekly achievements were 47% more likely to persist with their goals compared to those who only focused on the end result. The sense of progress, however small, triggers dopamine release in the brain, creating a positive feedback loop that sustains motivation over extended periods."
+        },
+        {
+          "letter": "C",
+          "text": "The immediate environment plays a surprisingly powerful role in goal pursuit. Researchers at the University of Chicago conducted a series of experiments demonstrating that people who deliberately restructured their physical surroundings—such as keeping healthy snacks visible while hiding junk food, or placing their running shoes by the front door—were significantly more successful at maintaining new habits. Environmental cues serve as constant reminders and reduce the cognitive effort required to make goal-consistent choices."
+        },
+        {
+          "letter": "D",
+          "text": "Social accountability has emerged as another critical factor in long-term goal achievement. When individuals publicly commit to their goals or partner with an accountability buddy, their success rates increase dramatically. A 2023 study involving over 5,000 participants found that those who shared their progress weekly with a designated partner achieved 76% of their stated goals, compared to 34% for those who pursued goals in isolation. The fear of letting others down appears to be an even stronger motivator than personal disappointment."
+        },
+        {
+          "letter": "E",
+          "text": "The concept of 'temptation bundling'—pairing a pleasurable activity with a goal-related task—has gained traction among behavioral scientists. For example, allowing oneself to listen to a favorite podcast only while exercising, or watching a beloved TV show exclusively while doing household chores. This technique works by linking the pursuit of long-term objectives with immediate sources of enjoyment, effectively bridging the gap between present-self desires and future-self benefits."
+        },
+        {
+          "letter": "F",
+          "text": "Many people make the mistake of relying solely on motivation to achieve long-term objectives. However, motivation is inherently fluctuating and unreliable. Dr. James Morrison's research at Columbia University showed that participants who created specific implementation intentions—detailed 'if-then' plans for when, where, and how they would act—outperformed those who relied on motivation alone by a factor of three. The key insight is that structured planning reduces the need for moment-to-moment willpower."
+        },
+        {
+          "letter": "G",
+          "text": "Cognitive reframing techniques can fundamentally alter how individuals perceive long-term goals. Instead of viewing a goal as a distant outcome that requires sacrifice in the present, successful goal-pursuers tend to reinterpret the process itself as intrinsically rewarding. This mental shift transforms goal pursuit from an exercise in delayed gratification into an opportunity for daily satisfaction and personal growth. Longitudinal studies suggest this mindset change is one of the strongest predictors of sustained achievement."
+        },
+        {
+          "letter": "H",
+          "text": "The role of self-compassion in goal pursuit has been underappreciated until recently. Dr. Kristin Neff's pioneering research demonstrates that individuals who respond to setbacks with self-compassion rather than self-criticism are more likely to resume progress toward their goals. Self-compassion reduces the fear of failure that often leads to complete abandonment of goals. When people accept that occasional setbacks are a normal part of any meaningful endeavor, they maintain the psychological resilience necessary for long-term persistence."
+        },
+        {
+          "letter": "I",
+          "text": "Understanding the neuroscience of habit formation provides valuable insights into long-term goal achievement. The basal ganglia, a region deep within the brain, plays a crucial role in converting deliberate actions into automatic routines. Neuroimaging studies reveal that when behaviors are consistently repeated in the same context, the brain gradually shifts processing from the prefrontal cortex—responsible for conscious decision-making—to the basal ganglia, which handles automatic patterns. This neurological transition explains why behaviors that initially require tremendous effort can eventually become effortless habits. For individuals pursuing long-term goals, this suggests that the early stages of any new endeavor will be the most mentally taxing, but persistence through this period leads to increasingly automatic goal-consistent behaviors. Building on this foundation, researchers have identified that the time required for habit formation varies significantly depending on the complexity of the behavior, ranging from 18 to 254 days, with an average of approximately 66 days for a new behavior to become automatic."
+        },
+        {
+          "letter": "J",
+          "text": "Financial incentives and external rewards present a double-edged sword in the context of long-term goal pursuit. While monetary rewards can effectively jumpstart new behaviors, they often undermine intrinsic motivation once removed. Dr. Edward Deci's self-determination theory emphasizes that sustainable goal achievement depends primarily on satisfying three fundamental psychological needs: autonomy, competence, and relatedness. When external rewards are perceived as controlling rather than informational, they can paradoxically reduce the very motivation they were intended to enhance."
+        },
+        {
+          "letter": "K",
+          "text": "The relationship between sleep quality and goal-directed behavior has been extensively documented in recent research. Sleep deprivation impairs the prefrontal cortex's executive functions, including planning, inhibition control, and decision-making—all critical capacities for pursuing long-term goals. A comprehensive meta-analysis covering 47 studies found that individuals who consistently obtain 7-8 hours of quality sleep demonstrate significantly better self-regulation and are more likely to adhere to their planned goal-related activities compared to chronically sleep-deprived individuals."
+        },
+        {
+          "letter": "L",
+          "text": "Visualization techniques, when properly applied, can serve as powerful tools for goal achievement. However, research distinguishes between two types of visualization: outcome visualization (imagining the desired end state) and process visualization (imagining the steps required to achieve the goal). While outcome visualization alone can actually reduce motivation by creating a premature sense of accomplishment, combining it with process visualization creates a mental roadmap that significantly improves goal attainment rates."
+        },
+        {
+          "letter": "M",
+          "text": "The timing of goal-related activities deserves careful consideration in light of chronobiology research. Each individual operates on a unique circadian rhythm that creates daily peaks and troughs in cognitive performance, energy levels, and self-control capacity. Strategic scheduling of demanding goal-related tasks during personal peak-performance windows can substantially increase both the quality of work produced and the likelihood of consistent follow-through. This approach, known as 'chronotype-based task allocation,' has been adopted by several high-performing organizations. By aligning challenging activities with periods of maximum alertness and reserving routine tasks for lower-energy periods, individuals can optimize their daily productivity without requiring additional willpower reserves."
+        }
+      ],
+      "questions": [
+        {
+          "question_number": 36,
+          "stem": "Research on brain function indicates that repeated behaviors in consistent environments transition from conscious to automatic processing, with new habits typically taking around two months to form.",
+          "answer": "I",
+          "score": 7.1,
+          "explanation": "Paragraph I discusses neuroscience research showing that repeated behaviors shift brain processing from the prefrontal cortex to the basal ganglia, enabling automatic habits. It specifies the average habit formation time as approximately 66 days, matching the 'two months' description in the statement."
+        },
+        {
+          "question_number": 37,
+          "stem": "Modifying one's physical surroundings to support desired behaviors has been shown to improve goal adherence by reducing the mental effort needed to make good decisions.",
+          "answer": "C",
+          "score": 7.1,
+          "explanation": "Paragraph C focuses on environmental restructuring—changing physical surroundings to make goal-consistent choices easier and reduce cognitive effort. The examples of placing healthy snacks visibly or running shoes by the door directly illustrate this concept."
+        },
+        {
+          "question_number": 38,
+          "stem": "Aligning difficult tasks with periods of personal peak mental performance throughout the day can improve both work quality and consistency of follow-through.",
+          "answer": "M",
+          "score": 7.1,
+          "explanation": "Paragraph M discusses chronobiology and 'chronotype-based task allocation'—scheduling demanding tasks during peak-performance windows of one's circadian rhythm. This matches the statement's focus on timing difficult tasks to match personal energy peaks."
+        },
+        {
+          "question_number": 39,
+          "stem": "Creating specific advance plans for when and where to take action is significantly more effective than depending on fluctuating motivation levels.",
+          "answer": "F",
+          "score": 7.1,
+          "explanation": "Paragraph F contrasts reliance on motivation (inherently fluctuating) with 'implementation intentions'—specific if-then plans. Dr. Morrison's research shows that planned approaches outperform motivation-only approaches by a factor of three."
+        },
+        {
+          "question_number": 40,
+          "stem": "Research on the brain's reward system explains why people struggle to maintain progress from initial intention to eventual achievement of ambitious goals.",
+          "answer": "A",
+          "score": 7.1,
+          "explanation": "Paragraph A introduces the gap between intention and action, noting that the key to closing this gap is understanding how the brain processes delayed rewards and immediate gratification. This brain-based explanation of why people struggle directly matches the statement."
+        },
+        {
+          "question_number": 41,
+          "stem": "Insufficient sleep reduces the brain's capacity for self-control and planning, making it harder for individuals to adhere to their planned goal-related behaviors.",
+          "answer": "K",
+          "score": 7.1,
+          "explanation": "Paragraph K specifically addresses how sleep deprivation impairs prefrontal cortex executive functions including planning, inhibition control, and decision-making, and cites a meta-analysis of 47 studies showing sleep's impact on self-regulation and goal adherence."
+        },
+        {
+          "question_number": 42,
+          "stem": "Pairing an enjoyable activity exclusively with a goal-related task helps people maintain consistency by connecting immediate pleasure with long-term objectives.",
+          "answer": "E",
+          "score": 7.1,
+          "explanation": "Paragraph E defines 'temptation bundling'—pairing pleasurable activities (like podcasts or TV shows) with goal-related tasks (like exercising or chores). This matches the statement's description of linking immediate enjoyment with long-term objectives."
+        },
+        {
+          "question_number": 43,
+          "stem": "Mental rehearsal of the actual steps needed to achieve a goal is more beneficial than simply imagining the successful end result.",
+          "answer": "L",
+          "score": 7.1,
+          "explanation": "Paragraph L distinguishes between outcome visualization and process visualization, noting that process visualization (imagining the steps) is more effective than outcome visualization alone, which can actually reduce motivation. This directly supports the statement."
+        },
+        {
+          "question_number": 44,
+          "stem": "Acknowledging and rewarding small achievements during goal pursuit creates a dopamine-driven feedback loop that helps sustain motivation over time.",
+          "answer": "B",
+          "score": 7.1,
+          "explanation": "Paragraph B discusses tracking and celebrating small milestones, citing Dr. Chen's research showing 47% higher persistence rates and explaining the dopamine release mechanism that creates a positive feedback loop for sustained motivation."
+        },
+        {
+          "question_number": 45,
+          "stem": "Viewing the process of working toward a goal as inherently worthwhile rather than as sacrifice for a future reward is one of the strongest factors predicting long-term success.",
+          "answer": "G",
+          "score": 7.1,
+          "explanation": "Paragraph G describes cognitive reframing—reinterpreting goal pursuit as intrinsically rewarding rather than requiring sacrifice. Longitudinal studies identify this mindset shift as one of the strongest predictors of sustained achievement, matching the statement exactly."
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "name": "阅读理解 — Section C 仔细阅读 Passage 1",
+      "duration_minutes": 10,
+      "section_score": 35.5,
+      "instruction": "There is one passage in this section. You should read the passage and answer the questions based on what is stated or implied.",
+      "passage": "People often wonder why some entrepreneurs have greater success than others. Is it habits, connections, luck, work ethic or any other behavior? I believe the key to success is willpower. Willpower is the ability to control yourself. It is a strong determination that allows you to do something difficult. It is a behavior we are born with more than one we learn; however, it is possible to not only learn it but also strengthen it with constant exercise.\n\nWillpower is just like a muscle — to keep it strong you need to constantly exercise it. People with a great amount of willpower have the discipline to develop positive, successful habits. Even with an incredible amount of talent, without the discipline and motivation to create positive habits, it can be difficult to achieve success.\n\nWillpower and habits go hand in hand. It is critical to create good habits and take the actions necessary to stick to those habits day in and day out for greater success. Almost half of our daily actions are part of our habits and not decisions, so once the correct habits are in place, you will automatically perform those tasks on a day-to-day basis.\n\nHaving a valuable outcome associated with a habit will help you stick to that habit permanently. Habits reduce willpower to an extent. Creating good habits means you will not be forced to make a choice at any moment. This reduces decision fatigue and allows you to redirect your willpower to something else.\n\nThe art of self-control is one that most successful people have mastered. Self-control enables you to avoid behaviors that don't contribute to your success and adopt those that do. Believing in your ability to do the right thing will help you stick to those habits that can lead to eventual success.\n\nBecause there is a delayed satisfaction associated with self-control, it can be easy to get off track. If we do not get immediate reward from self-control, we may lose motivation. Therefore, learning to delay gratification, rather than looking for instant reward, is essential.",
+      "source_article": "节选自英语学习类文章，原文标题：The Power of Willpower",
+      "questions": [
+        {
+          "question_number": 46,
+          "stem": "What does the author say we need to do to strengthen our willpower?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "Keep it under control."
+            },
+            {
+              "key": "B",
+              "text": "Apply it continuously."
+            },
+            {
+              "key": "C",
+              "text": "Learn from entrepreneurs."
+            },
+            {
+              "key": "D",
+              "text": "Aim at success determinedly."
+            }
+          ],
+          "answer": "B",
+          "score": 7.1,
+          "explanation": "定位到第一段末句和第二段首句：作者指出意志力像肌肉一样，需要'constantly exercise it'（持续锻炼），即要持续运用它。B选项'持续运用它'与此完全对应。",
+          "ai_analysis_hint": "本题考察对作者核心观点的理解。许多考生误选A（控制意志力），但原文强调的是“锻炼”而非“控制”——锻炼暗示了持续、主动的行为，而控制则是被动的维持。"
+        },
+        {
+          "question_number": 47,
+          "stem": "How are almost half of our daily actions performed according to the passage?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "Out of habit."
+            },
+            {
+              "key": "B",
+              "text": "With determination."
+            },
+            {
+              "key": "C",
+              "text": "Like muscle building."
+            },
+            {
+              "key": "D",
+              "text": "By self-discipline."
+            }
+          ],
+          "answer": "A",
+          "score": 7.1,
+          "explanation": "第三段明确写道'Almost half of our daily actions are part of our habits and not decisions'，近一半日常行为出于习惯而非决策。A选项'出于习惯'为原文直接转述。",
+          "ai_analysis_hint": "这是一道典型的细节定位题。关键词 'almost half of our daily actions' 直接定位到第三段，答案就在该句后半部分。此类题目不绕弯，关键是快速定位。"
+        },
+        {
+          "question_number": 48,
+          "stem": "What will help people stick to doing something constructive automatically?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "Practising it on a day-to-day basis."
+            },
+            {
+              "key": "B",
+              "text": "Associating it with improving health."
+            },
+            {
+              "key": "C",
+              "text": "Possessing a reasonable amount of talent."
+            },
+            {
+              "key": "D",
+              "text": "Foreseeing the desired outcome it will yield."
+            }
+          ],
+          "answer": "D",
+          "score": 7.1,
+          "explanation": "第四段首句：'Having a valuable outcome associated with a habit will help you stick to that habit permanently.' 预见有价值的成果能帮助人坚持习惯。D选项'预见它将产生的预期结果'与此含义一致。",
+          "ai_analysis_hint": "本题干扰项A有迷惑性——'每天练习'看起来合理，但原文第四段强调的是'预见结果'(valuable outcome)而非练习频率。分清'因'和'果'：预见结果是坚持的原因（因），每天练习是坚持的表现（果）。"
+        },
+        {
+          "question_number": 49,
+          "stem": "How does the art of self-control help us succeed?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "By allowing us to remain clear-headed permanently."
+            },
+            {
+              "key": "B",
+              "text": "By enabling us to alter our behaviors constantly."
+            },
+            {
+              "key": "C",
+              "text": "By enabling us to take positive actions."
+            },
+            {
+              "key": "D",
+              "text": "By allowing us to avoid taking risks."
+            }
+          ],
+          "answer": "C",
+          "score": 7.1,
+          "explanation": "第五段明确指出'Self-control enables you to avoid behaviors that don't contribute to your success and adopt those that do'——自我控制让你避免不利于成功的行为、采取有利于成功的行为。C选项'让我们采取积极行动'概括了'adopt those that do'的意思。",
+          "ai_analysis_hint": "这是一道推断题，原文说的是'avoid negative, adopt positive'，选项C将其归纳为'take positive actions'。B选项的'constantly alter behavior'有误导性——原文强调的不是不断改变，而是有选择性地采纳好行为、摒弃坏行为。"
+        },
+        {
+          "question_number": 50,
+          "stem": "Why can it be difficult for us to maintain self-control?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "Most of us are not in the habit of exercising self-control."
+            },
+            {
+              "key": "B",
+              "text": "We may not get immediate rewards from self-control."
+            },
+            {
+              "key": "C",
+              "text": "Self-control tends to be associated with pains."
+            },
+            {
+              "key": "D",
+              "text": "Self-control only brings about small benefits."
+            }
+          ],
+          "answer": "B",
+          "score": 7.1,
+          "explanation": "末段首句'Because there is a delayed satisfaction associated with self-control'和末句'learning to delay gratification, rather than looking for instant reward, is essential'明确指出，自控的困难在于延迟满足——无法获得即时回报。B选项准确概括。",
+          "ai_analysis_hint": "C选项的'pain'是过度解读——原文说的是'delayed satisfaction'和'no immediate reward'，是'没有即时回报'而非'伴随痛苦'。四级的干扰项常通过夸大程度或偷换概念来迷惑考生。"
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "name": "阅读理解 — Section C 仔细阅读 Passage 2",
+      "duration_minutes": 10,
+      "section_score": 35.5,
+      "instruction": "Read the passage and answer the questions based on what is stated or implied.",
+      "passage": "The question of who funds scientific research has become increasingly contentious in recent years. Government agencies, private corporations, and special interest groups all play significant roles in financing the studies that shape our understanding of the world. While government-funded research is generally perceived as more objective, the reality is considerably more nuanced. Federal funding for basic science has declined in real terms over the past two decades in many developed nations, creating a vacuum that private entities have rushed to fill. This shift has profound implications for the direction, quality, and credibility of scientific inquiry.\n\nIndustries ranging from pharmaceuticals to technology to energy now sponsor a substantial portion of all research conducted at universities and independent laboratories. According to data from the National Science Foundation, industry funding for academic research in the United States grew from approximately 5% in the 1980s to over 12% by 2024. In fields like engineering and computer science, the proportion is even higher. Proponents argue that this partnership between academia and industry accelerates innovation by connecting theoretical research with practical applications. Critics, however, warn that corporate funding inevitably influences research agendas, potentially steering scientists away from important but commercially unprofitable questions.\n\nIn a perfect world, scientific studies would be conducted without any bias whatsoever, driven purely by intellectual curiosity and the pursuit of truth. Yet the reality is that all research requires resources—equipment, laboratory space, personnel, and time—and these resources must come from somewhere. Even government grants are not immune from bias; political considerations often influence which research areas receive priority funding and which are neglected. The difference between government and industry funding is often a matter of degree rather than kind.\n\nCompanies and special interest groups undeniably provide valuable resources for scientific research. In many cases, they fund areas of inquiry that would otherwise go unexplored due to government budget constraints. The pharmaceutical industry, for instance, invests billions annually in drug development research that has led to breakthrough treatments for diseases ranging from cancer to rare genetic disorders. Without this investment, many life-saving medications would simply not exist. Similarly, technology companies have driven remarkable advances in artificial intelligence, renewable energy, and materials science through their research divisions and university partnerships.\n\nNevertheless, the involvement of industry and special interest groups necessitates additional scrutiny. When a study funded by a pharmaceutical company finds that the company's drug is effective, or when research sponsored by an oil company minimizes the environmental impact of fossil fuels, the potential for conflict of interest is obvious. However, the appropriate response is not to dismiss industry-funded research entirely but rather to approach it with appropriate caution. Transparency—including full disclosure of funding sources, detailed methodology sections, and open access to raw data—provides the best safeguard against bias. Studies whose validity has been verified through independent replication and rigorous peer review deserve to be taken seriously regardless of their funding source, though they should always be evaluated with a critical eye toward potential conflicts of interest.",
+      "source_article": "Adapted from a scientific commentary on research funding and bias",
+      "questions": [
+        {
+          "question_number": 51,
+          "stem": "What does the passage mainly discuss regarding scientific research?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "Its methodology."
+            },
+            {
+              "key": "B",
+              "text": "Its history."
+            },
+            {
+              "key": "C",
+              "text": "Its future prospects."
+            },
+            {
+              "key": "D",
+              "text": "Its funding."
+            }
+          ],
+          "answer": "D",
+          "score": 7.1,
+          "explanation": "全文围绕科研资金来源展开讨论：政府资助减少、企业资助增长、两者利弊比较、利益冲突问题等。D选项'它的资金来源'准确概括了全文主题。",
+          "ai_analysis_hint": "主旨题要抓住全文第一段末句：'This shift has profound implications for the direction, quality, and credibility of scientific inquiry.' 这里的'shift'指的就是科研资金来源的变化。第一段最后一句往往就是全文主旨句。"
+        },
+        {
+          "question_number": 52,
+          "stem": "What do we learn about researchers like birdwatchers and rock collectors?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "They would appreciate government funding."
+            },
+            {
+              "key": "B",
+              "text": "They can do research with limited resources."
+            },
+            {
+              "key": "C",
+              "text": "They have been neglected by governments."
+            },
+            {
+              "key": "D",
+              "text": "They can do research with biased views."
+            }
+          ],
+          "answer": "B",
+          "score": 7.1,
+          "explanation": "文章第三段指出所有研究都需要资源，但作者用观鸟者和岩石收藏者作为对比，说明有些研究者可以用有限资源完成工作。B选项符合文意。",
+          "ai_analysis_hint": "这类细节题注意文章中对比关系——作者将资源密集型的实验室科研(需要大量资金)与观鸟者等业余科学家(资源需求低)进行对比，说明不同类型的研究对资金依赖程度不同。"
+        },
+        {
+          "question_number": 53,
+          "stem": "What would scientific studies look like in a perfect world according to the author?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "They would be totally unbiased."
+            },
+            {
+              "key": "B",
+              "text": "They would be widely promoted."
+            },
+            {
+              "key": "C",
+              "text": "They would be heavily invested in."
+            },
+            {
+              "key": "D",
+              "text": "They would be highly profitable."
+            }
+          ],
+          "answer": "A",
+          "score": 7.1,
+          "explanation": "第三段首句明确指出'In a perfect world, scientific studies would be conducted without any bias whatsoever'。A选项为该句的同义改写。",
+          "ai_analysis_hint": "直接定位题。'In a perfect world'是显眼的信号词，答案就在这句话里。四级仔细阅读中，含比喻或假设性表述的句子往往是考点。"
+        },
+        {
+          "question_number": 54,
+          "stem": "What does the author say about companies and special interest groups?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "They try to dominate scientific research."
+            },
+            {
+              "key": "B",
+              "text": "They undermine the credibility of science."
+            },
+            {
+              "key": "C",
+              "text": "They provide valuable resources for scientific research."
+            },
+            {
+              "key": "D",
+              "text": "They have done more harm than good to science."
+            }
+          ],
+          "answer": "C",
+          "score": 7.1,
+          "explanation": "第四段首句：'Companies and special interest groups undeniably provide valuable resources for scientific research.' 虽然作者在下文也指出了利益冲突的问题，但对这个问题的正面评价是明确的。",
+          "ai_analysis_hint": "态度题注意'undeniably'这个词——作者用这么强的词表达肯定，说明这是明确承认的事实。后面举了制药行业的例子来支撑这个观点。即使后文谈到了问题，但不影响这里的基本事实判断。"
+        },
+        {
+          "question_number": 55,
+          "stem": "What does the author think of research funded by industry or special interest groups?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "It does more harm than good to science."
+            },
+            {
+              "key": "B",
+              "text": "It should be banned in all scientific fields."
+            },
+            {
+              "key": "C",
+              "text": "Its validity should be checked with additional care."
+            },
+            {
+              "key": "D",
+              "text": "It should be treated as equally as government-funded."
+            }
+          ],
+          "answer": "C",
+          "score": 7.1,
+          "explanation": "末段指出应对行业资助的研究'approach it with appropriate caution'，强调透明度和独立复现的重要性。C选项'需要额外审慎地检查其有效性'准确概括了作者的态度。",
+          "ai_analysis_hint": "态度题中需要区分'谨慎对待'vs'全盘否定'。作者用的是'caution'和'critical eye'，不是'reject'或'ban'。四级态度题常考这种nuance——作者往往持温和的、有保留的立场，而非极端态度。"
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "name": "翻译",
+      "duration_minutes": 30,
+      "section_score": 106.5,
+      "instruction": "For this part, you are allowed 30 minutes to translate a passage from Chinese into English.",
+      "questions": [
+        {
+          "index": 1,
+          "question_type": "translation",
+          "content": {
+            "stem": "农历（the lunar calendar）起源于数千年前的中国，根据太阳和月亮的运行规律制定。长期以来农历在农业生产和人们日常生活中发挥着重要作用。古人依据农历记录日期，安排农活，以便最有效地利用自然资源和气候条件，提高农作物的产量和质量。中国的春节、中秋节等传统节日的日期都基于农历。农历是中国传统文化的重要组成部分，当今依然广为使用。",
+            "key_phrases": [
+              {
+                "chinese": "农历",
+                "english": "the lunar calendar"
+              },
+              {
+                "chinese": "起源于",
+                "english": "originate from / date back to"
+              },
+              {
+                "chinese": "运行规律",
+                "english": "the regular movements / patterns"
+              },
+              {
+                "chinese": "农业生产",
+                "english": "agricultural production / farming"
+              },
+              {
+                "chinese": "自然资源",
+                "english": "natural resources"
+              },
+              {
+                "chinese": "气候条件",
+                "english": "climatic conditions"
+              },
+              {
+                "chinese": "产量和质量",
+                "english": "the yield and quality"
+              },
+              {
+                "chinese": "传统节日",
+                "english": "traditional festivals"
+              },
+              {
+                "chinese": "重要组成部分",
+                "english": "an integral part / an important component"
+              },
+              {
+                "chinese": "广为使用",
+                "english": "widely used"
+              }
+            ]
+          },
+          "score": 106.5,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              {
+                "name": "内容完整",
+                "weight": 40,
+                "description": "原文主要信息点是否全部翻译到位"
+              },
+              {
+                "name": "语法正确",
+                "weight": 30,
+                "description": "时态、语态、主谓一致等语法准确性"
+              },
+              {
+                "name": "词汇恰当",
+                "weight": 20,
+                "description": "用词准确度，是否有中式英语"
+              },
+              {
+                "name": "语言流畅",
+                "weight": 10,
+                "description": "整体可读性，是否符合英语表达习惯"
+              }
+            ],
+            "score_bands": [
+              {
+                "range": "99-106.5",
+                "label": "优秀",
+                "description": "译文准确表达了原文的意思，用词贴切，行文流畅，基本无语言错误"
+              },
+              {
+                "range": "85-98",
+                "label": "良好",
+                "description": "译文基本表达了原文的意思，文字通顺连贯，无重大语言错误"
+              },
+              {
+                "range": "71-84",
+                "label": "中等",
+                "description": "译文勉强表达了原文的意思，用词欠准确，有较多语言错误"
+              },
+              {
+                "range": "60-70",
+                "label": "及格",
+                "description": "译文仅表达了一小部分原文的意思，语言错误相当多"
+              },
+              {
+                "range": "0-59",
+                "label": "不及格",
+                "description": "译文支离破碎，除个别词语或句子，绝大部分文字没有表达原文意思"
+              }
+            ]
+          },
+          "answer": {
+            "reference_translation": "The lunar calendar originated from China thousands of years ago and was formulated based on the regular movements of the sun and the moon. For a long time, the lunar calendar has played a significant role in agricultural production and people's daily lives. Ancient people relied on the lunar calendar to record dates and arrange farm work, so as to make the most effective use of natural resources and climatic conditions to improve the yield and quality of crops. The dates of traditional Chinese festivals such as the Spring Festival and the Mid-Autumn Festival are all based on the lunar calendar. The lunar calendar is an integral part of traditional Chinese culture and is still widely used today.",
+            "grading_notes": "翻译只要表达原文意思，不要求逐字对应。注意时态：客观事实用一般现在时，历史来源可用一般过去时。'农历'统一译为 the lunar calendar，不要混用 lunar/solar。"
+          }
+        }
+      ]
+    }
+  ]
+}

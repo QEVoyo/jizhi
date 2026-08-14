@@ -1,0 +1,814 @@
+{
+  "paper_id": "cet6_2024_06_1",
+  "syllabus_id": "cet6",
+  "name": "2024年6月 CET-6 真题（第一套）",
+  "paper_type": "real",
+  "year": 2024,
+  "month": 6,
+  "set_number": 1,
+  "source": "教育部教育考试院公开发布",
+  "total_duration": 130,
+  "total_score": 710,
+  "available_score": 532.5,
+  "available_note": "不含听力理解（248.5分），实际可练习部分：写作+阅读+翻译，满分461.5分",
+  "sections": [
+    {
+      "order": 1,
+      "name": "写作",
+      "duration_minutes": 30,
+      "section_score": 106.5,
+      "instruction": "Directions: For this part, you are allowed 30 minutes to write an essay that begins with the sentence “There is a growing awareness of the importance of digital literacy and skills in today's world.” You can make comments, cite examples or use your personal experiences to develop your essay. You should write at least 150 words but no more than 200 words.",
+      "questions": [
+        {
+          "index": 1,
+          "question_type": "essay",
+          "content": {
+            "stem": "There is a growing awareness of the importance of digital literacy and skills in today's world. You can make comments, cite examples or use your personal experiences to develop your essay. You should write at least 150 words but no more than 200 words.",
+            "requirements": [
+              "字数：150-200词",
+              "文体：议论文",
+              "必须以给定句子开头",
+              "可引用实例或个人经历展开论述"
+            ]
+          },
+          "score": 106.5,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              {
+                "name": "内容切题",
+                "weight": 30,
+                "description": "是否准确理解题目要求，论述是否充分，论点是否明确"
+              },
+              {
+                "name": "表达清楚",
+                "weight": 30,
+                "description": "思想表达是否清晰，逻辑是否连贯，论证是否有层次"
+              },
+              {
+                "name": "文字连贯",
+                "weight": 20,
+                "description": "段落衔接、过渡词使用、篇章结构是否合理"
+              },
+              {
+                "name": "语法词汇",
+                "weight": 20,
+                "description": "语法正确性、词汇丰富度和准确性、句式多样性"
+              }
+            ],
+            "score_bands": [
+              {
+                "range": "99-106.5",
+                "label": "优秀",
+                "description": "切题，表达思想清楚，文字通顺连贯，基本无语言错误，句式多变"
+              },
+              {
+                "range": "85-98",
+                "label": "良好",
+                "description": "切题，表达思想清楚，文字连贯，有少量语言错误但不影响理解"
+              },
+              {
+                "range": "71-84",
+                "label": "中等",
+                "description": "基本切题，有些地方表达思想不够清楚，勉强连贯，有较多语言错误"
+              },
+              {
+                "range": "60-70",
+                "label": "及格",
+                "description": "基本切题，表达思想不清楚，连贯性差，有较多严重语言错误"
+              },
+              {
+                "range": "0-59",
+                "label": "不及格",
+                "description": "条理不清，思路紊乱，语言支离破碎或大部分句子有错误，且多数为严重错误"
+              }
+            ]
+          },
+          "answer": {
+            "sample_essay": "There is a growing awareness of the importance of digital literacy and skills in today's world. Some believe that digital literacy is the key to success, while others argue that it is not compulsory for everyone to learn. Personally, I find the former view more reasonable.\n\nFirstly, digital literacy is crucial for students in today's world. It enables students to develop critical thinking and problem-solving skills, preparing them for future careers in a technology-driven society. With access to vast online resources such as e-books and courses from prestigious universities, students can expand their knowledge beyond the classroom. Secondly, digital skills are essential for success in the modern workplace. Employers increasingly require employees who can utilize technology to streamline processes, analyze data, and solve problems. For instance, the ability to use software applications such as Microsoft Office or data analysis tools like Excel can greatly enhance one's productivity and employability, giving job seekers a competitive advantage. Lastly, digital literacy is invaluable in daily life. From managing personal finances online to accessing government services, from using mobile payment to navigating with map apps, digital skills have become indispensable for modern living.\n\nIn conclusion, digital literacy and skills are of paramount importance in today's world. As technology continues to evolve, it is crucial that we invest in developing these skills to navigate and thrive in the digital age."
+          }
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "name": "听力理解",
+      "duration_minutes": 30,
+      "section_score": 248.5,
+      "disabled": true,
+      "disabled_reason": "需音频资源，暂不支持在线练习。实际考试中占248.5分，包括长对话、篇章理解和讲座/报道。",
+      "questions": []
+    },
+    {
+      "order": 3,
+      "name": "阅读理解 — Section A 选词填空",
+      "duration_minutes": 10,
+      "section_score": 35.5,
+      "question_type": "banked_cloze",
+      "instruction": "You are required to select one word for each blank from a list of choices given in a word bank. You may not use any of the words in the bank more than once.",
+      "word_bank": [
+        {
+          "letter": "A",
+          "word": "bounces"
+        },
+        {
+          "letter": "B",
+          "word": "completely"
+        },
+        {
+          "letter": "C",
+          "word": "dispersion"
+        },
+        {
+          "letter": "D",
+          "word": "eccentric"
+        },
+        {
+          "letter": "E",
+          "word": "hanging"
+        },
+        {
+          "letter": "F",
+          "word": "optical"
+        },
+        {
+          "letter": "G",
+          "word": "originates"
+        },
+        {
+          "letter": "H",
+          "word": "perceive"
+        },
+        {
+          "letter": "I",
+          "word": "permeates"
+        },
+        {
+          "letter": "J",
+          "word": "ponder"
+        },
+        {
+          "letter": "K",
+          "word": "preceding"
+        },
+        {
+          "letter": "L",
+          "word": "recklessly"
+        },
+        {
+          "letter": "M",
+          "word": "relation"
+        },
+        {
+          "letter": "N",
+          "word": "spectrum"
+        },
+        {
+          "letter": "O",
+          "word": "stands"
+        }
+      ],
+      "passage": "A rainbow is a multi-colored, arc-shaped phenomenon that can appear in the sky. The colors of a rainbow are produced by the reflection and (26) of light through water droplets present in the atmosphere. An observer may (27) a rainbow to be located either near or far away, but this phenomenon is not actually located at any specific spot. Instead, the appearance of a rainbow depends entirely upon the position of the observer in (28) to the direction of light. In essence, a rainbow is an (29) illusion.\n\nRainbows present a (30) made up of seven colors in a specific order. In fact, school children in many English-speaking countries are taught to remember the name “Roy G. Biv” as an aid for remembering the colors of a rainbow and their order. “Roy G. Biv” (31) for: red, orange, yellow, green, blue, indigo, and violet. The outer edge of the rainbow arc is red, while the inner edge is violet.\n\nA rainbow is formed when light (generally sunlight) passes through water droplets (32) in the atmosphere. The light waves change direction as they pass through the water droplets, resulting in two processes: reflection and refraction. When light reflects off a water droplet, it simply (33) back in the opposite direction from where it (34). When light refracts, it takes a different direction. Some individuals refer to refracted light as “bent light waves.” A rainbow is formed because white light enters the water droplet, where it bends in several different directions. When these bent light waves reach the other side of the water droplet, they reflect back out of the droplet instead of (35) passing through the water. Since the white light is separated inside of the water, the refracted light appears as separate colors to the human eye.",
+      "source_article": "节选自科普类英语文章，主题：彩虹的光学原理",
+      "questions": [
+        {
+          "blank_index": 26,
+          "answer": "C",
+          "score": 3.55,
+          "explanation": "dispersion（色散）。空格与reflection并列，由and连接，共同说明彩虹颜色的成因。光的反射和色散是彩虹形成的两个关键光学过程。dispersion是光学专业词汇，指白光分解为组成色光的现象。"
+        },
+        {
+          "blank_index": 27,
+          "answer": "H",
+          "score": 3.55,
+          "explanation": "perceive（感知）。空格在情态动词may之后，需要动词原形。observe与perceive呼应，表示观察者可能“感知”到彩虹位于近处或远处，但实际上彩虹并不在某个特定位置。perceive强调主观的感知和觉察。"
+        },
+        {
+          "blank_index": 28,
+          "answer": "M",
+          "score": 3.55,
+          "explanation": "relation（关系）。固定搭配 in relation to，意为“相对于、与……相关”。此处指彩虹的出现取决于观察者“相对于”光线方向的位置。选项中没有其他名词可与in...to构成此义。"
+        },
+        {
+          "blank_index": 29,
+          "answer": "F",
+          "score": 3.55,
+          "explanation": "optical（光学的）。空格在不定冠词an之后、名词illusion之前，需要以元音开头的形容词。optical illusion为固定搭配，意为“视错觉、光学幻觉”。彩虹本质上是一种光学现象，并非实际存在于某个位置。"
+        },
+        {
+          "blank_index": 30,
+          "answer": "N",
+          "score": 3.55,
+          "explanation": "spectrum（光谱）。空格在不定冠词a之后、过去分词短语之前，需要单数名词。spectrum指七种颜色按特定顺序排列的“光谱”。下文的七种颜色名称明确指向光谱这一物理概念。"
+        },
+        {
+          "blank_index": 31,
+          "answer": "O",
+          "score": 3.55,
+          "explanation": "stands（代表）。固定搭配 stand for，意为“代表、表示”。“Roy G. Biv”这个名称“代表”红橙黄绿蓝靛紫七种颜色。stand for是常见固定搭配，其他动词不能与for构成此义。"
+        },
+        {
+          "blank_index": 32,
+          "answer": "E",
+          "score": 3.55,
+          "explanation": "hanging（悬浮）。现在分词作后置定语修饰water droplets。hang在此意为“悬浮、停留”，指水滴“悬浮”在大气中。过去分词hanged含义不同（绞死），此处只能选hanging表示状态。"
+        },
+        {
+          "blank_index": 33,
+          "answer": "A",
+          "score": 3.55,
+          "explanation": "bounces（反弹）。空格在副词simply之后、副词back之前，需要不及物动词第三人称单数。bounce back意为“弹回、反弹”，准确描述光线从水滴反射时沿相反方向弹回的物理过程。"
+        },
+        {
+          "blank_index": 34,
+          "answer": "G",
+          "score": 3.55,
+          "explanation": "originates（起源、发出）。空格在from where it之后，需要动词第三人称单数。originate from意为“源自”，光线从它发出之处弹回相反方向。where it originates = 光线发出的地方（即光源方向）。"
+        },
+        {
+          "blank_index": 35,
+          "answer": "B",
+          "score": 3.55,
+          "explanation": "completely（完全地）。空格在instead of之后、现在分词passing之前，需要副词修饰passing。completely与前面的reflect back out形成对比：光线反射出水滴，而不是“完全”穿过水。此处强调光线并非完全穿透水滴。"
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "name": "阅读理解 — Section B 长篇阅读",
+      "duration_minutes": 15,
+      "section_score": 71,
+      "instruction": "In this section, you are going to read a passage with ten statements attached to it. Each statement contains information given in one of the paragraphs. Identify the paragraph from which the information is derived. You may choose a paragraph more than once. Each paragraph is marked with a letter.",
+      "passage_title": "Keynes's prediction on working hours and American reality",
+      "paragraphs": [
+        {
+          "letter": "A",
+          "text": "In 1930, the renowned economist John Maynard Keynes published an essay titled 'Economic Possibilities for Our Grandchildren,' in which he made a bold prediction. He forecasted that within a century, technological progress would advance so dramatically that people in developed nations would need to work only about 15 hours per week. The central problem facing humanity, Keynes argued, would shift from how to produce enough to how to use leisure time wisely. This vision of a work-light future captured the imagination of generations and has been referenced countless times in discussions about automation and the future of employment."
+        },
+        {
+          "letter": "B",
+          "text": "Nearly a century later, Keynes's prediction has not materialized in the way he envisioned. While the economies of developed nations have grown far beyond his most optimistic projections, the average work week in countries like the United States remains stubbornly around 40 hours for full-time employees. In fact, for many professional workers, particularly those in knowledge industries, the boundaries between work and personal time have blurred considerably with the advent of smartphones and remote work technologies. The 15-hour work week remains as distant a prospect as it was in 1930."
+        },
+        {
+          "letter": "C",
+          "text": "The primary reason Keynes's prediction failed is that he underestimated the human capacity for wanting more. Economic growth has indeed made societies vastly wealthier, but rather than choosing to work less while maintaining the 1930s standard of living, people have consistently chosen to work similar hours and enjoy dramatically higher material standards. The consumer economy has expanded to absorb productivity gains, with new categories of goods and services—from smartphones to streaming entertainment to international travel—becoming viewed as necessities rather than luxuries."
+        },
+        {
+          "letter": "D",
+          "text": "Since 1973, a troubling divergence has emerged between productivity growth and wage growth in the American economy. While productivity—the amount of output per hour worked—has increased by approximately 77%, the typical worker's hourly compensation has risen by only about 12% after adjusting for inflation. This means that the gains from technological progress and efficiency improvements have disproportionately flowed to capital owners and top executives rather than to the workers who might otherwise have chosen to reduce their working hours."
+        },
+        {
+          "letter": "E",
+          "text": "The rise of income inequality plays a crucial role in explaining why working hours have not declined. High-income professionals in fields such as finance, law, medicine, and technology often work more hours than their middle-income counterparts. For these workers, the opportunity cost of leisure is extremely high—every hour not worked represents substantial forgone income. Meanwhile, lower-income workers often need to work multiple jobs or overtime simply to make ends meet, as stagnant wages have eroded purchasing power for those at the bottom of the income distribution."
+        },
+        {
+          "letter": "F",
+          "text": "The nature of modern work itself has changed in ways that make reduced hours difficult to achieve. Many jobs in the knowledge economy involve complex projects, team coordination across time zones, and continuous learning requirements. Unlike factory work, where output is directly tied to hours at a station, knowledge work has no natural stopping point. There is always another email to answer, another document to review, another problem to solve. This 'boundarylessness' of modern professional work has been exacerbated by digital connectivity."
+        },
+        {
+          "letter": "G",
+          "text": "For many high-income knowledge workers, work has become a source of identity, meaning, and social status rather than merely a means of earning a living. Surveys consistently show that highly educated professionals derive significant personal satisfaction from their careers and often choose to continue working even when they have sufficient wealth to retire. The social and psychological rewards of professional achievement—recognition, influence, intellectual stimulation—make the prospect of radically reduced working hours less appealing than Keynes might have assumed."
+        },
+        {
+          "letter": "H",
+          "text": "The experience of other developed nations suggests that policy choices significantly influence working hours. Countries such as Germany, the Netherlands, and Denmark have shorter average annual working hours than the United States, partly due to stronger labor protections, more generous vacation policies, and cultural norms that value work-life balance. Some European companies have experimented with four-day work weeks without reducing pay, reporting maintained or improved productivity alongside higher employee satisfaction. These examples demonstrate that reduced working hours are achievable when supported by institutional frameworks."
+        },
+        {
+          "letter": "I",
+          "text": "The COVID-19 pandemic triggered an unprecedented global experiment in flexible work arrangements. Millions of workers experienced remote work for the first time, and many discovered that they could maintain or even improve their productivity outside traditional office environments. This experience has catalyzed a broader reconsideration of work norms, with growing movements advocating for shorter work weeks, flexible schedules, and a decoupling of productivity from hours spent at a desk. Whether these shifts will lead to lasting reductions in working hours remains to be seen."
+        },
+        {
+          "letter": "J",
+          "text": "Technological advances in artificial intelligence and automation have reignited the debate that Keynes started nearly a century ago. Some economists argue that AI could finally deliver the productivity gains necessary to substantially reduce working hours across the economy. Others warn that without deliberate policy interventions, the benefits of AI-driven productivity will likely follow the same pattern as previous technological revolutions—flowing disproportionately to capital owners while workers face displacement and wage pressure rather than reduced hours."
+        },
+        {
+          "letter": "K",
+          "text": "The psychological dimension of overwork deserves greater attention in discussions about working hours. Research has consistently linked chronic overwork to burnout, depression, anxiety, and a range of physical health problems including cardiovascular disease. A 2024 study by the World Health Organization found that long working hours (55+ hours per week) are responsible for approximately 745,000 deaths annually from stroke and heart disease. The health costs of excessive work are not evenly distributed, with lower-income workers often facing the most severe consequences."
+        },
+        {
+          "letter": "L",
+          "text": "Looking ahead, the question is not whether technology can reduce the need for human labor—it already has, dramatically—but whether society will organize itself in a way that distributes the benefits of this reduction broadly rather than concentrating them among a small elite. Achieving Keynes's vision would require not just technological progress but also significant changes in tax policy, labor law, corporate governance, and cultural attitudes toward work and leisure. The technical capacity for a 15-hour work week may already exist; the social and political will to realize it does not."
+        }
+      ],
+      "questions": [
+        {
+          "question_number": 36,
+          "stem": "The predicted 15-hour work week has not arrived, with Americans still working about 40 hours weekly, and digital technology has blurred the line between work and personal time.",
+          "answer": "B",
+          "score": 7.1,
+          "explanation": "Paragraph B directly states that the average work week in the US is around 40 hours and that smartphones and remote technologies have blurred the boundaries between work and personal time for knowledge workers."
+        },
+        {
+          "question_number": 37,
+          "stem": "Keynes's prediction assumed that people would choose more leisure over more consumption, but instead people have consistently preferred higher material standards of living.",
+          "answer": "C",
+          "score": 7.1,
+          "explanation": "Paragraph C explains that rather than working less while maintaining 1930s living standards, people chose to work similar hours and enjoy dramatically higher material standards, with new goods and services becoming 'necessities rather than luxuries.'"
+        },
+        {
+          "question_number": 38,
+          "stem": "Since the 1970s, productivity gains in the US have dramatically outpaced wage growth, meaning workers haven't benefited proportionally from efficiency improvements.",
+          "answer": "D",
+          "score": 7.1,
+          "explanation": "Paragraph D presents the divergence between 77% productivity growth and only 12% real wage growth since 1973, explaining that productivity gains have flowed to capital owners rather than workers."
+        },
+        {
+          "question_number": 39,
+          "stem": "High-income professionals often work longer hours because leisure time carries a high opportunity cost, while lower-income workers must work extra hours to cope with stagnant wages.",
+          "answer": "E",
+          "score": 7.1,
+          "explanation": "Paragraph E describes the dual dynamic of high-income workers facing high opportunity costs for leisure and lower-income workers needing multiple jobs due to stagnant wages."
+        },
+        {
+          "question_number": 40,
+          "stem": "Knowledge work has no natural endpoint—there's always another task to complete—making it fundamentally different from factory work in terms of hours management.",
+          "answer": "F",
+          "score": 7.1,
+          "explanation": "Paragraph F contrasts knowledge work with factory work, highlighting the 'boundarylessness' of modern professional work where there's always another email, document, or problem to address."
+        },
+        {
+          "question_number": 41,
+          "stem": "For many educated professionals, work provides identity and meaning beyond income, which partly explains why they choose not to reduce their working hours even when wealthy.",
+          "answer": "G",
+          "score": 7.1,
+          "explanation": "Paragraph G discusses how highly educated professionals derive satisfaction, identity, and social status from work, making reduced working hours less appealing than Keynes assumed."
+        },
+        {
+          "question_number": 42,
+          "stem": "European countries with stronger labor protections and more generous vacation policies have shorter average working hours than the United States.",
+          "answer": "H",
+          "score": 7.1,
+          "explanation": "Paragraph H compares US working hours with countries like Germany, the Netherlands, and Denmark, attributing the difference to policy choices including labor protections and cultural norms."
+        },
+        {
+          "question_number": 43,
+          "stem": "The COVID-19 pandemic demonstrated that many workers could maintain productivity while working remotely, sparking broader discussions about reducing work hours.",
+          "answer": "I",
+          "score": 7.1,
+          "explanation": "Paragraph I discusses how the pandemic proved remote work viability, catalyzing movements for shorter work weeks, flexible schedules, and decoupling productivity from desk time."
+        },
+        {
+          "question_number": 44,
+          "stem": "Long working hours cause hundreds of thousands of deaths annually from stroke and heart disease, with lower-income workers bearing the heaviest health burden.",
+          "answer": "K",
+          "score": 7.1,
+          "explanation": "Paragraph K cites a 2024 WHO study finding 745,000 annual deaths from long working hours, noting that these health costs disproportionately affect lower-income workers."
+        },
+        {
+          "question_number": 45,
+          "stem": "Achieving significantly shorter work weeks would require not just technology but fundamental changes in tax, labor, and corporate policies as well as cultural attitudes.",
+          "answer": "L",
+          "score": 7.1,
+          "explanation": "Paragraph L argues that realizing Keynes's vision requires 'not just technological progress but also significant changes in tax policy, labor law, corporate governance, and cultural attitudes toward work and leisure.'"
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "name": "阅读理解 — Section C 仔细阅读 Passage 1",
+      "duration_minutes": 10,
+      "section_score": 35.5,
+      "instruction": "There is one passage in this section. You should read the passage and answer the questions based on what is stated or implied.",
+      "passage": "The discovery of the Antarctic not only proved one of the most interesting of all geographical adventures, but created what might be called “the heroic age of Antarctic exploration”. By their tremendous heroism, men such as Shakleton, Scott, and Amundsen caused a new continent to emerge from the shadows, and yet that heroic age, little more than a century old, is already passing. Modern science and inventions are revolutionizing the endurance, future journeys into these icy wastes will probably depend on motor vehicles equipped with caterpillar traction rather than on the dogs that earlier discoverers found so invaluable and hardly comparable.\n\nFew realize that this Antarctic continent is almost equal in size to South America, and enormous field of work awaits geographers and prospectors. The coasts of this continent remain to be accurately charted, and the mapping of the whole of the interior presents a formidable task to the cartographers who undertake the work. Once their labors are completed, it will be possible to prospect the vast natural resources which scientists believe will furnish one of the largest treasure hoards of metals and minerals the world has yet known, and almost inexhaustible sources of copper, coal, uranium, and many other ores will become available to man. Such discoveries will usher in an era of practical exploitation of the Antarctic wastes.\n\nThe polar darkness which hides this continent for the six winter months will be defeated by huge batteries of light, and make possible the establishing of air-fields for the future inter-continental air services by making these areas as light as day. Present flying routes will be completely changed, for the Antarctic refueling bases will make flights from Australia to South America comparatively easy over the 5,000 miles journey.\n\nThe climate is not likely to offer an insuperable problem, for the explorer Admiral Byrd has shown that the climate is possible even for men completely untrained for expeditions into those frozen wastes. Some of his parties were men who had never seen snow before, and yet he records that they survived the rigors of the Antarctic climate comfortably, so that, provided that the appropriate installations are made, we may assume that human beings from all countries could live there safely. Byrd even affirms that it is probably the most healthy climate in the world, for the intense cold of thousands of years has sterilized this continent, and rendered it absolutely germfree, with the consequences that ordinary and extraordinary sickness and diseases from which man suffers in other zones with different climates are here utterly unknown. There exist no problems of conservation and preservation of food supplies, for the latter keep indefinitely without any signs of deterioration; it may even be that later generations will come to regard the Antarctic as the natural storehouse for the whole world.\n\nPlans are already on foot to set up permanent bases on the shores of this continent, and what so few years ago was regarded as a “dead continent” now promises to be a most active center of human life and endeavor.",
+      "source_article": "节选自英语科普类文章，主题：南极大陆的探索与开发",
+      "questions": [
+        {
+          "question_number": 46,
+          "stem": "When did man begin to explore the Antarctic?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "About 100 years ago."
+            },
+            {
+              "key": "B",
+              "text": "In this century."
+            },
+            {
+              "key": "C",
+              "text": "At the beginning of the 19th century."
+            },
+            {
+              "key": "D",
+              "text": "In 1798."
+            }
+          ],
+          "answer": "A",
+          "score": 7.1,
+          "explanation": "定位到第一段“that heroic age, little more than a century old”，英雄时代不过一百多年，说明人类探索南极大约始于100年前。A选项“大约100年前”与原文直接对应。B选项“本世纪”不够准确——原文暗示探索始于上世纪初，至今已一个多世纪。",
+          "ai_analysis_hint": "本题考察时间定位能力。原文核心线索是“little more than a century old”，意为“刚过一百年”。六级阅读中，数字和时间常为考点，定位到相关表达后需要理解其确切含义。"
+        },
+        {
+          "question_number": 47,
+          "stem": "What must the explorers be, even though they have modern equipment and techniques?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "Brave and tough."
+            },
+            {
+              "key": "B",
+              "text": "Stubborn and arrogant."
+            },
+            {
+              "key": "C",
+              "text": "Well-liked and humorous."
+            },
+            {
+              "key": "D",
+              "text": "Stout and smart."
+            }
+          ],
+          "answer": "A",
+          "score": 7.1,
+          "explanation": "定位到第一段对早期探险者的描述“tremendous heroism”，以及第四段“survived the rigors of the Antarctic climate”。即便有现代装备，探险者仍需像Shakleton、Scott等人那样具备勇敢坚韧的品质。A选项“勇敢坚韧”准确概括了这一要求。B选项“固执傲慢”带有贬义，与原文的赞美语气不符。",
+          "ai_analysis_hint": "本题考察对人物品质的推断。原文用“heroism”（英雄主义）和“survived rigors”（经受住严酷考验）暗示所需品质。六级阅读中，作者的用词倾向（褒义/贬义）往往是解题线索。"
+        },
+        {
+          "question_number": 48,
+          "stem": "The most healthy climate in the world is ___. ",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "in South America."
+            },
+            {
+              "key": "B",
+              "text": "in the Arctic Region."
+            },
+            {
+              "key": "C",
+              "text": "in the Antarctic Continent."
+            },
+            {
+              "key": "D",
+              "text": "in the Atlantic Ocean."
+            }
+          ],
+          "answer": "C",
+          "score": 7.1,
+          "explanation": "直接定位到第四段“Byrd even affirms that it is probably the most healthy climate in the world”，it指代前文的Antarctic Continent。南极因数千年的严寒杀死了所有细菌——“sterilized this continent, and rendered it absolutely germfree”。C选项“南极大陆”为原文直接转述。",
+          "ai_analysis_hint": "本题为细节直接定位题。代词it的指代关系是关键——回顾前文可知it指代Antarctic Continent。六级阅读常考代词指代，解题时需要向上搜索代词的先行词（antecedent）。"
+        },
+        {
+          "question_number": 49,
+          "stem": "What kind of metals and minerals can we find in the Antarctic?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "Magnetite, coal and ores."
+            },
+            {
+              "key": "B",
+              "text": "Copper, coal and uranium."
+            },
+            {
+              "key": "C",
+              "text": "Silver, natural gas and uranium."
+            },
+            {
+              "key": "D",
+              "text": "Aluminum, copper and natural gas."
+            }
+          ],
+          "answer": "B",
+          "score": 7.1,
+          "explanation": "定位到第二段末“almost inexhaustible sources of copper, coal, uranium, and many other ores will become available”。原文明确列出了铜、煤和铀三种矿藏。B选项完全匹配。其他选项中的magnetite（磁铁矿）、silver（银）、aluminum（铝）、natural gas（天然气）均未在原文中出现。",
+          "ai_analysis_hint": "本题考察细节辨认能力——需要在四个选项中逐一比对原文列出的矿产。干扰项往往替换原文词汇或添加未提及的矿产资源，解题时需要严格排除原文未提及的信息。"
+        },
+        {
+          "question_number": 50,
+          "stem": "What is planned for the continent?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "Building dams along the coasts."
+            },
+            {
+              "key": "B",
+              "text": "Setting up several summer resorts along the coasts."
+            },
+            {
+              "key": "C",
+              "text": "Mapping the coast and whole territory."
+            },
+            {
+              "key": "D",
+              "text": "Setting up permanent bases on the coasts."
+            }
+          ],
+          "answer": "D",
+          "score": 7.1,
+          "explanation": "定位到末段首句“Plans are already on foot to set up permanent bases on the shores of this continent”。D选项“在海岸建立永久基地”几乎逐词对应原文。C选项“绘制海岸和整个领土地图”虽有道理，但原文将其描述为“formidable task”（艰巨任务），而非当前计划。plan与on foot明确表示这是正在推进的计划。",
+          "ai_analysis_hint": "本题的关键在于区分“计划中要做的事”与“文章描述的事”。C选项是原文提及的内容，但不是“plan”的对象。解题时要严格对应题干核心词“planned”，注意题目要求的具体指向。"
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "name": "阅读理解 — Section C 仔细阅读 Passage 2",
+      "duration_minutes": 10,
+      "section_score": 35.5,
+      "instruction": "There is one passage in this section. You should read the passage and answer the questions based on what is stated or implied.",
+      "passage": "Air pollution is deteriorating in many places around the world. The fact that public parks in cities become crowded as soon as the sun shines proves that people long to breathe in green, open spaces. They do not all know what they are seeking but they flock there, nevertheless. And, in these surroundings, they are generally both peaceful and peaceable. It is rare to see people fighting in a garden. Perhaps struggle unfolds first, not at an economic or social level, but over the appropriation of air, essential to life itself. If human beings can breathe and share air, they don't need to struggle with one another.\n\nUnfortunately, in our western tradition, neither materialist nor idealist theoreticians give enough consideration to this basic condition for life. As for politicians, despite proposing curbs on environmental pollution, they have not yet called for it to be made a crime. Wealthy countries are even allowed to pollute if they pay for it.\n\nBut is our life worth anything other than money? The plant world shows us in silence what faithfulness to life consists of. It also helps us to a new beginning, urging us to care for our breath, not only at a vital but also at a spiritual level. The interdependence to which we must pay the closest attention is that which exists between ourselves and the plant world. Often described as “the lungs of the planet”, the woods that cover the earth offer us the gift of breathable air by releasing oxygen. But their capacity to renew the air polluted by industry has long reached its limit. If we lack the air necessary for a healthy life, it is because we have filled it with chemicals and undercut the ability of plants to regenerate it. As we know, rapid deforestation combined with the massive burning of fossil fuels is an explosive recipe for an irreversible disaster.\n\nThe fight over the appropriation of resources will lead the entire planet to hell unless humans learn to share life, both with each other and with plants. This task is simultaneously ethical and political because it can be discharged only when each takes it upon herself or himself and only when it is accomplished together with others. The lesson taught by plants is that sharing life expands and enhances the sphere of the living, while dividing life into so-called natural or human resources diminishes it. We must come to view the air, the plants and ourselves as the contributors to the preservation of life and growth, rather than a web of quantifiable objects or productive potentialities at our disposal. Perhaps then we would finally begin to live, rather than being concerned with bare survival.",
+      "source_article": "节选自英美报刊评论文章，主题：空气污染与人与植物的相互依存关系",
+      "questions": [
+        {
+          "question_number": 51,
+          "stem": "What does the author say people are really struggling for?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "To get their share of clean air."
+            },
+            {
+              "key": "B",
+              "text": "To gain economic advantages."
+            },
+            {
+              "key": "C",
+              "text": "To find peaceful and quiet surroundings."
+            },
+            {
+              "key": "D",
+              "text": "To occupy a better social position."
+            }
+          ],
+          "answer": "A",
+          "score": 7.1,
+          "explanation": "定位到第一段末“Perhaps struggle unfolds first, not at an economic or social level, but over the appropriation of air, essential to life itself”。作者明确指出，人类斗争的根源并非经济或社会地位，而是对空气（维持生命所必需）的争夺。A选项“获取自己的一份清洁空气”准确概括了这一观点。B、D选项为作者明确排除的原因。",
+          "ai_analysis_hint": "本题考察对作者核心论点的理解。原文使用了“not at...but over...”这一排除转折结构，明确排除了经济和社会原因。六级阅读中，转折词（but, however, not...but）后的内容往往是作者的真实观点，也是命题重点。"
+        },
+        {
+          "question_number": 52,
+          "stem": "What criticism does the author make of western politicians?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "They have ignored the problem of deforestation."
+            },
+            {
+              "key": "B",
+              "text": "They have done nothing to protect the environment at all."
+            },
+            {
+              "key": "C",
+              "text": "They have given wealthy countries too much freedom."
+            },
+            {
+              "key": "D",
+              "text": "They have not called for environmental pollution to be made a crime."
+            }
+          ],
+          "answer": "D",
+          "score": 7.1,
+          "explanation": "定位到第二段“despite proposing curbs on environmental pollution, they have not yet called for it to be made a crime”。作者批评政客虽然提出了控制污染的措施，但尚未推动将污染入罪。D选项准确还原了这一批评。B选项过于绝对（“at all”），原文承认政客“proposing curbs”（提出了限制措施）。",
+          "ai_analysis_hint": "本题的关键在于理解“despite...not yet”的让步转折关系。despite引出让步（政客确实做了一些事），而主句才是批评的重点（但做得不够）。选项B因过于绝对而错误，体现了六级阅读中“极端选项慎选”的普遍规律。"
+        },
+        {
+          "question_number": 53,
+          "stem": "What does the author say we must pay the closest attention to?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "The rapid pace of deforestation."
+            },
+            {
+              "key": "B",
+              "text": "The interdependence between ourselves and the plant world."
+            },
+            {
+              "key": "C",
+              "text": "The massive burning of fossil fuels."
+            },
+            {
+              "key": "D",
+              "text": "The deterioration of air quality."
+            }
+          ],
+          "answer": "B",
+          "score": 7.1,
+          "explanation": "直接定位到第三段“The interdependence to which we must pay the closest attention is that which exists between ourselves and the plant world”。作者明确指出，我们必须最密切关注的“相互依存关系”是人与植物世界之间的关系。B选项为原文直接转述。A、C、D选项虽在文中有所提及，但并非“the closest attention”的所指对象。",
+          "ai_analysis_hint": "本题为典型的长难句定位题。原文“The interdependence to which we must pay the closest attention is that which exists...”包含复杂的定语从句结构。解题关键是识别“to which we must pay the closest attention”作为定语修饰“interdependence”，that指代前面的“interdependence”。"
+        },
+        {
+          "question_number": 54,
+          "stem": "How can the task of sharing life be accomplished according to the passage?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "Through international cooperation."
+            },
+            {
+              "key": "B",
+              "text": "By raising public awareness of pollution."
+            },
+            {
+              "key": "C",
+              "text": "By passing stricter environmental protection laws."
+            },
+            {
+              "key": "D",
+              "text": "By pooling their efforts together."
+            }
+          ],
+          "answer": "D",
+          "score": 7.1,
+          "explanation": "定位到末段“it can be discharged only when each takes it upon herself or himself and only when it is accomplished together with others”。作者强调这项任务需要“每个人承担起责任”并且“共同努力完成”。D选项“汇聚众人之力”准确概括了“accomplished together with others”的含义。A选项“国际合作”过于狭窄，原文强调的是每个人的参与。",
+          "ai_analysis_hint": "本题考察对平行结构的理解。原文使用“only when...and only when...”的双重条件结构，强调个人责任与集体行动缺一不可。解题时需要对这一排比结构做出准确的语义归纳，而不能被某个片面选项误导。"
+        },
+        {
+          "question_number": 55,
+          "stem": "What does the author suggest we do at the end of the passage?",
+          "question_type": "choice",
+          "options": [
+            {
+              "key": "A",
+              "text": "Focus on economic growth."
+            },
+            {
+              "key": "B",
+              "text": "Only worry about personal survival."
+            },
+            {
+              "key": "C",
+              "text": "Share life with nature."
+            },
+            {
+              "key": "D",
+              "text": "Reduce consumption of natural resources."
+            }
+          ],
+          "answer": "C",
+          "score": 7.1,
+          "explanation": "定位到末段“Perhaps then we would finally begin to live, rather than being concerned with bare survival”，以及全文反复出现的“share life, both with each other and with plants”。文章结尾的核心呼吁是与自然共享生命，而不是仅仅关注生存。C选项“与自然共享生命”准确概括了这一主旨。B选项与作者观点完全相反，作者主张的恰恰是超越“bare survival”。",
+          "ai_analysis_hint": "本题考察全文主旨的把握。六级阅读末段常起总结升华作用。“Perhaps then...”是典型的结论标志语。解题时需要联系全文反复出现的核心主题“share life”，而不能被末段中次要细节（如quantifiable objects, productive potentialities）所干扰。"
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "name": "翻译",
+      "duration_minutes": 30,
+      "section_score": 106.5,
+      "instruction": "For this part, you are allowed 30 minutes to translate a passage from Chinese into English.",
+      "questions": [
+        {
+          "index": 1,
+          "question_type": "translation",
+          "content": {
+            "stem": "扇子自古以来就深受中国人喜爱，但现在已不只是消暑纳凉的工具，而更多地作为艺术品供人欣赏。许多扇子造型优美、做工精良，并绘有山水、花鸟、人物等精美图案，具有很高的艺术价值。中国许多著名画家和书法家喜欢在扇子上作诗绘画，展示其艺术品味。扇子常作为礼物赠予他人，表达美好的祝福和真挚的情感。如今，扇子的实用功能已大为减弱，但作为一种文化符号和艺术形式，扇子仍然在中国传统文化中扮演着重要角色。",
+            "key_phrases": [
+              {
+                "chinese": "扇子",
+                "english": "fan(s)"
+              },
+              {
+                "chinese": "自古以来",
+                "english": "since ancient times"
+              },
+              {
+                "chinese": "深受……喜爱",
+                "english": "be deeply loved by / have enjoyed great popularity among"
+              },
+              {
+                "chinese": "消暑纳凉",
+                "english": "relieve heat and keep cool / cool off in the heat"
+              },
+              {
+                "chinese": "艺术品",
+                "english": "artworks / works of art"
+              },
+              {
+                "chinese": "造型优美",
+                "english": "graceful/elegant design/shape"
+              },
+              {
+                "chinese": "做工精良",
+                "english": "fine/exquisite workmanship/craftsmanship"
+              },
+              {
+                "chinese": "山水",
+                "english": "landscape / mountains and rivers"
+              },
+              {
+                "chinese": "花鸟",
+                "english": "flowers and birds"
+              },
+              {
+                "chinese": "艺术价值",
+                "english": "artistic value"
+              },
+              {
+                "chinese": "画家和书法家",
+                "english": "painters and calligraphers"
+              },
+              {
+                "chinese": "作诗绘画",
+                "english": "compose poems and paint / create poetic and pictorial works"
+              },
+              {
+                "chinese": "艺术品味",
+                "english": "artistic taste"
+              },
+              {
+                "chinese": "赠予",
+                "english": "give as a gift / present"
+              },
+              {
+                "chinese": "祝福",
+                "english": "good wishes / blessings"
+              },
+              {
+                "chinese": "真挚的情感",
+                "english": "sincere feelings / genuine emotions"
+              },
+              {
+                "chinese": "实用功能",
+                "english": "practical function / utilitarian function"
+              },
+              {
+                "chinese": "文化符号",
+                "english": "cultural symbol"
+              },
+              {
+                "chinese": "艺术形式",
+                "english": "artistic form"
+              },
+              {
+                "chinese": "扮演重要角色",
+                "english": "play an important/significant role"
+              }
+            ]
+          },
+          "score": 106.5,
+          "ai_grade": true,
+          "grading_rubric": {
+            "criteria": [
+              {
+                "name": "内容完整",
+                "weight": 40,
+                "description": "原文主要信息点是否全部翻译到位，是否遗漏重要内容"
+              },
+              {
+                "name": "语法正确",
+                "weight": 30,
+                "description": "时态、语态、主谓一致、从句结构等语法准确性"
+              },
+              {
+                "name": "词汇恰当",
+                "weight": 20,
+                "description": "用词准确度，是否恰当处理文化专有词汇，是否出现中式英语"
+              },
+              {
+                "name": "语言流畅",
+                "weight": 10,
+                "description": "整体可读性，是否符合英语表达习惯，句式是否丰富"
+              }
+            ],
+            "score_bands": [
+              {
+                "range": "99-106.5",
+                "label": "优秀",
+                "description": "译文准确表达了原文的意思，用词贴切，行文流畅，基本无语言错误，较好地处理了文化负载词汇"
+              },
+              {
+                "range": "85-98",
+                "label": "良好",
+                "description": "译文基本表达了原文的意思，文字通顺连贯，无重大语言错误"
+              },
+              {
+                "range": "71-84",
+                "label": "中等",
+                "description": "译文勉强表达了原文的意思，用词欠准确，有较多语言错误，部分内容遗漏或表达不清"
+              },
+              {
+                "range": "60-70",
+                "label": "及格",
+                "description": "译文仅表达了一小部分原文的意思，语言错误相当多，严重遗漏"
+              },
+              {
+                "range": "0-59",
+                "label": "不及格",
+                "description": "译文支离破碎，除个别词语或句子，绝大部分文字没有表达原文意思"
+              }
+            ]
+          },
+          "answer": {
+            "reference_translation": "Fans have enjoyed great popularity among Chinese since ancient times. However, now they are regarded less as tools of relieving heat and keeping cool but more as artworks for people to appreciate. Many fans feature graceful design and fine workmanship as well as exquisite pictures of landscape, flowers, birds and figures, with superb artistic value. Many famous Chinese painters and calligraphers prefer to have poems or paintings on the fans to demonstrate their artistic taste. Fans are often given to others as gifts to express our good wishes and sincere feelings. Nowadays, the practical functions of fans have considerably decreased, but they still play a significant role in traditional Chinese culture as a cultural symbol and artistic form.",
+            "grading_notes": "翻译只要表达原文意思，不要求逐字对应。注意时态：描述历史习惯用现在完成时（have enjoyed），当前事实用一般现在时。“扇子”作为泛指对象可使用复数fans，但也可使用单数the fan作为类别代表。“消暑纳凉”需要意译，不能逐字硬译。“造型优美、做工精良”可用feature后接名词短语的句式，使译文更地道。注意“作诗绘画”翻译时需补充介词on表示在扇子上。"
+          }
+        }
+      ]
+    }
+  ]
+}

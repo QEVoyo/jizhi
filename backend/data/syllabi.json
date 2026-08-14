@@ -1,0 +1,1914 @@
+[
+  {
+    "id": "cet4",
+    "name": "CET-4 英语四级",
+    "abbr": "C4",
+    "color": "#409eff",
+    "description": "全国大学英语四级考试——本科毕业硬指标，425分过线",
+    "intro": "四级考试是大学生英语能力的基准线。通过系统训练词汇、语法、阅读和翻译四大维度，可以在短期内显著提分。平台题库涵盖近5年真题高频考点，配合 AI 诊断摸底和每日任务，帮你高效备考。",
+    "suitable_for": "在校大学生、专升本考生、社会考生",
+    "max_score": 710,
+    "pass_score": 425,
+    "question_bank": "cet4_questions.json",
+    "question_types": [
+      "choice",
+      "choice_multi",
+      "fill",
+      "cloze",
+      "translation",
+      "essay",
+      "listening_choice",
+      "listening_fill"
+    ],
+    "question_types_enabled": [
+      "choice",
+      "choice_multi",
+      "fill",
+      "cloze",
+      "translation"
+    ],
+    "dimensions": [
+      {
+        "name": "词汇",
+        "category": "vocabulary",
+        "count": 98
+      },
+      {
+        "name": "语法",
+        "category": "grammar",
+        "count": 86
+      },
+      {
+        "name": "阅读",
+        "category": "reading",
+        "count": 71
+      },
+      {
+        "name": "翻译",
+        "category": "translation",
+        "count": 47
+      },
+      {
+        "name": "写作",
+        "category": "writing",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "听力",
+        "category": "listening",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "target_count": 1000,
+    "exam_papers": [
+      {
+        "paper_id": "cet4_2024_06_1",
+        "name": "2024年6月 CET-4 真题（第一套）",
+        "paper_type": "real",
+        "question_count": 32,
+        "section_count": 6,
+        "total_score": 710,
+        "available_score": 568.0,
+        "grey": false
+      },
+      {
+        "name": "2023年12月真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年6月真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "vocabulary",
+        "sub": "高频核心词",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "vocabulary",
+        "sub": "近义词辨析",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "grammar",
+        "sub": "时态语态",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "grammar",
+        "sub": "虚拟语气",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "reading",
+        "sub": "仔细阅读",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "translation",
+        "sub": "社会文化类",
+        "type": "translation",
+        "count": 2
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "cet6",
+    "name": "CET-6 英语六级",
+    "abbr": "C6",
+    "color": "#6c8cff",
+    "description": "全国大学英语六级考试——保研/求职加分利器，425分过线",
+    "intro": "六级比四级难度明显提升，词汇量要求 6000+，听力语速更快、阅读篇幅更长。本考纲覆盖词汇、语法、阅读、翻译、写作五大维度，用诊断摸底定位薄弱环节，再用每日任务逐日攻克。",
+    "suitable_for": "已过四级的本科生、考研保研学生、求职外企",
+    "max_score": 710,
+    "pass_score": 425,
+    "question_bank": "cet6_questions.json",
+    "question_types": [
+      "choice",
+      "choice_multi",
+      "fill",
+      "cloze",
+      "translation",
+      "essay",
+      "listening_choice",
+      "listening_fill"
+    ],
+    "question_types_enabled": [
+      "choice",
+      "choice_multi",
+      "fill",
+      "cloze",
+      "translation",
+      "essay"
+    ],
+    "dimensions": [
+      {
+        "name": "词汇",
+        "category": "vocabulary",
+        "count": 0
+      },
+      {
+        "name": "语法",
+        "category": "grammar",
+        "count": 0
+      },
+      {
+        "name": "阅读",
+        "category": "reading",
+        "count": 0
+      },
+      {
+        "name": "翻译",
+        "category": "translation",
+        "count": 0
+      },
+      {
+        "name": "写作",
+        "category": "writing",
+        "count": 0
+      },
+      {
+        "name": "听力",
+        "category": "listening",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "target_count": 1000,
+    "exam_papers": [
+      {
+        "paper_id": "cet6_2024_06_1",
+        "name": "2024年6月 CET-6 真题（第一套）",
+        "paper_type": "real",
+        "question_count": 32,
+        "section_count": 6,
+        "total_score": 710,
+        "available_score": 532.5,
+        "grey": false
+      },
+      {
+        "name": "2024年6月真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年12月真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年6月真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "vocabulary",
+        "sub": "高阶词汇",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "vocabulary",
+        "sub": "近义词辨析",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "grammar",
+        "sub": "从句结构",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "grammar",
+        "sub": "虚拟语气",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "reading",
+        "sub": "仔细阅读",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "translation",
+        "sub": "文化教育类",
+        "type": "translation",
+        "count": 2
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "grad-english",
+    "name": "考研英语",
+    "abbr": "KE",
+    "color": "#a855f7",
+    "description": "全国硕士研究生入学统一考试——英语（一/二），完形+阅读+翻译+写作",
+    "intro": "考研英语是研究生入学的核心科目，英语一难度高于英语二。完形填空、阅读理解、翻译和写作各占一定分值。本考纲覆盖全部题型，通过诊断摸底 + AI 规划，帮你制定个性化备考方案。",
+    "suitable_for": "考研备考学生（英语一/二均可）",
+    "max_score": 100,
+    "pass_score": 55,
+    "question_bank": "grad_english_questions.json",
+    "question_types": [
+      "cloze",
+      "choice",
+      "choice_multi",
+      "translation",
+      "essay",
+      "short_answer"
+    ],
+    "question_types_enabled": [
+      "cloze",
+      "choice",
+      "translation",
+      "essay"
+    ],
+    "dimensions": [
+      {
+        "name": "完形填空",
+        "category": "cloze",
+        "count": 0
+      },
+      {
+        "name": "阅读理解",
+        "category": "reading",
+        "count": 0
+      },
+      {
+        "name": "翻译",
+        "category": "translation",
+        "count": 0
+      },
+      {
+        "name": "写作",
+        "category": "writing",
+        "count": 0
+      },
+      {
+        "name": "新题型",
+        "category": "new_type",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "target_count": 800,
+    "exam_papers": [
+      {
+        "paper_id": "grad_english_2024",
+        "name": "2024年全国硕士研究生招生考试 英语（一）真题",
+        "paper_type": "real",
+        "question_count": 52,
+        "section_count": 9,
+        "total_score": 100,
+        "available_score": 100,
+        "grey": false
+      },
+      {
+        "name": "2024年真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2022年真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "cloze",
+        "sub": "词汇语法",
+        "type": "cloze",
+        "count": 3
+      },
+      {
+        "category": "reading",
+        "sub": "仔细阅读",
+        "type": "choice",
+        "count": 4
+      },
+      {
+        "category": "translation",
+        "sub": "英译汉",
+        "type": "translation",
+        "count": 2
+      },
+      {
+        "category": "writing",
+        "sub": "应用文",
+        "type": "essay",
+        "count": 1
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "ielts",
+    "name": "雅思 IELTS",
+    "abbr": "IEL",
+    "color": "#8b5cf6",
+    "description": "国际英语语言测试系统——听说读写四项，留学英联邦必考，总分9分",
+    "intro": "雅思是留学英国、澳大利亚、加拿大等英联邦国家的语言门槛。考试分为听力、阅读、写作、口语四部分，每项满分9分。本考纲聚焦阅读和写作两大笔试模块，配合学术词汇训练，帮你快速提分。",
+    "suitable_for": "计划留学英联邦的学生、移民申请者",
+    "max_score": 9.0,
+    "pass_score": 6.5,
+    "question_bank": "ielts_questions.json",
+    "question_types": [
+      "choice",
+      "fill",
+      "essay",
+      "translation",
+      "listening_choice",
+      "listening_fill",
+      "short_answer"
+    ],
+    "question_types_enabled": [
+      "choice",
+      "fill",
+      "essay",
+      "translation"
+    ],
+    "dimensions": [
+      {
+        "name": "阅读",
+        "category": "reading",
+        "count": 0
+      },
+      {
+        "name": "写作",
+        "category": "writing",
+        "count": 0
+      },
+      {
+        "name": "词汇",
+        "category": "vocabulary",
+        "count": 0
+      },
+      {
+        "name": "语法",
+        "category": "grammar",
+        "count": 0
+      },
+      {
+        "name": "听力",
+        "category": "listening",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "口语",
+        "category": "speaking",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "target_count": 1000,
+    "exam_papers": [
+      {
+        "name": "Cambridge 18",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "Cambridge 17",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "Cambridge 16",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "vocabulary",
+        "sub": "学术词汇",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "reading",
+        "sub": "学术阅读",
+        "type": "choice",
+        "count": 4
+      },
+      {
+        "category": "writing",
+        "sub": "Task 1",
+        "type": "essay",
+        "count": 1
+      },
+      {
+        "category": "writing",
+        "sub": "Task 2",
+        "type": "essay",
+        "count": 1
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "toefl",
+    "name": "托福 TOEFL",
+    "abbr": "TO",
+    "color": "#0ea5e9",
+    "description": "检定非英语母语者英语能力——听说读写，留学北美必考，总分120分",
+    "intro": "托福是留学美国、加拿大等北美国家的主流语言考试。全部机考，听说读写各30分。本考纲覆盖阅读、写作、词汇、语法四大笔试维度，帮你夯实语言基础。",
+    "suitable_for": "计划留学北美的学生",
+    "max_score": 120,
+    "pass_score": 80,
+    "question_bank": "toefl_questions.json",
+    "question_types": [
+      "choice",
+      "fill",
+      "essay",
+      "choice_multi",
+      "listening_choice",
+      "short_answer"
+    ],
+    "question_types_enabled": [
+      "choice",
+      "fill",
+      "essay"
+    ],
+    "dimensions": [
+      {
+        "name": "阅读",
+        "category": "reading",
+        "count": 0
+      },
+      {
+        "name": "写作",
+        "category": "writing",
+        "count": 0
+      },
+      {
+        "name": "词汇",
+        "category": "vocabulary",
+        "count": 0
+      },
+      {
+        "name": "语法",
+        "category": "grammar",
+        "count": 0
+      },
+      {
+        "name": "听力",
+        "category": "listening",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "口语",
+        "category": "speaking",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "target_count": 1000,
+    "exam_papers": [
+      {
+        "name": "TPO 75",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "TPO 74",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "TPO 73",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "vocabulary",
+        "sub": "学术词汇",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "reading",
+        "sub": "学术阅读",
+        "type": "choice",
+        "count": 4
+      },
+      {
+        "category": "writing",
+        "sub": "综合写作",
+        "type": "essay",
+        "count": 1
+      },
+      {
+        "category": "writing",
+        "sub": "独立写作",
+        "type": "essay",
+        "count": 1
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "grad-math",
+    "name": "考研数学",
+    "abbr": "KM",
+    "color": "#6366f1",
+    "description": "全国硕士研究生入学统一考试——数学（一/二/三），高等数学+线性代数+概率论",
+    "intro": "考研数学是理工科/经管类研究生入学的核心科目。数一范围最广（高数+线代+概率），数二不含概率，数三偏向经管应用。本考纲覆盖全部三个子方向，按难度分层训练。",
+    "suitable_for": "考研数学一/二/三考生",
+    "max_score": 150,
+    "pass_score": 90,
+    "question_bank": "grad_math_questions.json",
+    "question_types": [
+      "choice",
+      "fill",
+      "calculation",
+      "programming"
+    ],
+    "question_types_enabled": [
+      "choice",
+      "fill",
+      "calculation"
+    ],
+    "dimensions": [
+      {
+        "name": "高等数学",
+        "category": "advanced_math",
+        "count": 0
+      },
+      {
+        "name": "线性代数",
+        "category": "linear_algebra",
+        "count": 0
+      },
+      {
+        "name": "概率论与数理统计",
+        "category": "probability",
+        "count": 0
+      }
+    ],
+    "target_count": 1200,
+    "exam_papers": [
+      {
+        "paper_id": "grad_math_2024_shu1",
+        "name": "2024年全国硕士研究生招生考试 数学（一）",
+        "paper_type": "real",
+        "question_count": 22,
+        "section_count": 3,
+        "total_score": 150,
+        "available_score": 150,
+        "grey": false
+      },
+      {
+        "name": "2024年真题(数一)",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年真题(数一)",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2022年真题(数一)",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "advanced_math",
+        "sub": "极限与连续",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "advanced_math",
+        "sub": "微积分",
+        "type": "calculation",
+        "count": 2
+      },
+      {
+        "category": "linear_algebra",
+        "sub": "矩阵运算",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "linear_algebra",
+        "sub": "特征值",
+        "type": "calculation",
+        "count": 2
+      },
+      {
+        "category": "probability",
+        "sub": "随机变量",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "probability",
+        "sub": "参数估计",
+        "type": "fill",
+        "count": 1
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "grad-politics",
+    "name": "考研政治",
+    "abbr": "KZ",
+    "color": "#ef4444",
+    "description": "全国硕士研究生入学考试——思想政治理论，马原+毛中特+史纲+思修+时政",
+    "intro": "考研政治是研究生入学必考科目，涵盖马克思主义基本原理、毛泽东思想和中国特色社会主义理论、中国近现代史纲要、思想道德修养与法律基础、形势与政策五大模块。单选题+多选题+分析题三种题型。",
+    "suitable_for": "全部考研学生（必考）",
+    "max_score": 100,
+    "pass_score": 60,
+    "question_bank": "grad_politics_questions.json",
+    "question_types": [
+      "choice_single",
+      "choice_multi",
+      "analysis",
+      "short_answer"
+    ],
+    "question_types_enabled": [
+      "choice_single",
+      "choice_multi",
+      "analysis"
+    ],
+    "dimensions": [
+      {
+        "name": "马克思主义基本原理",
+        "category": "marxism",
+        "count": 0
+      },
+      {
+        "name": "毛中特",
+        "category": "mao_thought",
+        "count": 0
+      },
+      {
+        "name": "中国近现代史纲要",
+        "category": "modern_history",
+        "count": 0
+      },
+      {
+        "name": "思修法基",
+        "category": "ideology_law",
+        "count": 0
+      },
+      {
+        "name": "形势与政策",
+        "category": "current_affairs",
+        "count": 0
+      }
+    ],
+    "target_count": 1500,
+    "exam_papers": [
+      {
+        "paper_id": "grad_politics_2024",
+        "name": "2024年全国硕士研究生招生考试思想政治理论试题",
+        "paper_type": "real",
+        "question_count": 38,
+        "section_count": 3,
+        "total_score": 100,
+        "available_score": 100,
+        "grey": false
+      },
+      {
+        "name": "2024年真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2022年真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "marxism",
+        "sub": "唯物辩证法",
+        "type": "choice_single",
+        "count": 2
+      },
+      {
+        "category": "marxism",
+        "sub": "政治经济学",
+        "type": "choice_multi",
+        "count": 2
+      },
+      {
+        "category": "mao_thought",
+        "sub": "新时代思想",
+        "type": "choice_multi",
+        "count": 2
+      },
+      {
+        "category": "modern_history",
+        "sub": "重大历史事件",
+        "type": "choice_single",
+        "count": 2
+      },
+      {
+        "category": "ideology_law",
+        "sub": "法律基础",
+        "type": "choice_single",
+        "count": 1
+      },
+      {
+        "category": "current_affairs",
+        "sub": "年度时政",
+        "type": "choice_multi",
+        "count": 1
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "ncre2-python",
+    "name": "计算机二级 Python",
+    "abbr": "NP",
+    "color": "#3b82f6",
+    "description": "全国计算机等级考试二级——Python语言程序设计，满分100，60分合格",
+    "intro": "计算机二级 Python 是大学生最常考的编程类证书之一。考试内容涵盖计算机基础、Python 语法、数据结构与算法、文件操作等。本考纲配备选择题+填空题+编程题，在线判题系统实时反馈。",
+    "suitable_for": "在校大学生、编程初学者、求职需要计算机证书者",
+    "max_score": 100,
+    "pass_score": 60,
+    "question_bank": "ncre2_python_questions.json",
+    "question_types": [
+      "choice",
+      "fill",
+      "programming",
+      "choice_multi"
+    ],
+    "question_types_enabled": [
+      "choice",
+      "fill",
+      "programming"
+    ],
+    "dimensions": [
+      {
+        "name": "计算机基础",
+        "category": "cs_fundamentals",
+        "count": 0
+      },
+      {
+        "name": "Python 语法",
+        "category": "python_syntax",
+        "count": 0
+      },
+      {
+        "name": "数据结构与算法",
+        "category": "data_structure",
+        "count": 0
+      },
+      {
+        "name": "文件与异常",
+        "category": "file_io",
+        "count": 0
+      },
+      {
+        "name": "第三方库",
+        "category": "third_party",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "target_count": 1000,
+    "exam_papers": [
+      {
+        "paper_id": "ncre2_python_2024_03",
+        "name": "2024年3月 计算机二级Python 真题卷",
+        "paper_type": "real",
+        "question_count": 33,
+        "section_count": 3,
+        "total_score": 100,
+        "available_score": 100,
+        "grey": false
+      },
+      {
+        "name": "2024年3月真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年9月真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年3月真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "cs_fundamentals",
+        "sub": "进制与编码",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "python_syntax",
+        "sub": "数据类型",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "python_syntax",
+        "sub": "控制结构",
+        "type": "fill",
+        "count": 2
+      },
+      {
+        "category": "data_structure",
+        "sub": "列表与字典",
+        "type": "programming",
+        "count": 2
+      },
+      {
+        "category": "file_io",
+        "sub": "文件读写",
+        "type": "fill",
+        "count": 1
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "ncre2-c",
+    "name": "计算机二级 C语言",
+    "abbr": "NC",
+    "color": "#f59e0b",
+    "description": "全国计算机等级考试二级——C语言程序设计，指针与内存管理是难点",
+    "intro": "计算机二级 C 语言是经典编程考试，指针和内存管理是难点也是重点。本考纲覆盖计算机基础、C 语法、指针、数据结构四大模块，编程题在线编译判题。",
+    "suitable_for": "理工科大学生、嵌入式/系统编程方向",
+    "max_score": 100,
+    "pass_score": 60,
+    "question_bank": "ncre2_c_questions.json",
+    "question_types": [
+      "choice",
+      "fill",
+      "programming",
+      "choice_multi"
+    ],
+    "question_types_enabled": [
+      "choice",
+      "fill",
+      "programming"
+    ],
+    "dimensions": [
+      {
+        "name": "计算机基础",
+        "category": "cs_fundamentals",
+        "count": 0
+      },
+      {
+        "name": "C 语言语法",
+        "category": "c_syntax",
+        "count": 0
+      },
+      {
+        "name": "指针与内存",
+        "category": "pointer_memory",
+        "count": 0
+      },
+      {
+        "name": "数据结构",
+        "category": "data_structure",
+        "count": 0
+      },
+      {
+        "name": "文件操作",
+        "category": "file_io",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "target_count": 800,
+    "exam_papers": [
+      {
+        "paper_id": "ncre2_c_2024_03",
+        "name": "2024年3月 计算机二级C语言 真题卷",
+        "paper_type": "real",
+        "question_count": 33,
+        "section_count": 3,
+        "total_score": 100,
+        "available_score": 100,
+        "grey": false
+      },
+      {
+        "name": "2024年3月真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年9月真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年3月真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "cs_fundamentals",
+        "sub": "进制与编码",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "c_syntax",
+        "sub": "数据类型与运算符",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "c_syntax",
+        "sub": "流程控制",
+        "type": "fill",
+        "count": 2
+      },
+      {
+        "category": "pointer_memory",
+        "sub": "指针基础",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "data_structure",
+        "sub": "数组与字符串",
+        "type": "programming",
+        "count": 1
+      }
+    ],
+    "languages": [
+      "c",
+      "cpp"
+    ]
+  },
+  {
+    "id": "ncre2-office",
+    "name": "计算机二级 MS Office",
+    "abbr": "NO",
+    "color": "#e67e22",
+    "description": "全国计算机等级考试二级——MS Office高级应用，Word+Excel+PPT操作",
+    "intro": "计算机二级 Office 是最热门的计算机证书之一，考察 Word 排版、Excel 公式与图表、PPT 演示设计三大实操技能。本考纲侧重选择题知识点的系统训练，帮你轻松拿下考试。",
+    "suitable_for": "全部在校大学生、文职岗位求职者",
+    "max_score": 100,
+    "pass_score": 60,
+    "question_bank": "ncre2_office_questions.json",
+    "question_types": [
+      "choice",
+      "fill",
+      "choice_multi"
+    ],
+    "question_types_enabled": [
+      "choice",
+      "fill"
+    ],
+    "dimensions": [
+      {
+        "name": "计算机基础",
+        "category": "cs_fundamentals",
+        "count": 0
+      },
+      {
+        "name": "Word 操作",
+        "category": "word",
+        "count": 0
+      },
+      {
+        "name": "Excel 操作",
+        "category": "excel",
+        "count": 0
+      },
+      {
+        "name": "PPT 操作",
+        "category": "ppt",
+        "count": 0
+      },
+      {
+        "name": "实操题",
+        "category": "practical",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "target_count": 1000,
+    "exam_papers": [
+      {
+        "paper_id": "ncre2_office_2024_03",
+        "name": "2024年3月 计算机二级MS Office高级应用 真题卷",
+        "paper_type": "real",
+        "question_count": 20,
+        "section_count": 1,
+        "total_score": 100,
+        "available_score": 20,
+        "grey": false
+      },
+      {
+        "name": "2024年3月真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年9月真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年3月真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "cs_fundamentals",
+        "sub": "计算机系统",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "word",
+        "sub": "文档排版",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "excel",
+        "sub": "公式与函数",
+        "type": "fill",
+        "count": 3
+      },
+      {
+        "category": "ppt",
+        "sub": "母版与动画",
+        "type": "choice",
+        "count": 2
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "public-service",
+    "name": "公务员 行测",
+    "abbr": "GW",
+    "color": "#0891b2",
+    "description": "国家公务员考试——行政职业能力测验，言语+数量+判断+资料+常识",
+    "intro": "行测是公务员考试核心科目，120分钟完成130+道题，时间压力极大。五大模块各有特点：言语靠积累、数量重技巧、判断需逻辑、资料练速度、常识靠日常。本考纲帮你针对性刷题提速。",
+    "suitable_for": "国考/省考备考考生",
+    "max_score": 100,
+    "pass_score": 60,
+    "question_bank": "public_service_questions.json",
+    "question_types": [
+      "choice",
+      "choice_multi"
+    ],
+    "question_types_enabled": [
+      "choice"
+    ],
+    "dimensions": [
+      {
+        "name": "言语理解与表达",
+        "category": "verbal",
+        "count": 0
+      },
+      {
+        "name": "数量关系",
+        "category": "quantitative",
+        "count": 0
+      },
+      {
+        "name": "判断推理",
+        "category": "reasoning",
+        "count": 0
+      },
+      {
+        "name": "资料分析",
+        "category": "data_analysis",
+        "count": 0
+      },
+      {
+        "name": "常识判断",
+        "category": "general_knowledge",
+        "count": 0
+      }
+    ],
+    "target_count": 2000,
+    "exam_papers": [
+      {
+        "paper_id": "public_service_2024",
+        "name": "2024年国家公务员考试 行测 真题（副省级/地市级 综合回忆版）",
+        "paper_type": "real",
+        "question_count": 101,
+        "section_count": 5,
+        "total_score": 100,
+        "available_score": 100.0,
+        "grey": false
+      },
+      {
+        "name": "2024年国考真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年国考真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2022年国考真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "verbal",
+        "sub": "逻辑填空",
+        "type": "choice",
+        "count": 4
+      },
+      {
+        "category": "quantitative",
+        "sub": "数学运算",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "reasoning",
+        "sub": "图形推理",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "data_analysis",
+        "sub": "图表分析",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "general_knowledge",
+        "sub": "法律常识",
+        "type": "choice",
+        "count": 2
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "teacher-cert",
+    "name": "教师资格证",
+    "abbr": "JS",
+    "color": "#ec4899",
+    "description": "中小学教师资格考试——教育知识与能力+综合素质+学科知识，教师从业必备",
+    "intro": "教师资格证是从事教育行业的必备证书。笔试包括综合素质、教育知识与能力、学科知识与教学能力三大模块。本考纲覆盖选择题、简答题、案例分析、教学设计全部题型。",
+    "suitable_for": "师范生、想从事教育行业的大学生",
+    "max_score": 150,
+    "pass_score": 90,
+    "question_bank": "teacher_cert_questions.json",
+    "question_types": [
+      "choice",
+      "choice_multi",
+      "short_answer",
+      "case_analysis",
+      "teaching_design"
+    ],
+    "question_types_enabled": [
+      "choice",
+      "short_answer",
+      "case_analysis",
+      "teaching_design"
+    ],
+    "dimensions": [
+      {
+        "name": "综合素质",
+        "category": "comprehensive_quality",
+        "count": 0
+      },
+      {
+        "name": "教育知识与能力",
+        "category": "education_knowledge",
+        "count": 0
+      },
+      {
+        "name": "学科知识",
+        "category": "subject_knowledge",
+        "count": 0
+      },
+      {
+        "name": "教学能力",
+        "category": "teaching_ability",
+        "count": 0
+      }
+    ],
+    "target_count": 800,
+    "exam_papers": [
+      {
+        "paper_id": "teacher_cert_2024_shang",
+        "name": "2024年上半年教师资格证笔试真题（中学）",
+        "paper_type": "real",
+        "question_count": 36,
+        "section_count": 4,
+        "total_score": 150,
+        "available_score": 150,
+        "grey": false
+      },
+      {
+        "name": "2024年上真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年下真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年上真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "comprehensive_quality",
+        "sub": "教师职业道德",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "education_knowledge",
+        "sub": "教育心理学",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "subject_knowledge",
+        "sub": "学科基础",
+        "type": "short_answer",
+        "count": 2
+      },
+      {
+        "category": "teaching_ability",
+        "sub": "教学设计",
+        "type": "teaching_design",
+        "count": 1
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "cpa",
+    "name": "注册会计师 CPA",
+    "abbr": "CPA",
+    "color": "#14b8a6",
+    "description": "注册会计师全国统一考试——财会专业含金量最高证书，6门专业阶段",
+    "intro": "CPA 是会计行业顶级证书，专业阶段六门：会计、审计、财务成本管理、经济法、税法、公司战略与风险管理。每门需达到60分合格。本考纲覆盖选择题+计算题+案例分析题。",
+    "suitable_for": "会计/审计从业者、财经专业大学生",
+    "max_score": 100,
+    "pass_score": 60,
+    "question_bank": "cpa_questions.json",
+    "question_types": [
+      "choice_single",
+      "choice_multi",
+      "calculation",
+      "case_analysis",
+      "short_answer"
+    ],
+    "question_types_enabled": [
+      "choice_single",
+      "choice_multi",
+      "calculation",
+      "case_analysis"
+    ],
+    "dimensions": [
+      {
+        "name": "会计",
+        "category": "accounting",
+        "count": 0
+      },
+      {
+        "name": "审计",
+        "category": "audit",
+        "count": 0
+      },
+      {
+        "name": "财务成本管理",
+        "category": "finance_mgmt",
+        "count": 0
+      },
+      {
+        "name": "经济法",
+        "category": "economic_law",
+        "count": 0
+      },
+      {
+        "name": "税法",
+        "category": "tax_law",
+        "count": 0
+      },
+      {
+        "name": "公司战略与风险管理",
+        "category": "strategy_risk",
+        "count": 0
+      }
+    ],
+    "target_count": 1200,
+    "exam_papers": [
+      {
+        "paper_id": "cpa_accounting_2024",
+        "name": "2024年注册会计师全国统一考试《会计》真题（考生回忆版）",
+        "paper_type": "real",
+        "question_count": 28,
+        "section_count": 4,
+        "total_score": 100,
+        "available_score": 100,
+        "grey": false
+      },
+      {
+        "name": "2024年真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2022年真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "accounting",
+        "sub": "存货与固定资产",
+        "type": "choice_single",
+        "count": 2
+      },
+      {
+        "category": "accounting",
+        "sub": "长期股权投资",
+        "type": "calculation",
+        "count": 1
+      },
+      {
+        "category": "economic_law",
+        "sub": "合同法",
+        "type": "choice_multi",
+        "count": 2
+      },
+      {
+        "category": "tax_law",
+        "sub": "增值税",
+        "type": "calculation",
+        "count": 2
+      },
+      {
+        "category": "finance_mgmt",
+        "sub": "资本成本",
+        "type": "choice_single",
+        "count": 2
+      },
+      {
+        "category": "strategy_risk",
+        "sub": "SWOT分析",
+        "type": "case_analysis",
+        "count": 1
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "judicial",
+    "name": "法律职业资格",
+    "abbr": "FL",
+    "color": "#b45309",
+    "description": "国家统一法律职业资格考试——民法+刑法+行政法+诉讼法，法学生从业必备",
+    "intro": "法考是法律行业准入考试，客观题+主观题两阶段。涵盖民法、刑法、行政法、诉讼法、理论法、商经法等六大部门法。三种选择题型（单选/多选/不定项）+案例分析。",
+    "suitable_for": "法学专业学生、想从事法律行业者",
+    "max_score": 300,
+    "pass_score": 180,
+    "question_bank": "judicial_questions.json",
+    "question_types": [
+      "choice_single",
+      "choice_multi",
+      "choice_indefinite",
+      "case_analysis",
+      "short_answer"
+    ],
+    "question_types_enabled": [
+      "choice_single",
+      "choice_multi",
+      "choice_indefinite",
+      "case_analysis"
+    ],
+    "dimensions": [
+      {
+        "name": "民法",
+        "category": "civil_law",
+        "count": 0
+      },
+      {
+        "name": "刑法",
+        "category": "criminal_law",
+        "count": 0
+      },
+      {
+        "name": "行政法",
+        "category": "admin_law",
+        "count": 0
+      },
+      {
+        "name": "诉讼法",
+        "category": "procedural_law",
+        "count": 0
+      },
+      {
+        "name": "理论法",
+        "category": "theory_law",
+        "count": 0
+      },
+      {
+        "name": "商经法",
+        "category": "business_law",
+        "count": 0
+      }
+    ],
+    "target_count": 1500,
+    "exam_papers": [
+      {
+        "paper_id": "judicial_2023",
+        "name": "2023年国家统一法律职业资格考试客观题真题（全真模拟精选）",
+        "paper_type": "real",
+        "question_count": 100,
+        "section_count": 3,
+        "total_score": 150,
+        "available_score": 150,
+        "grey": false
+      },
+      {
+        "name": "2024年真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2023年真题",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "2022年真题",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "civil_law",
+        "sub": "物权法",
+        "type": "choice_single",
+        "count": 2
+      },
+      {
+        "category": "civil_law",
+        "sub": "合同法",
+        "type": "choice_multi",
+        "count": 1
+      },
+      {
+        "category": "criminal_law",
+        "sub": "犯罪构成",
+        "type": "choice_single",
+        "count": 2
+      },
+      {
+        "category": "admin_law",
+        "sub": "行政行为",
+        "type": "choice_multi",
+        "count": 1
+      },
+      {
+        "category": "procedural_law",
+        "sub": "民诉程序",
+        "type": "choice_indefinite",
+        "count": 2
+      },
+      {
+        "category": "theory_law",
+        "sub": "法理学",
+        "type": "choice_single",
+        "count": 2
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "mandarin",
+    "name": "普通话水平测试",
+    "abbr": "PT",
+    "color": "#22c55e",
+    "description": "普通话等级考试——教师资格证前置条件，二甲/二乙为目标等级",
+    "intro": "普通话水平测试是教师资格证的前置条件，也是播音主持等职业的硬性要求。考试分为字音辨析、词语读音、朗读和命题说话四部分。本考纲帮你系统训练易错字词和话题素材。",
+    "suitable_for": "师范生、播音主持专业、需要普通话证书者",
+    "max_score": 100,
+    "pass_score": 80,
+    "question_bank": "mandarin_questions.json",
+    "question_types": [
+      "choice",
+      "fill",
+      "choice_multi",
+      "short_answer"
+    ],
+    "question_types_enabled": [
+      "choice",
+      "fill"
+    ],
+    "dimensions": [
+      {
+        "name": "字音辨析",
+        "category": "character_pinyin",
+        "count": 0
+      },
+      {
+        "name": "词语读音",
+        "category": "word_pronunciation",
+        "count": 0
+      },
+      {
+        "name": "朗读基础",
+        "category": "reading_basics",
+        "count": 0
+      },
+      {
+        "name": "命题说话素材",
+        "category": "speaking_topic",
+        "count": 0
+      }
+    ],
+    "target_count": 600,
+    "exam_papers": [
+      {
+        "name": "模拟测试卷一",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "模拟测试卷二",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "character_pinyin",
+        "sub": "多音字",
+        "type": "choice",
+        "count": 4
+      },
+      {
+        "category": "word_pronunciation",
+        "sub": "易读错词",
+        "type": "choice",
+        "count": 3
+      },
+      {
+        "category": "reading_basics",
+        "sub": "轻声与儿化",
+        "type": "choice",
+        "count": 2
+      },
+      {
+        "category": "speaking_topic",
+        "sub": "话题素材",
+        "type": "fill",
+        "count": 1
+      }
+    ],
+    "languages": [
+      "python"
+    ]
+  },
+  {
+    "id": "algorithm-ds",
+    "name": "算法与数据结构",
+    "abbr": "AD",
+    "color": "#00d4aa",
+    "description": "LeetCode 风格算法题库——数组/链表/树/DP/图论，面试&竞赛核心",
+    "intro": "算法与数据结构是程序员面试和竞赛的核心技能。本考纲覆盖数组、链表、树、DP、图论等经典题型，每道编程题带在线判题和多测试点验证，支持 Python/C++/Java 多语言。",
+    "suitable_for": "计算机专业学生、准备面试的程序员、算法竞赛选手",
+    "max_score": 100,
+    "pass_score": 60,
+    "question_bank": "algorithm_ds_questions.json",
+    "question_types": [
+      "programming",
+      "choice",
+      "fill"
+    ],
+    "question_types_enabled": [
+      "programming"
+    ],
+    "dimensions": [
+      {
+        "name": "数组与字符串",
+        "category": "array_string",
+        "count": 0
+      },
+      {
+        "name": "链表与指针",
+        "category": "linked_list",
+        "count": 0
+      },
+      {
+        "name": "栈与队列",
+        "category": "stack_queue",
+        "count": 0
+      },
+      {
+        "name": "树与二叉树",
+        "category": "tree",
+        "count": 0
+      },
+      {
+        "name": "动态规划",
+        "category": "dp",
+        "count": 0
+      },
+      {
+        "name": "图论",
+        "category": "graph",
+        "count": 0
+      },
+      {
+        "name": "贪心与回溯",
+        "category": "greedy_backtrack",
+        "count": 0
+      }
+    ],
+    "target_count": 2000,
+    "exam_papers": [
+      {
+        "name": "LeetCode Hot 100",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "剑指 Offer",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "CodeTop 150",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "array_string",
+        "sub": "双指针",
+        "type": "programming",
+        "count": 2
+      },
+      {
+        "category": "linked_list",
+        "sub": "链表反转",
+        "type": "programming",
+        "count": 2
+      },
+      {
+        "category": "tree",
+        "sub": "二叉树遍历",
+        "type": "programming",
+        "count": 2
+      },
+      {
+        "category": "dp",
+        "sub": "背包问题",
+        "type": "programming",
+        "count": 2
+      },
+      {
+        "category": "graph",
+        "sub": "最短路径",
+        "type": "programming",
+        "count": 2
+      }
+    ],
+    "languages": [
+      "python",
+      "cpp",
+      "java",
+      "c"
+    ]
+  },
+  {
+    "id": "acm-icpc",
+    "name": "ACM-ICPC 竞赛",
+    "abbr": "ACM",
+    "color": "#f43f5e",
+    "description": "国际大学生程序设计竞赛——高难度算法题，多语言 (C++/Java/Python)，多测试点评分",
+    "intro": "ACM-ICPC 是全球最具影响力的大学生编程竞赛。题目难度极高，涉及数论、计算几何、高级数据结构、字符串算法、网络流等。每道题多个测试点，按通过点数评分，支持 C++/Java/Python。",
+    "suitable_for": "算法竞赛选手、计算机专业高阶学生",
+    "max_score": 100,
+    "pass_score": 60,
+    "question_bank": "acm_icpc_questions.json",
+    "question_types": [
+      "programming"
+    ],
+    "question_types_enabled": [
+      "programming"
+    ],
+    "dimensions": [
+      {
+        "name": "数学与数论",
+        "category": "math_number",
+        "count": 0
+      },
+      {
+        "name": "计算几何",
+        "category": "geometry",
+        "count": 0
+      },
+      {
+        "name": "高级数据结构",
+        "category": "adv_ds",
+        "count": 0
+      },
+      {
+        "name": "字符串算法",
+        "category": "string_algo",
+        "count": 0
+      },
+      {
+        "name": "网络流",
+        "category": "network_flow",
+        "count": 0
+      },
+      {
+        "name": "博弈与构造",
+        "category": "game_construct",
+        "count": 0
+      }
+    ],
+    "target_count": 500,
+    "exam_papers": [
+      {
+        "name": "ICPC 2024 区域赛",
+        "count": 0,
+        "grey": true
+      },
+      {
+        "name": "ICPC 2023 总决赛",
+        "count": 0,
+        "grey": true
+      }
+    ],
+    "diagnosis_config": [
+      {
+        "category": "math_number",
+        "sub": "快速幂与逆元",
+        "type": "programming",
+        "count": 2
+      },
+      {
+        "category": "geometry",
+        "sub": "凸包",
+        "type": "programming",
+        "count": 2
+      },
+      {
+        "category": "adv_ds",
+        "sub": "线段树",
+        "type": "programming",
+        "count": 2
+      },
+      {
+        "category": "string_algo",
+        "sub": "KMP",
+        "type": "programming",
+        "count": 2
+      },
+      {
+        "category": "network_flow",
+        "sub": "最大流",
+        "type": "programming",
+        "count": 2
+      }
+    ],
+    "languages": [
+      "python",
+      "cpp",
+      "java",
+      "c"
+    ]
+  }
+]
