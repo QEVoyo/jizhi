@@ -1,1059 +1,671 @@
 <template>
-  <div class="profile-card-page">
-    <div class="profile-container">
-      <!-- ===== 顶部 ===== -->
-      <div class="profile-header">
-        <div class="header-left">
-          <el-button text class="back-btn" @click="goBack">
-            <i class="fas fa-arrow-left"></i> 返回
-          </el-button>
-          <h1>六维画像</h1>
-          <el-tag size="small" type="info">{{ generateDate }}</el-tag>
-        </div>
-        <el-button size="small" type="primary" @click="refreshData" :loading="loading">
-          <i class="fas fa-sync"></i> 刷新
-        </el-button>
-      </div>
+  <div class="du-root">
+    <!-- 3D 太阳系背景画布 -->
+    <div ref="hub3dRef" class="hub-3d"></div>
 
-      <el-divider />
-
-      <div v-if="loading" class="loading-state">
-        <i class="fas fa-spinner fa-spin"></i> 加载中...
-      </div>
-
-      <div v-else class="profile-content">
-        <!-- ===== 1. 知识基础（星系图） ===== -->
-        <div class="dimension-section">
-          <div class="section-title">
-            <span class="section-icon">K</span> 知识基础
-          </div>
-          <div class="section-body">
-            <div v-if="!dimData.knowledge_base?.list?.length" class="empty-tip">
-              暂无数据
-            </div>
-            <div v-else>
-              <div ref="knowledgeGraphRef" style="width: 100%; height: 340px;"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== 2. 认知风格（饼图） ===== -->
-        <div class="dimension-section">
-          <div class="section-title">
-            <span class="section-icon">C</span> 认知风格
-          </div>
-          <div class="section-body">
-            <div v-if="!Object.keys(dimData.cognitive_style?.distribution || {}).length" class="empty-tip">
-              暂无数据
-            </div>
-            <div v-else class="pie-wrapper">
-              <div ref="pieChartRef" style="width: 100%; height: 260px;"></div>
-              <div class="pie-label">
-                {{ dimData.cognitive_style?.label || '未分析' }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== 3. 易错偏好（气泡图） ===== -->
-        <div class="dimension-section">
-          <div class="section-title">
-            <span class="section-icon">E</span> 易错偏好
-          </div>
-          <div class="section-body">
-            <div v-if="dimData.mistake_pattern?.total === 0" class="empty-tip">
-              暂无错题
-            </div>
-            <div v-else>
-              <div class="bubble-stats">
-                <span class="bubble-stat learning">
-                  <span class="bubble-dot red"></span> 未攻克：{{ dimData.mistake_pattern.learning?.length || 0 }}
-                </span>
-                <span class="bubble-stat conquered">
-                  <span class="bubble-dot green"></span> 已攻克：{{ dimData.mistake_pattern.conquered?.length || 0 }}
-                </span>
-                <span class="bubble-stat rate">
-                  攻克率：{{ dimData.mistake_pattern.conquered_rate || 0 }}%
-                </span>
-              </div>
-              <div class="bubble-cloud">
-                <div
-                  v-for="t in dimData.mistake_pattern.learning"
-                  :key="'l-' + t"
-                  class="bubble learning-bubble"
-                  :style="{
-                    fontSize: (14 + Math.random() * 8) + 'px',
-                    padding: (6 + Math.random() * 8) + 'px ' + (12 + Math.random() * 16) + 'px',
-                    animationDelay: (Math.random() * 0.5) + 's'
-                  }"
-                >
-                  {{ t }}
-                </div>
-                <div
-                  v-for="t in dimData.mistake_pattern.conquered"
-                  :key="'c-' + t"
-                  class="bubble conquered-bubble"
-                  :style="{
-                    fontSize: (12 + Math.random() * 6) + 'px',
-                    padding: (4 + Math.random() * 6) + 'px ' + (10 + Math.random() * 12) + 'px',
-                    animationDelay: (Math.random() * 0.5) + 's'
-                  }"
-                >
-                  {{ t }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== 4. 学习目标（柱状图） ===== -->
-        <div class="dimension-section">
-          <div class="section-title">
-            <span class="section-icon">G</span> 学习目标
-          </div>
-          <div class="section-body">
-            <div v-if="!dimData.learning_goal?.sets?.length" class="empty-tip">
-              暂无题集
-            </div>
-            <div v-else>
-              <div ref="goalChartRef" style="width: 100%; height: 220px;"></div>
-              <div class="goal-summary">
-                共 {{ dimData.learning_goal.total_sets }} 个题集，{{ dimData.learning_goal.total_questions }} 道题目
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== 5. 学习人格 ===== -->
-        <div class="dimension-section personality-section">
-          <div class="section-title">
-            <span class="section-icon">P</span> 学习人格
-          </div>
-          <div class="section-body">
-            <div v-if="!dimData.personality" class="empty-tip">
-              暂无数据
-            </div>
-            <div v-else class="personality-hero">
-              <div class="personality-glow"></div>
-              <div class="personality-type-hero">{{ dimData.personality.type }}</div>
-              <div class="personality-tags-hero">
-                <span
-                  v-for="tag in dimData.personality.tags"
-                  :key="tag"
-                  class="personality-tag-hero"
-                >
-                  {{ tag }}
-                </span>
-              </div>
-              <div class="personality-desc-hero">
-                {{ dimData.personality.description }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== 6. 兴趣领域（3D 球体） ===== -->
-        <div class="dimension-section">
-          <div class="section-title">
-            <span class="section-icon">I</span> 兴趣领域
-          </div>
-          <div class="section-body">
-            <div v-if="!dimData.interest_field?.list?.length" class="empty-tip">
-              暂无数据
-            </div>
-            <div v-else ref="sphereContainerRef" class="sphere-container">
-              <div ref="threeContainerRef" class="three-container"></div>
-              <div class="sphere-hint">🖱 拖拽旋转 · 滚轮缩放</div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- 顶栏 -->
+    <div class="du-topbar">
+      <button class="g-btn" @click="goBack"><el-icon><ArrowLeft /></el-icon> 返回</button>
+      <h1>维度宇宙</h1>
+      <button class="g-btn" @click="loadData" :disabled="loading">
+        <el-icon :class="{ spin: loading }"><Refresh /></el-icon>
+      </button>
     </div>
+
+    <!-- 底栏提示 -->
+    <div class="du-bottombar" v-if="!activeDim">
+      <span><el-icon><Mouse /></el-icon> 拖拽旋转</span>
+      <span><el-icon><ZoomIn /></el-icon> 滚轮缩放</span>
+      <span>点击星球进入维度</span>
+    </div>
+
+    <!-- 维度信息浮层 -->
+    <Transition name="fade">
+      <div v-if="hoveredPlanet && !activeDim" class="planet-tooltip" :style="tooltipStyle">
+        <div class="tt-name">{{ hoveredPlanet.label }}</div>
+        <div class="tt-sub">{{ hoveredPlanet.sub }}</div>
+      </div>
+    </Transition>
+
+    <!-- ====== 详情面板 ====== -->
+    <Transition name="detail">
+      <div v-if="activeDim" class="detail-panel">
+        <div class="dp-header">
+          <button class="g-btn" @click="closeDetail"><el-icon><ArrowLeft /></el-icon> 返回宇宙</button>
+          <h2 :style="{ color: currentDim?.color || '#fff' }">{{ currentDim?.label || '' }}</h2>
+        </div>
+        <div class="dp-body">
+          <div v-if="activeDim === 'knowledge'">
+            <div v-if="hasKnowledge" ref="knowledgeRef" class="chart-box"></div>
+            <div v-else class="empty-dim">完成一些题目后，知识星系将为你点亮，展示各知识点的掌握度分布</div>
+          </div>
+          <div v-else-if="activeDim === 'ability'">
+            <div v-if="hasAbility" ref="radarRef" class="chart-box"></div>
+            <div v-else class="empty-dim">完成题目后，能力雷达将从六个维度分析你的学习能力</div>
+          </div>
+          <div v-else-if="activeDim === 'rhythm'" class="rhythm-wrap">
+            <div v-if="hasRhythm" ref="calendarRef" class="chart-box"></div>
+            <div v-else class="empty-dim">开始学习后，这里会展示你的学习热力日历和活跃分析</div>
+            <div class="rhythm-stats" v-if="hasRhythm">
+              <div class="rs"><span class="rs-v">{{ data.learning_rhythm?.current_streak || 0 }}</span><span>连续(天)</span></div>
+              <div class="rs"><span class="rs-v">{{ data.learning_rhythm?.max_streak || 0 }}</span><span>最长连续</span></div>
+              <div class="rs"><span class="rs-v">{{ data.learning_rhythm?.total_active_days || 0 }}</span><span>活跃天数</span></div>
+            </div>
+          </div>
+          <div v-else-if="activeDim === 'cognitive'">
+            <div v-if="hasCognitive" ref="cognitiveBarRef" class="chart-box" style="height:280px"></div>
+            <div v-else class="empty-dim">使用 AI 生成题目后，这里会展示你的题型偏好和知识点兴趣分布</div>
+          </div>
+          <div v-else-if="activeDim === 'mistake'">
+            <div v-if="hasMistakes" ref="treemapRef" class="chart-box"></div>
+            <div v-else class="empty-dim">做题后如果产生了错题，这里会用树图展示你的易错知识点分布</div>
+          </div>
+          <div v-else-if="activeDim === 'growth'">
+            <div v-if="hasGrowth" ref="growthRef" class="chart-box"></div>
+            <div v-else class="empty-dim">持续学习后，这里会展示你掌握度的变化轨迹</div>
+          </div>
+          <div v-else-if="activeDim === 'personality'" class="personality-card">
+            <div class="pc-glow"></div>
+            <div class="pc-type">{{ data.personality?.type || '探索型学习者' }}</div>
+            <div class="pc-tags"><span v-for="t in data.personality?.tags||['数据采集中']" :key="t" class="pc-tag">{{ t }}</span></div>
+            <p class="pc-desc">{{ data.personality?.description || '完成更多学习任务后，AI 将为你生成详细的个性化学习人格画像。' }}</p>
+          </div>
+          <div v-else-if="activeDim === 'interest'">
+            <div v-if="hasInterest" ref="interest3dRef" class="int-3d"></div>
+            <div v-else class="empty-dim">生成题目后，兴趣星云将展示你的知识探索领域分布，可拖拽旋转的 3D 球体</div>
+          </div>
+          <div v-else-if="activeDim === 'summary'" class="summary-box">
+            <p class="sb-text">{{ displaySummary }}<span v-if="typing" class="sb-cursor">|</span></p>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 加载层 -->
+    <Transition name="fade">
+      <div v-if="loading && !activeDim" class="load-overlay">
+        <div class="lo-ring"></div>
+        <span>扫描维度中...</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { ElMessage } from 'element-plus'
-import * as echarts from 'echarts'
+import { ArrowLeft, Refresh, Mouse, ZoomIn } from '@element-plus/icons-vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js'
+import * as echarts from 'echarts'
+import 'echarts-gl'
 
 const router = useRouter()
 const authStore = useAuthStore()
-
 const loading = ref(false)
-const generateDate = ref('')
-const knowledgeGraphRef = ref(null)
-const pieChartRef = ref(null)
-const goalChartRef = ref(null)
-const threeContainerRef = ref(null)
-const sphereContainerRef = ref(null)
-let knowledgeGraph = null
-let pieChart = null
-let goalChart = null
-let scene, camera, renderer, labelRenderer, controls
-let labelObjects = []
-let animationId = null
+const activeDim = ref(null)
+const hoveredPlanet = ref(null)
+const tooltipStyle = ref({})
+const data = ref({ knowledge_base:{}, ability_radar:{}, learning_rhythm:{}, cognitive_preference:{}, mistake_map:{}, growth_trajectory:{}, personality:{}, interest_field:{}, ai_summary:'' })
+const displaySummary = ref('')
+const typing = ref(false)
 
-const dimData = ref({
-  knowledge_base: { list: [] },
-  cognitive_style: { distribution: {} },
-  mistake_pattern: { total: 0, learning: [], conquered: [], conquered_rate: 0 },
-  learning_goal: { sets: [], total_sets: 0, total_questions: 0 },
-  personality: null,
-  interest_field: { list: [] }
-})
-
-// 20种颜色（红→黄→绿渐变）
-const masteryColors = [
-  '#FF0000', '#FF1A00', '#FF3300', '#FF4D00', '#FF6600',
-  '#FF8000', '#FF9900', '#FFB300', '#FFCC00', '#FFE600',
-  '#D4E000', '#A8D500', '#7DCC00', '#52C200', '#26B800',
-  '#00AD00', '#00A300', '#009900', '#008000', '#006600'
+const dimensions = [
+  { key:'knowledge',  label:'知识星系', sub:'掌握度 · 力导向图', color:'#409eff', orbit:2.8, speed:0.15, size:1.4 },
+  { key:'ability',    label:'能力雷达', sub:'六维 · 雷达图',     color:'#8b5cf6', orbit:3.6, speed:0.12, size:1.1 },
+  { key:'rhythm',     label:'学习节奏', sub:'活跃度 · 热力日历', color:'#10b981', orbit:4.4, speed:0.10, size:1.0 },
+  { key:'cognitive',  label:'认知偏好', sub:'题型分布 · 条形图', color:'#f59e0b', orbit:5.2, speed:0.09, size:1.0 },
+  { key:'mistake',    label:'易错地图', sub:'错题分析 · 树图',   color:'#ef4444', orbit:6.0, speed:0.08, size:1.2 },
+  { key:'growth',     label:'成长轨迹', sub:'趋势 · 渐近线',     color:'#06b6d4', orbit:6.8, speed:0.07, size:1.0 },
+  { key:'personality',label:'学习人格', sub:'AI 画像 · 深度洞察',color:'#ec4899', orbit:7.6, speed:0.06, size:1.3 },
+  { key:'interest',   label:'兴趣星云', sub:'知识领域 · 3D 球体',color:'#f97316', orbit:8.4, speed:0.05, size:1.1 },
+  { key:'summary',    label:'AI 洞见',  sub:'智能总结 · 打字机', color:'#a78bfa', orbit:9.2, speed:0.04, size:1.0 },
 ]
+const currentDim = computed(() => dimensions.find(d => d.key === activeDim.value))
 
-const colorPalette = [
-  '#409EFF', '#8B5CF6', '#F59E0B', '#22C55E', '#EC4899',
-  '#06B6D4', '#F472B6', '#34D399', '#FB923C', '#A78BFA',
-  '#60A5FA', '#F87171', '#2DD4BF', '#F97316', '#818CF8',
-  '#34D399', '#F472B6', '#E879F9'
-]
+// 数据存在性检查
+const hasKnowledge = computed(() => (data.value.knowledge_base?.list || []).length > 0)
+const hasAbility = computed(() => Object.keys(data.value.ability_radar || {}).length > 0 && data.value.knowledge_base?.list?.length > 0)
+const hasRhythm = computed(() => (data.value.learning_rhythm?.total_active_days || 0) > 0)
+const hasCognitive = computed(() => (data.value.cognitive_preference?.types || []).length > 0)
+const hasMistakes = computed(() => (data.value.mistake_map?.list || []).length > 0)
+const hasGrowth = computed(() => (data.value.growth_trajectory?.points || []).length > 1)
+const hasInterest = computed(() => (data.value.interest_field?.list || []).length > 0)
 
-function getColor(score) {
-  const index = Math.min(Math.floor(score / 5), 19)
-  return masteryColors[index] || '#888'
+// ===== Three.js 太阳系 =====
+const hub3dRef = ref(null)
+function createGlowTexture() {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64
+  const ctx = c.getContext('2d')
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.05, 'rgba(255,255,255,0.8)')
+  g.addColorStop(0.3, 'rgba(180,200,255,0.3)'); g.addColorStop(0.7, 'rgba(100,130,200,0.03)')
+  g.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64)
+  return new THREE.CanvasTexture(c)
 }
 
-// ===== 知识基础星系图 =====
-function loadKnowledgeGraph() {
-  if (!knowledgeGraphRef.value) return
-  if (knowledgeGraph) { knowledgeGraph.dispose(); knowledgeGraph = null }
+let scene, camera, renderer, controls, flyAnimId
+let planets = [], planetMeshes = [], animationId
+const raycaster = new THREE.Raycaster()
+const mouse = new THREE.Vector2()
 
-  const list = dimData.value.knowledge_base?.list || []
-  if (!list.length) return
-
-  const nodes = list.map((item, index) => {
-    const color = getColor(item.score)
-    return {
-      name: item.name,
-      value: item.score,
-      symbolSize: 16 + item.score * 0.4,
-      itemStyle: {
-        color: color,
-        shadowBlur: 25,
-        shadowColor: color + '88',
-        borderColor: color + '44',
-        borderWidth: 2,
-        color: new echarts.graphic.RadialGradient(0.3, 0.3, 0.5, [
-          { offset: 0, color: '#ffffff' },
-          { offset: 0.3, color: color },
-          { offset: 1, color: color + '88' }
-        ])
-      },
-      label: {
-        show: true,
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.9)',
-        fontWeight: '500',
-        formatter: (params) => params.name,
-        textShadowBlur: 6,
-        textShadowColor: 'rgba(0,0,0,0.6)'
-      },
-      emphasis: {
-        label: {
-          show: true,
-          fontSize: 16,
-          fontWeight: 'bold',
-          color: '#fff',
-          textShadowBlur: 12,
-          textShadowColor: 'rgba(0,0,0,0.8)'
-        },
-        itemStyle: {
-          shadowBlur: 40,
-          shadowColor: color + 'cc',
-          borderColor: '#fff',
-          borderWidth: 3
-        }
-      }
-    }
-  })
-
-  const edges = []
-  const connectedPairs = new Set()
-  for (let i = 0; i < nodes.length; i++) {
-    for (let j = i + 1; j < nodes.length; j++) {
-      const diff = Math.abs(nodes[i].value - nodes[j].value)
-      const connectChance = Math.max(0, 0.5 - diff / 200)
-      if (Math.random() < connectChance * 0.6 + 0.1) {
-        const key = `${Math.min(i,j)}-${Math.max(i,j)}`
-        if (!connectedPairs.has(key)) {
-          connectedPairs.add(key)
-          edges.push({
-            source: i,
-            target: j,
-            lineStyle: {
-              color: 'rgba(255,255,255,0.06)',
-              width: 0.8 + Math.random() * 0.5,
-              curveness: 0.2 + Math.random() * 0.3
-            }
-          })
-        }
-      }
-    }
-  }
-
-  knowledgeGraph = echarts.init(knowledgeGraphRef.value)
-  knowledgeGraph.setOption({
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: 'rgba(0,0,0,0.75)',
-      borderColor: 'rgba(255,255,255,0.06)',
-      borderWidth: 1,
-      textStyle: { color: '#fff', fontSize: 13 },
-      formatter: (params) => {
-        if (params.dataType === 'node') {
-          const score = params.value
-          const color = getColor(score)
-          const level = score >= 80 ? '优秀' : score >= 60 ? '良好' : score >= 40 ? '一般' : '待提升'
-          return `
-            <div style="font-weight:600;font-size:15px;margin-bottom:4px;">${params.name}</div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-              <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};"></span>
-              <span>掌握度：<strong style="color:${color};">${score}%</strong></span>
-            </div>
-            <div style="color:rgba(255,255,255,0.5);font-size:12px;">评级：${level}</div>
-          `
-        }
-        return ''
-      }
-    },
-    series: [{
-      type: 'graph',
-      layout: 'force',
-      force: {
-        repulsion: 350,
-        edgeLength: [120, 220],
-        gravity: 0.08,
-        friction: 0.12
-      },
-      roam: true,
-      draggable: true,
-      data: nodes,
-      edges: edges,
-      focusNodeAdjacency: true,
-      edgeSymbol: ['none', 'none'],
-      lineStyle: {
-        color: 'rgba(255,255,255,0.04)',
-        width: 1,
-        curveness: 0.2
-      },
-      label: {
-        show: true,
-        position: 'bottom',
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.8)',
-        distance: 6
-      },
-      emphasis: {
-        focus: 'adjacency',
-        lineStyle: {
-          width: 2,
-          color: 'rgba(255,255,255,0.15)'
-        }
-      }
-    }],
-    backgroundColor: 'transparent'
-  })
-  knowledgeGraph.resize()
-}
-
-// ===== 3D 球体（兴趣领域） =====
-function initThreeSphere() {
-  const container = threeContainerRef.value
-  if (!container) return
-
-  if (renderer) {
-    renderer.dispose()
-    labelRenderer.dispose()
-  }
-  if (animationId) {
-    cancelAnimationFrame(animationId)
-    animationId = null
-  }
-
-  const width = container.clientWidth || 400
-  const height = container.clientHeight || 300
+function initSolarSystem() {
+  const el = hub3dRef.value; if (!el) return
+  const W = el.clientWidth, H = el.clientHeight
 
   scene = new THREE.Scene()
+  // 电影级深空背景 — 极暗，微偏蓝
+  scene.background = new THREE.Color(0x020210)
+  scene.fog = new THREE.FogExp2(0x020210, 0.00008)
 
-  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000)
-  camera.position.set(0, 0, 300)
+  camera = new THREE.PerspectiveCamera(55, W / H, 1, 60)
+  camera.position.set(0, 12, 18)
+  camera.lookAt(0, 0, 0)
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-  renderer.setSize(width, height)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.setClearColor(0x000000, 0)
-  container.appendChild(renderer.domElement)
-
-  // CSS3DRenderer - 标签固定在3D空间
-  labelRenderer = new CSS3DRenderer()
-  labelRenderer.setSize(width, height)
-  labelRenderer.domElement.style.position = 'absolute'
-  labelRenderer.domElement.style.top = '0'
-  labelRenderer.domElement.style.left = '0'
-  labelRenderer.domElement.style.pointerEvents = 'none'
-  labelRenderer.domElement.style.background = 'transparent'
-  container.appendChild(labelRenderer.domElement)
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+  renderer.setSize(W, H); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.shadowMap.enabled = true
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.2
+  el.appendChild(renderer.domElement)
 
   controls = new OrbitControls(camera, renderer.domElement)
-  controls.enableDamping = true
-  controls.dampingFactor = 0.05
-  controls.autoRotate = true
-  controls.autoRotateSpeed = 1.5
-  controls.minDistance = 150
-  controls.maxDistance = 500
-  controls.enablePan = false
+  controls.enableDamping = true; controls.dampingFactor = 0.08
+  controls.minDistance = 6; controls.maxDistance = 35
   controls.target.set(0, 0, 0)
+  controls.autoRotate = true; controls.autoRotateSpeed = 0.3
 
-  const starsGeometry = new THREE.BufferGeometry()
-  const starsCount = 500
-  const starPositions = new Float32Array(starsCount * 3)
-  for (let i = 0; i < starsCount * 3; i++) {
-    starPositions[i] = (Math.random() - 0.5) * 600
+  // 远层微星 — 5000颗极暗，模拟真实星空密度
+  const bgStarsGeo = new THREE.BufferGeometry()
+  const bgp = new Float32Array(5000 * 3)
+  for (let i = 0; i < 5000 * 3; i++) bgp[i] = (Math.random() - 0.5) * 100
+  bgStarsGeo.setAttribute('position', new THREE.BufferAttribute(bgp, 3))
+  scene.add(new THREE.Points(bgStarsGeo, new THREE.PointsMaterial({ color: 0xccddff, size: 0.028, transparent: true, opacity: 0.65 })))
+
+  // 填充层 — 3000颗散布全空间，消除空洞感
+  const fillGeo = new THREE.BufferGeometry()
+  const fp2 = new Float32Array(3000 * 3)
+  for (let i = 0; i < 3000 * 3; i++) fp2[i] = (Math.random() - 0.5) * 85
+  fillGeo.setAttribute('position', new THREE.BufferAttribute(fp2, 3))
+  scene.add(new THREE.Points(fillGeo, new THREE.PointsMaterial({ color: 0x8899bb, size: 0.035, transparent: true, opacity: 0.5 })))
+
+  // 中层银河带 — 2000颗，集中在水平面
+  const midStarsGeo = new THREE.BufferGeometry()
+  const mp = new Float32Array(2000 * 3)
+  for (let i = 0; i < 2000; i++) {
+    const a = Math.random() * Math.PI * 2
+    const r = 8 + Math.random() * 38
+    mp[i*3] = Math.cos(a) * r + (Math.random()-0.5)*8
+    mp[i*3+1] = (Math.random()-0.5) * 3.5
+    mp[i*3+2] = Math.sin(a) * r + (Math.random()-0.5)*8
   }
-  starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3))
-  const starsMaterial = new THREE.PointsMaterial({
-    color: 0x444466,
-    size: 1.5,
-    transparent: true,
-    opacity: 0.6
+  midStarsGeo.setAttribute('position', new THREE.BufferAttribute(mp, 3))
+  scene.add(new THREE.Points(midStarsGeo, new THREE.PointsMaterial({ color: 0xeeeeff, size: 0.05, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })))
+
+  // 近层亮星 — 300颗，白/蓝白
+  const nearStarsGeo = new THREE.BufferGeometry()
+  const nsp = new Float32Array(300 * 3); const ncol = new Float32Array(300 * 3)
+  for (let i = 0; i < 300; i++) {
+    nsp[i*3] = (Math.random()-0.5) * 55; nsp[i*3+1] = (Math.random()-0.5) * 30; nsp[i*3+2] = (Math.random()-0.5) * 55
+    const temp = 0.7 + Math.random() * 0.3
+    ncol[i*3] = temp; ncol[i*3+1] = temp * (0.85 + Math.random() * 0.1); ncol[i*3+2] = 0.9 + Math.random() * 0.1
+  }
+  nearStarsGeo.setAttribute('position', new THREE.BufferAttribute(nsp, 3))
+  nearStarsGeo.setAttribute('color', new THREE.BufferAttribute(ncol, 3))
+  scene.add(new THREE.Points(nearStarsGeo, new THREE.PointsMaterial({ size: 0.13, vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, map: createGlowTexture() })))
+
+  // 暗尘带 — 极淡的深灰粒子，在银河面附近
+  for (let l = 0; l < 2; l++) {
+    const dustGeo = new THREE.BufferGeometry()
+    const dp = []; const r = 16 + l * 8
+    for (let i = 0; i < 3000; i++) {
+      const a = Math.random() * Math.PI * 2; const rr = r - 2 + Math.random() * 4
+      dp.push(Math.cos(a) * rr, (Math.random()-0.5) * 1.2, Math.sin(a) * rr)
+    }
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(dp), 3))
+    scene.add(new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0x1a1a2e, size: 0.06, transparent: true, opacity: 0.25 - l * 0.08, depthWrite: false })))
+  }
+
+  // 远处微星云 — just 2 subtle blobs
+  for (let n = 0; n < 2; n++) {
+    const nebGeo = new THREE.BufferGeometry()
+    const np2 = []
+    const cx = (n === 0 ? -12 : 10); const cz = (n === 0 ? -8 : 12)
+    for (let i = 0; i < 150; i++) {
+      np2.push(cx + (Math.random()-0.5)*10, (Math.random()-0.5)*3, cz + (Math.random()-0.5)*10)
+    }
+    nebGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(np2), 3))
+    scene.add(new THREE.Points(nebGeo, new THREE.PointsMaterial({ color: 0x1a1a3a, size: 0.2, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false })))
+  }
+
+  // 中央恒星 — 体感白热核心（径向渐变）
+  const sunCore = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 64, 64),
+    new THREE.ShaderMaterial({
+      uniforms: {},
+      vertexShader: `varying vec3 vP;void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+      fragmentShader: `varying vec3 vP;void main(){float d=length(vP)/0.55;vec3 c=mix(vec3(1.0,0.98,0.92),vec3(1.0,0.82,0.45),d*0.65);gl_FragColor=vec4(c,1.0);}`
+    })
+  )
+  scene.add(sunCore)
+  // 内日冕：白→淡金渐变
+  const innerCorona = new THREE.Mesh(
+    new THREE.SphereGeometry(0.85, 32, 32),
+    new THREE.ShaderMaterial({
+      uniforms: {},
+      vertexShader: `varying vec3 vN;void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+      fragmentShader: `varying vec3 vN;void main(){float f=1.0-abs(dot(vN,vec3(0,0,1)));gl_FragColor=vec4(1.0,0.95,0.8,f*0.3);}`,
+      transparent: true, depthWrite: false
+    })
+  )
+  scene.add(innerCorona)
+  // 外日冕：淡白→透明，大范围
+  const outerCorona = new THREE.Mesh(
+    new THREE.SphereGeometry(1.5, 32, 32),
+    new THREE.ShaderMaterial({
+      uniforms: {},
+      vertexShader: `varying vec3 vN;void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+      fragmentShader: `varying vec3 vN;void main(){float f=pow(1.0-abs(dot(vN,vec3(0,0,1))),2.5);gl_FragColor=vec4(0.9,0.85,0.75,f*0.12);}`,
+      transparent: true, depthWrite: false
+    })
+  )
+  scene.add(outerCorona)
+  // 极远光晕
+  const farGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(2.2, 16, 16),
+    new THREE.ShaderMaterial({
+      uniforms: {},
+      vertexShader: `varying vec3 vN;void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+      fragmentShader: `varying vec3 vN;void main(){float f=pow(1.0-abs(dot(vN,vec3(0,0,1))),4.0);gl_FragColor=vec4(0.7,0.7,0.8,f*0.04);}`,
+      transparent: true, depthWrite: false
+    })
+  )
+  scene.add(farGlow)
+  // 光晕sprite — 镜头光晕感
+  const flareTex = createGlowTexture()
+  const flareSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex, color: 0xffeedd, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false }))
+  flareSprite.scale.set(6, 6, 1)
+  scene.add(flareSprite)
+
+  // 轨道环
+  dimensions.forEach(d => {
+    const orbitPts = []; for (let i = 0; i <= 128; i++) { const a = (i / 128) * Math.PI * 2; orbitPts.push(Math.cos(a) * d.orbit, 0, Math.sin(a) * d.orbit) }
+    const orbitGeo = new THREE.BufferGeometry()
+    orbitGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(orbitPts), 3))
+    scene.add(new THREE.Line(orbitGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(d.color), transparent: true, opacity: 0.05, depthWrite: false })))
   })
-  const stars = new THREE.Points(starsGeometry, starsMaterial)
-  scene.add(stars)
 
-  const list = dimData.value.interest_field?.list || []
-  if (list.length === 0) return
+  // 创建行星
+  planetMeshes = []
+  planets = dimensions.map((d, i) => {
+    const group = new THREE.Group()
+    // 球体
+    const pGeo = new THREE.SphereGeometry(d.size * 0.5, 32, 32)
+    const pMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(d.color), roughness: 0.5, metalness: 0.15 })
+    const mesh = new THREE.Mesh(pGeo, pMat)
+    mesh.userData = { dimKey: d.key, dimIndex: i }
+    group.add(mesh)
+    // 大气层
+    const atmoGeo = new THREE.SphereGeometry(d.size * 0.58, 16, 16)
+    const atmoMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(d.color), transparent: true, opacity: 0.06, depthWrite: false })
+    group.add(new THREE.Mesh(atmoGeo, atmoMat))
+    // 光环（某些行星）
+    if (i % 3 === 0) {
+      const ringG = new THREE.TorusGeometry(d.size * 0.75, 0.03, 8, 48)
+      ringG.rotateX(Math.PI / 2.5)
+      group.add(new THREE.Mesh(ringG, new THREE.MeshBasicMaterial({ color: new THREE.Color(d.color), transparent: true, opacity: 0.15, depthWrite: false })))
+    }
+    // Sprite 标签（随距离缩放）
+    const canvas = document.createElement('canvas')
+    canvas.width = 256; canvas.height = 64
+    const ctx = canvas.getContext('2d')
+    ctx.font = 'bold 28px -apple-system, sans-serif'
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillText(d.label, 128, 32)
+    const tex = new THREE.CanvasTexture(canvas); tex.minFilter = THREE.LinearFilter
+    const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.6, depthTest: false })
+    const sprite = new THREE.Sprite(spriteMat)
+    sprite.scale.set(d.size * 1.6, d.size * 0.4, 1)
+    sprite.position.y = d.size * 0.9
+    group.add(sprite)
 
-  const maxCount = Math.max(...list.map(t => t.count), 1)
-  const radius = 120
-  const total = list.length
-
-  list.forEach((item, index) => {
-    const phi = Math.acos(1 - 2 * (index + 0.5) / total)
-    const theta = Math.PI * (1 + Math.sqrt(5)) * (index + 0.5)
-    const x = radius * Math.sin(phi) * Math.cos(theta)
-    const y = radius * Math.cos(phi)
-    const z = radius * Math.sin(phi) * Math.sin(theta)
-
-    const color = colorPalette[index % colorPalette.length]
-    const countRatio = item.count / maxCount
-    const baseSize = 16 + countRatio * 12
-
-    const div = document.createElement('div')
-    div.textContent = item.name
-    div.style.color = color
-    div.style.fontSize = baseSize + 'px'
-    div.style.fontWeight = '600'
-    div.style.padding = '4px 14px'
-    div.style.borderRadius = '20px'
-    div.style.border = `1px solid ${color}44`
-    div.style.background = `${color}0a`
-    div.style.backdropFilter = 'blur(4px)'
-    div.style.boxShadow = '0 2px 12px rgba(0,0,0,0.04)'
-    div.style.transition = 'all 0.3s ease'
-    div.style.pointerEvents = 'auto'
-    div.style.cursor = 'default'
-    div.style.whiteSpace = 'nowrap'
-
-    const countSpan = document.createElement('span')
-    countSpan.textContent = item.count
-    countSpan.style.fontSize = '10px'
-    countSpan.style.opacity = '0.5'
-    countSpan.style.marginLeft = '4px'
-    countSpan.style.fontWeight = '400'
-    div.appendChild(countSpan)
-
-    // CSS3DObject - 固定在3D空间
-    const label = new CSS3DObject(div)
-    label.position.set(x, y, z)
-    // 朝向球外（法线方向）
-    const direction = new THREE.Vector3(x, y, z).normalize()
-    label.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction)
-    scene.add(label)
-    labelObjects.push(label)
+    scene.add(group)
+    planetMeshes.push(mesh)
+    return { group, mesh, data: d, angle: Math.random() * Math.PI * 2 }
   })
 
-  const wireframeGeometry = new THREE.SphereGeometry(radius * 0.98, 24, 16)
-  const wireframeMaterial = new THREE.MeshBasicMaterial({
-    color: 0x409EFF,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.06
-  })
-  const wireframe = new THREE.Mesh(wireframeGeometry, wireframeMaterial)
-  scene.add(wireframe)
+  // 灯光 — 模拟恒星照明
+  scene.add(new THREE.AmbientLight(0x1a1a33, 0.45))
+  const sunLight = new THREE.PointLight(0xfff8ee, 3.5, 45, 1.5)
+  sunLight.position.set(0, 0, 0)
+  scene.add(sunLight)
+  const fillLight = new THREE.PointLight(0x445577, 1.0, 55, 2)
+  fillLight.position.set(0, 18, 0)
+  scene.add(fillLight)
 
-  const glowGeometry = new THREE.SphereGeometry(radius * 0.02, 8, 8)
-  const glowMaterial = new THREE.MeshBasicMaterial({
-    color: 0x409EFF,
-    transparent: true,
-    opacity: 0.08
-  })
-  const glow = new THREE.Mesh(glowGeometry, glowMaterial)
-  scene.add(glow)
-
-  function animate() {
-    animationId = requestAnimationFrame(animate)
+  // 动画循环
+  function anim() {
+    animationId = requestAnimationFrame(anim)
+    planets.forEach((p, i) => {
+      p.angle += dimensions[i].speed * 0.02
+      const a = p.angle; const r = dimensions[i].orbit
+      p.group.position.set(Math.cos(a) * r, Math.sin(a * 0.3) * 0.8, Math.sin(a) * r)
+      p.mesh.rotation.y += 0.01
+    })
     controls.update()
     renderer.render(scene, camera)
-    labelRenderer.render(scene, camera)
   }
-  animate()
+  anim()
 
-  const resizeObserver = new ResizeObserver(() => {
-    const w = container.clientWidth
-    const h = container.clientHeight
-    if (w > 0 && h > 0) {
-      camera.aspect = w / h
-      camera.updateProjectionMatrix()
-      renderer.setSize(w, h)
-      labelRenderer.setSize(w, h)
-    }
-  })
-  resizeObserver.observe(container)
-  container._resizeObserver = resizeObserver
+  // 点击检测
+  el.addEventListener('click', onHubClick)
+  el.addEventListener('mousemove', onHubMove)
+  // 响应式
+  new ResizeObserver(() => {
+    const w = el.clientWidth, h = el.clientHeight
+    if (w > 0 && h > 0) { camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h) }
+  }).observe(el)
 }
 
-function destroyThreeSphere() {
-  if (animationId) {
-    cancelAnimationFrame(animationId)
-    animationId = null
-  }
-
-  // ✅ 加判空，防止报错
-  if (renderer && typeof renderer.dispose === 'function') {
-    renderer.dispose()
-    renderer = null
-  }
-
-  // ✅ 核心修复：加判空
-  if (labelRenderer && typeof labelRenderer.dispose === 'function') {
-    labelRenderer.dispose()
-    labelRenderer = null
-  }
-
-  if (controls && typeof controls.dispose === 'function') {
-    controls.dispose()
-    controls = null
-  }
-
-  scene = null
-  labelObjects = []
-
-  if (threeContainerRef.value) {
-    threeContainerRef.value.innerHTML = ''
+function onHubMove(e) {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1
+  raycaster.setFromCamera(mouse, camera)
+  const hits = raycaster.intersectObjects(planetMeshes)
+  if (hits.length) {
+    const d = dimensions[hits[0].object.userData.dimIndex]
+    hoveredPlanet.value = d
+    document.body.style.cursor = 'pointer'
+  } else {
+    hoveredPlanet.value = null
+    document.body.style.cursor = ''
   }
 }
 
-// ===== 饼图 =====
-function loadPieChart() {
-  if (!pieChartRef.value) return
-  if (pieChart) { pieChart.dispose(); pieChart = null }
-
-  const dist = dimData.value.cognitive_style?.distribution || {}
-  const data = Object.entries(dist).map(([name, value]) => ({ name, value }))
-  if (!data.length) return
-
-  pieChart = echarts.init(pieChartRef.value)
-  const colors = ['#409EFF', '#8B5CF6', '#F59E0B', '#22C55E', '#EC4899', '#06B6D4']
-
-  pieChart.setOption({
-    tooltip: {
-      trigger: 'item',
-      formatter: '{b}: {c} 道 ({d}%)',
-      backgroundColor: 'rgba(0,0,0,0.7)',
-      borderColor: 'rgba(255,255,255,0.1)',
-      textStyle: { color: '#fff' }
-    },
-    color: colors,
-    series: [{
-      type: 'pie',
-      radius: ['45%', '70%'],
-      avoidLabelOverlap: true,
-      itemStyle: {
-        borderRadius: 8,
-        borderColor: 'rgba(255,255,255,0.08)',
-        borderWidth: 2
-      },
-      label: {
-        color: 'rgba(255,255,255,0.8)',
-        fontSize: 13,
-        formatter: '{b}\n{d}%'
-      },
-      labelLine: {
-        lineStyle: { color: 'rgba(255,255,255,0.12)' }
-      },
-      data: data,
-      animationDuration: 800
-    }]
-  })
-  pieChart.resize()
+function onHubClick(e) {
+  if (!hoveredPlanet.value) return
+  const d = hoveredPlanet.value
+  // 飞行动画：相机靠近行星
+  const planet = planets.find(p => p.data.key === d.key)
+  if (!planet) { activeDim.value = d.key; return }
+  const target = planet.group.position.clone()
+  const start = { x: camera.position.x, y: camera.position.y, z: camera.position.z, tx: controls.target.x, ty: controls.target.y, tz: controls.target.z }
+  const end = { x: target.x + 3, y: target.y + 1.5, z: target.z + 3, tx: target.x, ty: target.y, tz: target.z }
+  const dur = 600; const st = performance.now()
+  function fly(now) {
+    const p = Math.min(1, (now - st) / dur)
+    const e = 1 - Math.pow(1 - p, 3)
+    camera.position.set(start.x + (end.x - start.x) * e, start.y + (end.y - start.y) * e, start.z + (end.z - start.z) * e)
+    controls.target.set(start.tx + (end.tx - start.tx) * e, start.ty + (end.ty - start.ty) * e, start.tz + (end.tz - start.tz) * e)
+    if (p < 1) flyAnimId = requestAnimationFrame(fly)
+    else { activeDim.value = d.key; setTimeout(() => renderDetail(d.key), 300) }
+  }
+  flyAnimId = requestAnimationFrame(fly)
 }
 
-// ===== 学习目标柱状图 =====
-function loadGoalChart() {
-  if (!goalChartRef.value) return
-  if (goalChart) { goalChart.dispose(); goalChart = null }
-
-  const sets = dimData.value.learning_goal?.sets || []
-  if (!sets.length) return
-
-  goalChart = echarts.init(goalChartRef.value)
-  const names = sets.map(s => s.name.length > 8 ? s.name.slice(0, 8) + '..' : s.name)
-  const counts = sets.map(s => s.question_count)
-
-  goalChart.setOption({
-    tooltip: {
-      trigger: 'axis',
-      formatter: function(params) {
-        const p = params[0]
-        const fullName = sets[p.dataIndex].name
-        return `<strong>${fullName}</strong><br/>题目数：${p.value} 道`
-      },
-      backgroundColor: 'rgba(0,0,0,0.7)',
-      borderColor: 'rgba(255,255,255,0.1)',
-      textStyle: { color: '#fff' }
-    },
-    grid: {
-      left: '8%',
-      right: '8%',
-      bottom: '18%',
-      top: '8%'
-    },
-    xAxis: {
-      type: 'category',
-      data: names,
-      axisLabel: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 11,
-        rotate: 20,
-        interval: 0
-      },
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
-      axisTick: { show: false }
-    },
-    yAxis: {
-      type: 'value',
-      name: '题目数',
-      nameTextStyle: { color: 'rgba(255,255,255,0.3)', fontSize: 11 },
-      axisLabel: { color: 'rgba(255,255,255,0.3)', fontSize: 11 },
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
-      axisLine: { show: false },
-      axisTick: { show: false }
-    },
-    series: [{
-      type: 'bar',
-      data: counts.map((v, i) => ({
-        value: v,
-        itemStyle: {
-          borderRadius: [4, 4, 0, 0],
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: colorPalette[i % colorPalette.length] },
-            { offset: 1, color: colorPalette[(i + 3) % colorPalette.length] + '44' }
-          ])
-        }
-      })),
-      barWidth: '35%',
-      label: {
-        show: true,
-        position: 'top',
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 11
-      }
-    }]
-  })
-  goalChart.resize()
+function closeDetail() {
+  activeDim.value = null
+  controls.target.set(0, 0, 0)
+  camera.position.set(0, 12, 18)
+  camera.lookAt(0, 0, 0)
 }
 
-// ===== 加载数据 =====
+function destroySolar() {
+  if (animationId) cancelAnimationFrame(animationId)
+  if (flyAnimId) cancelAnimationFrame(flyAnimId)
+  if (renderer) { renderer.dispose(); renderer = null }
+  if (hub3dRef.value) hub3dRef.value.innerHTML = ''
+}
+
+// ===== 数据 =====
 async function loadData() {
   loading.value = true
   try {
-    const res = await fetch(
-      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/evaluation/profile-data?user_id=${authStore.user.id}`,
-      { headers: { Authorization: `Bearer ${authStore.token}` } }
-    )
-    const data = await res.json()
-    dimData.value = data
-    generateDate.value = new Date().toLocaleString('zh-CN', {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit'
-    })
-    await nextTick()
-    setTimeout(() => {
-      loadKnowledgeGraph()
-      loadPieChart()
-      loadGoalChart()
-      destroyThreeSphere()
-      setTimeout(() => initThreeSphere(), 100)
-    }, 300)
-  } catch (error) {
-    console.error('加载失败:', error)
-    ElMessage.error('加载数据失败')
-  } finally {
-    loading.value = false
-  }
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/evaluation/profile-data?user_id=${authStore.user.id}`,
+      { headers: { Authorization: `Bearer ${authStore.token}` } })
+    data.value = await res.json()
+  } catch (e) { console.error(e) }
+  finally { loading.value = false }
 }
 
-async function refreshData() {
-  await loadData()
-  ElMessage.success('已刷新')
+// ===== 详情图表 =====
+const charts = {}
+function getChart(k, ref, opts) {
+  if (charts[k]) { charts[k].dispose(); charts[k] = null }
+  if (!ref.value) return
+  charts[k] = echarts.init(ref.value)
+  charts[k].setOption({ backgroundColor: 'transparent', ...opts })
 }
 
-function goBack() {
-  router.push('/evaluation-center')
-}
-
-function handleResize() {
-  if (knowledgeGraphRef.value && knowledgeGraph) {
-    knowledgeGraph.resize()
-  }
-  if (threeContainerRef.value && renderer) {
-    const w = threeContainerRef.value.clientWidth
-    const h = threeContainerRef.value.clientHeight
-    if (w > 0 && h > 0) {
-      camera.aspect = w / h
-      camera.updateProjectionMatrix()
-      renderer.setSize(w, h)
-      labelRenderer.setSize(w, h)
+function renderDetail(key) {
+  const d = data.value
+  // 仅当数据存在时才渲染图表
+  if (key === 'knowledge' && !hasKnowledge.value) return
+  if (key === 'ability' && !hasAbility.value) return
+  if (key === 'rhythm' && !hasRhythm.value) return
+  if (key === 'cognitive' && !hasCognitive.value) return
+  if (key === 'mistake' && !hasMistakes.value) return
+  if (key === 'growth' && !hasGrowth.value) return
+  if (key === 'interest' && !hasInterest.value) return
+  switch (key) {
+    case 'knowledge': {
+      const list = d.knowledge_base?.list || []
+      if (!list.length) return
+      const nodes = list.map((it, i) => ({ name: it.name, value: it.score, symbolSize: 10 + it.score * 0.25,
+        itemStyle: { color: scoreColor(it.score), shadowBlur: 15, shadowColor: scoreColor(it.score) + '66' },
+        label: { show: true, fontSize: 10, color: '#bbb', formatter: p => p.name.length > 6 ? p.name.slice(0, 6) + '..' : p.name }
+      }))
+      let ed = []; for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) if (Math.random() < 0.08) ed.push({ source: i, target: j, lineStyle: { color: 'rgba(255,255,255,0.03)', width: 0.5 } })
+      getChart('knowledge', knowledgeRef, { series: [{ type: 'graph', layout: 'force', roam: true, draggable: true, force: { repulsion: 250, edgeLength: [60, 160], gravity: 0.05 }, data: nodes, edges: ed, emphasis: { focus: 'adjacency' }, edgeSymbol: ['none', 'none'] }] })
+      break
     }
+    case 'ability': {
+      const rd = d.ability_radar || {}; const ks = Object.keys(rd)
+      if (!ks.length) return
+      getChart('radar', radarRef, {
+        radar: { indicator: ks.map(k => ({ name: k, max: 100 })), center: ['50%','55%'], radius: '60%', axisName: { color: '#aaa', fontSize: 11 }, splitArea: { areaStyle: { color: ['rgba(64,158,255,0.01)','rgba(64,158,255,0.03)'] } }, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } } },
+        series: [{ type: 'radar', data: [{ value: ks.map(k => rd[k]?.score || 0), name: '能力', areaStyle: { color: 'rgba(139,92,246,0.12)' }, lineStyle: { color: '#8b5cf6', width: 2 }, itemStyle: { color: '#8b5cf6' } }] }]
+      })
+      break
+    }
+    case 'rhythm': {
+      const cal = d.learning_rhythm?.calendar || []
+      if (!cal.length) return
+      getChart('calendar', calendarRef, {
+        tooltip: { formatter: p => `${p.value[0]}<br/>${p.value[1]} 次活动` },
+        visualMap: { min: 0, max: Math.max(...cal.map(c => c.count), 3), orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['rgba(255,255,255,0.01)','#10b98133','#10b981'] }, textStyle: { color: '#888' } },
+        calendar: { range: cal.length > 30 ? [cal[0].date, cal[cal.length-1].date] : undefined, cellSize: ['auto', 13], itemStyle: { borderColor: 'rgba(255,255,255,0.02)' }, dayLabel: { color: '#777' }, monthLabel: { color: '#999' } },
+        series: [{ type: 'heatmap', coordinateSystem: 'calendar', data: cal.map(c => [c.date, c.count]) }]
+      })
+      break
+    }
+    case 'cognitive': {
+      const ts = d.cognitive_preference?.types || []
+      if (!ts.length) return
+      getChart('cogBar', cognitiveBarRef, {
+        grid: { left: '22%', right: '8%', top: 10, bottom: 10 },
+        xAxis: { type: 'value', axisLabel: { color: '#888' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.03)' } } },
+        yAxis: { type: 'category', data: ts.map(t => t.name).reverse(), axisLabel: { color: '#aaa', fontSize: 12 }, axisLine: { show: false } },
+        series: [{ type: 'bar', data: ts.map(t => t.value).reverse(), barWidth: '45%', itemStyle: { borderRadius: [0,4,4,0], color: new echarts.graphic.LinearGradient(0,0,1,0, [{offset:0,color:'#f59e0b33'},{offset:1,color:'#f59e0b'}]) }, label: { show: true, position: 'right', color: '#aaa', fontSize: 11 } }]
+      })
+      break
+    }
+    case 'mistake': {
+      const ml = d.mistake_map?.list || []
+      if (!ml.length) return
+      getChart('treemap', treemapRef, { tooltip: { formatter: p => `${p.name}<br/>错题：${p.value}` },
+        series: [{ type: 'treemap', data: ml.map(m => ({ name: m.name, value: m.total })), roam: false, label: { show: true, color: '#ccc', fontSize: 12, formatter: p => `${p.name}\n${p.value}` }, itemStyle: { borderColor: 'rgba(255,255,255,0.04)', gapWidth: 2 }, levels: [{ colorMapping: 'value', color: ['rgba(34,197,94,0.2)','rgba(239,68,68,0.5)'] }] }]
+      })
+      break
+    }
+    case 'growth': {
+      const pts = d.growth_trajectory?.points || []
+      if (!pts.length) return
+      getChart('growth', growthRef, {
+        grid: { left: '8%', right: '6%', top: 20, bottom: 30 },
+        xAxis: { type: 'category', data: pts.map(p => p.date.slice(5)), axisLabel: { color: '#888', fontSize: 10, rotate: 30 }, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } } },
+        yAxis: { type: 'value', min: 0, max: 100, axisLabel: { color: '#888' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.02)' } } },
+        series: [{ type: 'line', data: pts.map(p => p.score), smooth: true, lineStyle: { color: '#06b6d4', width: 2 }, areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1, [{offset:0,color:'rgba(6,182,212,0.25)'},{offset:1,color:'rgba(6,182,212,0.01)'}]) }, itemStyle: { color: '#06b6d4' }, symbol: 'circle', symbolSize: 3 }]
+      })
+      break
+    }
+    case 'interest': initInterest3D(); break
+    case 'summary': typeSummary(); break
   }
 }
 
-onMounted(() => {
-  loadData()
-  window.addEventListener('resize', handleResize)
-})
+// 兴趣 3D 球体
+let intrScene, intrCam, intrRenderer, intrLabel, intrCtrl, intrAnim
+function initInterest3D() {
+  destroyIntr3D()
+  const el = interest3dRef.value; if (!el) return
+  const W = el.clientWidth || 400, H = el.clientHeight || 340
+  intrScene = new THREE.Scene(); intrScene.background = new THREE.Color(0x020210)
+  intrCam = new THREE.PerspectiveCamera(45, W/H, 1, 600); intrCam.position.z = 260
+  intrRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); intrRenderer.setSize(W, H); intrRenderer.setPixelRatio(1.5)
+  el.appendChild(intrRenderer.domElement)
+  intrLabel = new CSS3DRenderer(); intrLabel.setSize(W, H); intrLabel.domElement.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none'
+  el.appendChild(intrLabel.domElement)
+  intrCtrl = new OrbitControls(intrCam, intrRenderer.domElement); intrCtrl.enableDamping = true; intrCtrl.autoRotate = true; intrCtrl.autoRotateSpeed = 1
 
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize)
-  destroyThreeSphere()
-  if (knowledgeGraph) { knowledgeGraph.dispose() }
-  if (pieChart) { pieChart.dispose() }
-  if (goalChart) { goalChart.dispose() }
-})
+  const bgGeo = new THREE.BufferGeometry(); const bp = new Float32Array(800 * 3)
+  for (let i = 0; i < 800 * 3; i++) bp[i] = (Math.random() - 0.5) * 400
+  bgGeo.setAttribute('position', new THREE.BufferAttribute(bp, 3))
+  intrScene.add(new THREE.Points(bgGeo, new THREE.PointsMaterial({ color: 0x445588, size: 0.8, transparent: true, opacity: 0.5 })))
 
-watch(() => dimData.value.interest_field?.list, (newVal) => {
-  if (newVal && newVal.length > 0 && threeContainerRef.value) {
-    destroyThreeSphere()
-    setTimeout(() => initThreeSphere(), 50)
-  }
-}, { deep: true })
+  const list = data.value.interest_field?.list || []
+  if (!list.length) return
+  const maxC = Math.max(...list.map(t => t.count), 1); const R = 100
+  const clrs = ['#409eff','#8b5cf6','#f59e0b','#22c55e','#ec4899','#06b6d4','#f97316','#a78bfa','#60a5fa','#f472b6','#2dd4bf','#818cf8']
+  list.forEach((item, i) => {
+    const phi = Math.acos(1 - 2 * (i + 0.5) / list.length)
+    const theta = Math.PI * (1 + Math.sqrt(5)) * i
+    const x = R * Math.sin(phi) * Math.cos(theta), y = R * Math.cos(phi), z = R * Math.sin(phi) * Math.sin(theta)
+    const div = document.createElement('div')
+    div.textContent = item.name
+    const sz = 13 + (item.count / maxC) * 12
+    div.style.cssText = `color:#fff;font-size:${sz}px;font-weight:600;padding:3px 14px;border-radius:16px;border:1px solid ${clrs[i%clrs.length]}44;background:rgba(0,0,0,0.4);white-space:nowrap;text-shadow:0 0 6px ${clrs[i%clrs.length]}44`
+    const lbl = new CSS3DObject(div); lbl.position.set(x, y, z); lbl.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), new THREE.Vector3(x,y,z).normalize())
+    intrScene.add(lbl)
+  })
+  intrScene.add(new THREE.Mesh(new THREE.SphereGeometry(R*0.96, 20, 14), new THREE.MeshBasicMaterial({ color: 0x334466, wireframe: true, transparent: true, opacity: 0.02 })))
+  function anim() { intrAnim = requestAnimationFrame(anim); intrCtrl.update(); intrRenderer.render(intrScene, intrCam); intrLabel.render(intrScene, intrCam) }
+  anim()
+}
+function destroyIntr3D() {
+  if (intrAnim) { cancelAnimationFrame(intrAnim); intrAnim = null }
+  if (intrRenderer && typeof intrRenderer.dispose === 'function') { intrRenderer.dispose(); intrRenderer = null }
+  if (intrLabel && typeof intrLabel.dispose === 'function') { intrLabel.dispose(); intrLabel = null }
+  if (interest3dRef.value) interest3dRef.value.innerHTML = ''
+}
+
+function typeSummary() {
+  typing.value = true; displaySummary.value = ''
+  const text = data.value.ai_summary || '完成更多题目后，AI 将为你生成深度画像总结。'
+  let i = 0; const t = setInterval(() => { displaySummary.value += text[i]; i++; if (i >= text.length) { clearInterval(t); typing.value = false } }, 40)
+}
+
+function scoreColor(s) { if (s >= 80) return '#22c55e'; if (s >= 60) return '#eab308'; if (s >= 40) return '#f97316'; return '#ef4444' }
+function goBack() { router.push('/evaluation-center') }
+
+const knowledgeRef=ref(null),radarRef=ref(null),calendarRef=ref(null),cognitiveBarRef=ref(null),treemapRef=ref(null),growthRef=ref(null),interest3dRef=ref(null)
+
+onMounted(() => { loadData(); setTimeout(initSolarSystem, 200) })
+onBeforeUnmount(() => { destroySolar(); destroyIntr3D(); Object.values(charts).forEach(c => c?.dispose()) })
 </script>
 
 <style scoped>
-.profile-card-page {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 30px 20px;
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
-}
-[data-theme="light"] .profile-card-page {
-  background-image: url('/assets/bg/resource_lib_bg.jpg');
-}
-[data-theme="dark"] .profile-card-page {
-  background-image: url('/assets/bg/resource_lib_bl.jpg');
-}
+.du-root { width: 100vw; height: 100vh; overflow: hidden; position: relative; background: #060610; }
+.hub-3d { width: 100%; height: 100%; position: absolute; inset: 0; }
 
-.profile-container {
-  max-width: 860px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 28px 36px;
-  border-radius: 18px;
-  background: rgba(255,255,255,0.04);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.06);
-}
-[data-theme="dark"] .profile-container {
-  background: rgba(0,0,0,0.30);
-}
+.du-topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; padding: 14px 22px; pointer-events: none; }
+.du-topbar > * { pointer-events: auto; }
+.du-topbar h1 { font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0; letter-spacing: 2px; }
+.du-bottombar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; gap: 24px; font-size: 10px; color: rgba(255,255,255,0.2); letter-spacing: 0.5px; }
+.du-bottombar span { display: flex; align-items: center; gap: 5px; }
 
-.profile-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.back-btn {
-  color: var(--text-secondary) !important;
-  font-size: 15px;
-  padding: 4px 8px;
-  transition: all 0.3s ease !important;
-}
-.back-btn:hover {
-  color: var(--text-primary) !important;
-  transform: translateX(-2px);
-  background: rgba(255,255,255,0.06);
-}
-.profile-header h1 {
-  font-size: 22px;
-  color: var(--text-primary);
-  margin: 0;
-}
+.g-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 6px; cursor: pointer; transition: all 0.3s; font-family: inherit; }
+.g-btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.1); }
 
-.el-divider { margin: 12px 0; }
-.loading-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+/* 行星提示 */
+.planet-tooltip { position: fixed; z-index: 15; pointer-events: none; text-align: center; }
+.tt-name { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.8); letter-spacing: 0.5px; }
+.tt-sub { font-size: 9px; color: rgba(255,255,255,0.35); margin-top: 3px; }
 
-.dimension-section {
-  margin-bottom: 20px;
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 12px;
-  overflow: hidden;
-  background: rgba(255,255,255,0.02);
-}
-.section-title {
-  padding: 12px 18px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  color: var(--text-primary);
-  background: rgba(255,255,255,0.02);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-}
-.section-icon {
-  display: inline-block;
-  width: 24px;
-  height: 24px;
-  line-height: 24px;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  border-radius: 6px;
-  background: rgba(64,158,255,0.08);
-  color: #409EFF;
-  margin-right: 10px;
-}
-.section-body { padding: 14px 18px; }
-.empty-tip { color: var(--text-muted); font-size: 13px; text-align: center; padding: 8px 0; }
-
-/* ===== 知识基础星系图 ===== */
-.knowledge-graph-wrapper {
-  width: 100%;
-  height: 340px;
-}
-
-/* ===== 认知风格 ===== */
-.pie-wrapper { position: relative; }
-.pie-label {
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-top: 6px;
-  letter-spacing: 0.5px;
-}
-
-/* ===== 易错偏好气泡图 ===== */
-.bubble-stats {
-  display: flex;
-  gap: 20px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-.bubble-stat {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.bubble-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-}
-.bubble-dot.red { background: #EF4444; }
-.bubble-dot.green { background: #22C55E; }
-
-.bubble-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-height: 80px;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
-}
-.bubble {
-  border-radius: 24px;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  cursor: default;
-  animation: bubbleFloat 0.6s ease both;
-  border: 1px solid transparent;
-}
-.bubble:hover {
-  transform: scale(1.1) !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-  z-index: 2;
-}
-.learning-bubble {
-  background: rgba(239,68,68,0.10);
-  color: #EF4444;
-  border-color: rgba(239,68,68,0.15);
-}
-.conquered-bubble {
-  background: rgba(34,197,94,0.10);
-  color: #22C55E;
-  border-color: rgba(34,197,94,0.15);
-}
-@keyframes bubbleFloat {
-  0% { opacity: 0; transform: scale(0.5) translateY(10px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-/* ===== 学习目标 ===== */
-.goal-summary {
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.03);
-}
-
-/* ===== 学习人格 ===== */
-.personality-hero {
-  position: relative;
-  padding: 28px 24px 24px;
-  border-radius: 16px;
-  text-align: center;
-  overflow: hidden;
-  background: linear-gradient(135deg, rgba(64,158,255,0.06), rgba(139,92,246,0.06));
-  border: 1px solid rgba(64,158,255,0.10);
-}
-.personality-glow {
-  position: absolute;
-  top: -40%;
-  left: -20%;
-  width: 140%;
-  height: 140%;
-  background: radial-gradient(ellipse at center, rgba(64,158,255,0.08), transparent 70%);
-  animation: glowPulse 3s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes glowPulse {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.1); opacity: 1; }
-}
-.personality-type-hero {
-  position: relative;
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  margin-bottom: 12px;
-  background: linear-gradient(135deg, #409EFF, #8B5CF6, #F59E0B);
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shimmerText 4s ease-in-out infinite;
-}
-@keyframes shimmerText {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-.personality-tags-hero {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.personality-tag-hero {
-  padding: 6px 18px;
+/* 详情面板 — 3D 立体 */
+.detail-panel {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) perspective(1200px) rotateX(2deg);
+  z-index: 20; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto;
   border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  background: rgba(64,158,255,0.12);
-  color: #409EFF;
-  border: 1px solid rgba(64,158,255,0.15);
-  box-shadow: 0 0 20px rgba(64,158,255,0.05);
-  backdrop-filter: blur(4px);
-  transition: all 0.3s ease;
+  background: linear-gradient(180deg, rgba(20,20,50,0.9) 0%, rgba(8,8,25,0.94) 100%);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    0 2px 0 rgba(255,255,255,0.03) inset,
+    0 8px 40px rgba(0,0,0,0.5),
+    0 24px 80px rgba(0,0,0,0.4),
+    0 0 0 1px rgba(255,255,255,0.03);
+  transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
 }
-.personality-tag-hero:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 30px rgba(64,158,255,0.15);
+.detail-panel:hover {
+  transform: translate(-50%,-50%) perspective(1200px) rotateX(1deg) translateY(-4px);
+  box-shadow:
+    0 2px 0 rgba(255,255,255,0.04) inset,
+    0 12px 48px rgba(0,0,0,0.6),
+    0 32px 96px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(255,255,255,0.05);
 }
-.personality-desc-hero {
-  position: relative;
-  font-size: 15px;
-  line-height: 1.8;
-  color: var(--text-secondary);
-  max-width: 560px;
-  margin: 0 auto;
-}
+.detail-panel::-webkit-scrollbar { width: 3px; }
+.detail-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
 
-/* ===== 3D 球体 ===== */
-.sphere-container {
-  position: relative;
-  width: 100%;
-  height: 340px;
-  overflow: hidden;
-  border-radius: 12px;
+.dp-header {
+  display: flex; align-items: center; gap: 16px; padding: 18px 24px;
+  position: sticky; top: 0; z-index: 2;
+  background: linear-gradient(180deg, rgba(15,15,40,0.85) 0%, rgba(10,10,30,0.4) 100%);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-radius: 20px 20px 0 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset;
+}
+.dp-header h2 { font-size: 18px; margin: 0; text-shadow: 0 0 12px currentColor; }
+.dp-body { padding: 20px 28px 32px; }
+.chart-box { width: 100%; height: 340px; border-radius: 12px; overflow: hidden; }
+.int-3d {
+  width: 100%; height: 340px; position: relative; overflow: hidden; border-radius: 12px;
   background: radial-gradient(ellipse at center, rgba(64,158,255,0.03), transparent 70%);
-}
-.three-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-.three-container :deep(.css3d-renderer) {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  pointer-events: none !important;
-}
-.three-container :deep(.css3d-renderer) div {
-  pointer-events: auto !important;
-}
-.sphere-hint {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 12px;
-  color: var(--text-muted);
-  opacity: 0.4;
-  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset;
 }
 
-@media (max-width: 640px) {
-  .profile-container { padding: 16px 14px; }
-  .profile-header { flex-direction: column; align-items: stretch; }
-  .knowledge-graph-wrapper { height: 260px; }
-  .mistake-stats { gap: 12px; font-size: 12px; }
-  .personality-type-hero { font-size: 24px; }
-  .personality-hero { padding: 20px 16px; }
-  .sphere-container { height: 260px; }
-  .bubble { font-size: 12px !important; padding: 4px 10px !important; }
-}
+.rhythm-stats { display: flex; gap: 32px; justify-content: center; margin-top: 16px; }
+.rs { text-align: center; } .rs-v { display: block; font-size: 26px; font-weight: 700; color: #10b981; font-family: monospace; } .rs span:last-child { font-size: 11px; color: rgba(255,255,255,0.4); }
+
+.personality-card { position: relative; text-align: center; padding: 48px 32px; border-radius: 20px; background: linear-gradient(135deg, rgba(236,72,153,0.04), rgba(139,92,246,0.04)); border: 1px solid rgba(236,72,153,0.08); overflow: hidden; }
+.pc-glow { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(236,72,153,0.04), transparent 60%); animation: gp 3s infinite; }
+@keyframes gp { 0%,100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 1; } }
+.pc-type { position: relative; font-size: 38px; font-weight: 800; background: linear-gradient(135deg, #ec4899, #8b5cf6, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-size: 200% 200%; animation: st 3s infinite; margin-bottom: 16px; }
+@keyframes st { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+.pc-tags { position: relative; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+.pc-tag { padding: 6px 20px; border-radius: 20px; font-size: 14px; font-weight: 600; background: rgba(236,72,153,0.08); color: #ec4899; border: 1px solid rgba(236,72,153,0.12); }
+.pc-desc { position: relative; font-size: 15px; line-height: 1.8; color: rgba(255,255,255,0.6); max-width: 560px; margin: 0 auto; }
+
+.summary-box { padding: 40px 20px; text-align: center; }
+.sb-text { font-size: 20px; line-height: 2; color: rgba(255,255,255,0.75); display: inline; }
+.sb-cursor { font-size: 20px; color: #a78bfa; animation: blink 0.8s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.load-overlay { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); gap: 14px; color: rgba(255,255,255,0.5); font-size: 13px; }
+.lo-ring { width: 36px; height: 36px; border: 2px solid rgba(64,158,255,0.12); border-top-color: #409eff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-dim { text-align: center; padding: 60px 30px; color: rgba(255,255,255,0.3); font-size: 13px; line-height: 1.8; }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+.detail-enter-active { transition: all 0.5s cubic-bezier(0.4,0,0.2,1); }
+.detail-leave-active { transition: all 0.3s ease; }
+.detail-enter-from { opacity: 0; transform: scale(1.05); }
+.detail-leave-to { opacity: 0; }
 </style>

@@ -130,7 +130,7 @@ function fallbackDetectIntent(text) {
 // ===== 调用后端 AI 意图分类 =====
 async function detectIntent(text) {
   try {
-    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/chat/detect-intent`, {
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/chat/detect-intent`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -266,7 +266,7 @@ async function sendMessage() {
     const allMsgs = sessionStore.getMessages(sessionStore.currentSessionId)
     if (allMsgs.length === 2) {
       try {
-        const titleRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/chat/title`, {
+        const titleRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/chat/title`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -301,7 +301,7 @@ async function sendMessage() {
     console.log('=== 进入生成日志写入逻辑 ===')
     console.log('=== fullContent 长度:', fullContent.length)
       try {
-        const summaryRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/chat/summary`, {
+        const summaryRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/chat/summary`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

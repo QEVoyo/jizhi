@@ -2,6 +2,7 @@ import requests
 import json
 from typing import List, Dict
 from config import settings
+from logging_config import logger
 
 
 class VolcClient:
@@ -13,8 +14,8 @@ class VolcClient:
         self.host = "ark.cn-beijing.volces.com"
         self.base_url = f"https://{self.host}/api/v3"
 
-        print(f"=== API Key 前20位: {self.api_key[:20] if self.api_key else 'None'} ===")
-        print(f"=== 接入点ID: {self.endpoint_id} ===")
+        logger.info(f"=== API Key 前20位: {self.api_key[:20] if self.api_key else 'None'} ===")
+        logger.info(f"=== 接入点ID: {self.endpoint_id} ===")
 
     def chat(self, messages: List[Dict[str, str]], temperature: float = 0.8) -> str:
         """调用角色模型对话（非流式）"""
@@ -42,7 +43,7 @@ class VolcClient:
                 return "小基今天有点累了，明天再聊吧~"
             return "小基今天有点累了，明天再聊吧~"
         except Exception as e:
-            print(f"=== 调用火山API异常: {e} ===")
+            logger.info(f"=== 调用火山API异常: {e} ===")
             return "嗯嗯，我在听！你继续说~"
 
     def vision_stream(self, image_url: str, prompt: str = "请描述这张图片的内容"):

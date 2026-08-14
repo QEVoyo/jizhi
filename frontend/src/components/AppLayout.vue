@@ -40,39 +40,44 @@ function toggleSidebar() {
   overflow: hidden;
 }
 
-/* ===== 侧边栏 ===== */
+/* ===== 侧边栏 — 毛玻璃 ===== */
 .sidebar {
   width: 260px;
   min-height: 100vh;
   height: 100vh;
-  background: var(--card-bg);
-  backdrop-filter: blur(16px);
-  border-right: 1px solid var(--border-color);
+  background: linear-gradient(170deg,
+    rgba(139,92,246,.15) 0%,
+    rgba(108,140,255,.10) 25%,
+    rgba(6,182,212,.06) 55%,
+    rgba(16,185,129,.10) 80%,
+    rgba(139,92,246,.12) 100%
+  );
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border-right: 1px solid rgba(255,255,255,.06);
   padding: 16px 14px 10px 14px;
   flex-shrink: 0;
-  overflow-y: auto;
+  overflow: hidden;           /* 由内部 sidebar-scroll 处理滚动 */
   transition: width 0.3s ease, padding 0.3s ease;
   position: relative;
   display: flex;
   flex-direction: column;
 }
-
-.sidebar::-webkit-scrollbar {
-  width: 3px;
-}
-.sidebar::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.2);
-  border-radius: 2px;
+/* 毛玻璃微光 — 右侧边缘的高光线 */
+.sidebar::before {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1px;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,.1) 0%,
+    rgba(255,255,255,.04) 40%,
+    transparent 70%,
+    rgba(255,255,255,.04) 100%
+  );
+  pointer-events: none; z-index: 99;
 }
 
 .sidebar.collapsed {
   width: 64px;
-  padding: 16px 10px 80px 10px;
-  overflow-y: hidden;
-}
-
-.sidebar.collapsed::-webkit-scrollbar {
-  width: 0;
+  padding: 16px 8px 10px 8px;
 }
 
 /* ===== 收起/展开按钮 ===== */
@@ -115,7 +120,7 @@ function toggleSidebar() {
   overflow-y: auto;
   min-height: 100vh;
   height: 100vh;
-  transition: padding 0.3s ease;
+  transition: padding 0.3s ease, margin-left 0.3s ease;
 }
 
 .main-content::-webkit-scrollbar {

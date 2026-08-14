@@ -1,5 +1,5 @@
 import sys
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from config import settings
@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 import json
 import re
 from utils.sensitive_words import check_content_safety
+from utils.auth_middleware import get_current_user, verify_user_match
+from logging_config import logger
 
 router = APIRouter(prefix="/questions", tags=["题目"])
 
@@ -60,14 +62,15 @@ def extract_json_from_response(response: str) -> dict:
     try:
         return json.loads(json_str)
     except json.JSONDecodeError as e:
-        print(f"JSON 解析失败: {e}")
-        print(f"问题字符串: {json_str[:500]}")
+        logger.info(f"JSON 解析失败: {e}")
+        logger.info(f"问题字符串: {json_str[:500]}")
         raise ValueError(f"JSON 解析失败: {str(e)}")
 
 
 # ========== 题目 CRUD ==========
 @router.post("/create")
-async def create_question(user_id: str, data: QuestionCreate):
+async def create_question(user_id: str, data: QuestionCreate, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -98,7 +101,8 @@ async def create_question(user_id: str, data: QuestionCreate):
 
 
 @router.get("/list/{user_id}")
-async def list_questions(user_id: str, limit: int = 50):
+async def list_questions(user_id: str, limit: int = 50, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}"
@@ -160,7 +164,8 @@ async def delete_question(question_id: str):
 
 # ========== 题集 CRUD ==========
 @router.post("/set/create")
-async def create_question_set(user_id: str, data: QuestionSetCreate):
+async def create_question_set(user_id: str, data: QuestionSetCreate, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -191,7 +196,8 @@ async def create_question_set(user_id: str, data: QuestionSetCreate):
 
 
 @router.get("/set/list/{user_id}")
-async def list_question_sets(user_id: str):
+async def list_question_sets(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}"
@@ -419,12 +425,12 @@ async def generate_question(data: dict):
             temperature=0.9,
             use_cache=False
         )
-        print(f"=== AI 原始返回 ===\n{response}\n=== 结束 ===")
+        logger.info(f"=== AI 原始返回 ===\n{response}\n=== 结束 ===")
 
         try:
             result = extract_json_from_response(response)
         except ValueError as e:
-            print(f"解析失败: {e}")
+            logger.info(f"解析失败: {e}")
             raise HTTPException(status_code=500, detail=f"AI 返回格式错误: {str(e)}")
 
         if "title" not in result:
@@ -444,7 +450,7 @@ async def generate_question(data: dict):
             result["normalized_topic"] = topic
 
         if user_id:
-            print(f"=== 开始保存题目，user_id: {user_id} ===")
+            logger.info(f"=== 开始保存题目，user_id: {user_id} ===")
             headers = {
                 "apikey": settings.SUPABASE_KEY,
                 "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -464,15 +470,15 @@ async def generate_question(data: dict):
                 "hint": result.get("hint"),
                 "source": "generated"
             }
-            print(f"=== 要保存的数据: {question_data} ===")
+            logger.info(f"=== 要保存的数据: {question_data} ===")
 
             headers["Prefer"] = "return=representation"
 
             async with httpx.AsyncClient() as client:
                 url = f"{settings.SUPABASE_URL}/rest/v1/questions"
                 res = await client.post(url, headers=headers, json=question_data)
-                print(f"=== 保存响应状态码: {res.status_code} ===")
-                print(f"=== 保存响应内容: {res.text} ===")
+                logger.info(f"=== 保存响应状态码: {res.status_code} ===")
+                logger.info(f"=== 保存响应内容: {res.text} ===")
                 if res.status_code in [200, 201]:
                     try:
                         saved = res.json()
@@ -480,17 +486,17 @@ async def generate_question(data: dict):
                             result["id"] = saved[0].get("id")
                         elif isinstance(saved, dict):
                             result["id"] = saved.get("id")
-                        print(f"=== 保存成功，id: {result.get('id')} ===")
+                        logger.info(f"=== 保存成功，id: {result.get('id')} ===")
                     except Exception as e:
-                        print(f"=== 解析响应失败: {e} ===")
+                        logger.info(f"=== 解析响应失败: {e} ===")
                         if user_id and result.get("title"):
                             query_url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&title=eq.{result.get('title')}&order=created_at.desc&limit=1"
                             query_res = await client.get(query_url, headers=headers)
                             if query_res.status_code == 200 and query_res.json():
                                 result["id"] = query_res.json()[0].get("id")
-                                print(f"=== 查询到的 id: {result['id']} ===")
+                                logger.info(f"=== 查询到的 id: {result['id']} ===")
                 else:
-                    print(f"保存题目失败: {res.text}")
+                    logger.info(f"保存题目失败: {res.text}")
                     raise HTTPException(status_code=400, detail=f"保存题目失败: {res.text}")
 
         return result
@@ -498,7 +504,7 @@ async def generate_question(data: dict):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"生成题目失败: {e}")
+        logger.info(f"生成题目失败: {e}")
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 
@@ -506,7 +512,7 @@ async def generate_question(data: dict):
 @router.post("/evaluate")
 async def evaluate_answer(data: dict):
     """评估用户答案"""
-    print("=== evaluate_answer 被调用了 ===")  # 👈 加这行
+    logger.info("=== evaluate_answer 被调用了 ===")  # 👈 加这行
     from agents.llm_client import call_llm
     from datetime import datetime
 
@@ -549,7 +555,7 @@ async def evaluate_answer(data: dict):
 
     try:
         response = call_llm([{"role": "user", "content": prompt}], temperature=0.5)
-        print(f"=== AI 原始返回: {response} ===")  # 👈 加这行
+        logger.info(f"=== AI 原始返回: {response} ===")  # 👈 加这行
         try:
             result = extract_json_from_response(response)
         except ValueError as e:
@@ -613,14 +619,14 @@ async def evaluate_answer(data: dict):
 
                 update_url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}"
                 await client.patch(update_url, headers=headers, json=update_data)
-                print(f"✅ 已更新掌握度: {mastery_score}%, 错题状态: {update_data.get('mistake_status')}")
-        print(f"=== 评估结果完整返回: {result} ===")
+                logger.info(f"✅ 已更新掌握度: {mastery_score}%, 错题状态: {update_data.get('mistake_status')}")
+        logger.info(f"=== 评估结果完整返回: {result} ===")
         return result
 
     except HTTPException:
         raise
     except Exception as e:
-        print(f"评估失败: {e}")
+        logger.info(f"评估失败: {e}")
         raise HTTPException(status_code=500, detail=f"评估失败: {str(e)}")
 
 
@@ -651,7 +657,8 @@ async def save_generation_history(data: dict):
 
 
 @router.get("/history/{user_id}")
-async def get_generation_history(user_id: str, limit: int = 50):
+async def get_generation_history(user_id: str, limit: int = 50, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     """获取生成历史"""
     headers = {
         "apikey": settings.SUPABASE_KEY,
@@ -666,7 +673,8 @@ async def get_generation_history(user_id: str, limit: int = 50):
 
 
 @router.get("/mastery/{user_id}")
-async def get_mastery_data(user_id: str):
+async def get_mastery_data(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     """获取用户所有知识点的掌握度（按 normalized_topic 聚合）"""
     headers = {
         "apikey": settings.SUPABASE_KEY,
@@ -710,7 +718,8 @@ async def get_mastery_data(user_id: str):
 
 # ========== 错题本 ==========
 @router.get("/mistakes/{user_id}")
-async def get_mistakes(user_id: str):
+async def get_mistakes(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     """获取用户的错题本"""
     headers = {
         "apikey": settings.SUPABASE_KEY,

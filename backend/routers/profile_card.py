@@ -1,31 +1,25 @@
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from typing import Optional, List
 from datetime import datetime
 import httpx
 from config import settings as app_settings
+from utils.auth_middleware import get_current_user, verify_user_match
 
 router = APIRouter(prefix="/profile-card", tags=["资料卡"])
 
 
+from services.supabase import get_supabase_headers, get_supabase_service_headers
+from logging_config import logger
+
+
 def get_admin_headers():
-    """使用 service_role key 绕过 RLS"""
-    return {
-        "apikey": app_settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {app_settings.SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json"
-    }
-
-
-def get_supabase_headers():
-    return {
-        "apikey": app_settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {app_settings.SUPABASE_KEY}",
-        "Content-Type": "application/json"
-    }
+    """向后兼容：使用 service_role key 绕过 RLS"""
+    return get_supabase_service_headers()
 
 
 @router.get("/{user_id}")
-async def get_profile_card(user_id: str, current_user_id: str = Query(...)):
+async def get_profile_card(user_id: str, current_user_id: str = Query(...), current_user: str = Depends(get_current_user)):
+    verify_user_match(current_user_id, current_user)
     """获取用户完整资料卡数据"""
     headers = get_supabase_headers()
 
@@ -102,9 +96,11 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...)):
 @router.put("/settings")
 async def update_profile_card_settings(
         user_id: str = Query(...),
-        payload: dict = Body(...)
+        payload: dict = Body(...),
+        current_user: str = Depends(get_current_user)
 ):
     """更新资料卡配置"""
+    verify_user_match(user_id, current_user)
     headers = get_admin_headers()
 
     update_data = {"updated_at": datetime.now().isoformat()}
@@ -132,8 +128,8 @@ async def update_profile_card_settings(
             res = await client.post(url, headers=headers, json=update_data)
 
         # 👇 加这两行打印
-        print("=== 更新失败，响应状态码:", res.status_code)
-        print("=== 更新失败，响应内容:", res.text)
+        logger.info("=== 更新失败，响应状态码:", res.status_code)
+        logger.info("=== 更新失败，响应内容:", res.text)
 
         if res.status_code not in [200, 201, 204]:
             raise HTTPException(status_code=400, detail=f"更新失败: {res.text}")

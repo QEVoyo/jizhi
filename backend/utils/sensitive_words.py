@@ -2,6 +2,7 @@
 
 import httpx
 from config import settings
+from logging_config import logger
 
 
 def check_content_safety(text: str) -> tuple:
@@ -48,9 +49,10 @@ def check_content_safety(text: str) -> tuple:
         return True, ""
 
     except Exception as e:
-        print(f"内容安全检查失败: {e}")
-        # 出错时默认放行，避免影响用户体验
-        return True, ""
+        logger.info(f"[WARNING] 内容安全检查失败 (默认拒绝): {e}")
+        # ✅ 安全策略：审核服务异常时拒绝内容，避免绕过
+        # 只有明确判定为 safe 才放行
+        return False, f"内容安全审核服务暂时不可用，请稍后重试"
 
 
 def contains_sensitive(text: str) -> bool:

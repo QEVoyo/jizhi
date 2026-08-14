@@ -89,7 +89,11 @@
     </div>
 
     <!-- ===== 三类卡片 ===== -->
-    <div v-if="loading" class="loading-text">加载中...</div>
+    <LoadingSpinner
+      v-if="loading"
+      variant="constellation"
+      :flow-steps="['正在探索知识星空...', '正在连接知识点...', '星座已形成，正在解读...']"
+    />
     <div v-else-if="displayData.length" class="sections">
       <!-- 薄弱 -->
       <div v-if="displayWeak.length && showSection('weak')" class="section">
@@ -181,6 +185,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getMastery } from '@/api/questions'
 import { ElMessage } from 'element-plus'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

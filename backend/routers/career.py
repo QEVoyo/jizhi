@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import httpx
 from datetime import datetime, date, timedelta
 import json
 from config import settings
-from utils.notification import create_notification
+from utils.auth_middleware import get_current_user, verify_user_match
 
 router = APIRouter(prefix="/career", tags=["学习生涯"])
 
@@ -174,12 +174,8 @@ LONG_TASKS = [
     {"name": "累计使用AI对话 200 次", "reward": 100, "value": 3},
 ]
 
-def get_supabase_headers():
-    return {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-        "Content-Type": "application/json"
-    }
+from services.supabase import get_supabase_headers, get_supabase_service_headers
+from logging_config import logger
 
 # ============================================================
 # 1. 用户行为记录
@@ -196,15 +192,17 @@ async def add_user_action(user_id: str, action_type: str, metadata: dict = None)
         return await client.post(url, headers=headers, json=data)
 
 @router.post("/actions/record")
-async def record_action(action: dict):
+async def record_action(action: dict, current_user: str = Depends(get_current_user)):
     user_id = action.get("user_id")
+    verify_user_match(user_id, current_user)
     action_type = action.get("action_type")
     metadata = action.get("metadata", {})
     await add_user_action(user_id, action_type, metadata)
     return {"success": True}
 
 @router.get("/actions/{user_id}")
-async def get_user_actions(user_id: str):
+async def get_user_actions(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
     async with httpx.AsyncClient() as client:
         url = f"{settings.SUPABASE_URL}/rest/v1/user_actions?user_id=eq.{user_id}&order=action_at.desc"
@@ -214,7 +212,8 @@ async def get_user_actions(user_id: str):
         return []
 
 @router.get("/actions/stats/{user_id}")
-async def get_action_stats(user_id: str):
+async def get_action_stats(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
     async with httpx.AsyncClient() as client:
         url = f"{settings.SUPABASE_URL}/rest/v1/user_actions?user_id=eq.{user_id}&select=action_type,action_at"
@@ -246,7 +245,8 @@ async def get_action_stats(user_id: str):
 # 2. 用户统计
 # ============================================================
 @router.get("/stats/{user_id}")
-async def get_user_stats(user_id: str):
+async def get_user_stats(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
     url = f"{settings.SUPABASE_URL}/rest/v1/user_stats?user_id=eq.{user_id}"
     async with httpx.AsyncClient() as client:
@@ -297,8 +297,9 @@ async def get_user_stats(user_id: str):
 # 3. 积分更新
 # ============================================================
 @router.post("/stats/update")
-async def update_user_stats(data: dict):
+async def update_user_stats(data: dict, current_user: str = Depends(get_current_user)):
     user_id = data.get("user_id")
+    verify_user_match(user_id, current_user)
     points_change = data.get("points_change", 0)
     level_points_change = data.get("level_points_change", 0)
     source = data.get("source", "unknown")
@@ -377,7 +378,8 @@ class ClaimAchievementRequest(BaseModel):
     achievement_id: str
 
 @router.post("/achievement/claim")
-async def claim_achievement(req: ClaimAchievementRequest):
+async def claim_achievement(req: ClaimAchievementRequest, current_user: str = Depends(get_current_user)):
+    verify_user_match(req.user_id, current_user)
     headers = get_supabase_headers()
 
     async with httpx.AsyncClient() as client:
@@ -411,14 +413,6 @@ async def claim_achievement(req: ClaimAchievementRequest):
             "source": f"achievement_{req.achievement_id}"
         })
 
-        await create_notification(
-            user_id=req.user_id,
-            notif_type="learning",
-            title=f"🎉 成就解锁：{ach_name}",
-            content=f"获得 {reward} 段位积分",
-            link="/career/achievements"
-        )
-
         return {
             "success": True,
             "message": "领取成功",
@@ -445,8 +439,9 @@ class ClaimTaskRequest(BaseModel):
     task_type: str
 
 @router.post("/task/claim")
-async def claim_task(req: ClaimTaskRequest):
+async def claim_task(req: ClaimTaskRequest, current_user: str = Depends(get_current_user)):
     """领取任务奖励 - 直接用前端显示的 reward 和 value"""
+    verify_user_match(req.user_id, current_user)
     headers = get_supabase_headers()
 
     # 1. 获取任务进度数据
@@ -499,7 +494,7 @@ async def claim_task(req: ClaimTaskRequest):
         claim_url = f"{settings.SUPABASE_URL}/rest/v1/user_task_claims"
         claim_res = await client.post(claim_url, headers=headers, json=claim_data)
         if claim_res.status_code not in [200, 201]:
-            print(f"⚠️ 插入领取记录失败: {claim_res.text}")
+            logger.info(f"⚠️ 插入领取记录失败: {claim_res.text}")
 
     # 4. 更新积分：reward → 段位积分，value → 等级积分
     update_result = await update_user_stats({
@@ -508,14 +503,6 @@ async def claim_task(req: ClaimTaskRequest):
         "level_points_change": value,
         "source": f"task_{req.task_type}_{req.task_id}"
     })
-
-    await create_notification(
-        user_id=req.user_id,
-        notif_type="learning",
-        title=f"🎉 任务完成：{task_name}",
-        content=f"获得 {reward + value} 积分（段位+{reward}，等级+{value}）",
-        link="/career/tasks"
-    )
 
     return {
         "success": True,
@@ -534,10 +521,11 @@ async def claim_task(req: ClaimTaskRequest):
     }
 
 @router.post("/bonus/claim")
-async def claim_bonus(data: dict):
+async def claim_bonus(data: dict, current_user: str = Depends(get_current_user)):
     """领取每日全部任务奖励"""
     headers = get_supabase_headers()
     user_id = data.get("user_id")
+    verify_user_match(user_id, current_user)
 
     claim_data = {
         "user_id": user_id,
@@ -554,14 +542,6 @@ async def claim_bonus(data: dict):
         "level_points_change": 30,
         "source": "daily_bonus"
     })
-
-    await create_notification(
-        user_id=user_id,
-        notif_type="learning",
-        title="🎉 完成全部每日任务！",
-        content="获得 50 积分（段位+20，等级+30）",
-        link="/career/tasks"
-    )
 
     return {
         "success": True,
@@ -614,9 +594,10 @@ ACHIEVEMENT_DEFS = [
 # 7. 获取任务进度
 # ============================================================
 @router.get("/task-progress/{user_id}")
-async def get_task_progress(user_id: str):
-    print(f"🔍 ===== 开始获取任务进度 =====")
-    print(f"🔍 user_id: {user_id}")
+async def get_task_progress(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
+    logger.info(f"🔍 ===== 开始获取任务进度 =====")
+    logger.info(f"🔍 user_id: {user_id}")
 
     try:
         headers = {
@@ -624,39 +605,39 @@ async def get_task_progress(user_id: str):
             "Authorization": f"Bearer {settings.SUPABASE_KEY}",
             "Content-Type": "application/json"
         }
-        print(f"🔍 headers 已设置")
+        logger.info(f"🔍 headers 已设置")
 
         async with httpx.AsyncClient() as client:
             # ===== 1. 查询 user_actions =====
             url = f"{settings.SUPABASE_URL}/rest/v1/user_actions?user_id=eq.{user_id}&select=action_type,action_at"
-            print(f"🔍 查询 user_actions: {url}")
+            logger.info(f"🔍 查询 user_actions: {url}")
 
             response = await client.get(url, headers=headers)
-            print(f"🔍 user_actions 状态码: {response.status_code}")
-            print(f"🔍 user_actions 响应: {response.text[:500]}")
+            logger.info(f"🔍 user_actions 状态码: {response.status_code}")
+            logger.info(f"🔍 user_actions 响应: {response.text[:500]}")
 
             if response.status_code != 200:
-                print(f"❌ user_actions 查询失败: {response.status_code}")
+                logger.info(f"❌ user_actions 查询失败: {response.status_code}")
                 return {"error": f"获取 user_actions 失败: {response.status_code}"}
 
             actions = response.json()
-            print(f"🔍 user_actions 数据条数: {len(actions)}")
+            logger.info(f"🔍 user_actions 数据条数: {len(actions)}")
 
             # ===== 2. 查询 user_achievements =====
             ach_url = f"{settings.SUPABASE_URL}/rest/v1/user_achievements?user_id=eq.{user_id}&select=achievement_id,created_at"
-            print(f"🔍 查询 user_achievements: {ach_url}")
+            logger.info(f"🔍 查询 user_achievements: {ach_url}")
 
             ach_response = await client.get(ach_url, headers=headers)
-            print(f"🔍 user_achievements 状态码: {ach_response.status_code}")
-            print(f"🔍 user_achievements 响应: {ach_response.text[:500]}")
+            logger.info(f"🔍 user_achievements 状态码: {ach_response.status_code}")
+            logger.info(f"🔍 user_achievements 响应: {ach_response.text[:500]}")
 
             unlocked_achievements = {}
             if ach_response.status_code == 200:
                 for row in ach_response.json():
                     unlocked_achievements[row["achievement_id"]] = row["created_at"]
-                print(f"🔍 已解锁成就: {len(unlocked_achievements)} 个")
+                logger.info(f"🔍 已解锁成就: {len(unlocked_achievements)} 个")
             else:
-                print(f"❌ user_achievements 查询失败: {ach_response.status_code}")
+                logger.info(f"❌ user_achievements 查询失败: {ach_response.status_code}")
                 return {"error": f"获取 user_achievements 失败: {ach_response.status_code}"}
 
             # ===== 3. 统计行为 =====
@@ -664,7 +645,7 @@ async def get_task_progress(user_id: str):
             first_time = {}
             today = datetime.now().date()
             today_str = str(today)
-            print(f"🔍 今天日期: {today_str}")
+            logger.info(f"🔍 今天日期: {today_str}")
 
             for action in actions:
                 action_type = action.get("action_type")
@@ -683,29 +664,29 @@ async def get_task_progress(user_id: str):
                         today_count[action_type] = 0
                     today_count[action_type] += 1
 
-            print(f"🔍 统计完成: stats={stats}, today_count={today_count}")
+            logger.info(f"🔍 统计完成: stats={stats}, today_count={today_count}")
 
             # ===== 4. 查询 user_task_claims =====
             claim_url = f"{settings.SUPABASE_URL}/rest/v1/user_task_claims?user_id=eq.{user_id}&select=task_id,task_type"
-            print(f"🔍 查询 user_task_claims: {claim_url}")
+            logger.info(f"🔍 查询 user_task_claims: {claim_url}")
 
             claim_res = await client.get(claim_url, headers=headers)
-            print(f"🔍 user_task_claims 状态码: {claim_res.status_code}")
-            print(f"🔍 user_task_claims 响应: {claim_res.text[:500]}")
+            logger.info(f"🔍 user_task_claims 状态码: {claim_res.status_code}")
+            logger.info(f"🔍 user_task_claims 响应: {claim_res.text[:500]}")
 
             claimed_tasks = set()
             if claim_res.status_code == 200:
                 for row in claim_res.json():
                     claimed_tasks.add(f"{row['task_type']}_{row['task_id']}")
-                print(f"🔍 已领取任务: {len(claimed_tasks)} 个")
+                logger.info(f"🔍 已领取任务: {len(claimed_tasks)} 个")
             else:
-                print(f"❌ user_task_claims 查询失败: {claim_res.status_code}")
+                logger.info(f"❌ user_task_claims 查询失败: {claim_res.status_code}")
                 return {"error": f"获取 user_task_claims 失败: {claim_res.status_code}"}
 
         # ============================================================
         # 播种任务
         # ============================================================
-        print(f"🔍 开始构建播种任务...")
+        logger.info(f"🔍 开始构建播种任务...")
         seed_task_defs = [
             {"id": "first_login", "name": "第一次登录", "action": "login", "reward": 5, "value": 1},
             {"id": "first_nickname", "name": "第一次修改昵称", "action": "update_nickname", "reward": 10, "value": 2},
@@ -761,12 +742,12 @@ async def get_task_progress(user_id: str):
                 "first_time": first_time.get(task["action"])
             })
 
-        print(f"🔍 播种任务完成: {len(seed_results)} 个")
+        logger.info(f"🔍 播种任务完成: {len(seed_results)} 个")
 
         # ============================================================
         # 施肥任务（每日）
         # ============================================================
-        print(f"🔍 开始构建施肥任务...")
+        logger.info(f"🔍 开始构建施肥任务...")
         daily_defs = [
             {"name": "发送 5 条消息", "action": "chat", "target": 5, "reward": 10, "value": 1},
             {"name": "发送 10 条消息", "action": "chat", "target": 10, "reward": 15, "value": 2},
@@ -833,12 +814,12 @@ async def get_task_progress(user_id: str):
                 "target": task["target"]
             })
 
-        print(f"🔍 施肥任务完成: {len(daily_results)} 个")
+        logger.info(f"🔍 施肥任务完成: {len(daily_results)} 个")
 
         # ============================================================
         # 发芽任务（长期阶梯）
         # ============================================================
-        print(f"🔍 开始构建发芽任务...")
+        logger.info(f"🔍 开始构建发芽任务...")
         long_defs = [
             {"name": "累计打卡 3 天", "action": "checkin", "target": 3, "reward": 20, "value": 2, "requires": None},
             {"name": "累计打卡 7 天", "action": "checkin", "target": 7, "reward": 30, "value": 2,
@@ -921,12 +902,12 @@ async def get_task_progress(user_id: str):
                 "locked": is_locked
             })
 
-        print(f"🔍 发芽任务完成: {len(long_results)} 个")
+        logger.info(f"🔍 发芽任务完成: {len(long_results)} 个")
 
         # ============================================================
         # 成就（带进度计算）
         # ============================================================
-        print(f"🔍 开始构建成就...")
+        logger.info(f"🔍 开始构建成就...")
 
         # 成就定义
         ACHIEVEMENT_DEFS = [
@@ -1031,8 +1012,8 @@ async def get_task_progress(user_id: str):
                 "unlock_time": unlocked_achievements.get(ach["id"])
             })
 
-        print(f"🔍 成就完成: {len(achievement_results)} 个")
-        print(f"🔍 ===== 任务进度获取成功 =====")
+        logger.info(f"🔍 成就完成: {len(achievement_results)} 个")
+        logger.info(f"🔍 ===== 任务进度获取成功 =====")
 
         return {
             "seed": seed_results,
@@ -1041,9 +1022,9 @@ async def get_task_progress(user_id: str):
             "achievements": achievement_results
         }
     except Exception as e:
-        print(f"❌ ===== task-progress 异常 =====")
-        print(f"❌ 异常类型: {type(e).__name__}")
-        print(f"❌ 异常信息: {str(e)}")
+        logger.info(f"❌ ===== task-progress 异常 =====")
+        logger.info(f"❌ 异常类型: {type(e).__name__}")
+        logger.info(f"❌ 异常信息: {str(e)}")
         import traceback
         traceback.print_exc()
         return {"error": str(e)}

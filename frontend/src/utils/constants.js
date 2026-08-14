@@ -1,6 +1,6 @@
 // ===== 后端地址 =====
-export const BACKEND_URL = 'https://api.jizhi-learn.com'
-console.log('=== constants.js 加载了, BACKEND_URL:', 'https://api.jizhi-learn.com')  // 👈 加这行
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+console.log('=== constants.js BACKEND_URL:', BACKEND_URL)
 // ===== 题型映射 =====
 export const TYPE_MAP = {
   '选择题': 'choice',
@@ -62,10 +62,15 @@ export const BG_MAP = {
     set_detail: '/assets/bg/set_detail_bg.jpg',
     generate: '/assets/bg/generate_from_mastery_bg.jpg',
     profile: '/assets/bg/profile_bg.jpg',
+    settings: '/assets/bg/profile_bg.jpg',
     // ===== 新增三个页面 =====
     community: '/assets/bg/community_bg.jpg',
     qa: '/assets/bg/qa_bg.jpg',
-    message: '/assets/bg/message_bg.jpg'
+    message: '/assets/bg/message_bg.jpg',
+    subject_plan: '/assets/bg/resource_lib_bg.png',
+    subject_plan_diagnosis: '/assets/bg/do_question_bg.png',
+    subject_plan_detail: '/assets/bg/resource_lib_bg.png',
+    subject_practice: '/assets/bg/do_question_bg.png'
   },
   dark: {
     landing: '/assets/bg/main_bl.jpg',
@@ -81,9 +86,14 @@ export const BG_MAP = {
     set_detail: '/assets/bg/set_detail_bl.jpg',
     generate: '/assets/bg/generate_from_mastery_bl.jpg',
     profile: '/assets/bg/profile_bl.jpg',
+    settings: '/assets/bg/profile_bl.jpg',
     // ===== 新增三个页面 =====
     community: '/assets/bg/community_bl.jpg',
     qa: '/assets/bg/qa_bl.jpg',
-    message: '/assets/bg/message_bl.jpg'
+    message: '/assets/bg/message_bl.jpg',
+    subject_plan: '/assets/bg/resource_lib_bl.jpg',
+    subject_plan_diagnosis: '/assets/bg/do_question_bl.jpg',
+    subject_plan_detail: '/assets/bg/resource_lib_bl.jpg',
+    subject_practice: '/assets/bg/do_question_bl.jpg'
   }
 }

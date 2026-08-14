@@ -4,7 +4,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
@@ -12,11 +12,13 @@ import json
 import httpx
 from datetime import datetime
 from utils.sensitive_words import check_content_safety
+from utils.auth_middleware import get_current_user, verify_user_match
 from agents.planner import plan_with_history_stream
 from agents.generator import generate_with_history_stream
 from agents.evaluator import evaluate_with_history_stream
 from agents.llm_client import call_llm_stream, call_llm
 from config import settings
+from logging_config import logger
 
 router = APIRouter(prefix="/chat", tags=["对话"])
 
@@ -76,12 +78,101 @@ async def detect_intent(req: IntentRequest):
             intent = 'chat'
         return {"intent": intent}
     except Exception as e:
-        print(f"意图分类失败: {e}")
+        logger.info(f"意图分类失败: {e}")
         return {"intent": "chat"}
 
 
+async def get_user_profile(user_id: str) -> dict:
+    """查询用户真实画像，用于 Agent prompt 个性化"""
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+    }
+    profile = {}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # 1. 查基础信息
+            profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=learning_stage,grade,major,learning_goal,difficulty_preference,learning_style,daily_study_time"
+            profile_res = await client.get(profile_url, headers=headers)
+            if profile_res.status_code == 200 and profile_res.json():
+                profile = profile_res.json()[0] or {}
+
+            # 2. 查掌握度数据
+            mastery_url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&select=topic,mastery_score&limit=50"
+            mastery_res = await client.get(mastery_url, headers=headers)
+            topic_scores = {}
+            if mastery_res.status_code == 200:
+                for q in (mastery_res.json() or []):
+                    topic = q.get("topic") or "未分类"
+                    score = q.get("mastery_score", 0)
+                    if topic not in topic_scores:
+                        topic_scores[topic] = []
+                    topic_scores[topic].append(score)
+            weak = [t for t, scores in topic_scores.items() if sum(scores)/len(scores) < 50][:3]
+            strong = [t for t, scores in topic_scores.items() if sum(scores)/len(scores) >= 80][:3]
+    except Exception as e:
+        logger.info(f"获取用户画像失败，使用默认: {e}")
+
+    return {
+        "learning_stage": profile.get("learning_stage") or "未知",
+        "grade": profile.get("grade") or "未知",
+        "major": profile.get("major") or "未知",
+        "learning_goal": profile.get("learning_goal") or "未设置",
+        "difficulty_preference": profile.get("difficulty_preference") or "适中",
+        "learning_style": profile.get("learning_style") or "详细讲解",
+        "daily_study_time": profile.get("daily_study_time") or "未设置",
+        "weak_topics": weak,
+        "strong_topics": strong,
+    }
+
+
+def build_system_prompt(profile: dict) -> str:
+    """根据用户画像构建个性化 system prompt"""
+    parts = ["你是基智，一个热情、博学的AI学习助手。"]
+
+    # 用户背景
+    if profile["learning_stage"] != "未知":
+        bg = f"用户是 {profile['learning_stage']} · {profile['grade']}"
+        if profile["major"] != "未知":
+            bg += f" · {profile['major']}"
+        parts.append(f"用户背景：{bg}。")
+
+    # 学习偏好
+    prefs = []
+    if profile["learning_goal"] != "未设置":
+        prefs.append(f"学习目标：{profile['learning_goal']}")
+    if profile["difficulty_preference"] != "适中":
+        prefs.append(f"偏好难度：{profile['difficulty_preference']}")
+    if profile["learning_style"] != "详细讲解":
+        prefs.append(f"讲解偏好：{profile['learning_style']}")
+    if prefs:
+        parts.append("学习偏好：" + "，".join(prefs) + "。")
+
+    # 强弱项
+    if profile["weak_topics"]:
+        parts.append(f"薄弱知识点：{'、'.join(profile['weak_topics'])}。")
+    if profile["strong_topics"]:
+        parts.append(f"擅长知识点：{'、'.join(profile['strong_topics'])}。")
+
+    # 通用规则
+    parts.append("""
+## 行为准则：
+1. 根据用户背景和偏好调整回答的深度和风格
+2. 如果用户背景未知，保持通用回答
+3. 优先关联用户薄弱知识点进行引导
+
+## ⚠️ 防幻觉原则：
+1. 不确定的直接说"我不确定"
+2. 不编造事实、数据或代码
+3. 部分了解时明确说明范围""")
+
+    return "\n\n".join(parts)
+
+
 @router.post("/send")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, current_user: str = Depends(get_current_user)):
+    # ✅ 验证用户身份
+    verify_user_match(req.user_id, current_user)
     # ✅ 内容安全过滤
     user_message = req.messages[-1].get("content", "") if req.messages else ""
 
@@ -90,7 +181,8 @@ async def chat(req: ChatRequest):
         if not safe:
             raise HTTPException(status_code=400, detail=f"内容包含敏感信息：{reason}")
 
-    user_profile = {"level": "中等", "style": "喜欢例子"}
+    # ✅ 从数据库查询真实用户画像
+    user_profile = await get_user_profile(req.user_id)
 
     history = req.messages[:-1] if req.messages else []
 
@@ -107,15 +199,8 @@ async def chat(req: ChatRequest):
         return StreamingResponse(stream_generator(stream), media_type="text/event-stream")
 
     else:
-        messages_with_system = req.messages + [{"role": "system", "content": """你是基智，一个热情、博学的AI学习助手。
-
-## ⚠️ 重要原则（防幻觉）：
-1. 如果用户的问题超出你的知识范围，请直接说"我不确定"或"我暂时无法回答这个问题"
-2. 不要编造任何事实、数据或代码
-3. 所有回答应基于已有知识，不要猜测或臆断
-4. 如果你对某个问题只有部分了解，请明确说明"我只知道部分信息"
-
-记住：你是学习助手，不是全知全能的神。"""}]
+        system_content = build_system_prompt(user_profile)
+        messages_with_system = req.messages + [{"role": "system", "content": system_content}]
         stream = call_llm_stream(messages_with_system, temperature=req.temperature)
         return StreamingResponse(stream_generator(stream), media_type="text/event-stream")
 
@@ -136,12 +221,13 @@ def doubao_stream_generator(stream):
                         if "content" in delta:
                             # 豆包一个 token 是单个字或词，直接原样推送
                             yield delta["content"]
-                except:
+                except Exception:
                     continue
 
 
 @router.post("/log")
-async def save_log(req: LogRequest):
+async def save_log(req: LogRequest, current_user: str = Depends(get_current_user)):
+    verify_user_match(req.user_id, current_user)
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -178,7 +264,8 @@ async def save_log(req: LogRequest):
 
 
 @router.post("/summary")
-async def extract_summary(req: SummaryRequest):
+async def extract_summary(req: SummaryRequest, current_user: str = Depends(get_current_user)):
+    verify_user_match(req.user_id, current_user)
     prompt = f"""请将以下内容的核心要点提炼为**极简标签**（不超过10个字），用于记录用户的学习日志。只输出标签，不要其他内容。
 
 内容：
@@ -193,13 +280,14 @@ async def extract_summary(req: SummaryRequest):
             summary = summary[:15]
         return {"summary": summary}
     except Exception as e:
-        print(f"提取摘要失败: {e}")
+        logger.info(f"提取摘要失败: {e}")
         fallback = req.content.replace('\n', ' ').strip()[:15]
         return {"summary": fallback}
 
 
 @router.post("/title")
-async def generate_title(req: TitleRequest):
+async def generate_title(req: TitleRequest, current_user: str = Depends(get_current_user)):
+    verify_user_match(req.user_id, current_user)
     prompt = f"""请根据以下对话内容，生成一个简短的标题（不超过15个字）：
 
 用户问题：{req.content[:200]}
@@ -213,13 +301,14 @@ AI回答：{req.response[:200]}
         if len(title) > 20:
             title = title[:20]
         return {"title": title}
-    except:
+    except Exception:
         title = req.content[:20] + ('...' if len(req.content) > 20 else '')
         return {"title": title}
 
 
 @router.post("/vision")
-async def handle_vision(req: VisionRequest):
+async def handle_vision(req: VisionRequest, current_user: str = Depends(get_current_user)):
+    verify_user_match(req.user_id, current_user)
     """豆包多模态图片理解 - 真流式输出"""
     from utils.volc_client import VolcClient
 
@@ -238,11 +327,12 @@ class AdviceRequest(BaseModel):
 
 
 @router.post("/advice")
-async def generate_advice(req: AdviceRequest):
+async def generate_advice(req: AdviceRequest, current_user: str = Depends(get_current_user)):
+    verify_user_match(req.user_id, current_user)
     from agents.llm_client import call_llm
     try:
         result = call_llm([{"role": "user", "content": req.prompt}], temperature=0.5)
         return {"advice": result}
     except Exception as e:
-        print(f"生成建议失败: {e}")
+        logger.info(f"生成建议失败: {e}")
         return {"advice": "生成建议失败，请稍后重试。"}

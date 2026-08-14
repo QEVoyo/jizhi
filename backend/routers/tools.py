@@ -1,24 +1,22 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from config import settings
 import httpx
 from datetime import datetime
+from utils.auth_middleware import get_current_user, verify_user_match
 
 router = APIRouter(prefix="/tools", tags=["工具"])
 
 
-def get_supabase_headers():
-    return {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-        "Content-Type": "application/json"
-    }
+from services.supabase import get_supabase_headers, get_supabase_service_headers
+from logging_config import logger
 
 
 # ========== 打卡 ==========
 @router.get("/checkin/{user_id}")
-async def get_checkin(user_id: str):
+async def get_checkin(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}"
@@ -33,10 +31,11 @@ async def get_checkin(user_id: str):
 
 
 @router.post("/checkin/{user_id}")
-async def save_checkin(user_id: str, data: Dict[str, Any]):
+async def save_checkin(user_id: str, data: Dict[str, Any], current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     """保存打卡数据"""
-    print(f"收到打卡数据: {data}")
-    print(f"projects 内容: {data.get('projects', [])}")
+    logger.info(f"收到打卡数据: {data}")
+    logger.info(f"projects 内容: {data.get('projects', [])}")
 
     headers = {
         "apikey": settings.SUPABASE_KEY,
@@ -62,7 +61,7 @@ async def save_checkin(user_id: str, data: Dict[str, Any]):
             res = await client.post(insert_url, headers=headers,
                                     json={"user_id": user_id, "projects": projects})
 
-        print(f"打卡保存响应: {res.status_code} - {res.text}")
+        logger.info(f"打卡保存响应: {res.status_code} - {res.text}")
 
         if res.status_code not in [200, 201, 204]:
             raise HTTPException(status_code=400, detail=f"保存失败: {res.text}")
@@ -72,7 +71,8 @@ async def save_checkin(user_id: str, data: Dict[str, Any]):
 
 # ========== 倒计时 ==========
 @router.get("/countdown/{user_id}")
-async def get_countdown(user_id: str):
+async def get_countdown(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}"
@@ -87,9 +87,10 @@ async def get_countdown(user_id: str):
 
 
 @router.post("/countdown/{user_id}")
-async def save_countdown(user_id: str, data: Dict[str, Any]):
+async def save_countdown(user_id: str, data: Dict[str, Any], current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     """保存倒计时数据"""
-    print(f"收到倒计时数据: {data}")
+    logger.info(f"收到倒计时数据: {data}")
 
     headers = {
         "apikey": settings.SUPABASE_KEY,
@@ -113,7 +114,7 @@ async def save_countdown(user_id: str, data: Dict[str, Any]):
                                     json={"user_id": user_id, "events": events})
 
         if res.status_code not in [200, 201, 204]:
-            print(f"倒计时保存失败: {res.status_code} - {res.text}")
+            logger.info(f"倒计时保存失败: {res.status_code} - {res.text}")
             raise HTTPException(status_code=400, detail=f"保存失败: {res.text}")
 
         return {"success": True}
@@ -121,7 +122,8 @@ async def save_countdown(user_id: str, data: Dict[str, Any]):
 
 # ========== 计时器 ==========
 @router.get("/timer/{user_id}")
-async def get_timer(user_id: str):
+async def get_timer(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}"
@@ -136,9 +138,10 @@ async def get_timer(user_id: str):
 
 
 @router.post("/timer/{user_id}")
-async def save_timer(user_id: str, data: Dict[str, Any]):
+async def save_timer(user_id: str, data: Dict[str, Any], current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     """保存计时器数据"""
-    print(f"收到计时器数据: {data}")
+    logger.info(f"收到计时器数据: {data}")
 
     headers = {
         "apikey": settings.SUPABASE_KEY,
@@ -162,7 +165,7 @@ async def save_timer(user_id: str, data: Dict[str, Any]):
                                     json={"user_id": user_id, "timers": timers})
 
         if res.status_code not in [200, 201, 204]:
-            print(f"计时器保存失败: {res.status_code} - {res.text}")
+            logger.info(f"计时器保存失败: {res.status_code} - {res.text}")
             raise HTTPException(status_code=400, detail=f"保存失败: {res.text}")
 
         return {"success": True}
@@ -170,7 +173,8 @@ async def save_timer(user_id: str, data: Dict[str, Any]):
 
 # ========== 学习日志 ==========
 @router.get("/learning-logs/{user_id}")
-async def get_learning_logs(user_id: str):
+async def get_learning_logs(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}"
@@ -186,9 +190,10 @@ async def get_learning_logs(user_id: str):
 
 
 @router.post("/learning-logs/{user_id}")
-async def add_learning_log(user_id: str, data: Dict[str, Any]):
+async def add_learning_log(user_id: str, data: Dict[str, Any], current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     """添加学习日志条目"""
-    print(f"收到学习日志数据: {data}")
+    logger.info(f"收到学习日志数据: {data}")
 
     headers = {
         "apikey": settings.SUPABASE_KEY,
@@ -228,14 +233,15 @@ async def add_learning_log(user_id: str, data: Dict[str, Any]):
                                     json={"user_id": user_id, "data": logs})
 
         if res.status_code not in [200, 201, 204]:
-            print(f"学习日志保存失败: {res.status_code} - {res.text}")
+            logger.info(f"学习日志保存失败: {res.status_code} - {res.text}")
             raise HTTPException(status_code=400, detail=f"保存失败: {res.text}")
 
         return {"success": True}
 
 
 @router.delete("/learning-logs/{user_id}")
-async def clear_learning_logs(user_id: str):
+async def clear_learning_logs(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     """清空学习日志"""
     headers = {
         "apikey": settings.SUPABASE_KEY,
@@ -259,7 +265,8 @@ async def clear_learning_logs(user_id: str):
 
 # ========== 学情报告 ==========
 @router.get("/report/{user_id}")
-async def get_report(user_id: str):
+async def get_report(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     """生成学情报告"""
     headers = {
         "apikey": settings.SUPABASE_KEY,
@@ -301,12 +308,13 @@ async def get_report(user_id: str):
                 "events": events
             }
         except Exception as e:
-            print(f"学情报告错误: {e}")
+            logger.info(f"学情报告错误: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/learning-log")
-async def delete_learning_log(user_id: str = Query(...), log_id: str = Query(...)):
+async def delete_learning_log(user_id: str = Query(...), log_id: str = Query(...), current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     """删除单条学习日志"""
     headers = get_supabase_headers()
 

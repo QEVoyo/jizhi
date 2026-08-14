@@ -32,10 +32,11 @@
       <div class="divider"></div>
 
       <!-- ===== 加载状态 ===== -->
-      <div v-if="loading" class="loading-state">
-        <div class="loader"></div>
-        <span>加载中...</span>
-      </div>
+      <LoadingSpinner
+        v-if="loading"
+        variant="cards"
+        :flow-steps="['正在查阅学习计划...', '正在核对进度状态...', '准备就绪！']"
+      />
 
       <!-- ===== 规划列表 ===== -->
       <div v-else class="plan-grid">
@@ -194,6 +195,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getPlans, deletePlan as apiDeletePlan } from '@/api/learningPlan'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const route = useRoute()

@@ -9,10 +9,7 @@
         <h2>📝 练习</h2>
       </div>
 
-      <div v-if="loading" class="loading-state">
-        <div class="loader"></div>
-        <span>加载中...</span>
-      </div>
+      <LoadingSpinner v-if="loading" variant="typewriter" :flow-steps="['正在分析题目考点...', '正在匹配难度等级...', '正在组织题目结构...']" />
 
       <div v-else>
         <!-- 题目信息 -->
@@ -354,6 +351,7 @@ import {
 } from '@/api/questions'
 import { searchBilibili } from '@/api/video'
 import { ElMessage } from 'element-plus'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -450,7 +448,7 @@ async function loadQuestionSets() {
   try {
     const token = authStore.token
     const userId = authStore.user.id
-    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
 
     const res = await fetch(`${baseUrl}/questions/set/list/${userId}`, {
       headers: {
@@ -752,7 +750,7 @@ function handleAddToSet() {
 async function handleAddToSetConfirm(setId) {
   addingSetId.value = setId
   try {
-    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
     const res = await fetch(`${baseUrl}/questions/set/${setId}/add/${question.value.id}`, {
       method: 'POST',
       headers: {

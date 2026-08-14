@@ -1,21 +1,22 @@
-from fastapi import APIRouter, HTTPException, Query
+"""学习规划 - AI 生成个性化学习计划"""
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from config import settings
 import httpx
 from datetime import datetime
-import uuid
-import json
-import re
+import uuid, json, re
+from utils.auth_middleware import get_current_user, verify_user_match
+from services.supabase import get_supabase_headers
+from logging_config import logger
 
 router = APIRouter(prefix="/learning-plan", tags=["学习规划"])
 
 
-def get_supabase_headers():
-    return {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-        "Content-Type": "application/json"
-    }
+class GenerateTasksRequest(BaseModel):
+    keywords: str
+    difficulty: int
+    daily_minutes: int
+    total_days: int
 
 
 class CreatePlanRequest(BaseModel):
@@ -32,217 +33,174 @@ class CreatePlanRequest(BaseModel):
     tasks: list = []
 
 
-class GenerateTasksRequest(BaseModel):
-    keywords: str
-    difficulty: int
-    daily_minutes: int
-    total_days: int
-
-
 class UpdateTaskStatusRequest(BaseModel):
     task_id: str
     status: str
+    plan_id: str = ""
 
 
+# ============================================================
+# 1. AI 生成任务（按学习周期拆分知识点）
+# ============================================================
 @router.post("/generate-tasks")
 async def generate_tasks(req: GenerateTasksRequest):
-    """AI 生成学习任务（只支持单个知识点）"""
-    print("=" * 50)
-    print("🔍 AI 生成任务请求")
-    print(f"🔍 关键词: {req.keywords}")
-    print(f"🔍 难度: {req.difficulty}")
-    print(f"🔍 每日时长: {req.daily_minutes} 分钟")
-    print(f"🔍 总天数: {req.total_days} 天")
-
-    # 只取第一个关键词
+    """AI 将知识点按总天数拆分为每日子任务，每日子任务 = 学习内容 + 题目 + 视频推荐"""
     keyword = req.keywords.strip()
     if not keyword:
         raise HTTPException(status_code=400, detail="请提供有效关键词")
-
-    # 如果有多个，只取第一个
     if ',' in keyword or '，' in keyword or '、' in keyword:
         keyword = re.split(r'[,，、\s]+', keyword)[0].strip()
 
-    print(f"🔍 处理知识点: {keyword}")
+    prompt = f"""你是学习规划专家。用户想学【{keyword}】，学习周期 {req.total_days} 天，每天 {req.daily_minutes} 分钟。
 
-    # ================ 修改后的通用 prompt ================
-    prompt = f"""
-    你是学习规划专家。用户的学习方向是【{keyword}】。
+请生成 {req.total_days} 天的学习计划，每天包含：
+1. 该天的子知识点名称 (topic)
+2. 学习内容 (content, 100-200字)
+3. 2 道与该日子知识点相关的练习题
+4. 推荐一个 B站/YouTube 搜索关键词，用于找学习视频 (video_query)
 
-    请围绕这个方向，拆解出 4-6 个更细致的子知识点。
-    每个子知识点生成：
-    1. 学习内容（100-200字）
-    2. 2 道练习题
+每道题包含：
+- type: "选择题"/"填空题"/"判断题"
+- question: 题目文本
+- options: 选择题提供["A","B","C","D"]，其他题型空数组
+- answer: 正确答案
+- difficulty_score: 1-10
 
-    每道题必须包含以下完整字段：
-    - type: "选择题" / "填空题" / "判断题"
-    - question: 题目文本
-    - options: 如果是选择题，提供 ["A选项", "B选项", "C选项", "D选项"]；其他题型为空数组
-    - answer: 正确答案（选择题填 A/B/C/D，判断题填 "对"/"错"）
-    - difficulty_score: 1-10 的整数，代表该题目的独立难度
+知识点拆分原则：
+- 第1天：基础概念入门
+- 中间：逐步深入核心原理
+- 最后1-2天：综合应用/实践
 
-    返回 JSON 格式：
-    [
-      {{
-        "topic": "子知识点名称",
-        "content": "学习内容",
-        "questions": [
-          {{ "type": "选择题", "question": "...", "options": ["A","B","C","D"], "answer": "A", "difficulty_score": 6 }}
-        ]
-      }}
+返回 JSON 数组，每天一个对象：
+[
+  {{
+    "day": 1,
+    "topic": "第1天子知识点",
+    "content": "学习内容...",
+    "video_query": "B站搜索关键词",
+    "questions": [
+      {{"type":"选择题","question":"...","options":["A","B","C","D"],"answer":"A","difficulty_score":5}},
+      {{"type":"填空题","question":"...","options":[],"answer":"xxx","difficulty_score":6}}
     ]
-    """
-    # ====================================================
+  }},
+  ...
+]
+
+只返回 JSON 数组，不要额外文字。"""
 
     try:
         from utils.volc_client import VolcClient
         client = VolcClient()
         response = client.chat([
-            {"role": "system", "content": "你是学习规划专家，只返回 JSON 数据，不要添加任何额外文字。"},
+            {"role": "system", "content": "你是学习规划专家，只返回 JSON 数组，不要额外文字。"},
             {"role": "user", "content": prompt}
         ], temperature=0.7)
 
-        # 尝试从返回中提取 JSON 数组
         json_match = re.search(r'\[[\s\S]*\]', response)
         if json_match:
-            tasks = json.loads(json_match.group())
-            # 确保每个任务都有必要的字段
-            for task in tasks:
-                if not task.get("topic"):
-                    task["topic"] = f"{keyword} - 子知识点"
-                if not task.get("content"):
-                    task["content"] = f"{task['topic']} 核心概念讲解"
-                if not task.get("questions") or len(task.get("questions", [])) == 0:
-                    task["questions"] = [
-                        {"type": "选择题", "question": f"关于 {task['topic']}，以下说法正确的是？", "options": ["A. 正确描述", "B. 错误描述", "C. 不确定", "D. 以上都不是"], "answer": "A"}
-                    ]
-            print(f"✅ AI 生成成功，共 {len(tasks)} 个子知识点")
-            return {"success": True, "data": {"tasks": tasks}}
-        else:
-            print("⚠️ AI 返回未找到 JSON 数组，使用降级方案")
-            raise ValueError("未找到 JSON 数组")
+            days = json.loads(json_match.group())
+            return {"success": True, "data": days, "source": "ai"}
 
     except Exception as e:
-        print(f"❌ AI 生成失败: {str(e)}")
-        # 降级方案：生成 3 个默认子知识点
-        tasks = [
-            {
-                "topic": f"{keyword} - 基础概念",
-                "content": f"{keyword} 基础概念是理解该学科的第一步，掌握核心定义与分类。",
-                "questions": [
-                    {"type": "选择题", "question": f"关于 {keyword} 基础概念，以下说法正确的是？", "options": ["A. 正确描述", "B. 错误描述", "C. 不确定", "D. 以上都不是"], "answer": "A"}
-                ]
-            },
-            {
-                "topic": f"{keyword} - 核心原理",
-                "content": f"{keyword} 核心原理是学科的关键，理解其运行机制和逻辑。",
-                "questions": [
-                    {"type": "填空题", "question": f"{keyword} 的核心原理是____", "answer": ""}
-                ]
-            },
-            {
-                "topic": f"{keyword} - 应用实践",
-                "content": f"{keyword} 应用实践将理论转化为实际能力，解决具体问题。",
-                "questions": [
-                    {"type": "判断题", "question": f"{keyword} 的应用实践非常重要。", "answer": "对"}
-                ]
-            }
-        ]
-        print(f"⚠️ 使用降级方案，生成 {len(tasks)} 个子知识点")
-        return {"success": True, "data": {"tasks": tasks}, "warning": "使用默认任务"}
+        logger.info(f"AI 生成失败，使用降级方案: {e}")
+
+    # 降级方案
+    fallback = []
+    phases = ["基础概念", "核心原理"] + [f"进阶应用 ({i+3})" for i in range(max(0, req.total_days - 3))] + ["综合实践"]
+    if len(phases) > req.total_days:
+        phases = phases[:req.total_days]
+    while len(phases) < req.total_days:
+        phases.append(f"拓展学习 ({len(phases)+1})")
+
+    for i, phase in enumerate(phases[:req.total_days]):
+        fallback.append({
+            "day": i + 1,
+            "topic": f"{keyword} - {phase}",
+            "content": f"{keyword} {phase}部分的核心内容，理解基本定义与应用场景。",
+            "video_query": f"{keyword} {phase} 教程",
+            "questions": [
+                {"type": "选择题", "question": f"关于 {keyword} {phase}，以下说法正确的是？",
+                 "options": ["A. 核心定义准确", "B. 理解有偏差", "C. 混淆了概念", "D. 以上都不对"], "answer": "A", "difficulty_score": 5},
+                {"type": "判断题", "question": f"{keyword} {phase} 是学习的重要基础。",
+                 "options": [], "answer": "对", "difficulty_score": 3},
+            ]
+        })
+
+    return {"success": True, "data": fallback, "source": "fallback"}
 
 
+# ============================================================
+# 2. 创建规划 + 保存任务
+# ============================================================
 @router.post("/create")
-async def create_plan(req: CreatePlanRequest):
-    """创建学习规划"""
-    print("=" * 50)
-    print("🔍 收到创建规划请求")
-    print(f"🔍 user_id: {req.user_id}")
-    print(f"🔍 name: {req.name}")
-    print(f"🔍 tasks 数量: {len(req.tasks)}")
-
+async def create_plan(req: CreatePlanRequest, current_user: str = Depends(get_current_user)):
+    verify_user_match(req.user_id, current_user)
     if not req.tasks:
         raise HTTPException(status_code=400, detail="任务列表不能为空")
 
     headers = get_supabase_headers()
     now = datetime.now().isoformat()
+    plan_id = str(uuid.uuid4())
+    total = len(req.tasks)
+    completed = sum(1 for t in req.tasks if t.get("status") == "completed")
 
     plan_data = {
-        "id": str(uuid.uuid4()),
-        "user_id": req.user_id,
-        "name": req.name,
-        "stage": req.stage,
-        "grade": req.grade,
-        "major": req.major,
-        "difficulty": req.difficulty,
-        "daily_minutes": req.daily_minutes,
-        "start_date": req.start_date,
-        "end_date": req.end_date,
-        "keywords": req.keywords,
-        "status": "pending",
-        "progress": 0,
-        "created_at": now,
-        "updated_at": now
+        "id": plan_id, "user_id": req.user_id, "name": req.name,
+        "stage": req.stage, "grade": req.grade, "major": req.major,
+        "difficulty": req.difficulty, "daily_minutes": req.daily_minutes,
+        "start_date": req.start_date, "end_date": req.end_date,
+        "keywords": req.keywords, "status": "active",
+        "progress": round(completed / total * 100) if total else 0,
+        "created_at": now, "updated_at": now
     }
 
     async with httpx.AsyncClient() as client:
         url = f"{settings.SUPABASE_URL}/rest/v1/learning_plans"
         res = await client.post(url, headers=headers, json=plan_data)
-        print(f"🔍 规划保存状态码: {res.status_code}")
         if res.status_code not in [200, 201]:
-            print(f"❌ 创建规划失败: {res.text}")
             raise HTTPException(status_code=400, detail=f"创建规划失败: {res.text}")
 
-        plan_id = plan_data["id"]
-
-        for i, task in enumerate(req.tasks):
+        for task in req.tasks:
             task_data = {
-                "id": str(uuid.uuid4()),
-                "plan_id": plan_id,
-                "user_id": req.user_id,
-                "type": task.get("type", "做题"),
-                "topic": task.get("topic", "基础知识点"),
+                "id": str(uuid.uuid4()), "plan_id": plan_id, "user_id": req.user_id,
+                "type": task.get("type", "做题"), "topic": task.get("topic", ""),
                 "description": task.get("description", ""),
-                "question_count": task.get("question_count", 0),
                 "question_type": task.get("question_type", ""),
                 "question_content": task.get("question_content", ""),
                 "options": task.get("options", []),
                 "answer": task.get("answer", ""),
+                "difficulty_score": task.get("difficulty_score", 5),
+                "video_query": task.get("video_query", ""),
                 "date": task.get("date", req.start_date),
-                "status": "pending",
-                "created_at": now,
-                "updated_at": now
+                "status": "pending", "created_at": now, "updated_at": now
             }
             task_url = f"{settings.SUPABASE_URL}/rest/v1/learning_tasks"
             task_res = await client.post(task_url, headers=headers, json=task_data)
             if task_res.status_code not in [200, 201]:
-                print(f"❌ 任务 {i+1} 保存失败: {task_res.text}")
                 raise HTTPException(status_code=400, detail=f"任务保存失败: {task_res.text}")
 
-        print(f"✅ 规划创建成功: {plan_id}")
-        return {
-            "success": True,
-            "plan_id": plan_id,
-            "message": "规划创建成功"
-        }
+        return {"success": True, "plan_id": plan_id, "message": "规划创建成功"}
 
 
+# ============================================================
+# 3. 规划列表
+# ============================================================
 @router.get("/list")
-async def get_plans(user_id: str = Query(...)):
+async def get_plans(user_id: str = Query(...), current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
     url = f"{settings.SUPABASE_URL}/rest/v1/learning_plans?user_id=eq.{user_id}&order=created_at.desc"
-
     async with httpx.AsyncClient() as client:
         res = await client.get(url, headers=headers)
-        if res.status_code != 200:
-            return {"plans": []}
-        return {"plans": res.json()}
+        return {"plans": res.json() if res.status_code == 200 else []}
 
 
+# ============================================================
+# 4. 规划详情
+# ============================================================
 @router.get("/detail/{plan_id}")
 async def get_plan_detail(plan_id: str):
     headers = get_supabase_headers()
-
     async with httpx.AsyncClient() as client:
         plan_url = f"{settings.SUPABASE_URL}/rest/v1/learning_plans?id=eq.{plan_id}"
         plan_res = await client.get(plan_url, headers=headers)
@@ -250,40 +208,57 @@ async def get_plan_detail(plan_id: str):
             raise HTTPException(status_code=404, detail="规划不存在")
         plan = plan_res.json()[0]
 
-        task_url = f"{settings.SUPABASE_URL}/rest/v1/learning_tasks?plan_id=eq.{plan_id}&order=created_at.asc"
+        task_url = f"{settings.SUPABASE_URL}/rest/v1/learning_tasks?plan_id=eq.{plan_id}&order=date.asc,created_at.asc"
         task_res = await client.get(task_url, headers=headers)
-        tasks = task_res.json() if task_res.status_code == 200 else []
-
-        plan["tasks"] = tasks
+        plan["tasks"] = task_res.json() if task_res.status_code == 200 else []
         return plan
 
 
+# ============================================================
+# 5. 更新任务状态 + 同步规划进度
+# ============================================================
 @router.put("/task/status")
 async def update_task_status(req: UpdateTaskStatusRequest):
     headers = get_supabase_headers()
-    url = f"{settings.SUPABASE_URL}/rest/v1/learning_tasks?id=eq.{req.task_id}"
-    data = {
-        "status": req.status,
-        "updated_at": datetime.now().isoformat()
-    }
-
+    now = datetime.now().isoformat()
     async with httpx.AsyncClient() as client:
-        res = await client.patch(url, headers=headers, json=data)
+        # 更新任务
+        task_url = f"{settings.SUPABASE_URL}/rest/v1/learning_tasks?id=eq.{req.task_id}"
+        res = await client.patch(task_url, headers=headers, json={
+            "status": req.status, "updated_at": now
+        })
         if res.status_code not in [200, 204]:
-            raise HTTPException(status_code=400, detail="更新任务状态失败")
+            raise HTTPException(status_code=400, detail="更新失败")
+
+        # 同步规划进度
+        if req.plan_id:
+            all_url = f"{settings.SUPABASE_URL}/rest/v1/learning_tasks?plan_id=eq.{req.plan_id}&select=status"
+            all_res = await client.get(all_url, headers=headers)
+            if all_res.status_code == 200:
+                tasks = all_res.json()
+                total = len(tasks)
+                done = sum(1 for t in tasks if t.get("status") == "completed")
+                progress = round(done / total * 100) if total else 0
+                plan_status = "completed" if progress >= 100 else "active"
+                plan_url = f"{settings.SUPABASE_URL}/rest/v1/learning_plans?id=eq.{req.plan_id}"
+                await client.patch(plan_url, headers=headers, json={
+                    "progress": progress, "status": plan_status, "updated_at": now
+                })
+
         return {"success": True}
 
 
+# ============================================================
+# 6. 删除规划
+# ============================================================
 @router.delete("/delete/{plan_id}")
 async def delete_plan(plan_id: str):
     headers = get_supabase_headers()
-
     async with httpx.AsyncClient() as client:
         task_url = f"{settings.SUPABASE_URL}/rest/v1/learning_tasks?plan_id=eq.{plan_id}"
         await client.delete(task_url, headers=headers)
-
         plan_url = f"{settings.SUPABASE_URL}/rest/v1/learning_plans?id=eq.{plan_id}"
         res = await client.delete(plan_url, headers=headers)
         if res.status_code not in [200, 204]:
-            raise HTTPException(status_code=400, detail="删除规划失败")
+            raise HTTPException(status_code=400, detail="删除失败")
         return {"success": True}
