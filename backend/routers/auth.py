@@ -227,6 +227,28 @@ async def register(req: RegisterRequest, request: Request):
         if not user_id:
             user_id = user_data.get("user", {}).get("id")
 
+        # ===== 2.5 自动确认邮箱 =====
+        # 站点有自己的邮箱验证码流程，Supabase 默认的 Confirm email 是多余的；
+        # 不确认的话新注册用户登录时 grant_type=password 会报 "Email not confirmed" → 401
+        if settings.SUPABASE_SERVICE_ROLE_KEY:
+            try:
+                admin_headers = {
+                    "apikey": settings.SUPABASE_KEY,
+                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json"
+                }
+                confirm_res = await client.put(
+                    f"{settings.SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+                    headers=admin_headers,
+                    json={"email_confirm": True},
+                    timeout=15
+                )
+                logger.info(f"自动确认邮箱状态: {confirm_res.status_code}")
+                if confirm_res.status_code != 200:
+                    logger.warning(f"自动确认邮箱失败: {confirm_res.text}")
+            except Exception as e:
+                logger.warning(f"自动确认邮箱异常: {e}")
+
         # ===== 3. 创建 profile =====
         user_account = str(random.randint(10000000, 99999999))
 
