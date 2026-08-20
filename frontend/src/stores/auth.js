@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { login as apiLogin, register as apiRegister, logout as apiLogout, getUserInfo, updateStatus, updateLearningInfo, getWechatQrcode, getWechatBindQrcode, wechatPoll, getWechatUser } from '@/api/auth'
+import { login as apiLogin, register as apiRegister, getUserInfo, updateStatus, updateLearningInfo, getWechatQrcode, getWechatBindQrcode, wechatPoll } from '@/api/auth'
 import { setToken, removeToken, getToken, setUser, removeUser, getUser } from '@/utils/storage'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -51,7 +51,9 @@ export const useAuthStore = defineStore('auth', () => {
       return { success: false, message: res.message || '登录失败' }
     } catch (error) {
       console.error('登录异常:', error)
-      return { success: false, message: error.message || '登录失败' }
+      // 显示后端真实错误（如：邮箱尚未验证 / 账号或密码错误），而不是笼统的 "401"
+      const detail = error.response?.data?.detail
+      return { success: false, message: detail || error.message || '登录失败' }
     }
   }
 
@@ -64,7 +66,8 @@ export const useAuthStore = defineStore('auth', () => {
       }
       return { success: false, message: res.message || '注册失败' }
     } catch (error) {
-      return { success: false, message: error.message || '注册失败' }
+      const detail = error.response?.data?.detail
+      return { success: false, message: detail || error.message || '注册失败' }
     }
   }
 

@@ -27,7 +27,11 @@ let isLoggingOut = false
 request.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && !isLoggingOut) {
+    // 登录/注册等认证接口返回的 401 是业务错误（密码错误、邮箱未验证等），
+    // 不能当作登录态失效处理，否则真实原因会被清掉并强制跳回登录页
+    const url = error.config?.url || ''
+    const isAuthFlow = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/wx-bind')
+    if (error.response?.status === 401 && !isLoggingOut && !isAuthFlow) {
       isLoggingOut = true
       const authStore = useAuthStore()
       // 先同步清除 Pinia 状态
