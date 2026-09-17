@@ -47,15 +47,17 @@ export const useToolsStore = defineStore('tools', () => {
     return true
   }
 
-  // ===== 倒计时 =====
+  // ===== 倒计时（时间胶囊，2026-08-26 改版）=====
+  // 胶囊对象：{ id, title, target_date, created_at, entries: [{content, created_at}], opened_at }
+  // 状态派生：opened_at 非空 = 已开启；到期未开启 = 待开启；否则 = 密封中
   const countdownEvents = ref([])
 
   async function loadCountdown(userId) {
     try {
       const data = await getCountdown(userId)
-      countdownEvents.value = data.events || []
+      countdownEvents.value = (data.events || []).map(migrateCapsule)
     } catch (e) {
-      console.error('加载倒计时失败', e)
+      console.error('加载时间胶囊失败', e)
     }
   }
 
@@ -64,28 +66,50 @@ export const useToolsStore = defineStore('tools', () => {
       await saveCountdown(userId, events)
       countdownEvents.value = events
     } catch (e) {
-      console.error('保存倒计时失败', e)
+      console.error('保存时间胶囊失败', e)
     }
   }
 
-  function addCountdownEvent(name, targetDate) {
+  // 老数据迁移：{id, name, target_date} → 胶囊结构（title=name, entries=[], opened_at=null）
+  function migrateCapsule(e) {
+    if (e && e.title === undefined && e.name !== undefined) {
+      return {
+        id: e.id,
+        title: e.name,
+        target_date: e.target_date,
+        created_at: e.created_at || new Date().toISOString(),
+        entries: [],
+        opened_at: null
+      }
+    }
+    return e
+  }
+
+  function addCapsule(title, targetDate, firstMessage) {
     countdownEvents.value.push({
-      id: 'evt_' + Date.now(),
-      name,
+      id: 'cap_' + Date.now(),
+      title,
       target_date: targetDate,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      entries: firstMessage ? [{ content: firstMessage, created_at: new Date().toISOString() }] : [],
+      opened_at: null
     })
+  }
+
+  function appendCapsuleEntry(id, content) {
+    const cap = countdownEvents.value.find(e => e.id === id)
+    if (!cap) return
+    cap.entries.push({ content, created_at: new Date().toISOString() })
+  }
+
+  function openCapsule(id) {
+    const cap = countdownEvents.value.find(e => e.id === id)
+    if (!cap) return
+    cap.opened_at = new Date().toISOString()
   }
 
   function deleteCountdownEvent(id) {
     countdownEvents.value = countdownEvents.value.filter(e => e.id !== id)
-  }
-
-  function getDaysUntil(dateStr) {
-    const target = new Date(dateStr)
-    const now = new Date()
-    const diff = target - now
-    return Math.ceil(diff / (1000 * 60 * 60 * 24))
   }
 
   // ===== 计时器 =====
@@ -130,13 +154,14 @@ export const useToolsStore = defineStore('tools', () => {
     addCheckinProject,
     deleteCheckinProject,
     doCheckin,
-    // 倒计时
+    // 倒计时（时间胶囊）
     countdownEvents,
     loadCountdown,
     saveCountdownData,
-    addCountdownEvent,
+    addCapsule,
+    appendCapsuleEntry,
+    openCapsule,
     deleteCountdownEvent,
-    getDaysUntil,
     // 计时器
     timerTemplates,
     loadTimer,

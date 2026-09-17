@@ -457,16 +457,16 @@ onUnmounted(() => {
   z-index: 10;
   width: 420px;
   padding: 40px 36px 36px;
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-soft);
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.04), inset 0 0 60px rgba(255, 255, 255, 0.02);
 }
 
 [data-theme="dark"] .login-container {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--well);
   border-color: rgba(255, 255, 255, 0.06);
 }
 
@@ -561,7 +561,7 @@ onUnmounted(() => {
 .admin-btn {
   background: rgba(245, 158, 11, 0.12) !important;
   border: 1px solid rgba(245, 158, 11, 0.2) !important;
-  color: #f59e0b !important;
+  color: color-mix(in srgb, #f59e0b 70%, var(--text-primary)) !important;
 }
 .admin-btn:hover {
   background: rgba(245, 158, 11, 0.2) !important;
@@ -576,7 +576,7 @@ onUnmounted(() => {
 }
 .admin-tab-label i {
   font-size: 13px;
-  color: #f59e0b;
+  color: color-mix(in srgb, #f59e0b 70%, var(--text-primary));
 }
 
 .error-msg {
@@ -586,7 +586,7 @@ onUnmounted(() => {
   text-align: center;
 }
 .success-msg {
-  color: #67c23a;
+  color: color-mix(in srgb, #67c23a 65%, var(--text-primary));
   font-size: 13px;
   margin-top: 10px;
   text-align: center;
@@ -638,7 +638,7 @@ onUnmounted(() => {
 }
 
 :deep(.el-checkbox__inner) {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent) !important;
   border-color: rgba(128, 128, 128, 0.3) !important;
   transition: all 0.3s ease !important;
 }
@@ -646,26 +646,26 @@ onUnmounted(() => {
   border-color: rgba(128, 128, 128, 0.5) !important;
 }
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-  background: #409eff !important;
-  border-color: #409eff !important;
+  background: var(--brand) !important;
+  border-color: var(--brand) !important;
 }
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner::after) {
-  border-color: #fff !important;
+  border-color: var(--brand-on) !important;
 }
 :deep(.el-checkbox__label) {
   color: var(--text-secondary) !important;
 }
 
 [data-theme="dark"] :deep(.el-checkbox__inner) {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
+  border-color: var(--line) !important;
 }
 [data-theme="dark"] :deep(.el-checkbox__inner:hover) {
-  border-color: rgba(255, 255, 255, 0.35) !important;
+  border-color: var(--line-strong) !important;
 }
 [data-theme="dark"] :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-  background: #409eff !important;
-  border-color: #409eff !important;
+  background: var(--brand) !important;
+  border-color: var(--brand) !important;
 }
 
 /* ===== 微信扫码登录 ===== */

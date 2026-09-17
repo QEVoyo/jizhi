@@ -157,6 +157,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { ElMessage } from 'element-plus'
 import { createPlan } from '@/api/learningPlan'
 import { ArrowLeft, Reading, EditPen, VideoCamera } from '@element-plus/icons-vue'
 
@@ -252,9 +253,11 @@ async function generateTasks() {
     await sleep(phase.delay)
   }
 
-  // 调 AI
+  // 调 AI（2026-08-30：qwen-flash 后端 8s 级；加 90s 超时 + 失败明确提示，避免无声失败）
   genStatusText.value = 'AI 正在生成学习计划...'
   let result = null
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 90000)
   try {
     const totalDays = dayCount.value
     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/learning-plan/generate-tasks`, {
@@ -265,9 +268,16 @@ async function generateTasks() {
         difficulty: planInfo.value.difficulty,
         daily_minutes: planInfo.value.dailyMinutes,
         total_days: totalDays
-      })
+      }),
+      signal: controller.signal
     })
     result = await response.json()
+    if (!response.ok || !result?.success || !result?.data) {
+      genStatusText.value = '生成失败，请重试'
+      ElMessage.error(result?.detail || '计划生成失败，请重试')
+      generating.value = false
+      return
+    }
     // 兼容新旧两种返回格式：新格式 data 是数组，旧格式 data.tasks 是数组
     let aiDays = result.data || []
     if (!Array.isArray(aiDays) && aiDays.tasks) {
@@ -293,7 +303,12 @@ async function generateTasks() {
 
   } catch (e) {
     console.error('AI 生成失败:', e)
-    constellationNodes.value = []
+    genStatusText.value = '生成失败，请重试'
+    ElMessage.error(e?.name === 'AbortError' ? '生成超时（90 秒），请重试' : '计划生成失败，请检查网络后重试')
+    generating.value = false
+    return
+  } finally {
+    clearTimeout(timeoutId)
   }
 
   // 逐个点亮节点
@@ -376,9 +391,16 @@ async function confirmPlan() {
       keywords: planInfo.value.keywords, tasks: safeTasks
     })
     if (result.success) {
+      ElMessage.success('计划创建成功，开始学习吧！')
       router.push(`/plan-detail/${result.plan_id}`)
+    } else {
+      // 2026-08-30：保存失败不再静默——明确提示（如 learning_tasks 缺列会 400 detail）
+      ElMessage.error(typeof result.detail === 'string' ? result.detail : '保存计划失败，请重试')
     }
-  } catch (e) { console.error('保存失败:', e) }
+  } catch (e) {
+    console.error('保存失败:', e)
+    ElMessage.error('保存计划失败：' + ((e?.response?.data?.detail) || e?.message || '请重试'))
+  }
   finally { confirming.value = false }
 }
 
@@ -444,11 +466,11 @@ onMounted(() => { loadProfile(); loadFromRoute() })
 .pp-container {
   max-width: 880px; width: 100%; padding: 24px 30px;
   border-radius: 18px;
-  background: rgba(255,255,255,0.04); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--line-soft);
   box-shadow: 0 8px 32px rgba(0,0,0,0.06);
 }
-[data-theme="dark"] .pp-container { background: rgba(0,0,0,0.30); }
+[data-theme="dark"] .pp-container { background: var(--well); }
 
 .pp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
 .pp-header h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin: 0; }
@@ -456,19 +478,19 @@ onMounted(() => { loadProfile(); loadFromRoute() })
 .g-btn {
   display: inline-flex; align-items: center; gap: 5px; padding: 8px 18px;
   font-size: 13px; font-weight: 500; color: var(--text-secondary);
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); border: 1px solid rgba(255,255,255,0.06);
   border-radius: 10px; cursor: pointer; transition: all 0.25s ease; font-family: inherit;
 }
-.g-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); transform: translateY(-1px); }
+.g-btn:hover { background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent); border-color: var(--line-soft); transform: translateY(-1px); }
 .g-btn:active { transform: scale(0.97); }
-.g-btn.primary { color: #409eff; background: rgba(64,158,255,0.08); border-color: rgba(64,158,255,0.12); }
-.g-btn.primary:hover { background: rgba(64,158,255,0.16); box-shadow: 0 0 20px rgba(64,158,255,0.15); }
+.g-btn.primary { color: var(--brand); background: color-mix(in srgb, var(--brand) 8%, transparent); border-color: color-mix(in srgb, var(--brand) 12%, transparent); }
+.g-btn.primary:hover { background: color-mix(in srgb, var(--brand) 16%, transparent); box-shadow: 0 0 20px color-mix(in srgb, var(--brand) 15%, transparent); }
 .g-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
 
 /* 信息表单 */
 .info-card {
   padding: 18px 22px; border-radius: 14px;
-  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); border: 1px solid rgba(255,255,255,0.04);
   margin-bottom: 20px;
 }
 .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
@@ -477,11 +499,11 @@ onMounted(() => { loadProfile(); loadFromRoute() })
 .info-keywords { margin-top: 12px; }
 .g-input {
   width: 100%; padding: 8px 12px; border-radius: 8px; font-size: 13px;
-  color: var(--text-primary); background: rgba(255,255,255,0.02);
+  color: var(--text-primary); background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   border: 1px solid rgba(255,255,255,0.06); outline: none; font-family: inherit;
   transition: all 0.25s ease;
 }
-.g-input:focus { border-color: rgba(64,158,255,0.2); box-shadow: 0 0 0 3px rgba(64,158,255,0.04); }
+.g-input:focus { border-color: color-mix(in srgb, var(--brand) 20%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 4%, transparent); }
 .g-input::placeholder { color: var(--text-muted); opacity: 0.4; }
 select.g-input { cursor: pointer; appearance: none; }
 
@@ -499,7 +521,7 @@ select.g-input { cursor: pointer; appearance: none; }
 .nebula {
   position: absolute; width: 200px; height: 200px; border-radius: 50%;
   top: 20%; left: 30%;
-  background: radial-gradient(circle, rgba(74,108,247,0.12), transparent 70%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand) 12%, transparent), transparent 70%);
   animation: nebula-drift 8s ease-in-out infinite;
 }
 .nebula-2 {
@@ -523,7 +545,7 @@ select.g-input { cursor: pointer; appearance: none; }
 .knowledge-core { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2; }
 .core-ring {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 50%;
-  border: 1px solid rgba(74,108,247,0.2);
+  border: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
 }
 .ring-1 { width: 80px; height: 80px; animation: ring-pulse 3s ease-in-out infinite; }
 .ring-2 { width: 110px; height: 110px; animation: ring-pulse 3s ease-in-out infinite 0.5s; }
@@ -533,14 +555,14 @@ select.g-input { cursor: pointer; appearance: none; }
   50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.05); }
 }
 .core-dot {
-  width: 16px; height: 16px; border-radius: 50%; background: #4a6cf7;
-  box-shadow: 0 0 24px rgba(74,108,247,0.8), 0 0 48px rgba(74,108,247,0.4);
+  width: 16px; height: 16px; border-radius: 50%; background: var(--brand);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--brand) 80%, transparent), 0 0 48px color-mix(in srgb, var(--brand) 40%, transparent);
   position: relative; z-index: 1;
 }
 .core-label {
   position: absolute; top: calc(100% + 14px); left: 50%; transform: translateX(-50%);
   white-space: nowrap; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7);
-  text-shadow: 0 0 10px rgba(74,108,247,0.4);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--brand) 40%, transparent);
 }
 [data-theme="light"] .core-label { color: rgba(0,0,0,0.6); }
 
@@ -552,7 +574,7 @@ select.g-input { cursor: pointer; appearance: none; }
 .constellation-star.revealed { opacity: 1; }
 .star-glow {
   width: 36px; height: 36px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(74,108,247,0.3), transparent 70%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand) 30%, transparent), transparent 70%);
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   animation: star-pulse 2s ease-in-out infinite;
 }
@@ -573,7 +595,7 @@ select.g-input { cursor: pointer; appearance: none; }
 [data-theme="light"] .star-label { color: rgba(0,0,0,0.5); }
 .star-day {
   position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-  font-size: 9px; color: rgba(74,108,247,0.6); font-weight: 600;
+  font-size: 9px; color: color-mix(in srgb, var(--brand) 60%, transparent); font-weight: 600;
 }
 
 /* 生成状态 */
@@ -582,7 +604,7 @@ select.g-input { cursor: pointer; appearance: none; }
   display: flex; align-items: center; gap: 16px; z-index: 4;
 }
 .gen-text { font-size: 14px; color: rgba(255,255,255,0.6); font-weight: 500; }
-.gen-count { font-size: 20px; font-weight: 700; color: #4a6cf7; font-family: 'Courier New', monospace; text-shadow: 0 0 12px rgba(74,108,247,0.4); }
+.gen-count { font-size: 20px; font-weight: 700; color: var(--brand); font-family: 'Courier New', monospace; text-shadow: 0 0 12px color-mix(in srgb, var(--brand) 40%, transparent); }
 [data-theme="light"] .gen-text { color: rgba(0,0,0,0.5); }
 
 /* 任务列表 */
@@ -592,14 +614,14 @@ select.g-input { cursor: pointer; appearance: none; }
 .tasks-meta { font-size: 12px; color: var(--text-muted); }
 .day-group {
   margin-bottom: 10px; border-radius: 10px;
-  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); border: 1px solid rgba(255,255,255,0.04);
   overflow: hidden;
 }
 .day-bar {
   display: flex; align-items: center; gap: 12px; padding: 10px 16px;
-  background: rgba(255,255,255,0.02); cursor: default;
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); cursor: default;
 }
-.day-num { font-size: 13px; font-weight: 700; color: #4a6cf7; min-width: 44px; }
+.day-num { font-size: 13px; font-weight: 700; color: var(--brand); min-width: 44px; }
 .day-topic { font-size: 13px; font-weight: 600; color: var(--text-primary); flex: 1; }
 .day-stats { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--text-muted); }
 .day-stats .el-icon { font-size: 13px; }
@@ -607,12 +629,12 @@ select.g-input { cursor: pointer; appearance: none; }
 .mini-q { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; }
 .q-type-tag {
   font-size: 10px; padding: 1px 6px; border-radius: 4px; flex-shrink: 0;
-  background: rgba(64,158,255,0.1); color: #409eff;
+  background: color-mix(in srgb, var(--brand) 10%, transparent); color: var(--brand);
 }
 .q-text { color: var(--text-secondary); }
 .day-video { display: flex; align-items: center; gap: 6px; padding-top: 6px; font-size: 11px; color: var(--text-muted); }
-.day-video .el-icon { font-size: 13px; color: #f59e0b; }
-.fallback-tag { font-size: 11px; color: #e6a23c; padding: 4px 10px; background: rgba(230,162,60,0.08); border-radius: 6px; }
+.day-video .el-icon { font-size: 13px; color: color-mix(in srgb, #f59e0b 70%, var(--text-primary)); }
+.fallback-tag { font-size: 11px; color: color-mix(in srgb, #e6a23c 70%, var(--text-primary)); padding: 4px 10px; background: rgba(230,162,60,0.08); border-radius: 6px; }
 .tasks-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; justify-content: flex-end; }
 
 /* 空态 */

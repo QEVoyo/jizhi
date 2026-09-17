@@ -46,8 +46,9 @@ async def get_user_yesterday_activity(user_id: str) -> dict:
         res = await client.get(url, headers=headers)
         questions = res.json() if res.status_code == 200 else []
 
-        # 查学程动作
-        actions_url = f"{settings.SUPABASE_URL}/rest/v1/activities?user_id=eq.{user_id}&order=created_at.desc&limit=20"
+        # 查学程动作（activities 表从未建过 → 恒空；真实表是 user_actions）
+        actions_url = (f"{settings.SUPABASE_URL}/rest/v1/user_actions?user_id=eq.{user_id}"
+                       f"&select=action_type,action_at&order=action_at.desc&limit=20")
         actions_res = await client.get(actions_url, headers=headers)
         activities = actions_res.json() if actions_res.status_code == 200 else []
 

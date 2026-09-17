@@ -69,21 +69,52 @@ async def save_checkin(user_id: str, data: Dict[str, Any], current_user: str = D
         return {"success": True}
 
 
-# ========== 倒计时 ==========
+# ========== 倒计时（时间胶囊） ==========
+async def _notify_due_capsules(client, headers, user_id, events):
+    """时间胶囊到期通知（2026-08-26）：到期未开启的胶囊发一条系统通知，按 source_id 去重不轰炸"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    for ev in events or []:
+        title = ev.get("title") or ev.get("name") or "时间胶囊"
+        if ev.get("opened_at"):
+            continue
+        target = ev.get("target_date", "")
+        if not target or target > today:
+            continue
+        source_id = f"capsule_{ev.get('id', '')}"
+        try:
+            check_url = (
+                f"{settings.SUPABASE_URL}/rest/v1/notifications"
+                f"?user_id=eq.{user_id}&type=eq.system&source_id=eq.{source_id}&select=id&limit=1"
+            )
+            check_res = await client.get(check_url, headers=headers)
+            if check_res.status_code == 200 and check_res.json():
+                continue  # 已通知过
+            notif = {
+                "user_id": user_id, "type": "system",
+                "title": "胶囊已到开启时间",
+                "content": f"你的时间胶囊「{title}」已到开启时间，打开它看看当初写下的留言吧",
+                "source_id": source_id, "msg_count": 1, "is_read": False,
+            }
+            insert_res = await client.post(
+                f"{settings.SUPABASE_URL}/rest/v1/notifications", headers=headers, json=notif)
+            if insert_res.status_code not in (200, 201):
+                logger.info(f"胶囊到期通知失败: {insert_res.text}")
+        except Exception as e:
+            logger.info(f"胶囊到期通知异常: {e}")
+
+
 @router.get("/countdown/{user_id}")
 async def get_countdown(user_id: str, current_user: str = Depends(get_current_user)):
     verify_user_match(user_id, current_user)
-    headers = {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}"
-    }
+    headers = get_supabase_headers()
     url = f"{settings.SUPABASE_URL}/rest/v1/countdowns?user_id=eq.{user_id}&select=events"
 
     async with httpx.AsyncClient() as client:
         res = await client.get(url, headers=headers)
-        if res.status_code == 200 and res.json():
-            return {"events": res.json()[0].get("events", [])}
-        return {"events": []}
+        events = res.json()[0].get("events", []) if res.status_code == 200 and res.json() else []
+        # 到期胶囊 → 通知中心提醒（幂等：同一胶囊只发一次）
+        await _notify_due_capsules(client, headers, user_id, events)
+        return {"events": events}
 
 
 @router.post("/countdown/{user_id}")

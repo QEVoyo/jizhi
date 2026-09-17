@@ -32,6 +32,10 @@
           <i class="fas fa-bullhorn"></i>
           <span>公告管理</span>
         </router-link>
+        <router-link to="/admin/videos" class="admin-nav-item" :class="{ active: isActive('/admin/videos') }">
+          <i class="fas fa-clapperboard"></i>
+          <span>视频库管理</span>
+        </router-link>
         <router-link to="/admin/logs" class="admin-nav-item" :class="{ active: isActive('/admin/logs') }">
           <i class="fas fa-clock-rotate-left"></i>
           <span>操作日志</span>
@@ -73,7 +77,7 @@ function isActive(path) {
 /* ===== 侧边栏 ===== */
 .admin-sidebar {
   width: 220px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid rgba(255, 255, 255, 0.06);
@@ -127,13 +131,13 @@ function isActive(path) {
   transition: all 0.25s ease;
 }
 .admin-nav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
   color: rgba(255, 255, 255, 0.8);
   transform: translateX(2px);
 }
 .admin-nav-item.active {
-  background: rgba(64, 158, 255, 0.12);
-  color: #409eff;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
 }
 .admin-nav-item i {
   width: 18px;

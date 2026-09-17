@@ -194,7 +194,7 @@ onMounted(loadAnnouncements)
 .page-title { font-size: 20px; font-weight: 600; color: #e0e0e0; margin: 0; }
 
 .table-wrap {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
@@ -275,13 +275,13 @@ onMounted(loadAnnouncements)
   height: 40px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
+  color: var(--text-primary);
   font-size: 16px;
   cursor: pointer;
   transition: all 0.2s;
 }
-.close-btn:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.1); }
+.close-btn:hover { background: color-mix(in srgb, var(--surface, #ffffff) 20%, transparent); transform: scale(1.1); }
 
 /* Dialog */
 :deep(.admin-dialog) { background: #111827 !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; border-radius: 16px !important; }
@@ -291,7 +291,7 @@ onMounted(loadAnnouncements)
 :deep(.admin-dialog .el-dialog__close) { color: rgba(255, 255, 255, 0.4) !important; }
 :deep(.el-form-item__label) { color: rgba(255, 255, 255, 0.5) !important; }
 :deep(.el-input__wrapper), :deep(.el-textarea__inner) {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: 10px !important;
   box-shadow: none !important;

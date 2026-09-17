@@ -130,12 +130,12 @@ onMounted(() => {
 .collection-card {
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   overflow: hidden;
 }
 .collection-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  border-color: var(--line-soft);
 }
 
 .loading-state,

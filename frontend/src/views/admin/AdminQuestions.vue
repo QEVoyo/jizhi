@@ -356,15 +356,15 @@ onMounted(async () => { await loadSyllabi() })
 .stat-chip strong { color: #e0e0e0; }
 
 .table-wrap {
-  background: rgba(255,255,255,.03); backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent); backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,.06); border-radius: 14px; overflow: hidden;
 }
 .question-list { padding: 4px 0; }
 .q-item { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.03); transition: background .2s; }
-.q-item:hover { background: rgba(255,255,255,.02); }
+.q-item:hover { background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); }
 .q-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .q-id { font-size: 11px; color: rgba(255,255,255,.2); font-family: monospace; }
-.q-tag { padding: 1px 8px; border-radius: 6px; font-size: 11px; background: rgba(64,158,255,.1); color: #409eff; }
+.q-tag { padding: 1px 8px; border-radius: 6px; font-size: 11px; background: color-mix(in srgb, var(--brand) 10%, transparent); color: var(--brand); }
 .q-tag.sub { background: rgba(20,184,166,.1); color: #14b8a6; }
 .q-tag.type-tag { background: rgba(139,92,246,.1); color: #a78bfa; }
 .q-difficulty { font-size: 11px; color: rgba(255,255,255,.3); margin-left: auto; }
@@ -372,10 +372,10 @@ onMounted(async () => { await loadSyllabi() })
 .q-difficulty.d5 { color: #e6a23c; }
 .q-difficulty.d7 { color: #f56c6c; }
 .q-stem { font-size: 13px; color: rgba(255,255,255,.7); cursor: pointer; line-height: 1.5; transition: color .2s; }
-.q-stem:hover { color: #409eff; }
-.q-expanded { margin-top: 12px; padding: 14px; background: rgba(255,255,255,.03); border-radius: 10px; }
+.q-stem:hover { color: var(--brand); }
+.q-expanded { margin-top: 12px; padding: 14px; background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent); border-radius: 10px; }
 .q-options { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-.q-option { font-size: 13px; color: rgba(255,255,255,.5); padding: 4px 10px; border-radius: 6px; background: rgba(255,255,255,.02); }
+.q-option { font-size: 13px; color: rgba(255,255,255,.5); padding: 4px 10px; border-radius: 6px; background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); }
 .q-option.correct { background: rgba(103,194,58,.1); color: #67c23a; font-weight: 500; }
 .q-answer { font-size: 13px; color: #67c23a; margin-bottom: 4px; }
 .q-explanation { font-size: 13px; color: rgba(255,255,255,.5); line-height: 1.5; margin-bottom: 8px; }
@@ -385,12 +385,12 @@ onMounted(async () => { await loadSyllabi() })
 
 .q-form :deep(.el-form-item__label) { color: rgba(255,255,255,.5) !important; font-size: 12px !important; }
 :deep(.el-select .el-input__wrapper), :deep(.el-input__wrapper) {
-  background: rgba(255,255,255,.05) !important; border: 1px solid rgba(255,255,255,.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important; border: 1px solid rgba(255,255,255,.08) !important;
   border-radius: 10px !important; box-shadow: none !important;
 }
 :deep(.el-input__inner), :deep(.el-textarea__inner) { color: #e0e0e0 !important; }
 :deep(.el-textarea__inner) {
-  background: rgba(255,255,255,.05) !important; border: 1px solid rgba(255,255,255,.08) !important; border-radius: 10px !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important; border: 1px solid rgba(255,255,255,.08) !important; border-radius: 10px !important;
 }
 :deep(.admin-dialog) { background: #111827 !important; border: 1px solid rgba(255,255,255,.08) !important; border-radius: 16px !important; }
 :deep(.admin-dialog .el-dialog__header) { border-bottom: 1px solid rgba(255,255,255,.06); padding: 18px 24px; }

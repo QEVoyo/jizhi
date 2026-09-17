@@ -167,15 +167,14 @@
         <div class="group-title">
           <i class="fas fa-rocket"></i>
           <span>高级功能</span>
-          <el-tag size="small" type="warning">开发中</el-tag>
         </div>
 
         <div class="setting-item">
           <div class="setting-left">
             <span class="setting-label">语音通话</span>
-            <span class="setting-desc">实时语音对话</span>
+            <span class="setting-desc">与小基实时语音对话（独立通话界面）</span>
           </div>
-          <el-button size="small" type="primary" @click="goCall">进入</el-button>
+          <el-button size="small" type="primary" @click="goVoiceCall">拨打</el-button>
         </div>
 
         <div class="setting-item">
@@ -191,7 +190,7 @@
             <span class="setting-label">历史对话检索</span>
             <span class="setting-desc">搜索聊天记录</span>
           </div>
-          <el-button size="small" @click="showDeveloping">搜索</el-button>
+          <el-button size="small" @click="goSearch">搜索</el-button>
         </div>
       </div>
     </div>
@@ -203,7 +202,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
-import { getXiaojiConfig, updateXiaojiConfig } from '@/api/xiaoji'
+import { getXiaojiConfig, updateXiaojiConfig, xiaojiTts } from '@/api/xiaoji'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -214,19 +213,17 @@ const settings = ref({
   voice_enabled: true,
   voice_speed: 5,
   voice_volume: 5,
-  voice_name: 'xiaoyan',
+  voice_name: 'longanqian',
   proactive_enabled: true
 })
 
+// 千问音色（2026-08-25 收编）：TTS（qwen-audio-3.0-tts-plus）与语音通话
+// （qwen-audio-3.0-realtime-plus）共用同一音色列表，实测 4 个可用
 const voiceList = [
-  { value: 'xiaoyan', label: '标准女声' },
-  { value: 'xiaofeng', label: '标准男声' },
-  { value: 'xiaokun', label: '童声' },
-  { value: 'xiaorui', label: '温柔女声' },
-  { value: 'xiaomei', label: '甜美女声' },
-  { value: 'xiaoxuan', label: '知性女声' },
-  { value: 'xiaoyu', label: '年轻男声' },
-  { value: 'xiaomeng', label: '活力女声' }
+  { value: 'longanqian', label: '龙安倩 · 温柔女声' },
+  { value: 'longanlingxin', label: '龙安灵心 · 知心女声' },
+  { value: 'longanlingxi', label: '龙安灵犀 · 清新女声' },
+  { value: 'longanlufeng', label: '龙安鲁风 · 开朗男声' }
 ]
 
 // ===== 形象轮播 =====
@@ -273,23 +270,41 @@ function goBack() {
   router.back()
 }
 
-function goCall() {
-  router.push('/xiaoji/call')
+function goVoiceCall() {
+  router.push('/xiaoji/voice-call')
 }
 
-function showDeveloping() {
-  ElMessage.info('功能开发中，敬请期待')
+function goSearch() {
+  router.push('/xiaoji/search')
 }
 
-function testVoice() {
+let previewAudio = null
+
+// 试听：走千问 TTS（音色/语速/音量按当前设置），失败降级浏览器语音
+async function testVoice() {
   const text = '你好，我是小基'
-  if (window.speechSynthesis) {
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'zh-CN'
-    utterance.rate = settings.value.voice_speed / 5
-    window.speechSynthesis.speak(utterance)
-  } else {
-    ElMessage.warning('浏览器不支持语音播报')
+  try {
+    const res = await xiaojiTts(text, {
+      speed: settings.value.voice_speed,
+      volume: settings.value.voice_volume,
+      voice_name: settings.value.voice_name
+    })
+    if (!res?.audio_base64) throw new Error('TTS 无音频返回')
+    if (previewAudio) previewAudio.pause()
+    previewAudio = new Audio(`data:audio/mp3;base64,${res.audio_base64}`)
+    previewAudio.volume = Math.min(1, Math.max(0, settings.value.voice_volume / 9))
+    previewAudio.play().catch(() => {})
+    console.log(`[小基语音] 试听：千问 TTS（${settings.value.voice_name}）`)
+  } catch (e) {
+    console.error('千问 TTS 失败，降级浏览器语音:', e)
+    if (window.speechSynthesis) {
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'zh-CN'
+      utterance.rate = settings.value.voice_speed / 5
+      window.speechSynthesis.speak(utterance)
+    } else {
+      ElMessage.warning('浏览器不支持语音播报')
+    }
   }
 }
 
@@ -298,7 +313,7 @@ async function saveSetting() {
     await updateXiaojiConfig(authStore.user.id, settings.value)
     ElMessage.success('设置已保存')
   } catch {
-    ElMessage.warning('保存失败，但本地已生效')
+    ElMessage.warning('保存失败，请重试')
   }
 }
 
@@ -307,6 +322,11 @@ async function loadConfig() {
     const data = await getXiaojiConfig(authStore.user.id)
     if (data) {
       settings.value = { ...settings.value, ...data }
+      // 已保存的音色不在当前列表（老讯飞音色，2026-08-25 收编千问）→ 重置为默认女声并回写
+      if (!voiceList.some(v => v.value === settings.value.voice_name)) {
+        settings.value.voice_name = 'longanqian'
+        updateXiaojiConfig(authStore.user.id, { voice_name: 'longanqian' }).catch(() => {})
+      }
     }
   } catch {
     // 用默认值
@@ -320,6 +340,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopAutoSlide()
+  if (previewAudio) previewAudio.pause()
 })
 </script>
 
@@ -352,7 +373,7 @@ onUnmounted(() => {
   padding: 2px 12px;
   border-radius: 10px;
   background: rgba(34,197,94,0.12);
-  color: #22c55e;
+  color: color-mix(in srgb, #22c55e 65%, var(--text-primary));
 }
 .back-btn {
   color: var(--text-secondary) !important;
@@ -450,7 +471,7 @@ onUnmounted(() => {
   opacity: 1;
   width: 20px;
   border-radius: 4px;
-  background: #409eff;
+  background: var(--brand);
 }
 
 /* ===== 控制按钮 ===== */

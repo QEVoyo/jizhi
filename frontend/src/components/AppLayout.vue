@@ -7,7 +7,7 @@
       </div>
       <slot name="sidebar" />
     </aside>
-    <main class="main-content" :class="{ expanded: isCollapsed }">
+    <main class="main-content" :class="{ expanded: isCollapsed, flush: props.flush }">
       <slot name="main" />
     </main>
   </div>
@@ -18,6 +18,11 @@ import { ref, provide, watch } from 'vue'
 
 const props = defineProps({
   locked: {
+    type: Boolean,
+    default: false
+  },
+  // 主内容零边距模式（全屏嵌入页面如小基主页，自己管理布局与滚动）
+  flush: {
     type: Boolean,
     default: false
   }
@@ -92,10 +97,10 @@ function toggleSidebar() {
   font-size: 14px;
   transition: all 0.3s ease;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
 }
 .sidebar-toggle:hover {
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   color: var(--text-primary);
   transform: scale(1.08);
 }
@@ -121,6 +126,10 @@ function toggleSidebar() {
   min-height: 100vh;
   height: 100vh;
   transition: padding 0.3s ease, margin-left 0.3s ease;
+}
+.main-content.flush {
+  padding: 0;
+  overflow: hidden;
 }
 
 .main-content::-webkit-scrollbar {

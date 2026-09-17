@@ -17,6 +17,22 @@ def get_admin_headers():
     return get_supabase_service_headers()
 
 
+# user_actions.action_type → 社交卡动态文案（与学情报告 engagement 同源取值）
+ACTION_LABELS = {
+    "xiaoji_chat": "和小基聊了会儿天",
+    "voice_call": "进行了语音通话",
+    "vision_ask": "用识图学习了新知识",
+    "evaluate": "完成了一次 AI 评价",
+    "checkin": "完成今日打卡",
+    "tool_use": "使用了一个学习工具",
+    "generate_question": "用 AI 生成了一道题",
+    "answer_question": "完成答题练习",
+    "open_report": "查看了学情报告",
+    "view_report": "查看了学情报告",
+    "study": "学习打卡",
+}
+
+
 @router.get("/{user_id}")
 async def get_profile_card(user_id: str, current_user_id: str = Query(...), current_user: str = Depends(get_current_user)):
     verify_user_match(current_user_id, current_user)
@@ -67,9 +83,37 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...), curr
         ach_list_res = await client.get(achievements_url, headers=headers)
         achievements = ach_list_res.json() if ach_list_res.status_code == 200 else []
 
-        logs_url = f"{app_settings.SUPABASE_URL}/rest/v1/learning_logs?user_id=eq.{user_id}&order=created_at.desc&limit=10"
-        logs_res = await client.get(logs_url, headers=headers)
-        activities = logs_res.json() if logs_res.status_code == 200 else []
+        # 积分 / 段位 / 子段位：真实值在 user_stats（career.py 写入处）
+        stats_url = f"{app_settings.SUPABASE_URL}/rest/v1/user_stats?user_id=eq.{user_id}"
+        stats_res = await client.get(stats_url, headers=headers)
+        stats = stats_res.json()[0] if stats_res.status_code == 200 and stats_res.json() else {}
+        points = stats.get("points", 0) or 0
+        rank = stats.get("rank") or profile.get("rank") or "启程"
+        sub_rank = stats.get("sub_rank") or profile.get("sub_rank") or 1
+
+        # 打卡天数：checkins.projects[].completed_days 之和（profiles 无此字段，旧实现恒 0）
+        checkin_url = f"{app_settings.SUPABASE_URL}/rest/v1/checkins?user_id=eq.{user_id}&select=projects"
+        checkin_res = await client.get(checkin_url, headers=headers)
+        checkin_days = 0
+        if checkin_res.status_code == 200 and checkin_res.json():
+            checkin_days = sum(
+                p.get("completed_days", 0) for p in checkin_res.json()[0].get("projects", [])
+            )
+
+        # 近期动态：user_actions 全产品行为（口径与学情报告 engagement 一致；旧 learning_logs
+        # 表形状为 {user_id, data:[...]}，与前端期望不匹配，此前恒为空——已废弃该源）
+        actions_url = f"{app_settings.SUPABASE_URL}/rest/v1/user_actions?user_id=eq.{user_id}&select=action_type,action_at&order=action_at.desc&limit=10"
+        actions_res = await client.get(actions_url, headers=headers)
+        activities = []
+        if actions_res.status_code == 200:
+            for i, a in enumerate(actions_res.json()):
+                action = a.get("action_type", "activity")
+                activities.append({
+                    "id": f"act_{i}_{a.get('action_at', '')}",
+                    "action": action,
+                    "details": {"text": ACTION_LABELS.get(action, "学习活动")},
+                    "created_at": a.get("action_at")
+                })
 
         settings_url = f"{app_settings.SUPABASE_URL}/rest/v1/profile_card_settings?user_id=eq.{user_id}"
         settings_res = await client.get(settings_url, headers=headers)
@@ -83,6 +127,10 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...), curr
 
         return {
             "profile": profile,
+            "points": points,
+            "rank": rank,
+            "sub_rank": sub_rank,
+            "checkin_days": checkin_days,
             "total_days": total_days,
             "achievement_count": achievement_count,
             "mastery_data": mastery_data,
@@ -127,10 +175,7 @@ async def update_profile_card_settings(
             url = f"{app_settings.SUPABASE_URL}/rest/v1/profile_card_settings"
             res = await client.post(url, headers=headers, json=update_data)
 
-        # 👇 加这两行打印
-        logger.info("=== 更新失败，响应状态码:", res.status_code)
-        logger.info("=== 更新失败，响应内容:", res.text)
-
         if res.status_code not in [200, 201, 204]:
+            logger.info(f"资料卡设置更新失败: {res.status_code} - {res.text}")
             raise HTTPException(status_code=400, detail=f"更新失败: {res.text}")
         return {"success": True, "message": "更新成功"}

@@ -49,8 +49,8 @@
       <div v-else class="empty-state">🎉 暂无薄弱点，继续保持！</div>
     </div>
 
-    <!-- ===== Tabs ===== -->
-    <el-tabs v-model="activeTab" class="resource-tabs" @tab-click="handleTabClick">
+    <!-- ===== Tabs（评估中心 2026-08-30 移入轮盘，作为全局模块，不再挂资源库） ===== -->
+    <el-tabs v-model="activeTab" class="resource-tabs">
       <el-tab-pane label="🤖 生成题目" name="generate">
         <GenerateForm @success="onGenerateSuccess" />
       </el-tab-pane>
@@ -62,32 +62,6 @@
       </el-tab-pane>
       <el-tab-pane label="📜 生成历史" name="history">
         <GenerationHistory ref="historyRef" />
-      </el-tab-pane>
-      <el-tab-pane label="📊 评估中心" name="evaluation">
-        <div class="evaluation-placeholder">
-          <div class="evaluation-grid">
-            <div class="evaluation-card" @click="goReport">
-              <div class="card-icon">📈</div>
-              <div class="card-title">学情报告</div>
-              <div class="card-desc">查看学习进度、掌握度变化趋势</div>
-            </div>
-            <div class="evaluation-card" @click="goProfile">
-              <div class="card-icon">🪐</div>
-              <div class="card-title">维度宇宙</div>
-              <div class="card-desc">九维学习星图 · AI 深度画像 · 3D 探索</div>
-            </div>
-            <div class="evaluation-card" @click="goAssessment">
-              <div class="card-icon">📋</div>
-              <div class="card-title">评估表</div>
-              <div class="card-desc">知识点掌握度评估与建议</div>
-            </div>
-            <div class="evaluation-card" @click="goAdvice">
-              <div class="card-icon">💡</div>
-              <div class="card-title">学习建议</div>
-              <div class="card-desc">AI 生成个性化学习建议</div>
-            </div>
-          </div>
-        </div>
       </el-tab-pane>
     </el-tabs>
   </div>
@@ -217,28 +191,6 @@ function goHome() {
   router.push('/')
 }
 
-function handleTabClick(tab) {
-  if (tab.paneName === 'evaluation') {
-    router.push('/evaluation-center')
-  }
-}
-
-function goReport() {
-  router.push('/home')
-}
-
-function goProfile() {
-  router.push('/profile')
-}
-
-function goAssessment() {
-  ElMessage.info('评估表功能开发中')
-}
-
-function goAdvice() {
-  ElMessage.info('学习建议功能开发中')
-}
-
 onMounted(loadMastery)
 </script>
 
@@ -273,9 +225,9 @@ onMounted(loadMastery)
 }
 
 .mastery-panel {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-soft);
   border-radius: 16px;
   padding: 20px 24px;
   margin-bottom: 24px;
@@ -286,7 +238,7 @@ onMounted(loadMastery)
   transform: translateY(-2px);
 }
 [data-theme="dark"] .mastery-panel {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--well);
   border-color: rgba(255, 255, 255, 0.04);
 }
 
@@ -390,15 +342,15 @@ onMounted(loadMastery)
 }
 .card-btn {
   margin-top: 4px;
-  color: white !important;
-  border-color: rgba(255,255,255,0.25) !important;
-  background: rgba(255,255,255,0.08) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--line) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent) !important;
   transition: all 0.3s ease !important;
   position: relative;
   z-index: 1;
 }
 .card-btn:hover {
-  background: rgba(255,255,255,0.25) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 25%, transparent) !important;
   transform: scale(1.08) translateY(-2px);
 }
 .card-btn:active {
@@ -462,53 +414,14 @@ onMounted(loadMastery)
   max-height: none !important;
 }
 
-/* ===== 评估中心 ===== */
-.evaluation-placeholder {
-  padding: 8px 0;
-}
-.evaluation-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
-}
-.evaluation-card {
-  padding: 24px 20px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-align: center;
-}
-.evaluation-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.12);
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-}
-.card-icon {
-  font-size: 36px;
-  margin-bottom: 10px;
-}
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.card-desc {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-
 [data-theme="dark"] .mastery-panel {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--well);
 }
 [data-theme="dark"] .view-all-btn {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
 }
 [data-theme="dark"] .view-all-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
 }
 
 @media (max-width: 768px) {
@@ -536,9 +449,6 @@ onMounted(loadMastery)
   }
   .color-legend {
     flex-wrap: wrap;
-  }
-  .evaluation-grid {
-    grid-template-columns: 1fr 1fr;
   }
 }
 </style>

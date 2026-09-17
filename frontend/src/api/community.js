@@ -8,10 +8,6 @@ export function getPosts(params) {
   return request.get('/community/posts', { params }).then(res => res.data)
 }
 
-export function getPost(postId, userId) {
-  return request.get(`/community/post/${postId}`, { params: { user_id: userId } }).then(res => res.data)
-}
-
 export function createPost(data) {
   return request.post('/community/post', {
     content: data.content,
@@ -49,26 +45,7 @@ export function uncollectPost(postId, userId) {
 }
 
 // ============================================================
-// 3. 评论
-// ============================================================
-
-export function createComment(data) {
-  return request.post(`/community/post/${data.post_id}/comment`, null, {
-    params: { user_id: data.user_id },
-    data
-  }).then(res => res.data)
-}
-
-export function getComments(postId) {
-  return request.get(`/community/post/${postId}/comments`).then(res => res.data)
-}
-
-export function deleteComment(commentId, userId) {
-  return request.delete(`/community/comment/${commentId}`, { params: { user_id: userId } }).then(res => res.data)
-}
-
-// ============================================================
-// 4. 好友
+// 3. 好友
 // ============================================================
 
 export function getFriends(userId) {
@@ -96,7 +73,7 @@ export function searchUsers(keyword, userId) {
 }
 
 // ============================================================
-// 5. 私聊
+// 4. 私聊
 // ============================================================
 
 export function sendMessage(senderId, data) {
@@ -109,28 +86,8 @@ export function getMessages(userId, friendId) {
   return request.get(`/community/messages/${friendId}`, { params: { user_id: userId } }).then(res => res.data)
 }
 
-export function getUnreadMessageCount(userId) {
-  return request.get('/community/messages/unread/count', { params: { user_id: userId } }).then(res => res.data)
-}
-
 // ============================================================
-// 6. 题集分享
-// ============================================================
-
-export function shareQuestionSet(data) {
-  return request.post('/community/share/set', null, { params: { user_id: data.sender_id }, data }).then(res => res.data)
-}
-
-export function getReceivedShares(userId) {
-  return request.get('/community/share/received', { params: { user_id: userId } }).then(res => res.data)
-}
-
-export function handleShare(shareId, action, userId) {
-  return request.put(`/community/share/set/${shareId}`, null, { params: { action, user_id: userId } }).then(res => res.data)
-}
-
-// ============================================================
-// 7. 举报
+// 5. 举报
 // ============================================================
 
 export function reportContent(data) {
@@ -145,7 +102,7 @@ export function reportContent(data) {
 }
 
 // ============================================================
-// 8. 收藏列表 / 我的发布
+// 6. 收藏列表 / 我的发布
 // ============================================================
 
 export function getCollections(userId, page = 1, pageSize = 20) {
@@ -157,7 +114,7 @@ export function getMyPosts(userId, page = 1, pageSize = 20) {
 }
 
 // ============================================================
-// 9. 资料卡
+// 7. 资料卡
 // ============================================================
 
 export function getProfileCard(userId, currentUserId) {
@@ -189,20 +146,10 @@ export function xiaojiVision(data) {
     params: { user_id: data.user_id }
   }).then(res => res.data)
 }
-export function saveXiaojiMessage(data) {
-  return request.post('/community/xiaoji/save', data, {
-    params: { user_id: data.user_id }
-  }).then(res => res.data)
-}
 // ===== 消息中心 =====
 
 export function getUnreadSummary(userId) {
   return request.get('/community/messages/unread/summary', { params: { user_id: userId } })
-    .then(res => res.data)
-}
-
-export function getUnreadCount(userId) {
-  return request.get('/community/messages/unread/count', { params: { user_id: userId } })
     .then(res => res.data)
 }
 
@@ -215,21 +162,12 @@ export function getFriendsRank(userId) {
   return request.get('/community/friends/rank', { params: { user_id: userId } }).then(res => res.data)
 }
 
-// ===== 消息中心 =====
-export function getMessageHistory(params) {
-  return request.get('/community/messages/history', { params }).then(res => res.data)
-}
-
 export function markAllRead(userId, msgType = 'all') {
   return request.put('/community/messages/read-all', null, { params: { user_id: userId, msg_type: msgType } }).then(res => res.data)
 }
 
 export function clearMessages(userId, msgType = 'all') {
   return request.delete('/community/messages/clear', { params: { user_id: userId, msg_type: msgType } }).then(res => res.data)
-}
-
-export function deleteMessages(userId, ids) {
-  return request.delete('/community/messages', { params: { user_id: userId, ids } }).then(res => res.data)
 }
 
 export function getSidebarBadges(userId) {

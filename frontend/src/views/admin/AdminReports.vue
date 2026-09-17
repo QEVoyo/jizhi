@@ -268,7 +268,7 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
   align-items: center;
   gap: 6px;
   padding: 8px 18px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   color: rgba(255, 255, 255, 0.45);
@@ -276,16 +276,16 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
   cursor: pointer;
   transition: all 0.25s;
 }
-.tab-btn:hover { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.7); }
+.tab-btn:hover { background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent); color: rgba(255, 255, 255, 0.7); }
 .tab-btn.active {
-  background: rgba(64, 158, 255, 0.12);
-  border-color: rgba(64, 158, 255, 0.2);
-  color: #409eff;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent);
+  color: var(--brand);
 }
 
 /* ===== 表格 ===== */
 .table-wrap {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
@@ -327,7 +327,7 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
   padding: 2px 10px;
   border-radius: 10px;
   font-size: 11px;
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   color: rgba(255, 255, 255, 0.5);
 }
 
@@ -344,7 +344,7 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
 
 .action-btns { display: flex; gap: 4px; }
 .done-text { color: rgba(255, 255, 255, 0.2); font-size: 12px; }
-.img-link { color: #409eff; font-size: 12px; text-decoration: none; }
+.img-link { color: var(--brand); font-size: 12px; text-decoration: none; }
 .img-link:hover { text-decoration: underline; }
 
 .empty {
@@ -356,7 +356,7 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
 
 /* ===== Element 覆盖 ===== */
 :deep(.el-select .el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
   border-radius: 8px !important;
   box-shadow: none !important;

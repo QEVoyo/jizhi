@@ -416,8 +416,8 @@ onMounted(() => {
 }
 .publish-title :deep(.el-input__wrapper),
 .publish-textarea :deep(.el-textarea__inner) {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
+  border: 1px solid var(--line-soft) !important;
   border-radius: 10px !important;
   color: var(--text-primary) !important;
 }
@@ -439,13 +439,13 @@ onMounted(() => {
 .publish-toolbar .el-button--primary {
   border-radius: 8px !important;
   padding: 8px 20px !important;
-  background: rgba(64, 158, 255, 0.10) !important;
-  border: 1px solid rgba(64, 158, 255, 0.15) !important;
-  color: #409eff !important;
+  background: color-mix(in srgb, var(--brand) 10%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--brand) 15%, transparent) !important;
+  color: var(--brand) !important;
   transition: all 0.3s ease !important;
 }
 .publish-toolbar .el-button--primary:hover {
-  background: rgba(64, 158, 255, 0.20) !important;
+  background: color-mix(in srgb, var(--brand) 20%, transparent) !important;
   transform: translateY(-2px);
 }
 
@@ -459,7 +459,7 @@ onMounted(() => {
   max-height: 120px;
   object-fit: cover;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-soft);
 }
 .remove-img-icon {
   position: absolute;
@@ -499,17 +499,17 @@ onMounted(() => {
 }
 .search-wrapper :deep(.el-input__wrapper) {
   padding-left: 30px;
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
+  border: 1px solid var(--line-soft) !important;
   border-radius: 10px !important;
   transition: all 0.3s ease !important;
 }
 .search-wrapper :deep(.el-input__wrapper:hover) {
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: var(--line) !important;
 }
 .search-wrapper :deep(.el-input__wrapper.is-focus) {
-  border-color: rgba(64, 158, 255, 0.4) !important;
-  box-shadow: 0 0 0 4px rgba(64, 158, 255, 0.06) !important;
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent) !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 6%, transparent) !important;
 }
 
 .filter-tabs {
@@ -520,20 +520,20 @@ onMounted(() => {
   padding: 4px 14px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 .filter-tab:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   transform: translateY(-2px);
 }
 .filter-tab.active {
-  background: rgba(64, 158, 255, 0.10);
-  border-color: rgba(64, 158, 255, 0.2);
-  color: #409eff;
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent);
+  color: var(--brand);
 }
 
 /* ===== 动态列表 ===== */

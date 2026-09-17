@@ -236,8 +236,6 @@ async def run_code(lang: str, code: str, stdin: str = "",
 
 def _run_compiled_local(lang: str, code: str, stdin: str, timeout_ms: int = 5000) -> dict | None:
     """本地编译执行 C/C++/Java。编译器不存在返回 None"""
-    import shutil
-
     exts = {"c": ".c", "cpp": ".cpp", "c++": ".cpp", "java": ".java"}
     ext = exts.get(lang, ".cpp")
     timeout_sec = max(1, timeout_ms // 1000)
@@ -249,8 +247,8 @@ def _run_compiled_local(lang: str, code: str, stdin: str, timeout_ms: int = 5000
     exe_path = None
     try:
         if lang == "java":
-            javac = shutil.which("javac")
-            java = shutil.which("java")
+            javac = _find_compiler(["javac"])
+            java = _find_compiler(["java"])
             if not javac or not java:
                 return None  # 回退到 Piston
             work_dir = os.path.dirname(src_path)
@@ -261,12 +259,19 @@ def _run_compiled_local(lang: str, code: str, stdin: str, timeout_ms: int = 5000
             class_path = os.path.join(work_dir, class_name + ".java")
             os.rename(src_path, class_path)
             src_path = class_path
-            # 编译
-            subprocess.run([javac, class_path], capture_output=True, text=True, timeout=timeout_sec, cwd=work_dir)
+            # 编译：源码按 UTF-8 落盘，javac 默认跟随平台编码（中文 Windows 为 GBK）→ 必须显式指定，
+            # 否则含中文注释/字符串的代码会静默编译失败，只报「找不到主类」
+            compile_proc = subprocess.run(
+                [javac, "-encoding", "UTF-8", class_path],
+                capture_output=True, text=True, timeout=timeout_sec, cwd=work_dir
+            )
+            if compile_proc.returncode != 0:
+                return {"stdout": "", "stderr": compile_proc.stderr or compile_proc.stdout,
+                        "exit_code": compile_proc.returncode, "timeout": False, "language": lang}
             # 运行
             proc = subprocess.run([java, "-cp", work_dir, class_name], input=stdin, capture_output=True, text=True, timeout=timeout_sec)
         else:
-            compiler = shutil.which("gcc") if lang == "c" else shutil.which("g++")
+            compiler = _find_compiler(["gcc"]) if lang == "c" else _find_compiler(["g++"])
             if not compiler:
                 return None  # 回退到 Piston
             exe_path = src_path + ".exe"

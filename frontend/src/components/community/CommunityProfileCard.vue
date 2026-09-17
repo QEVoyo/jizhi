@@ -2,7 +2,7 @@
   <div class="community-profile-card">
     <!-- ===== 顶部 ===== -->
     <div class="profile-header">
-      <div class="header-left">
+      <div v-if="!props.hideTitle" class="header-left">
         <h2>📋 我的资料卡</h2>
         <span class="header-subtitle">学习成果名片</span>
       </div>
@@ -54,27 +54,27 @@
           <rect x="400" y="600" width="50" height="50" rx="8" fill="url(#grad3)" opacity="0.15" />
           <line x1="0" y1="0" x2="500" y2="700" stroke="url(#grad1)" stroke-width="1.5" opacity="0.10" />
           <line x1="500" y1="0" x2="0" y2="700" stroke="url(#grad2)" stroke-width="1.5" opacity="0.10" />
-          <circle cx="200" cy="100" r="3" fill="#409eff" opacity="0.20" />
+          <circle cx="200" cy="100" r="3" fill="var(--brand)" opacity="0.20" />
           <circle cx="300" cy="160" r="3" fill="#8b5cf6" opacity="0.20" />
           <circle cx="150" cy="280" r="3" fill="#f472b6" opacity="0.20" />
-          <circle cx="350" cy="240" r="3" fill="#409eff" opacity="0.20" />
+          <circle cx="350" cy="240" r="3" fill="var(--brand)" opacity="0.20" />
           <circle cx="400" cy="440" r="3" fill="#8b5cf6" opacity="0.20" />
           <circle cx="100" cy="480" r="3" fill="#f472b6" opacity="0.20" />
-          <circle cx="250" cy="560" r="3" fill="#409eff" opacity="0.20" />
+          <circle cx="250" cy="560" r="3" fill="var(--brand)" opacity="0.20" />
           <circle cx="320" cy="620" r="3" fill="#8b5cf6" opacity="0.20" />
 
           <defs>
             <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#409eff;stop-opacity:1" />
+              <stop offset="0%" style="stop-color:var(--brand);stop-opacity:1" />
               <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
             </linearGradient>
             <linearGradient id="grad2" x1="0%" y1="100%" x2="100%" y2="0%">
               <stop offset="0%" style="stop-color:#f472b6;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#409eff;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:var(--brand);stop-opacity:1" />
             </linearGradient>
             <linearGradient id="grad3" x1="100%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" style="stop-color:#34d399;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#409eff;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:var(--brand);stop-opacity:1" />
             </linearGradient>
             <linearGradient id="grad4" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
@@ -189,17 +189,44 @@
           </div>
         </div>
 
-        <!-- 动态 -->
-        <div class="activities-section">
+        <!-- 动态（有记录才展示，避免整段空白） -->
+        <div v-if="activities.length" class="activities-section">
           <div class="section-header">
             <h4>📈 近期动态</h4>
             <span class="section-count">{{ activities.length }} 条</span>
           </div>
-          <div v-if="!activities.length" class="empty-tip">暂无动态</div>
           <div v-for="act in activities.slice(0, 5)" :key="act.id" class="activity-item">
             <span class="activity-icon">{{ getActivityIcon(act.action) }}</span>
             <span class="activity-text">{{ act.details?.text || act.action || '学习记录' }}</span>
             <span class="activity-time">{{ formatTime(act.created_at) }}</span>
+          </div>
+        </div>
+
+        <!-- ===== 2026-09-03 个人中心内容融入资料卡：仅展示类内容（邮箱/学习画像），
+           卡是给好友/陌生人看的名片——动作与跳转一律不得进卡（编辑/问卷/退出在 /profile 页面卡外） ===== -->
+        <!-- 邮箱 -->
+        <div class="pc-section pc-account">
+          <div class="section-header">
+            <h4>📧 联系</h4>
+          </div>
+          <div class="pc-account-line">
+            <span class="pc-al-label">邮箱</span>
+            <span class="pc-al-value">{{ cardUser?.email || '未设置' }}</span>
+          </div>
+        </div>
+
+        <!-- 学习画像（展示） -->
+        <div class="pc-section">
+          <div class="section-header">
+            <h4>🎯 学习画像</h4>
+            <span class="section-count">7 项</span>
+          </div>
+          <div class="pc-pref-grid">
+            <div v-for="t in prefTiles" :key="t.label" class="pc-pref-tile" :class="{ empty: !t.value }">
+              <span class="pc-pref-icon">{{ t.icon }}</span>
+              <span class="pc-pref-label">{{ t.label }}</span>
+              <span class="pc-pref-value">{{ t.value || '未设置' }}</span>
+            </div>
           </div>
         </div>
 
@@ -293,26 +320,26 @@
               <rect x="400" y="600" width="50" height="50" rx="8" fill="url(#grad3)" opacity="0.15" />
               <line x1="0" y1="0" x2="500" y2="700" stroke="url(#grad1)" stroke-width="1.5" opacity="0.10" />
               <line x1="500" y1="0" x2="0" y2="700" stroke="url(#grad2)" stroke-width="1.5" opacity="0.10" />
-              <circle cx="200" cy="100" r="3" fill="#409eff" opacity="0.20" />
+              <circle cx="200" cy="100" r="3" fill="var(--brand)" opacity="0.20" />
               <circle cx="300" cy="160" r="3" fill="#8b5cf6" opacity="0.20" />
               <circle cx="150" cy="280" r="3" fill="#f472b6" opacity="0.20" />
-              <circle cx="350" cy="240" r="3" fill="#409eff" opacity="0.20" />
+              <circle cx="350" cy="240" r="3" fill="var(--brand)" opacity="0.20" />
               <circle cx="400" cy="440" r="3" fill="#8b5cf6" opacity="0.20" />
               <circle cx="100" cy="480" r="3" fill="#f472b6" opacity="0.20" />
-              <circle cx="250" cy="560" r="3" fill="#409eff" opacity="0.20" />
+              <circle cx="250" cy="560" r="3" fill="var(--brand)" opacity="0.20" />
               <circle cx="320" cy="620" r="3" fill="#8b5cf6" opacity="0.20" />
               <defs>
                 <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:#409eff;stop-opacity:1" />
+                  <stop offset="0%" style="stop-color:var(--brand);stop-opacity:1" />
                   <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
                 </linearGradient>
                 <linearGradient id="grad2" x1="0%" y1="100%" x2="100%" y2="0%">
                   <stop offset="0%" style="stop-color:#f472b6;stop-opacity:1" />
-                  <stop offset="100%" style="stop-color:#409eff;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:var(--brand);stop-opacity:1" />
                 </linearGradient>
                 <linearGradient id="grad3" x1="100%" y1="0%" x2="0%" y2="100%">
                   <stop offset="0%" style="stop-color:#34d399;stop-opacity:1" />
-                  <stop offset="100%" style="stop-color:#409eff;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:var(--brand);stop-opacity:1" />
                 </linearGradient>
                 <linearGradient id="grad4" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
@@ -429,6 +456,27 @@ import { RANK_ICONS, RANK_COLORS, SUB_SYMBOLS } from '@/utils/constants'
 
 const authStore = useAuthStore()
 
+// 2026-09-03 资料卡迁入个人中心：hideTitle 隐藏「我的资料卡」头（页面顶栏已有标题）
+const props = defineProps({
+  hideTitle: { type: Boolean, default: false }
+})
+
+// ===== 展示类内容（2026-09-03）：资料卡是给好友/陌生人看的名片，只读数据一律取「卡主」而非当前登录者
+//      — 自己看时 profile 与 authStore.user 同源；将来卡片供他人查看时数据依然是卡主的
+const cardUser = computed(() => profile.value || authStore.user || {})
+const prefTiles = computed(() => {
+  const u = cardUser.value
+  return [
+    { icon: '🏫', label: '学习阶段', value: u.learning_stage },
+    { icon: '📚', label: '年级', value: u.grade },
+    { icon: '🔬', label: '专业/方向', value: u.major },
+    { icon: '🎯', label: '学习目标', value: u.learning_goal },
+    { icon: '📊', label: '题目难度', value: u.difficulty_preference },
+    { icon: '💬', label: '讲解方式', value: u.learning_style },
+    { icon: '⏱', label: '每日学习', value: u.daily_study_time },
+  ]
+})
+
 const loading = ref(false)
 const refreshing = ref(false)
 const pdfExporting = ref(false)
@@ -453,9 +501,20 @@ const tempSelectedAchievements = ref([])
 const cardRef = ref(null)
 const previewRef = ref(null)
 
+// 等差数列等级（与 CareerSidebar / 全站段位口径一致；旧公式 points/100+1 会与别处数字打架）
+function calcLevel(points) {
+  let level = 1
+  let totalNeeded = 2
+  while (points >= totalNeeded) {
+    level++
+    totalNeeded += (level + 1)
+  }
+  return level
+}
+
 const userLevel = computed(() => {
   if (!profile.value) return 1
-  return Math.floor((profile.value.points || 0) / 100) + 1
+  return calcLevel(profile.value.points || 0)
 })
 
 const rankName = computed(() => profile.value?.rank || '启程')
@@ -550,13 +609,14 @@ async function loadData() {
   loading.value = true
   try {
     const res = await getProfileCard(authStore.user.id, authStore.user.id)
-    profile.value = res.profile
+    // 积分/段位/打卡的真实值在后端从 user_stats/checkins 聚合返回，覆盖 profiles 行的空字段
+    profile.value = { ...res.profile, points: res.points ?? res.profile?.points, rank: res.rank, sub_rank: res.sub_rank }
     allTopics.value = res.mastery_data || []
     allAchievements.value = res.achievements || []
     activities.value = res.activities || []
     totalDays.value = res.total_days || 0
     achievementCount.value = res.achievement_count || 0
-    checkinDays.value = res.profile?.checkin_days || 0
+    checkinDays.value = res.checkin_days || 0
     selectedTopics.value = res.selected_topics || []
     selectedAchievements.value = res.selected_achievements || []
   } catch (error) {
@@ -719,13 +779,13 @@ async function doExport(element, type) {
           if (avatarUrl) {
             wrapper.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;display:block;" />`
           } else {
-            wrapper.style.background = 'linear-gradient(135deg, #409eff, #8b5cf6)'
-            wrapper.innerHTML = `<span style="color:#fff;font-size:28px;font-weight:600;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">${name}</span>`
+            wrapper.style.background = 'linear-gradient(135deg, #409EFF, #8b5cf6)'
+            wrapper.innerHTML = `<span style="color:#ffffff;font-size:28px;font-weight:600;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">${name}</span>`
           }
         }
 
         // 所有文字强制白色
-        const textEls = clonedEl.querySelectorAll('.brand-name, .user-name, .user-account, .user-bio, .meta-badge, .stat-number, .stat-label, .topic-name, .topic-score, .topic-badge, .ach-name, .activity-text, .activity-time, .footer-brand span, .footer-url, .section-header h4, .section-count, .empty-tip')
+        const textEls = clonedEl.querySelectorAll('.brand-name, .user-name, .user-account, .user-bio, .meta-badge, .stat-number, .stat-label, .topic-name, .topic-score, .topic-badge, .ach-name, .activity-text, .activity-time, .footer-brand span, .footer-url, .section-header h4, .section-count, .empty-tip, .pc-al-label, .pc-al-value, .pc-pref-label, .pc-pref-value')
         textEls.forEach(el => {
           el.style.color = '#ffffff'
           el.style.opacity = '1'
@@ -872,7 +932,7 @@ onMounted(() => {
   height: 280px;
   top: -80px;
   right: -80px;
-  background: rgba(64,158,255,0.12);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
 }
 .glow-2 {
   width: 220px;
@@ -938,14 +998,14 @@ onMounted(() => {
   flex-shrink: 0;
 }
 .user-avatar {
-  border: 3px solid rgba(255,255,255,0.10);
+  border: 3px solid var(--line-soft);
 }
 .avatar-ring {
   position: absolute;
   inset: -6px;
   border-radius: 50%;
   border: 2px solid transparent;
-  background: linear-gradient(135deg, #409eff, #8b5cf6, #f472b6) border-box;
+  background: linear-gradient(135deg, var(--brand), #8b5cf6, #f472b6) border-box;
   -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -967,8 +1027,8 @@ onMounted(() => {
   margin: 4px 0;
   padding: 4px 12px;
   border-radius: 6px;
-  background: rgba(255,255,255,0.04);
-  border-left: 2px solid rgba(64,158,255,0.25);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--brand) 25%, transparent);
 }
 .user-meta {
   display: flex;
@@ -981,12 +1041,12 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
-  background: rgba(255,255,255,0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   color: rgba(255,255,255,0.75);
 }
 .meta-badge.level {
-  background: rgba(64,158,255,0.15);
-  color: #66b1ff;
+  background: color-mix(in srgb, var(--brand) 15%, transparent);
+  color: var(--brand-bright);
 }
 .meta-badge.rank {
   background: rgba(255,215,0,0.10);
@@ -1026,7 +1086,7 @@ onMounted(() => {
 .stat-divider {
   width: 1px;
   height: 28px;
-  background: rgba(255,255,255,0.05);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
 }
 
 /* ===== 通用 ===== */
@@ -1106,14 +1166,14 @@ onMounted(() => {
   gap: 6px;
   padding: 6px 14px 6px 10px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid rgba(255,255,255,0.05);
   font-size: 14px;
   transition: all 0.3s ease;
 }
 .achievement-item:hover {
   transform: translateY(-2px);
-  background: rgba(255,255,255,0.07);
+  background: color-mix(in srgb, var(--surface, #ffffff) 7%, transparent);
 }
 .achievement-item i {
   font-size: 20px;
@@ -1184,6 +1244,33 @@ onMounted(() => {
   font-size: 11px;
   color: rgba(255,255,255,0.12);
 }
+
+/* ===== 2026-09-03 个人中心融入区（固定在卡内深色名片基底上，随卡统一观感） ===== */
+.pc-section {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.pc-account-line { display: flex; gap: 12px; font-size: 13px; }
+.pc-al-label { color: rgba(255,255,255,0.4); }
+.pc-al-value { color: rgba(255,255,255,0.92); font-weight: 500; word-break: break-all; }
+
+.pc-pref-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.pc-pref-tile {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.pc-pref-icon { font-size: 16px; }
+.pc-pref-label { font-size: 11px; color: rgba(255,255,255,0.35); min-width: 52px; }
+.pc-pref-value { font-size: 12px; font-weight: 600; color: var(--brand-bright); }
+.pc-pref-tile.empty .pc-pref-value { color: rgba(255,255,255,0.3); font-weight: 400; }
+
 .loading-state {
   text-align: center;
   padding: 60px 20px;
@@ -1192,13 +1279,13 @@ onMounted(() => {
 
 /* ===== 设置弹窗 ===== */
 .settings-dialog :deep(.el-dialog) {
-  background: rgba(255,255,255,0.06) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent) !important;
   backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
+  border: 1px solid var(--line-soft) !important;
   border-radius: 16px !important;
 }
 [data-theme="dark"] .settings-dialog :deep(.el-dialog) {
-  background: rgba(0,0,0,0.3) !important;
+  background: var(--well) !important;
 }
 .settings-dialog :deep(.el-dialog__title) {
   color: var(--text-primary) !important;
@@ -1211,15 +1298,15 @@ onMounted(() => {
   padding: 8px 24px 16px;
 }
 .settings-dialog :deep(.el-button) {
-  background: rgba(255,255,255,0.06) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent) !important;
   border: 1px solid rgba(255,255,255,0.06) !important;
   color: var(--text-secondary) !important;
   border-radius: 8px !important;
 }
 .settings-dialog :deep(.el-button--primary) {
-  background: rgba(64,158,255,0.15) !important;
-  border-color: rgba(64,158,255,0.2) !important;
-  color: #66b1ff !important;
+  background: color-mix(in srgb, var(--brand) 15%, transparent) !important;
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent) !important;
+  color: var(--brand-bright) !important;
 }
 .settings-content {
   display: flex;
@@ -1258,18 +1345,18 @@ onMounted(() => {
   padding: 6px 12px;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 13px;
   color: var(--text-secondary);
 }
 .setting-item:hover {
-  background: rgba(255,255,255,0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
 }
 .setting-item.selected {
-  border-color: rgba(64,158,255,0.4);
-  background: rgba(64,158,255,0.08);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
   color: var(--text-primary);
 }
 .setting-item .item-score {
@@ -1283,13 +1370,13 @@ onMounted(() => {
 
 /* ===== 预览弹窗 ===== */
 .preview-dialog :deep(.el-dialog) {
-  background: rgba(255,255,255,0.06) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent) !important;
   backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
+  border: 1px solid var(--line-soft) !important;
   border-radius: 16px !important;
 }
 [data-theme="dark"] .preview-dialog :deep(.el-dialog) {
-  background: rgba(0,0,0,0.3) !important;
+  background: var(--well) !important;
 }
 .preview-dialog :deep(.el-dialog__title) {
   color: var(--text-primary) !important;
@@ -1302,15 +1389,15 @@ onMounted(() => {
   padding: 8px 24px 16px;
 }
 .preview-dialog :deep(.el-button) {
-  background: rgba(255,255,255,0.06) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent) !important;
   border: 1px solid rgba(255,255,255,0.06) !important;
   color: var(--text-secondary) !important;
   border-radius: 8px !important;
 }
 .preview-dialog :deep(.el-button--primary) {
-  background: rgba(64,158,255,0.15) !important;
-  border-color: rgba(64,158,255,0.2) !important;
-  color: #66b1ff !important;
+  background: color-mix(in srgb, var(--brand) 15%, transparent) !important;
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent) !important;
+  color: var(--brand-bright) !important;
 }
 .preview-dialog :deep(.el-button--success) {
   background: rgba(103,194,58,0.15) !important;

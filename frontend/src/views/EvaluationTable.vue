@@ -33,127 +33,110 @@
 
       <div class="divider"></div>
 
-      <div v-if="loading" class="loading-state">
-        <div class="loader"></div>
-        <span>加载中...</span>
-      </div>
+      <!-- ===== 友好加载 ===== -->
+      <LoadingSpinner
+        v-if="loading"
+        variant="orbit"
+        :size="80"
+        :flow-steps="['正在读取你的全平台学习数据…', '评估 Agent 正在逐项评估…', '正在生成诊断与行动建议…']"
+      />
 
+      <!-- ===== 内容（2026-08-30：纯评估结论页——数据展示归学情报告，这里只出评级/诊断/行动） ===== -->
       <div v-else class="table-content" ref="reportContentRef">
-        <!-- ===== 1. 综合评分 ===== -->
-        <div class="score-section">
-          <div class="score-ring">
-            <div class="ring-glow"></div>
-            <svg viewBox="0 0 120 120" class="score-svg">
-              <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="6"/>
-              <circle cx="60" cy="60" r="50" fill="none" :stroke="ratingColor" stroke-width="6" stroke-linecap="round"
-                :stroke-dasharray="`${(overallScore || 0) * 3.14} 314`"
-                :style="{ transform: 'rotate(-90deg)', transformOrigin: 'center' }"
-              />
-            </svg>
-            <div class="score-center">
-              <span class="score-number" :style="{ color: ratingColor }">{{ overallScore || 0 }}</span>
-              <span class="score-label">综合能力</span>
-            </div>
-          </div>
-          <div class="score-meta">
-            <div class="meta-item">
-              <span class="meta-label">评级</span>
-              <span class="meta-value" :style="{ color: ratingColor, textShadow: `0 0 20px ${ratingColor}40` }">{{ rating }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">学习阶段</span>
-              <span class="meta-value">{{ stage }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">知识点</span>
-              <span class="meta-value">{{ totalTopics }}</span>
-            </div>
-          </div>
+        <!-- 1. 评级条（动画：徽章光环脉冲） -->
+        <div class="rating-strip reveal-item" style="animation-delay: 0s">
+          <span class="rating-badge" :style="{ color: ratingColor, borderColor: ratingColor + '66', background: ratingColor + '14' }">
+            {{ rating }}
+          </span>
+          <span class="rating-meta">学习阶段：{{ stage }}</span>
+          <span class="rating-meta muted">结论由全平台近 30 天真实使用数据生成 · 数据明细见「学情报告」</span>
         </div>
 
-        <!-- ===== 2. 学习人格总览 ===== -->
-        <div class="personality-overview">
-          <div class="personality-glow-bg"></div>
-          <div class="personality-badge">
-            <span class="personality-emoji">{{ personalityEmoji }}</span>
-            <span class="personality-type">{{ personalityType }}</span>
-          </div>
-          <div class="personality-desc">{{ personalityDesc }}</div>
-          <div class="personality-tags">
-            <span v-for="tag in personalityTags" :key="tag" class="personality-tag">{{ tag }}</span>
-          </div>
-        </div>
-
-        <!-- ===== 3. 六维雷达图 ===== -->
-        <div class="table-section">
-          <h3>多维能力雷达</h3>
-          <div ref="radarChartRef" style="width: 100%; height: 300px;"></div>
-        </div>
-
-        <!-- ===== 4. 各维度详情 ===== -->
-        <div class="table-section">
-          <h3>各维度分析</h3>
-          <div class="dimension-grid">
-            <div v-for="dim in dimensions" :key="dim.name" class="dimension-card" :style="{ borderColor: dim.color + '44' }">
-              <div class="dim-card-glow" :style="{ background: `radial-gradient(circle, ${dim.color}20, transparent 70%)` }"></div>
-              <div class="dimension-header">
-                <span class="dimension-icon">{{ dim.icon }}</span>
-                <span class="dimension-name">{{ dim.name }}</span>
-                <span class="dimension-score" :style="{ color: dim.color }">{{ dim.score }}%</span>
-              </div>
-              <div class="dimension-bar">
-                <div class="dimension-fill" :style="{ width: dim.score + '%', background: `linear-gradient(90deg, ${dim.color}66, ${dim.color})` }"></div>
-                <div class="bar-pulse" :style="{ left: dim.score + '%', background: dim.color }"></div>
-              </div>
-              <div class="dimension-status" :style="{ color: dim.color }">{{ dim.status }}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== 5. 学习行为统计 ===== -->
-        <div class="table-section">
-          <h3>学习行为</h3>
-          <div class="behavior-grid">
-            <div v-for="item in behaviorData" :key="item.label" class="behavior-card" :style="{ borderColor: item.color + '33' }">
-              <span class="behavior-number" :style="{ color: item.color }">{{ item.value }}</span>
-              <span class="behavior-label">{{ item.label }}</span>
-              <div class="behavior-bar">
-                <div class="behavior-bar-fill" :style="{ width: item.percent + '%', background: item.color }"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== 6. 智能诊断 + 生成规划 ===== -->
-        <div class="table-section diagnosis-section">
+        <!-- 2. AI 深度诊断（评估核心，分块依次浮现） -->
+        <div class="table-section diagnosis-section reveal-item" style="animation-delay: .12s">
           <div class="diagnosis-glow"></div>
-          <h3>智能诊断</h3>
-          <div class="diagnosis-grid">
-            <div v-for="item in diagnosisItems" :key="item.label" class="diagnosis-card" :style="{ borderColor: item.color + '44' }">
-              <div class="diag-top-line" :style="{ background: `linear-gradient(90deg, ${item.color}, transparent)` }"></div>
-              <div class="diagnosis-icon">{{ item.icon }}</div>
-              <div class="diagnosis-label" :style="{ color: item.color }">{{ item.label }}</div>
-              <div class="diagnosis-value" :style="{ color: item.color }">{{ item.value }}</div>
+          <h3>AI 深度诊断</h3>
+
+          <div class="diag-core diag-step" style="animation-delay: .25s">
+            <span class="diag-core-label">核心问题</span>
+            <span class="diag-core-text">{{ coreIssue }}</span>
+          </div>
+
+          <div class="diag-cause diag-step" style="animation-delay: .45s">
+            <span class="diag-cause-label">📌 归因</span>
+            <p class="diag-cause-text">{{ cause }}</p>
+          </div>
+
+          <div class="diag-strength diag-step" style="animation-delay: .65s">
+            <span class="diag-strength-label">✅ 你的优势</span>
+            <span class="diag-strength-text">{{ strengths }}</span>
+          </div>
+
+          <div class="diag-actions-block diag-step" style="animation-delay: .85s">
+            <span class="diag-actions-label">🎯 建议行动</span>
+            <div class="diag-action-list">
+              <div
+                v-for="(a, i) in adviceActions"
+                :key="i"
+                class="diag-action-row action-row"
+                :style="{ animationDelay: (0.95 + i * 0.18) + 's' }"
+              >
+                <span class="diag-action-index">{{ i + 1 }}</span>
+                <span class="diag-action-text">{{ a }}</span>
+              </div>
             </div>
           </div>
 
-          <div class="diagnosis-actions">
-            <button class="glass-btn" @click="copyDiagnosis">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-              </svg>
-              复制诊断
-            </button>
-            <button class="glass-btn primary generate-plan-btn" @click="goToPlan">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5"/>
-                <path d="M2 12l10 5 10-5"/>
-              </svg>
-              生成规划
-            </button>
+          <div class="persona-line diag-step" style="animation-delay: 1.5s">
+            <span class="persona-type">小基眼中的你：{{ personaType }}</span>
+            <span class="persona-desc">{{ personaDesc }}</span>
+            <span
+              v-for="(t, i) in personaTags"
+              :key="t"
+              class="persona-tag tag-pop"
+              :style="{ animationDelay: (1.6 + i * 0.1) + 's' }"
+            >{{ t }}</span>
           </div>
+        </div>
+
+        <!-- 3. 行动清单（逐行错峰滑入） -->
+        <div class="table-section reveal-item" style="animation-delay: .9s" v-if="weakTopics.length">
+          <h3>待攻克清单</h3>
+          <div class="weak-list">
+            <div
+              v-for="(w, i) in weakTopics"
+              :key="w.topic"
+              class="weak-row weak-row-anim"
+              :style="{ animationDelay: (1.0 + i * 0.12) + 's' }"
+            >
+              <span class="weak-rank-dot" :style="{ background: w.score < 40 ? '#EF4444' : '#F59E0B' }"></span>
+              <span class="weak-name">{{ w.topic }}</span>
+              <button class="glass-btn small-btn" @click="goPractice(w.topic)">去练习 →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 主 CTA -->
+        <div class="cta-block reveal-item" style="animation-delay: 1.1s">
+          <div class="cta-copy">
+            <div class="cta-title">把诊断变成计划</div>
+            <div class="cta-desc">按上面的薄弱项生成一个自定义计划，AI 拆解每日任务，逐天推进</div>
+          </div>
+          <button class="glass-btn primary generate-plan-btn" @click="goToPlan">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+            生成自定义计划
+          </button>
+          <button class="glass-btn" @click="copyDiagnosis">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>
+            复制诊断
+          </button>
         </div>
       </div>
     </div>
@@ -161,272 +144,145 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import { ElMessage } from 'element-plus'
-import * as echarts from 'echarts'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
 
-const loading = ref(false)
+const loading = ref(true)
 const pdfExporting = ref(false)
 const generateDate = ref('')
-const radarChartRef = ref(null)
 const reportContentRef = ref(null)
-let radarChart = null
 
-const overallScore = ref(0)
-const totalTopics = ref(0)
 const rating = ref('')
-const ratingColor = ref('#409EFF')
+const ratingColor = ref(themeStore.brandColor)
 const stage = ref('')
+const weakTopics = ref([])
 
-const personalityEmoji = ref('🧠')
-const personalityType = ref('')
-const personalityDesc = ref('')
-const personalityTags = ref([])
-const dimensions = ref([])
-const behaviorData = ref([])
-const diagnosisItems = ref([])
+const coreIssue = ref('')
+const cause = ref('')
+const strengths = ref('')
+const adviceActions = ref([])
+const personaType = ref('')
+const personaDesc = ref('')
+const personaTags = ref([])
 
-const diagnosisSummary = ref({
-  strengths: '',
-  weaknesses: '',
-  coreIssue: '',
-  advice: '',
-  stage: ''
+// 用于「生成自定义计划」透传
+const planPayload = ref({ weaknesses: '', strengths: '', coreIssue: '', advice: '', stage: '', difficulty: 13 })
+
+const RATING_COLORS = () => ({
+  '巅峰期': '#FFD700', '卓越期': '#8B5CF6', '精进期': themeStore.brandColor, '筑基期': '#F59E0B', '开拓期': '#EF4444',
 })
-
-const MASTERY_COLORS = [
-  '#FF0000', '#FF1A00', '#FF3300', '#FF4D00', '#FF6600',
-  '#FF8000', '#FF9900', '#FFB300', '#FFCC00', '#FFE600',
-  '#D4E000', '#A8D500', '#7DCC00', '#52C200', '#26B800',
-  '#00AD00', '#00A300', '#009900', '#008000', '#006600'
-]
-
-function getColor(score) {
-  const index = Math.min(Math.floor(score / 5), 19)
-  return MASTERY_COLORS[index] || '#888'
-}
-
-function loadRadarChart() {
-  if (!radarChartRef.value) return
-  if (radarChart) { radarChart.dispose(); radarChart = null }
-
-  const data = dimensions.value.map(d => d.score)
-  const names = dimensions.value.map(d => d.name)
-
-  radarChart = echarts.init(radarChartRef.value)
-  radarChart.setOption({
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: 'rgba(0,0,0,0.7)',
-      borderColor: 'rgba(255,255,255,0.1)',
-      textStyle: { color: '#fff' }
-    },
-    radar: {
-      indicator: names.map(name => ({ name, max: 100 })),
-      shape: 'circle',
-      center: ['50%', '50%'],
-      radius: '65%',
-      axisName: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 13,
-        fontWeight: 'bold'
-      },
-      splitArea: {
-        areaStyle: {
-          color: ['rgba(64,158,255,0.02)', 'rgba(64,158,255,0.04)']
-        }
-      },
-      axisLine: {
-        lineStyle: { color: 'rgba(255,255,255,0.08)' }
-      }
-    },
-    series: [{
-      type: 'radar',
-      data: [{
-        value: data,
-        name: '当前能力',
-        areaStyle: { color: 'rgba(64,158,255,0.15)' },
-        lineStyle: { color: '#409EFF', width: 2 },
-        itemStyle: { color: '#409EFF' }
-      }],
-      symbol: 'circle',
-      symbolSize: 6,
-      animationDuration: 1000,
-      animationEasing: 'cubicOut'
-    }]
-  })
-  radarChart.resize()
-}
-
-function generateDiagnosis() {
-  const dims = dimensions.value
-  const strong = dims.filter(d => d.score >= 70).map(d => d.name)
-  const weak = dims.filter(d => d.score < 60).map(d => d.name)
-  const mid = dims.filter(d => d.score >= 60 && d.score < 70).map(d => d.name)
-
-  const maxDim = dims.reduce((a, b) => a.score > b.score ? a : b)
-
-  // ✅ 直接从用户资料读取学习阶段，不靠 AI 瞎猜
-  stage.value = authStore.user?.learning_stage || '未设置'
-
-  const typeMap = [
-    { name: '探索型学者', emoji: '🔬', desc: '好奇心旺盛，善于发现新知识，适合跨学科学习' },
-    { name: '稳健型学习者', emoji: '🛡️', desc: '脚踏实地，基础扎实，适合系统性深入学习' },
-    { name: '创新型思维者', emoji: '💡', desc: '思维灵活，善于举一反三，适合解决复杂问题' },
-    { name: '专注型深耕者', emoji: '🎯', desc: '专注力强，擅长深度钻研，适合专业领域突破' },
-    { name: '均衡型探索者', emoji: '⚖️', desc: '各维度发展均衡，学习适应性强' }
-  ]
-
-  let idx = 0
-  if (maxDim.score >= 70) idx = Math.floor(Math.random() * 3)
-  else if (maxDim.score >= 50) idx = 3
-  else idx = 4
-
-  personalityEmoji.value = typeMap[idx].emoji
-  personalityType.value = typeMap[idx].name
-  personalityDesc.value = typeMap[idx].desc
-
-  const tags = []
-  if (strong.length > 0) tags.push(`优势 ${strong.slice(0, 2).join('/')}`)
-  if (weak.length > 0) tags.push(`待提升 ${weak.slice(0, 2).join('/')}`)
-  if (mid.length > 0) tags.push(`可突破 ${mid.slice(0, 2).join('/')}`)
-  if (tags.length === 0) tags.push('各维度均衡')
-  personalityTags.value = tags.slice(0, 4)
-
-  const strongText = strong.length > 0 ? strong.slice(0, 2).join('、') : '暂无明显优势'
-  const weakText = weak.length > 0 ? weak.slice(0, 2).join('、') : '暂无薄弱项'
-  const midText = mid.length > 0 ? mid[0] : '各维度发展良好'
-  const adviceText = weak.length > 0 ? `优先攻克 ${weak[0]}` : '保持当前节奏，稳步提升'
-
-  diagnosisItems.value = [
-    { icon: '🎯', label: '核心优势', value: strongText, color: '#22C55E' },
-    { icon: '📌', label: '待提升维度', value: weakText, color: '#EF4444' },
-    { icon: '📈', label: '成长潜力', value: midText, color: '#F59E0B' },
-    { icon: '💡', label: '学习建议', value: adviceText, color: '#409EFF' }
-  ]
-
-  // ✅ 计算综合评分并赋予积极评级
-  const total = dims.reduce((s, d) => s + d.score, 0)
-  overallScore.value = Math.round(total / dims.length)
-
-  if (overallScore.value >= 85) {
-    rating.value = '巅峰期'
-    ratingColor.value = '#FFD700'
-  } else if (overallScore.value >= 70) {
-    rating.value = '卓越期'
-    ratingColor.value = '#8B5CF6'
-  } else if (overallScore.value >= 50) {
-    rating.value = '精进期'
-    ratingColor.value = '#409EFF'
-  } else if (overallScore.value >= 30) {
-    rating.value = '筑基期'
-    ratingColor.value = '#F59E0B'
-  } else {
-    rating.value = '开拓期'
-    ratingColor.value = '#EF4444'
-  }
-
-  diagnosisSummary.value = {
-    strengths: strongText,
-    weaknesses: weakText,
-    coreIssue: weak.length > 0 ? `${weak.join('、')} 偏弱` : '各维度发展均衡',
-    advice: adviceText,
-    stage: stage.value,
-    baseDifficulty: overallScore.value >= 70 ? 13 : overallScore.value >= 50 ? 9 : 5
-  }
-}
-
-function copyDiagnosis() {
-  const text = diagnosisItems.value.map(item => `${item.icon} ${item.label}：${item.value}`).join('\n')
-  navigator.clipboard.writeText(`智能诊断报告\n\n${text}`).then(() => {
-    ElMessage.success('诊断已复制')
-  }).catch(() => {
-    ElMessage.warning('复制失败，请手动复制')
-  })
-}
-
-function goToPlan() {
-  // ✅ 智能生成规划名称
-  let planName = '综合能力提升'
-  if (diagnosisSummary.value.weaknesses && diagnosisSummary.value.weaknesses !== '暂无薄弱项') {
-    const weakList = diagnosisSummary.value.weaknesses.split('、')
-    if (diagnosisSummary.value.strengths && diagnosisSummary.value.strengths !== '暂无明显优势') {
-      const strongList = diagnosisSummary.value.strengths.split('、')
-      planName = `强化 ${strongList[0]} · 攻克 ${weakList[0]}`
-    } else {
-      planName = `攻克 ${weakList[0]}`
-    }
-  }
-
-  const params = new URLSearchParams({
-    name: planName,
-    weaknesses: diagnosisSummary.value.weaknesses || '',
-    strengths: diagnosisSummary.value.strengths || '',
-    coreIssue: diagnosisSummary.value.coreIssue || '',
-    advice: diagnosisSummary.value.advice || '',
-    stage: stage.value || '大学',
-    difficulty: diagnosisSummary.value.baseDifficulty || 13,
-    keywords: diagnosisSummary.value.weaknesses || ''
-  })
-  router.push(`/plan-preview?${params.toString()}`)
-}
 
 async function loadData() {
   loading.value = true
   try {
-    const res = await fetch(
-      `${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/evaluation/profile-data?user_id=${authStore.user.id}`,
-      { headers: { Authorization: `Bearer ${authStore.token}` } }
-    )
-    const data = await res.json()
+    const uid = authStore.user.id
+    const base = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+    const headers = { Authorization: `Bearer ${authStore.token}` }
+    const [ovRes, anRes] = await Promise.all([
+      fetch(`${base}/evaluation/overview?user_id=${uid}`, { headers }).then(r => r.json()),
+      fetch(`${base}/evaluation/deep-analysis?user_id=${uid}`, { headers })
+        .then(r => r.json())
+        .catch(() => ({ analysis: null })),
+    ])
+    const ov = ovRes || {}
+    const analysis = anRes?.analysis || null
 
-    const kb = data.knowledge_base || { list: [], avg_score: 0 }
-    totalTopics.value = kb.list.length || 0
+    // 六维仅作内部评分依据（不对外展示数据面板；明细在学情报告）
+    const rhythm = ov.rhythm || {}
+    const mastery = ov.mastery || { avg_mastery: 0, topic_count: 0, weak_topics: [], mistakes: { total: 0, conquered: 0, conquered_rate: 0 } }
+    const practice = ov.practice || { total: 0, rate: 0 }
+    const exams = ov.exams || { count: 0, avg: 0, best: 0 }
+    const plan = ov.subject_plan || { tasks_total: 0, tasks_done: 0, completion: 0 }
 
+    const investScore = rhythm.active_days ? Math.min(100, Math.round(rhythm.active_days / 90 * 100)) : 0
     const dims = [
-      { name: '知识基础', icon: 'K', score: kb.avg_score || 0, color: '#409EFF', status: kb.avg_score >= 70 ? '良好' : kb.avg_score >= 50 ? '提升中' : '待加强' },
-      { name: '认知风格', icon: 'C', score: 55, color: '#8B5CF6', status: '综合型' },
-      { name: '易错偏好', icon: 'E', score: data.mistake_pattern?.conquered_rate || 0, color: '#F59E0B', status: data.mistake_pattern?.conquered_rate >= 60 ? '攻克率高' : '需加强' },
-      { name: '学习目标', icon: 'G', score: data.learning_goal?.total_sets ? Math.min(100, data.learning_goal.total_sets * 20) : 0, color: '#22C55E', status: data.learning_goal?.total_sets > 0 ? '已创建题集' : '未创建' },
-      { name: '兴趣领域', icon: 'I', score: data.interest_field?.list?.length ? Math.min(100, data.interest_field.list.length * 20) : 0, color: '#EC4899', status: data.interest_field?.list?.length > 0 ? '兴趣明确' : '待拓展' },
-      { name: '学习人格', icon: 'P', score: 55, color: '#06B6D4', status: '探索中' }
+      { name: '知识基础', score: mastery.avg_mastery || 0 },
+      { name: '做题正确率', score: practice.rate || 0 },
+      { name: '错题攻克率', score: mastery.mistakes.conquered_rate || 0 },
+      { name: '真题实战', score: Math.round(exams.avg || 0) },
+      { name: '计划推进', score: plan.completion || 0 },
+      { name: '习惯坚持', score: investScore },
+    ]
+    weakTopics.value = mastery.weak_topics.slice(0, 5)
+    stage.value = authStore.user?.learning_stage || '未设置'
+
+    // ===== 规则兜底诊断（AI 结论到达即覆盖） =====
+    const strong = dims.filter(d => d.score >= 70)
+    const weak = dims.filter(d => d.score < 60)
+    const strongText = strong.length ? strong.slice(0, 2).map(d => d.name).join('、') : '暂无明显优势'
+    const weakText = weak.length ? weak.slice(0, 2).map(d => d.name).join('、') : '暂无薄弱项'
+    const coreText = weak.length ? `${weak.map(d => d.name).join('、')} 偏弱` : '各维度发展均衡'
+    const adviceText = weak.length ? `优先攻克 ${weak[0].name}，每天 3 题起` : '保持当前节奏，稳步提升'
+
+    coreIssue.value = coreText
+    cause.value = weak.length
+      ? `${weak.map(d => `${d.name}（${d.score}%）`).join('、')} 明显低于其他维度，说明练习投入与知识输出之间存在缺口，需要针对性补练而非泛泛刷题。`
+      : '各维度发展均衡，继续按当前方式积累即可。'
+    strengths.value = strongText
+    adviceActions.value = [
+      adviceText,
+      weak.length > 1 ? `以「${weak[0].name}」为本周主线，穿插复习「${weak[1].name}」` : '把本周目标拆成每天 20 分钟的小任务',
+      ov.mastery?.weak_topics?.length ? `从「${ov.mastery.weak_topics[0].topic}」开始，用一次练习评估真实水平` : '完成一次诊断，让数据更立体',
     ]
 
-    if (data.mistake_pattern?.total > 0) {
-      dims[2].score = data.mistake_pattern.conquered_rate || 0
+    if (analysis?.diagnosis) {
+      const d = analysis.diagnosis
+      if (d.core_issue) coreIssue.value = d.core_issue
+      if (d.cause) cause.value = d.cause
+      if (d.strengths) strengths.value = d.strengths
+      if (Array.isArray(d.advice_actions) && d.advice_actions.length) adviceActions.value = d.advice_actions
+      else if (d.advice) adviceActions.value = [d.advice, ...adviceActions.value.slice(1)]
+      if (d.rating && RATING_COLORS()[d.rating]) {
+        rating.value = d.rating
+        ratingColor.value = RATING_COLORS()[d.rating]
+      }
+      planPayload.value = {
+        weaknesses: d.weaknesses || weakText,
+        strengths: d.strengths || strongText,
+        coreIssue: d.core_issue || coreText,
+        advice: d.advice || adviceText,
+        stage: stage.value,
+        difficulty: Number(d.base_difficulty) || 7,
+      }
     }
-    if (data.learning_goal?.total_sets > 0) {
-      dims[3].score = Math.min(100, data.learning_goal.total_sets * 20)
-    }
-    if (data.interest_field?.list?.length > 0) {
-      dims[4].score = Math.min(100, data.interest_field.list.length * 20)
+    if (!rating.value) {
+      const total = dims.reduce((s, d) => s + d.score, 0)
+      const avg = dims.length ? Math.round(total / dims.length) : 0
+      const localRating = avg >= 85 ? '巅峰期' : avg >= 70 ? '卓越期' : avg >= 50 ? '精进期' : avg >= 30 ? '筑基期' : '开拓期'
+      rating.value = localRating
+      ratingColor.value = RATING_COLORS()[localRating]
+      planPayload.value = {
+        weaknesses: weakText, strengths: strongText, coreIssue: coreText,
+        advice: adviceText, stage: stage.value,
+        difficulty: avg >= 70 ? 13 : avg >= 50 ? 9 : 5,
+      }
     }
 
-    dimensions.value = dims
-
-    behaviorData.value = [
-      { label: '活跃天数', value: 12, percent: 40, color: '#409EFF' },
-      { label: '连续学习', value: '7天', percent: 50, color: '#22C55E' },
-      { label: '日均做题', value: 8, percent: 60, color: '#F59E0B' },
-      { label: '总做题数', value: 96, percent: 70, color: '#8B5CF6' }
-    ]
-
-    generateDiagnosis()
+    // ===== 人格一行（AI 优先，规则兜底） =====
+    if (analysis?.personality) {
+      personaType.value = analysis.personality.type
+      personaDesc.value = analysis.personality.desc
+      personaTags.value = analysis.personality.tags || []
+    } else {
+      personaType.value = strong.length ? `${strong[0].name}型学习者` : '均衡型学习者'
+      personaDesc.value = `优势在 ${strongText}，待提升 ${weakText}`
+      personaTags.value = ['基于评估生成']
+    }
 
     generateDate.value = new Date().toLocaleString('zh-CN', {
       year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit'
+      hour: '2-digit', minute: '2-digit',
     })
-
-    await nextTick()
-    setTimeout(() => loadRadarChart(), 300)
   } catch (error) {
     console.error('加载失败:', error)
     ElMessage.error('加载数据失败')
@@ -440,6 +296,49 @@ function refreshData() {
   ElMessage.success('已刷新')
 }
 
+function goPractice(topic) {
+  router.push({ path: '/generate-from-mastery', query: { topic } })
+}
+
+function copyDiagnosis() {
+  const lines = [
+    `智能诊断报告（${generateDate.value}）`,
+    `评级：${rating.value}`,
+    `核心问题：${coreIssue.value}`,
+    `归因：${cause.value}`,
+    `优势：${strengths.value}`,
+    ...adviceActions.value.map((a, i) => `${i + 1}. ${a}`),
+  ]
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    ElMessage.success('诊断已复制')
+  }).catch(() => {
+    ElMessage.warning('复制失败，请手动复制')
+  })
+}
+
+function goToPlan() {
+  const p = planPayload.value
+  let planName = '综合能力提升'
+  const weakList = (p.weaknesses || '').split('、').filter(Boolean)
+  const strongList = (p.strengths || '').split('、').filter(Boolean)
+  if (weakList.length && p.weaknesses !== '暂无薄弱项') {
+    planName = strongList.length && p.strengths !== '暂无明显优势'
+      ? `强化 ${strongList[0]} · 攻克 ${weakList[0]}`
+      : `攻克 ${weakList[0]}`
+  }
+  const params = new URLSearchParams({
+    name: planName,
+    weaknesses: p.weaknesses || '',
+    strengths: p.strengths || '',
+    coreIssue: p.coreIssue || '',
+    advice: p.advice || '',
+    stage: p.stage || '大学',
+    difficulty: p.difficulty || 7,
+    keywords: p.weaknesses || '',
+  })
+  router.push(`/plan-preview?${params.toString()}`)
+}
+
 function goBack() {
   router.push('/evaluation-center')
 }
@@ -448,13 +347,14 @@ async function exportPDF() {
   if (!reportContentRef.value) return
   pdfExporting.value = true
   try {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light'
     const canvas = await html2canvas(reportContentRef.value, {
       scale: 2,
       useCORS: true,
-      backgroundColor: '#1a1a2e',
+      backgroundColor: isLight ? '#f4f6fb' : '#0b1220',
       logging: false,
       windowHeight: reportContentRef.value.scrollHeight,
-      height: reportContentRef.value.scrollHeight
+      height: reportContentRef.value.scrollHeight,
     })
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF('p', 'mm', 'a4')
@@ -472,14 +372,12 @@ async function exportPDF() {
       const sliceHeight = Math.min(remaining, pageContentHeight)
       const ratio = sliceHeight / contentHeight
       const sliceCanvasHeight = canvas.height * ratio
-
       const sliceCanvas = document.createElement('canvas')
       sliceCanvas.width = canvas.width
       sliceCanvas.height = sliceCanvasHeight
       const ctx = sliceCanvas.getContext('2d')
       const srcY = (position / contentHeight) * canvas.height
       ctx.drawImage(canvas, 0, srcY, canvas.width, sliceCanvasHeight, 0, 0, canvas.width, sliceCanvasHeight)
-
       const sliceData = sliceCanvas.toDataURL('image/png')
       if (position > 0) pdf.addPage()
       pdf.addImage(sliceData, 'PNG', margin, margin, contentWidth, sliceHeight)
@@ -509,30 +407,20 @@ onMounted(() => {
   justify-content: center;
   align-items: flex-start;
   padding: 30px 20px;
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
-}
-[data-theme="light"] .evaluation-table-page {
-  background-image: url('/assets/bg/resource_lib_bg.jpg');
-}
-[data-theme="dark"] .evaluation-table-page {
-  background-image: url('/assets/bg/resource_lib_bl.jpg');
-}
+  }
 
 .table-container {
   max-width: 900px;
   width: 100%;
   padding: 32px 40px;
   border-radius: 20px;
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(24px);
   border: 1px solid rgba(255,255,255,0.06);
   box-shadow: 0 8px 48px rgba(0,0,0,0.08);
 }
 [data-theme="dark"] .table-container {
-  background: rgba(0,0,0,0.30);
+  background: var(--well);
   border-color: rgba(255,255,255,0.04);
 }
 
@@ -559,7 +447,7 @@ onMounted(() => {
   color: var(--text-muted);
   padding: 2px 12px;
   border-radius: 12px;
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid rgba(255,255,255,0.04);
 }
 .header-actions {
@@ -576,27 +464,27 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid rgba(255,255,255,0.04);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 .glass-btn:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
+  border-color: var(--line-soft);
   transform: translateY(-2px);
 }
 .glass-btn:active {
   transform: scale(0.97);
 }
 .glass-btn.primary {
-  color: #409EFF;
-  background: rgba(64,158,255,0.08);
-  border-color: rgba(64,158,255,0.10);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 .glass-btn.primary:hover {
-  background: rgba(64,158,255,0.14);
-  border-color: rgba(64,158,255,0.20);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent);
 }
 .glass-btn .icon {
   width: 18px;
@@ -611,6 +499,10 @@ onMounted(() => {
   width: 20px;
   height: 20px;
 }
+.small-btn {
+  padding: 5px 12px;
+  font-size: 13px;
+}
 .spinning {
   animation: spin 1s linear infinite;
 }
@@ -624,23 +516,6 @@ onMounted(() => {
   margin: 16px 0 20px;
 }
 
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 60px 20px;
-  color: var(--text-muted);
-}
-.loader {
-  width: 32px;
-  height: 32px;
-  border: 2px solid rgba(64,158,255,0.12);
-  border-top-color: #409EFF;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
 .table-section {
   margin-bottom: 24px;
 }
@@ -652,257 +527,89 @@ onMounted(() => {
   letter-spacing: 0.3px;
 }
 
-/* 综合评分 */
-.score-section {
-  display: flex;
-  align-items: center;
-  gap: 30px;
-  padding: 16px 20px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.04);
-  margin-bottom: 20px;
+/* ===== 入场与结论动效（2026-08-30：结论依次浮现，尊重系统减少动态效果） ===== */
+.reveal-item {
+  animation: riseIn 0.55s cubic-bezier(0.22, 0.8, 0.36, 1) both;
 }
-.score-ring {
-  position: relative;
-  width: 120px;
-  height: 120px;
-  flex-shrink: 0;
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
 }
-.ring-glow {
-  position: absolute;
-  top: -10px;
-  left: -10px;
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(64,158,255,0.08), transparent 70%);
-  animation: pulseGlow 3s ease-in-out infinite;
+.diag-step {
+  animation: riseIn 0.5s cubic-bezier(0.22, 0.8, 0.36, 1) both;
 }
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
+.action-row {
+  animation: slideIn 0.45s cubic-bezier(0.22, 0.8, 0.36, 1) both;
 }
-.score-svg { width: 100%; height: 100%; }
-.score-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: none; }
 }
-.score-number {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--text-primary);
+.diag-action-index {
+  animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
-.score-label {
-  display: block;
-  font-size: 12px;
-  color: var(--text-muted);
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.3); }
+  to { opacity: 1; transform: scale(1); }
 }
-.score-meta {
-  display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
+.weak-row-anim {
+  animation: slideIn 0.45s cubic-bezier(0.22, 0.8, 0.36, 1) both;
 }
-.meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.tag-pop {
+  animation: tagPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
-.meta-label { font-size: 12px; color: var(--text-muted); }
-.meta-value { font-size: 18px; font-weight: 600; color: var(--text-primary); }
-
-/* 人格总览 */
-.personality-overview {
-  position: relative;
-  padding: 24px 24px 20px;
-  border-radius: 14px;
-  text-align: center;
-  overflow: hidden;
-  margin-bottom: 20px;
-  background: linear-gradient(135deg, rgba(64,158,255,0.06), rgba(139,92,246,0.06));
-  border: 1px solid rgba(64,158,255,0.08);
-}
-.personality-glow-bg {
-  position: absolute;
-  top: -50%;
-  left: -20%;
-  width: 140%;
-  height: 140%;
-  background: radial-gradient(ellipse at center, rgba(64,158,255,0.06), transparent 60%);
-  animation: glowPulse 4s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes glowPulse {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.1); opacity: 1; }
-}
-.personality-badge {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-.personality-emoji {
-  font-size: 40px;
-  animation: float 3s ease-in-out infinite;
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-.personality-type {
-  font-size: 28px;
-  font-weight: 800;
-  background: linear-gradient(135deg, #409EFF, #8B5CF6, #F59E0B);
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shimmer 4s ease-in-out infinite;
-}
-@keyframes shimmer {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-.personality-desc {
-  position: relative;
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 6px 0 10px;
-}
-.personality-tags {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-}
-.personality-tag {
-  padding: 3px 14px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-  background: rgba(64,158,255,0.08);
-  color: #409EFF;
-  border: 1px solid rgba(64,158,255,0.08);
+@keyframes tagPop {
+  from { opacity: 0; transform: scale(0.6) translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
-/* 维度卡片 */
-.dimension-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.dimension-card {
-  position: relative;
+/* 评级条 */
+.rating-strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
   padding: 12px 16px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.04);
-  background: rgba(255,255,255,0.02);
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-.dimension-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255,255,255,0.08);
-}
-.dim-card-glow {
-  position: absolute;
-  top: -50%;
-  right: -50%;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.6s ease;
-}
-.dimension-card:hover .dim-card-glow {
-  opacity: 1;
-}
-.dimension-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  position: relative;
-  z-index: 1;
-}
-.dimension-icon { font-size: 16px; }
-.dimension-name { font-size: 14px; color: var(--text-secondary); flex: 1; }
-.dimension-score { font-size: 16px; font-weight: 700; }
-.dimension-bar {
-  position: relative;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255,255,255,0.06);
-  margin-top: 6px;
-  overflow: hidden;
-}
-.dimension-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.8s ease;
-}
-.bar-pulse {
-  position: absolute;
-  top: -2px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  opacity: 0.6;
-  animation: barPulse 2s ease-in-out infinite;
-  transform: translateX(-50%);
-}
-@keyframes barPulse {
-  0%, 100% { opacity: 0.3; transform: translateX(-50%) scale(0.8); }
-  50% { opacity: 1; transform: translateX(-50%) scale(1.2); }
-}
-.dimension-status { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-
-/* 行为 */
-.behavior-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
-}
-.behavior-card {
-  padding: 14px 12px;
-  border-radius: 10px;
-  text-align: center;
-  background: rgba(255,255,255,0.02);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   border: 1px solid rgba(255,255,255,0.04);
 }
-.behavior-number {
-  display: block;
-  font-size: 24px;
+.rating-badge {
+  position: relative;
+  font-size: 17px;
   font-weight: 700;
+  padding: 4px 16px;
+  border-radius: 18px;
+  border: 1px solid;
 }
-.behavior-label {
-  font-size: 12px;
+.rating-badge::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 22px;
+  border: 1px solid currentColor;
+  opacity: 0;
+  animation: badgeRipple 2.6s ease-out 1.2s infinite;
+}
+@keyframes badgeRipple {
+  0% { opacity: .55; transform: scale(.92); }
+  70%, 100% { opacity: 0; transform: scale(1.18); }
+}
+.rating-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.rating-meta.muted {
   color: var(--text-muted);
 }
-.behavior-bar {
-  width: 100%;
-  height: 2px;
-  border-radius: 1px;
-  background: rgba(255,255,255,0.04);
-  margin-top: 6px;
-  overflow: hidden;
-}
-.behavior-bar-fill {
-  height: 100%;
-  border-radius: 1px;
-  transition: width 0.8s ease;
-}
 
-/* 诊断 */
+/* AI 深度诊断 */
 .diagnosis-section {
-  background: linear-gradient(135deg, rgba(64,158,255,0.04), rgba(139,92,246,0.04));
-  border: 1px solid rgba(64,158,255,0.06);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 4%, transparent), rgba(139,92,246,0.04));
+  border: 1px solid color-mix(in srgb, var(--brand) 6%, transparent);
   border-radius: 12px;
-  padding: 16px 20px;
+  padding: 18px 20px;
   position: relative;
   overflow: hidden;
 }
@@ -912,51 +619,186 @@ onMounted(() => {
   right: -10%;
   width: 60%;
   height: 160%;
-  background: radial-gradient(ellipse, rgba(64,158,255,0.04), transparent 70%);
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--brand) 4%, transparent), transparent 70%);
   pointer-events: none;
 }
-.diagnosis-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.diag-core {
   position: relative;
   z-index: 1;
-}
-.diagnosis-card {
-  position: relative;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.04);
-  overflow: hidden;
-}
-.diag-top-line {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  opacity: 0.4;
-}
-.diagnosis-icon { font-size: 22px; }
-.diagnosis-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-.diagnosis-value {
-  font-size: 14px;
-  font-weight: 600;
-  margin-top: 4px;
-  line-height: 1.4;
-}
-.diagnosis-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 16px;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.diag-core-label {
+  font-size: 12px;
+  color: var(--brand);
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.diag-core-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.diag-cause {
   position: relative;
   z-index: 1;
-  justify-content: flex-end;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.diag-cause-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.diag-cause-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+.diag-strength {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.diag-strength-label {
+  font-size: 12px;
+  color: color-mix(in srgb, #22C55E 65%, var(--text-primary));
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.diag-strength-text {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.diag-actions-block {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.diag-actions-label {
+  font-size: 12px;
+  color: color-mix(in srgb, #F59E0B 70%, var(--text-primary));
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.diag-action-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.diag-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.diag-action-index {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(245,158,11,.14);
+  color: color-mix(in srgb, #F59E0B 70%, var(--text-primary));
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.diag-action-text {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+/* 人格一行 */
+.persona-line {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line-soft);
+}
+.persona-type {
+  font-size: 13px;
+  font-weight: 600;
+  color: color-mix(in srgb, #8B5CF6 60%, var(--text-primary));
+}
+.persona-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.persona-tag {
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  background: rgba(139,92,246,.10);
+  color: color-mix(in srgb, #a78bfa 60%, var(--text-primary));
+  border: 1px solid rgba(139,92,246,.14);
+}
+
+/* 待攻克清单 */
+.weak-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.weak-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.weak-rank-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.weak-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* 主 CTA */
+.cta-block {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 10%, transparent), rgba(139,92,246,0.10));
+  border: 1px solid color-mix(in srgb, var(--brand) 16%, transparent);
+}
+.cta-copy {
+  flex: 1;
+  min-width: 220px;
+}
+.cta-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.cta-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
 }
 .generate-plan-btn {
   position: relative;
@@ -980,13 +822,15 @@ onMounted(() => {
 @media (max-width: 640px) {
   .table-container { padding: 16px; }
   .table-header { flex-direction: column; align-items: stretch; }
-  .score-section { flex-direction: column; align-items: center; }
-  .score-meta { justify-content: center; }
-  .dimension-grid { grid-template-columns: 1fr; }
-  .diagnosis-grid { grid-template-columns: 1fr; }
-  .behavior-grid { grid-template-columns: 1fr 1fr; }
-  .personality-type { font-size: 22px; }
-  .diagnosis-actions { flex-direction: column; }
-  .diagnosis-actions .glass-btn { justify-content: center; }
+  .cta-block { flex-direction: column; align-items: stretch; }
+  .cta-block .glass-btn { justify-content: center; }
+}
+
+/* 尊重系统「减少动态效果」：关闭全部入场动画 */
+@media (prefers-reduced-motion: reduce) {
+  .reveal-item, .diag-step, .action-row, .weak-row-anim, .tag-pop,
+  .diag-action-index, .rating-badge::after {
+    animation: none !important;
+  }
 }
 </style>

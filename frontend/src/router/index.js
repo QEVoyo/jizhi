@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import CommunityFriends from '@/components/community/CommunityFriends.vue'
 import XiaojiSettings from '@/components/XiaojiSettings.vue'
-import XiaojiCall from '@/components/XiaojiCall.vue'
 
 const routes = [
   {
@@ -151,7 +151,19 @@ const routes = [
   {
     path: '/xiaoji/call',
     name: 'XiaojiCall',
-    component: XiaojiCall,
+    redirect: '/home',   // 小基 = 主界面（2026-08-25），旧入口重定向
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/xiaoji/voice-call',
+    name: 'XiaojiVoiceCall',
+    component: () => import('@/views/XiaojiVoiceCall.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/xiaoji/search',
+    name: 'XiaojiSearch',
+    component: () => import('@/views/XiaojiSearch.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -186,11 +198,6 @@ const routes = [
         component: () => import('@/components/community/CommunityMyPosts.vue')
       },
       {
-        path: 'profile-card',
-        name: 'CommunityProfileCard',
-        component: () => import('@/components/community/CommunityProfileCard.vue')
-      },
-      {
         path: 'chat/:friendId',
         name: 'CommunityChat',
         component: () => import('@/components/community/CommunityChat.vue')
@@ -206,7 +213,7 @@ const routes = [
     path: '/qa',
     name: 'QAPage',
     component: () => import('@/components/QAPage.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: false }
   },
   {
     path: '/message',
@@ -221,16 +228,65 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/vlp-debug',
+    name: 'VlpDebug',
+    component: () => import('@/views/VlpDebug.vue'),
+    meta: { requiresAuth: false }   // 临时调试页,复现后删除
+  },
+  {
+    path: '/theme',
+    name: 'ThemeShare',
+    component: () => import('@/views/ThemeShare.vue'),
+    meta: { requiresAuth: false }   // 外观码分享直达页：好友免登录预览 + 一键应用
+  },
+  // ===== 视频库（2026-09-04：轮盘一级模块）=====
+  {
+    path: '/video-square',
+    name: 'VideoSquare',
+    component: () => import('@/views/VideoSquare.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/video/:id',
+    name: 'VideoDetail',
+    component: () => import('@/views/VideoDetail.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/api-center',
     name: 'ApiCenter',
     component: () => import('@/views/ApiCenter.vue'),
     meta: { requiresAuth: true }
   },
   {
+    path: '/agent-center',
+    name: 'AgentCenter',
+    component: () => import('@/views/AgentCenter.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/agent-center/:agentKey',
+    name: 'AgentDetail',
+    component: () => import('@/views/AgentDetail.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/wordbook',
+    name: 'Wordbook',
+    component: () => import('@/views/Wordbook.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/guide',
+    name: 'Guide',
+    component: () => import('@/views/Guide.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/open-source',
     name: 'OpenSource',
     component: () => import('@/views/OpenSource.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: false }
   },
   // ===== 学科计划（考纲架构）=====
   {
@@ -269,6 +325,7 @@ const routes = [
       { path: 'feedback', name: 'AdminFeedback', component: () => import('@/views/admin/AdminReports.vue') },
       { path: 'questions', name: 'AdminQuestions', component: () => import('@/views/admin/AdminQuestions.vue') },
       { path: 'announcements', name: 'AdminAnnouncements', component: () => import('@/views/admin/AdminAnnouncements.vue') },
+      { path: 'videos', name: 'AdminVideos', component: () => import('@/views/admin/AdminVideos.vue') },
       { path: 'logs', name: 'AdminLogs', component: () => import('@/views/admin/AdminLogs.vue') },
     ]
   }
@@ -293,8 +350,16 @@ const router = createRouter({
   }
 })
 
+let themeRestored = false
+
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
+
+  // 会话已持久化：启动后首次导航拉取账号主题（2026-09-02；登录动作路径在 authStore.login 里）
+  if (!themeRestored && authStore.isLoggedIn && authStore.user?.id) {
+    themeRestored = true
+    useThemeStore().loadFromAccount(authStore.user.id).catch(() => {})
+  }
 
   // 未登录访问受保护页面 → 去登录（带 redirect 参数）
   if (to.meta.requiresAuth && !authStore.isLoggedIn) {

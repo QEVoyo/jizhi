@@ -42,7 +42,7 @@
                     class="progress-fill blue"
                     :style="{
                       width: levelProgress + '%',
-                      background: '#409eff'
+                      background: 'var(--brand)'
                     }"
                   />
                 </div>
@@ -134,7 +134,7 @@
               <span class="bonus-label">🎯 完成全部每日任务</span>
               <span class="bonus-reward">+50</span>
               <span class="bonus-value">
-                <span class="star" style="color:#FFD700;">★★★★★</span>
+                <span class="star" style="color:color-mix(in srgb, #FFD700 70%, var(--text-primary));">★★★★★</span>
               </span>
               <div class="bonus-progress">
                 <div class="progress-wrapper">
@@ -183,7 +183,7 @@
                 </div>
                 <div class="ach-status">
                   <span v-if="ach.done">✅ 已拾取</span>
-                  <span v-else-if="ach.ready" style="color:#e6a23c;">🎁 可领取</span>
+                  <span v-else-if="ach.ready" style="color:color-mix(in srgb, #e6a23c 70%, var(--text-primary));">🎁 可领取</span>
                   <span v-else>⏳ 未解锁</span>
                 </div>
                 <div class="ach-progress">
@@ -495,7 +495,7 @@ h1 { font-size: 28px; color: var(--text-primary); }
   padding: 20px 24px;
   border-radius: 14px;
   border: 1px solid var(--border-color);
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(12px);
 }
 .rank-left { flex: 1; }
@@ -527,8 +527,8 @@ h1 { font-size: 28px; color: var(--text-primary); }
   transition: width 0.6s ease;
 }
 .progress-fill.blue {
-  background: #409eff !important;
-  box-shadow: 0 0 12px rgba(64,158,255,0.3);
+  background: var(--brand) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--brand) 30%, transparent);
 }
 .rank-hint {
   font-size: 12px;
@@ -539,7 +539,7 @@ h1 { font-size: 28px; color: var(--text-primary); }
 
 /* ===== 每日施肥 ===== */
 .daily-section {
-  background: rgba(255,255,255,0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(12px);
   border-radius: 14px;
   padding: 20px 24px;
@@ -620,14 +620,14 @@ h1 { font-size: 28px; color: var(--text-primary); }
   border: 1px solid rgba(255,215,0,0.12);
 }
 .bonus-label { font-weight: 600; color: var(--text-primary); }
-.bonus-reward { color: #FFB300; font-weight: 600; }
+.bonus-reward { color: color-mix(in srgb, #FFB300 70%, var(--text-primary)); font-weight: 600; }
 .claim-btn { transition: all 0.3s ease !important; }
 .claim-btn:hover { transform: translateY(-2px) scale(1.03) !important; }
 .claim-btn.done { opacity: 0.5; }
 
 /* ===== 成就 ===== */
 .achievement-section {
-  background: rgba(255,255,255,0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(12px);
   border-radius: 14px;
   padding: 20px 24px;

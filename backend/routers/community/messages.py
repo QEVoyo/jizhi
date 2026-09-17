@@ -449,9 +449,22 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...), curr
         ach_res = await client.get(ach_url, headers=headers)
         achievements = ach_res.json() if ach_res.status_code == 200 else []
 
-        activities_url = f"{settings.SUPABASE_URL}/rest/v1/activities?user_id=eq.{user_id}&order=created_at.desc&limit=5"
+        # 表名修正：activities 表从未建过（PostgREST 直接 401）→ 资料卡「近期动态」恒为空。
+        # 平台真实行为记录在 user_actions(action_type, action_at)，形状与 /profile-card 对齐。
+        from routers.profile_card import ACTION_LABELS
+        activities_url = (f"{settings.SUPABASE_URL}/rest/v1/user_actions?user_id=eq.{user_id}"
+                          f"&select=action_type,action_at&order=action_at.desc&limit=5")
         act_res = await client.get(activities_url, headers=headers)
-        activities = act_res.json() if act_res.status_code == 200 else []
+        activities = []
+        if act_res.status_code == 200:
+            for i, a in enumerate(act_res.json()):
+                action = a.get("action_type", "activity")
+                activities.append({
+                    "id": f"act_{i}_{a.get('action_at', '')}",
+                    "action": action,
+                    "details": {"text": ACTION_LABELS.get(action, "学习活动")},
+                    "created_at": a.get("action_at"),
+                })
 
         # ===== 获取用户资料卡设置 =====
         settings_url = f"{settings.SUPABASE_URL}/rest/v1/profile_card_settings?user_id=eq.{user_id}&select=selected_topics,selected_achievements"

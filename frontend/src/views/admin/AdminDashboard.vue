@@ -157,7 +157,7 @@ onMounted(loadStats)
 }
 
 .stat-card {
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
@@ -169,7 +169,7 @@ onMounted(loadStats)
   cursor: default;
 }
 .stat-card:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.1);
 }
@@ -192,13 +192,13 @@ onMounted(loadStats)
   font-size: 18px;
   flex-shrink: 0;
 }
-.stat-icon.users     { background: rgba(64, 158, 255, 0.15); color: #409eff; }
+.stat-icon.users     { background: color-mix(in srgb, var(--brand) 15%, transparent); color: var(--brand); }
 .stat-icon.new-users { background: rgba(103, 194, 58, 0.15); color: #67c23a; }
 .stat-icon.questions { background: rgba(230, 162, 60, 0.15); color: #e6a23c; }
 .stat-icon.today-q   { background: rgba(245, 108, 108, 0.15); color: #f56c6c; }
 .stat-icon.reports   { background: rgba(245, 108, 108, 0.18); color: #f56c6c; }
 .stat-icon.feedback  { background: rgba(144, 147, 153, 0.15); color: #909399; }
-.stat-icon.plans     { background: rgba(64, 158, 255, 0.12); color: #409eff; }
+.stat-icon.plans     { background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); }
 .stat-icon.bank      { background: rgba(20, 184, 166, 0.15); color: #14b8a6; }
 
 .stat-value {
@@ -234,7 +234,7 @@ onMounted(loadStats)
   align-items: center;
   gap: 8px;
   padding: 10px 22px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   color: rgba(255, 255, 255, 0.7);
@@ -243,10 +243,10 @@ onMounted(loadStats)
   transition: all 0.25s ease;
 }
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, var(--surface, #ffffff) 7%, transparent);
   border-color: rgba(255, 255, 255, 0.12);
   transform: translateY(-1px);
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .action-btn .badge {

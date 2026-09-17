@@ -150,6 +150,43 @@ def find_question_global(question_id: str) -> tuple[Optional[str], Optional[dict
     return None, None
 
 
+_syllabus_names_cache: dict = {}
+
+
+def syllabus_names() -> dict:
+    """考纲 id → 名称 映射（syllabi.json，懒加载缓存）"""
+    global _syllabus_names_cache
+    if _syllabus_names_cache:
+        return _syllabus_names_cache
+    try:
+        with open(DATA_DIR / "syllabi.json", "r", encoding="utf-8") as f:
+            syllabi = json.load(f)
+        _syllabus_names_cache = {s["id"]: s.get("name", s["id"]) for s in syllabi}
+    except Exception:
+        pass
+    return _syllabus_names_cache
+
+
+def search_global(keyword: str, limit: int = 20, syllabus_id: str = None) -> list[dict]:
+    """跨考纲模糊搜索（题干/kp_name/标题），结果带 syllabus_id/syllabus_name
+    （2026-08-25 小基「发送题目」题库搜索用，内存零延迟）"""
+    kw = (keyword or "").lower()
+    if not kw:
+        return []
+    names = syllabus_names()
+    banks = {syllabus_id: _banks[syllabus_id]} if syllabus_id and syllabus_id in _banks else _banks
+    out = []
+    for sid, bank in banks.items():
+        for q in bank["questions"]:
+            if kw in _get_stem(q) \
+                    or kw in (q.get("kp_name") or "").lower() \
+                    or kw in (q.get("title") or "").lower():
+                out.append({**q, "syllabus_id": sid, "syllabus_name": names.get(sid, sid)})
+                if len(out) >= limit:
+                    return out
+    return out
+
+
 def query_global(
     category: str = None,
     sub_category: str = None,

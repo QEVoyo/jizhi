@@ -57,24 +57,29 @@
     </div>
     </Transition>
 
-    <!-- ===== 导航区 ===== -->
-    <nav class="nav-menu" :class="{ grid: !isCollapsed, list: isCollapsed }">
+    <!-- ===== 全局搜索（点击打开搜索面板，Ctrl+K 全局可用） ===== -->
+    <div class="global-search" :class="{ collapsed: isCollapsed }" @click="navStore.openSearch()">
+      <i class="fas fa-search gs-search-icon" />
+      <span v-if="!isCollapsed" class="gs-search-ph">搜索页面、考纲、真题…</span>
+      <span v-if="!isCollapsed" class="gs-search-kbd">Ctrl K</span>
+    </div>
+
+    <!-- ===== 导航区（2026-08-25 半椭圆轮盘：上方固定 logo/用户/搜索，下方转动显示） ===== -->
+    <NavWheel v-if="!isCollapsed" :items="navItems" />
+    <nav v-else class="nav-menu list">
       <router-link
         v-for="item in navItems"
-        v-show="item.visible !== false"
         :key="item.key"
         :to="item.to"
         class="app-icon"
-        :class="{ active: item.active, highlighted: item.highlight, admin: item.admin }"
-        :title="isCollapsed ? item.label : ''"
+        :class="{ active: item.active }"
+        :title="item.label"
       >
         <div class="icon-anchor">
-          <div class="icon-wrap" :style="iconStyle(item.key)">
+          <div class="icon-wrap">
             <img :src="iconPath(item.icon)" :alt="item.label" class="icon-img" />
           </div>
-          <span v-if="item.badgeCount > 0" class="icon-badge">{{ item.badgeCount > 99 ? '99+' : item.badgeCount }}</span>
         </div>
-        <span v-if="!isCollapsed" class="icon-label">{{ item.label }}</span>
       </router-link>
     </nav>
 
@@ -94,7 +99,7 @@
         @click.prevent="openToolPanel(item.tool)"
       >
         <div class="icon-anchor">
-          <div class="icon-wrap" :style="iconStyle(item.key)">
+          <div class="icon-wrap">
             <img :src="iconPath(item.icon)" :alt="item.label" class="icon-img" />
           </div>
         </div>
@@ -102,176 +107,21 @@
       </router-link>
     </nav>
 
-    <!-- ===== 对话历史面板 ===== -->
-    <Teleport to="body">
-      <transition name="panel-slide">
-        <div v-if="chatPanelOpen" class="tool-panel-overlay" @click.self="chatPanelOpen = false">
-          <div class="tool-panel">
-            <div class="tp-header">
-              <span class="tp-title">历史对话</span>
-              <button class="tp-close" @click="chatPanelOpen = false">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div class="tp-body">
-              <div v-if="sessions.length" class="tp-list">
-                <div
-                  v-for="s in sessions" :key="s.id"
-                  class="tp-item chat-session-item"
-                  :class="{ active: s.id === currentSessionId }"
-                  @click="switchSession(s.id); chatPanelOpen = false"
-                >
-                  <span class="tp-item-name">{{ s.title || '新对话' }}</span>
-                  <button class="tp-del" @click.stop="deleteSession(s.id)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                </div>
-              </div>
-              <div v-else class="tp-empty">暂无对话</div>
-            </div>
-          </div>
-        </div>
-      </transition>
-    </Teleport>
+    <ToolPanel ref="toolPanelRef" />
 
-    <!-- ===== 工具面板（点击工具图标弹出）===== -->
-    <Teleport to="body">
-      <transition name="panel-slide">
-        <div v-if="panelTool" class="tool-panel-overlay" @click.self="closeToolPanel">
-          <div class="tool-panel">
-            <div class="tp-header">
-              <span class="tp-title">{{ panelTitle }}</span>
-              <button class="tp-close" @click="closeToolPanel">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div class="tp-body">
-              <!-- 打卡 -->
-              <template v-if="panelTool === 'checkin'">
-                <div v-if="checkinProjects.length" class="tp-list">
-                  <div v-for="p in checkinProjects" :key="p.name" class="tp-item">
-                    <div class="tp-item-info">
-                      <span class="tp-item-name">{{ p.name }}</span>
-                      <span class="tp-item-meta">{{ p.completed_days }} / {{ p.target_days }} 天</span>
-                      <el-progress :percentage="Math.round((p.completed_days / p.target_days) * 100)" :stroke-width="5" :color="p.completed_days >= p.target_days ? '#67c23a' : '#409eff'" />
-                    </div>
-                    <el-button size="small" :type="p.last_checkin === today ? 'info' : 'success'" :disabled="p.last_checkin === today" @click="doCheckin(p.name)">{{ p.last_checkin === today ? '已打卡' : '打卡' }}</el-button>
-                  </div>
-                </div>
-                <div v-else class="tp-empty">暂无打卡项目</div>
-                <div class="tp-add">
-                  <el-input v-model="newCheckinName" placeholder="项目名称" size="small" style="width:110px" />
-                  <el-input-number v-model="newCheckinTarget" :min="1" :max="365" size="small" style="width:80px" />
-                  <el-button size="small" type="primary" @click="addCheckin">添加</el-button>
-                </div>
-              </template>
-              <!-- 倒计时 -->
-              <template v-if="panelTool === 'countdown'">
-                <div v-if="countdownEvents.length" class="tp-list">
-                  <div v-for="e in countdownEvents" :key="e.id" class="tp-item">
-                    <div class="tp-item-info">
-                      <span class="tp-item-name">{{ e.name }}</span>
-                      <span class="tp-item-meta">{{ getDaysUntil(e.target_date) >= 0 ? '还有 ' + getDaysUntil(e.target_date) + ' 天' : '已结束' }} · {{ e.target_date }}</span>
-                    </div>
-                    <button class="tp-del" @click="delCountdown(e.id)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                  </div>
-                </div>
-                <div v-else class="tp-empty">暂无倒计时</div>
-                <div class="tp-add">
-                  <el-input v-model="newCountdownName" placeholder="事件名称" size="small" style="width:110px" />
-                  <el-date-picker v-model="newCountdownDate" type="date" placeholder="日期" size="small" style="width:130px" value-format="YYYY-MM-DD" />
-                  <el-button size="small" type="primary" @click="addCountdown">添加</el-button>
-                </div>
-              </template>
-              <!-- 计时器 -->
-              <template v-if="panelTool === 'timer'">
-                <div v-if="activeTimerComp" class="tp-timer-active">
-                  <div class="tp-timer-display">
-                    <span class="tp-timer-name">{{ activeTimerComp.name }}</span>
-                    <span class="tp-timer-time">{{ formatTimeComp(activeTimerComp.displaySeconds) }}</span>
-                  </div>
-                  <div class="tp-timer-ctls">
-                    <el-button size="small" @click="pauseTimerComp">{{ activeTimerComp.paused ? '继续' : '暂停' }}</el-button>
-                    <el-button size="small" type="danger" @click="stopTimerComp">取消</el-button>
-                    <el-button v-if="activeTimerComp.type === 'stopwatch'" size="small" type="success" @click="completeStopwatchComp">完成</el-button>
-                  </div>
-                </div>
-                <div v-if="timerTemplates.length" class="tp-list">
-                  <div v-for="t in timerTemplates" :key="t.id" class="tp-item">
-                    <div class="tp-item-info">
-                      <span class="tp-item-name">{{ t.name }}</span>
-                      <span class="tp-item-meta">{{ t.type === 'countdown' ? '⏳ 倒计时 ' + t.duration_minutes + '分钟' : '⏱️ 正向计时' }}</span>
-                    </div>
-                    <el-button size="small" type="primary" :disabled="!!activeTimerComp" @click="startTimerComp(t)">开始</el-button>
-                  </div>
-                </div>
-                <div v-else class="tp-empty">暂无计时器模板</div>
-                <div class="tp-add">
-                  <el-input v-model="newTimerName" placeholder="任务名称" size="small" style="width:100px" />
-                  <el-select v-model="newTimerType" size="small" style="width:90px">
-                    <el-option label="倒计时" value="countdown" />
-                    <el-option label="正向计时" value="stopwatch" />
-                  </el-select>
-                  <el-input-number v-if="newTimerType === 'countdown'" v-model="newTimerDuration" :min="1" :max="180" size="small" style="width:80px" />
-                  <el-button size="small" type="primary" @click="addTimer">添加</el-button>
-                </div>
-              </template>
-              <!-- 学习日志 -->
-              <template v-if="panelTool === 'logs'">
-                <div v-if="logs.length" class="tp-list">
-                  <div v-for="(group, date) in groupedLogs" :key="date" class="tp-log-group">
-                    <div class="tp-log-date">{{ date }}</div>
-                    <div v-for="log in group" :key="log.id" class="tp-log-item">
-                      <span class="tp-log-time">{{ log.time || '--:--' }}</span>
-                      <span class="tp-log-keyword">{{ log.keyword }}</span>
-                      <button class="tp-del" @click="delLog(log.id)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="tp-empty">暂无学习日志</div>
-              </template>
-            </div>
-          </div>
-        </div>
-      </transition>
-    </Teleport>
-
-    <!-- ===== 对话区 ===== -->
-    <div class="section-label" v-show="!isCollapsed"><span>对话</span></div>
-    <div class="section-line" v-show="isCollapsed"></div>
-    <div class="chat-mini-row" :class="{ collapsed: isCollapsed }">
-      <button class="chat-mini-btn" @click="createNewSession" :title="isCollapsed ? '新对话' : ''">
-        <div class="chat-mini-icon new">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-        </div>
-        <span v-if="!isCollapsed" class="chat-mini-label">新对话</span>
-      </button>
-      <button class="chat-mini-btn" @click="openChatHistory" :title="isCollapsed ? '历史对话' : ''">
-        <div class="chat-mini-icon history">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        </div>
-        <span v-if="!isCollapsed" class="chat-mini-label">历史对话</span>
-      </button>
-    </div>
+    <!-- ===== 工具面板（点击工具图标弹出，组件已抽出） ===== -->
     </div><!-- /sidebar-scroll -->
 
     <!-- ===== 底部（固定）===== -->
     <div class="sidebar-footer">
-      <div class="theme-toggle" :class="{ collapsed: isCollapsed }">
-        <div class="theme-options" :class="{ vertical: isCollapsed }">
-          <button class="theme-btn" :class="{ active: themeStore.mode === 'light' }" @click="themeStore.setMode('light')" title="浅色">
-            <i class="fas fa-sun"></i>
-          </button>
-          <button class="theme-btn" :class="{ active: themeStore.mode === 'dark' }" @click="themeStore.setMode('dark')" title="深色">
-            <i class="fas fa-moon"></i>
-          </button>
-          <button class="theme-btn" :class="{ active: themeStore.mode === 'system' }" @click="themeStore.setMode('system')" title="跟随系统">
-            <i class="fas fa-desktop"></i>
-          </button>
-        </div>
-      </div>
-
       <button class="footer-btn feedback-btn" @click="showFeedback = true" :title="isCollapsed ? '意见反馈' : ''">
         <i class="fas fa-envelope"></i>
         <span v-if="!isCollapsed">意见反馈</span>
+      </button>
+
+      <button class="footer-btn guide-btn" @click="$router.push('/guide')" :title="isCollapsed ? '使用指引' : ''">
+        <i class="fas fa-compass"></i>
+        <span v-if="!isCollapsed">使用指引</span>
       </button>
 
       <button class="footer-btn opensource-btn" @click="$router.push('/open-source')" :title="isCollapsed ? '开源文档' : ''">
@@ -341,133 +191,42 @@
 import { ref, computed, onMounted, inject, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useThemeStore } from '@/stores/theme'
-import { useSessionStore } from '@/stores/session'
-import { getUserStats, recordAction } from '@/api/career'
+import { getUserStats } from '@/api/career'
+import NavWheel from '@/components/NavWheel.vue'
+import ToolPanel from '@/components/ToolPanel.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useToolsStore } from '@/stores/tools'
-import { getLearningLogs, deleteLearningLog, addLearningLog } from '@/api/tools'
 import { RANK_ICONS, RANK_COLORS, SUB_SYMBOLS } from '@/utils/constants'
+import { useNavStore } from '@/stores/nav'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-const themeStore = useThemeStore()
-const sessionStore = useSessionStore()
-const toolsStore = useToolsStore()
+const navStore = useNavStore()
 
-// ===== 工具面板 =====
-const panelTool = ref(null)
-const panelTitle = computed(() => ({ checkin: '打卡', countdown: '倒计时', timer: '计时器', logs: '学习日志' }[panelTool.value] || ''))
+// ===== 工具面板（2026-08-25 抽到 ToolPanel 组件，学程/社区侧边栏与主界面中枢共用） =====
+const toolPanelRef = ref(null)
 
-function openToolPanel(tool) {
-  if (panelTool.value === tool) { closeToolPanel(); return }
-  panelTool.value = tool
-  if (tool === 'logs') loadLogsPanel()
-}
-function closeToolPanel() { panelTool.value = null }
-
-// 打卡
-const today = new Date().toISOString().slice(0, 10)
-const checkinProjects = computed(() => toolsStore.checkinProjects)
-const newCheckinName = ref('')
-const newCheckinTarget = ref(30)
-function doCheckin(name) { toolsStore.doCheckin(name); toolsStore.saveCheckinData(authStore.user.id, toolsStore.checkinProjects); recordAction(authStore.user.id, 'checkin') }
-function addCheckin() { if (!newCheckinName.value) return; toolsStore.addCheckinProject(newCheckinName.value, newCheckinTarget.value); toolsStore.saveCheckinData(authStore.user.id, toolsStore.checkinProjects); newCheckinName.value = '' }
-
-// 倒计时
-const countdownEvents = computed(() => toolsStore.countdownEvents)
-const newCountdownName = ref('')
-const newCountdownDate = ref('')
-function getDaysUntil(d) { return toolsStore.getDaysUntil(d) }
-function delCountdown(id) { toolsStore.deleteCountdownEvent(id); toolsStore.saveCountdownData(authStore.user.id, toolsStore.countdownEvents) }
-function addCountdown() { if (!newCountdownName.value || !newCountdownDate.value) return; toolsStore.addCountdownEvent(newCountdownName.value, newCountdownDate.value); toolsStore.saveCountdownData(authStore.user.id, toolsStore.countdownEvents); newCountdownName.value = ''; newCountdownDate.value = '' }
-
-// 计时器
-const timerTemplates = computed(() => toolsStore.timerTemplates)
-const activeTimerComp = ref(null)
-let timerInt = null
-const newTimerName = ref('')
-const newTimerType = ref('countdown')
-const newTimerDuration = ref(25)
-function formatTimeComp(s) { return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` }
-function startTimerComp(t) { if (activeTimerComp.value) return; const total = t.type === 'countdown' ? t.duration_minutes * 60 : 0; activeTimerComp.value = { id: t.id, name: t.name, type: t.type, displaySeconds: total, paused: false }; timerInt = setInterval(() => { if (!activeTimerComp.value || activeTimerComp.value.paused) return; if (activeTimerComp.value.type === 'countdown') { activeTimerComp.value.displaySeconds--; if (activeTimerComp.value.displaySeconds <= 0) { clearInterval(timerInt); activeTimerComp.value.displaySeconds = 0 } } else { activeTimerComp.value.displaySeconds++ } }, 1000) }
-function pauseTimerComp() { if (!activeTimerComp.value) return; activeTimerComp.value.paused = !activeTimerComp.value.paused }
-function stopTimerComp() { clearInterval(timerInt); timerInt = null; activeTimerComp.value = null }
-async function completeStopwatchComp() { if (!activeTimerComp.value || activeTimerComp.value.type !== 'stopwatch') return; const s = activeTimerComp.value.displaySeconds; const m = Math.floor(s / 60); const sec = s % 60; const str = m > 0 && sec > 0 ? `${m}分${sec}秒` : m > 0 ? `${m}分钟` : `${sec}秒`; if (s > 0) { await addLearningLog(authStore.user.id, `学习了「${activeTimerComp.value.name}」${str}`); loadLogsPanel() } stopTimerComp() }
-function addTimer() { if (!newTimerName.value) return; toolsStore.addTimerTemplate(newTimerName.value, newTimerType.value, newTimerDuration.value); toolsStore.saveTimerData(authStore.user.id, toolsStore.timerTemplates); newTimerName.value = '' }
-
-// 学习日志
-const logs = ref([])
-const logTimerRef = ref(null)
-async function loadLogsPanel() { try { const data = await getLearningLogs(authStore.user.id); logs.value = (data.logs || []).sort((a, b) => (b.created_at || b.date || '').localeCompare(a.created_at || a.date || '')) } catch {} }
-async function delLog(id) { try { await deleteLearningLog(authStore.user.id, id); loadLogsPanel() } catch {} }
-const groupedLogs = computed(() => { const g = {}; const td = new Date().toISOString().slice(0, 10); const yd = new Date(Date.now() - 86400000).toISOString().slice(0, 10); logs.value.forEach(l => { const d = l.date || (l.created_at || '').slice(0, 10) || '未知'; const dd = d === td ? '今天' : d === yd ? '昨天' : d; if (!g[dd]) g[dd] = []; g[dd].push(l) }); return g })
-
-const isCollapsed = inject('sidebarCollapsed', ref(false))
-const chatPanelOpen = ref(false)
-function openChatHistory() { chatPanelOpen.value = true }
-const showFeedback = ref(false)
-const feedbackType = ref('suggestion')
-const feedbackContent = ref('')
-const feedbackSubmitting = ref(false)
-
-const feedbackMenuVisible = ref(false)
-const feedbackOptions = [
-  { value: 'suggestion', label: '💡 功能建议' },
-  { value: 'bug', label: '🐛 问题反馈' },
-  { value: 'feature', label: '✨ 功能请求' },
-  { value: 'other', label: '📝 其他' }
-]
-const feedbackTypeLabel = computed(() => {
-  const found = feedbackOptions.find(o => o.value === feedbackType.value)
-  return found ? found.label : '选择反馈类型'
-})
-
-function selectFeedbackType(value) {
-  feedbackType.value = value
-  feedbackMenuVisible.value = false
-}
+function openToolPanel(tool) { toolPanelRef.value?.openTool(tool) }
 
 const iconBase = '/assets/icons/sidebar/'
 function iconPath(name) { return iconBase + name }
 
-// 每个 App 图标的渐变色（半透明，不抢图标）
-const iconColors = {
-  home:            'linear-gradient(145deg, rgba(71,118,230,.55) 0%, rgba(142,84,233,.55) 100%)',
-  profile:         'linear-gradient(145deg, rgba(240,147,251,.50) 0%, rgba(245,87,108,.50) 100%)',
-  settings:        'linear-gradient(145deg, rgba(99,102,241,.55) 0%, rgba(168,85,247,.55) 100%)',
-  'resource-lib':  'linear-gradient(145deg, rgba(30,60,114,.50) 0%, rgba(42,146,221,.55) 100%)',
-  career:          'linear-gradient(145deg, rgba(17,153,142,.50) 0%, rgba(56,239,125,.50) 100%)',
-  'profile-card':  'linear-gradient(145deg, rgba(123,44,191,.55) 0%, rgba(255,126,179,.50) 100%)',
-  'subject-plan':  'linear-gradient(145deg, rgba(19,78,94,.50) 0%, rgba(113,178,128,.50) 100%)',
-  community:       'linear-gradient(145deg, rgba(250,112,154,.50) 0%, rgba(254,225,64,.50) 100%)',
-  qa:              'linear-gradient(145deg, rgba(26,41,128,.55) 0%, rgba(38,208,206,.55) 100%)',
-  messages:        'linear-gradient(145deg, rgba(248,87,166,.50) 0%, rgba(255,88,88,.50) 100%)',
-  'api-center':    'linear-gradient(145deg, rgba(72,52,212,.55) 0%, rgba(153,128,250,.55) 100%)',
-  admin:           'linear-gradient(145deg, rgba(203,45,62,.55) 0%, rgba(242,153,74,.50) 100%)',
-  checkin:         'linear-gradient(145deg, rgba(34,197,94,.55) 0%, rgba(20,184,166,.55) 100%)',
-  countdown:       'linear-gradient(145deg, rgba(251,146,60,.55) 0%, rgba(250,204,21,.55) 100%)',
-  timer:           'linear-gradient(145deg, rgba(168,85,247,.55) 0%, rgba(236,72,153,.55) 100%)',
-  logs:            'linear-gradient(145deg, rgba(6,182,212,.55) 0%, rgba(59,130,246,.55) 100%)',
-}
-function iconStyle(name) {
-  const c = iconColors[name] || 'linear-gradient(145deg, #94a3b8 0%, #64748b 40%, #475569 100%)'
-  return { background: c }
-}
-
 const navItems = computed(() => {
   const items = [
-    { to: '/',             icon: 'home.png',            label: '主界面',   key: 'home' },
+    { to: '/home',         icon: 'xiaoji.png',          label: '小基',     key: 'home' },
     { to: '/profile',      icon: 'profile.png',         label: '个人中心', key: 'profile' },
     { to: '/settings',     icon: 'settings.png',        label: '设置',     key: 'settings' },
     { to: '/resource-lib', icon: 'resource-lib.png',    label: '资源库',   key: 'resource-lib' },
+    { to: '/evaluation-center', icon: 'evaluation.png', label: '评估中心', key: 'evaluation-center' },
     { to: '/career',       icon: 'career.png',          label: '学程',     key: 'career',     badge: 'career' },
     { to: '/profile-card', icon: 'profile-card.png',    label: '个人画像', key: 'profile-card', highlight: true },
     { to: '/subject-plan', icon: 'subject-plan.png',    label: '学科计划', key: 'subject-plan' },
+    { to: '/video-square', icon: 'video-library.png',   label: '视频库',   key: 'video-square' },
     { to: '/community',    icon: 'community.png',       label: '社区',     key: 'community',  badge: 'community' },
     { to: '/qa',           icon: 'qa.png',              label: 'Q&A',      key: 'qa' },
     { to: '/message',      icon: 'messages.png',        label: '消息中心', key: 'messages',   badge: 'total' },
+    { to: '/agent-center', icon: 'agent-center.png',    label: '智能体中心', key: 'agent-center' },
+    { to: '/wordbook',     icon: 'wordbook.png',        label: '词条本',   key: 'wordbook' },
     { to: '/api-center',   icon: 'api-center.png',      label: 'API管理',  key: 'api-center' },
   ]
   if (authStore.user?.role !== 'user') {
@@ -476,7 +235,7 @@ const navItems = computed(() => {
   // 工具区
   return items.map(item => ({
     ...item,
-    active: item.to === '/' ? (route.path === '/' || route.path === '/home') : route.path.startsWith(item.to),
+    active: route.path.startsWith(item.to),
     badgeCount: item.badge === 'career' ? careerBadge.value
               : item.badge === 'community' ? communityUnreadCount.value
               : item.badge === 'total' ? unreadCount.value
@@ -488,18 +247,15 @@ const navItems = computed(() => {
 const toolItems = computed(() => {
   const tools = [
     { icon: 'checkin.png',   label: '打卡',     key: 'checkin',   tool: 'checkin' },
-    { icon: 'countdown.png', label: '倒计时',   key: 'countdown', tool: 'countdown' },
+    { icon: 'countdown.png', label: '时间胶囊', key: 'countdown', tool: 'countdown' },
     { icon: 'timer.png',     label: '计时器',   key: 'timer',     tool: 'timer' },
-    { icon: 'logs.png',      label: '学习日志', key: 'logs',      tool: 'logs' },
   ]
   return tools.map(t => ({
     ...t,
-    active: panelTool.value === t.tool,
+    active: false,
     badgeCount: 0,
   }))
 })
-const sessions = computed(() => sessionStore.sessions)
-const currentSessionId = computed(() => sessionStore.currentSessionId)
 
 const userStatus = ref('online')
 const statusMenuVisible = ref(false)
@@ -556,26 +312,10 @@ async function loadRankData() {
   }
 }
 
-function createNewSession() {
-  sessionStore.createSession('新对话')
-  ElMessage.success('新对话已创建')
-}
 
-function switchSession(id) {
-  sessionStore.switchSession(id)
-}
-
-function deleteSession(id) {
-  ElMessageBox.confirm('确定要删除这个对话吗？', '确认删除')
-    .then(() => {
-      sessionStore.deleteSession(id)
-      ElMessage.success('已删除')
-    })
-    .catch(() => {})
-}
 
 function goHome() {
-  router.push('/')
+  router.push('/home')
 }
 
 function goProfile() {
@@ -678,13 +418,8 @@ onMounted(() => {
   // 仅在已登录时加载
   if (!authStore.isLoggedIn) return
 
-  sessionStore.loadSessions()
   loadRankData()
   loadBadges()
-  // 预加载工具数据
-  toolsStore.loadCheckin(authStore.user?.id)
-  toolsStore.loadCountdown(authStore.user?.id)
-  toolsStore.loadTimer(authStore.user?.id)
   document.addEventListener('click', handleClickOutside)
   badgeTimer = setInterval(() => { loadBadges() }, 30000)
 })
@@ -692,8 +427,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   if (badgeTimer) clearInterval(badgeTimer)
-  if (timerInt) clearInterval(timerInt)
-  if (logTimerRef.value) clearInterval(logTimerRef.value)
 })
 </script>
 
@@ -731,14 +464,6 @@ onUnmounted(() => {
 .sidebar-content.collapsed .icon-label,
 .sidebar-content.collapsed .footer-btn span,
 .sidebar-content.collapsed .section-label span,
-.sidebar-content.collapsed .chat-mini-label {
-  opacity: 0;
-  max-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: opacity 0.3s ease, max-width 0.3s ease;
-  pointer-events: none;
-}
 .sidebar-content.collapsed .user-section {
   justify-content: center;
   padding: 4px 0;
@@ -746,19 +471,6 @@ onUnmounted(() => {
 .sidebar-content.collapsed .app-icon {
   justify-content: center;
   padding: 4px 2px;
-}
-.sidebar-content.collapsed .theme-toggle {
-  justify-content: center;
-  padding: 4px;
-}
-.sidebar-content.collapsed .theme-options {
-  flex-direction: column;
-  gap: 2px;
-}
-.sidebar-content.collapsed .theme-btn {
-  width: 28px;
-  height: 28px;
-  font-size: 14px;
 }
 .sidebar-content.collapsed .footer-btn {
   justify-content: center;
@@ -802,19 +514,60 @@ onUnmounted(() => {
   gap: 12px;
   padding: 8px 12px;
   border-radius: 12px;
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid rgba(255,255,255,0.04);
   cursor: pointer;
   transition: all 0.3s ease;
 }
+
+/* ===== 全局搜索框（点击打开搜索面板） ===== */
+.global-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 2px 2px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
+  border: 1px solid var(--line-soft);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.global-search:hover {
+  background: color-mix(in srgb, var(--surface, #ffffff) 9%, transparent);
+  border-color: rgba(108,140,255,0.35);
+}
+.global-search.collapsed {
+  justify-content: center;
+  padding: 9px 0;
+  margin: 10px 0 2px;
+}
+.gs-search-icon { color: var(--text-muted, #94a3b8); font-size: 13px; }
+.gs-search-ph {
+  flex: 1;
+  color: var(--text-muted, #94a3b8);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gs-search-kbd {
+  font-size: 10px;
+  color: var(--text-muted, #94a3b8);
+  border: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
 .user-section:hover {
-  background: rgba(255,255,255,0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
 }
 [data-theme="dark"] .user-section {
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
 }
 [data-theme="dark"] .user-section:hover {
-  background: rgba(255,255,255,0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
 }
 
 .user-avatar {
@@ -867,8 +620,8 @@ onUnmounted(() => {
 .user-level-tag {
   font-size: 11px;
   font-weight: 500;
-  color: #409EFF;
-  background: rgba(64,158,255,0.10);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
   padding: 0 8px;
   border-radius: 10px;
 }
@@ -909,7 +662,7 @@ onUnmounted(() => {
 }
 .user-status-wrapper:hover {
   color: var(--text-primary);
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
 }
 .status-dot {
   width: 6px;
@@ -930,10 +683,10 @@ onUnmounted(() => {
   position: absolute;
   top: 120px;
   left: 80px;
-  background: rgba(255,255,255,0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--line-soft);
   border-radius: 10px;
   padding: 4px 0;
   min-width: 90px;
@@ -941,7 +694,7 @@ onUnmounted(() => {
   z-index: 100;
 }
 [data-theme="dark"] .status-dropdown {
-  background: rgba(0,0,0,0.35);
+  background: var(--well);
 }
 .status-option-item {
   display: flex;
@@ -956,12 +709,12 @@ onUnmounted(() => {
   margin: 2px 4px;
 }
 .status-option-item:hover {
-  background: rgba(255,255,255,0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   color: var(--text-primary);
   transform: translateX(2px);
 }
 .status-option-item.active {
-  background: rgba(255,255,255,0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   color: var(--text-primary);
 }
 
@@ -989,32 +742,20 @@ onUnmounted(() => {
 .app-icon:hover { transform: scale(1.05); }
 .app-icon:active { transform: scale(.94); }
 .app-icon.active .icon-wrap {
-  outline: 2px solid rgba(255,255,255,.18);
-  outline-offset: 2px;
-  border-radius: 13px;
+  filter: brightness(1.2) drop-shadow(0 0 6px rgba(255,255,255,.3));
+  transform: scale(1.06);
 }
 
-/* ===== 图标容器 ===== */
+/* ===== 图标容器（2026-08-25 全部改裸 PNG：只有图标本身，无任何装饰） ===== */
 .icon-anchor { position: relative; flex-shrink: 0; }
 .icon-wrap {
   position: relative; width: 52px; height: 52px;
-  border-radius: 13px; overflow: hidden;
-  border: 1px solid rgba(255,255,255,.08);
+  border: none;
+  background: transparent;
   transition: all .25s ease;
 }
-/* 玻璃高光层 — 对角线光泽 */
-.icon-wrap::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
-  background: linear-gradient(160deg,
-    rgba(255,255,255,.18) 0%,
-    rgba(255,255,255,.06) 35%,
-    transparent 55%,
-    rgba(0,0,0,.04) 100%
-  );
-  border-radius: inherit;
-}
 .nav-menu.list .icon-wrap { width: 40px; height: 40px; border-radius: 10px; }
-.icon-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.icon-img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* 角标 — 挂在 icon-anchor 上，不被 overflow:hidden 切割 */
 .icon-badge {
@@ -1029,15 +770,15 @@ onUnmounted(() => {
 /* 区域分隔 */
 .section-label {
   text-align: center; padding: 6px 0 2px; font-size: 10px;
-  color: #475569; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text-muted); letter-spacing: .1em; text-transform: uppercase;
   opacity: 1;
   transition: opacity 0.3s ease, max-height 0.3s ease, padding 0.3s ease;
 }
-.section-line { height: 1px; margin: 4px 8px; background: rgba(255,255,255,.05); }
+.section-line { height: 1px; margin: 4px 8px; background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent); }
 
 /* 标签 */
 .icon-label {
-  font-size: 10px; color: #94a3b8; text-align: center;
+  font-size: 10px; color: var(--text-secondary); text-align: center;
   line-height: 1.2; max-width: 64px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   opacity: 1;
@@ -1046,15 +787,6 @@ onUnmounted(() => {
 
 
 /* ===== 对话迷你按钮 ===== */
-.chat-mini-row { display: flex; gap: 6px; }
-.chat-mini-row.collapsed { flex-direction: column; align-items: center; gap: 4px; }
-.chat-mini-btn {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 8px 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,.04);
-  background: rgba(255,255,255,.02); cursor: pointer;
-  transition: all .2s ease; font-family: inherit;
-}
-.chat-mini-btn:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.08); transform: scale(1.03); }
 .chat-mini-btn:active { transform: scale(.95); }
 .chat-mini-icon {
   width: 32px; height: 32px; border-radius: 9px;
@@ -1064,7 +796,7 @@ onUnmounted(() => {
 .chat-mini-icon svg { width: 16px; height: 16px; }
 .chat-mini-icon.new { background: linear-gradient(145deg, rgba(34,197,94,.3), rgba(20,184,166,.3)); color: #4ade80; }
 .chat-mini-icon.history { background: linear-gradient(145deg, rgba(99,102,241,.3), rgba(139,92,246,.3)); color: #a78bfa; }
-.chat-mini-label { font-size: 10px; color: #94a3b8; opacity: 1; transition: opacity 0.3s ease; }
+.chat-mini-label { font-size: 10px; color: var(--text-secondary); opacity: 1; transition: opacity 0.3s ease; }
 .chat-mini-row.collapsed .chat-mini-icon { width: 28px; height: 28px; border-radius: 7px; }
 .chat-mini-row.collapsed .chat-mini-icon svg { width: 13px; height: 13px; }
 
@@ -1079,53 +811,6 @@ onUnmounted(() => {
   flex-shrink: 0;           /* 固定不收缩 */
 }
 
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.03);
-}
-.theme-options {
-  display: flex;
-  gap: 4px;
-}
-.theme-options.vertical {
-  flex-direction: column;
-  gap: 2px;
-}
-.theme-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.3s ease;
-  color: var(--text-secondary);
-}
-.theme-btn:hover {
-  background: rgba(255,255,255,0.10);
-  transform: scale(1.08);
-  color: var(--text-primary);
-}
-.theme-btn.active {
-  background: rgba(255,255,255,0.12);
-  box-shadow: 0 0 0 2px rgba(128,128,128,0.12);
-  color: var(--text-primary);
-}
-.sidebar-content.collapsed .theme-btn {
-  width: 28px;
-  height: 28px;
-  font-size: 14px;
-}
-
 .footer-btn {
   display: flex;
   align-items: center;
@@ -1135,7 +820,7 @@ onUnmounted(() => {
   padding: 8px 12px;
   border: none;
   border-radius: 10px;
-  background: rgba(255,255,255,0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   border: 1px solid rgba(255,255,255,0.03);
   color: var(--text-secondary);
   font-size: 14px;
@@ -1152,9 +837,9 @@ onUnmounted(() => {
 .dropdown-leave-to { opacity: 0; transform: translateY(-4px) scale(0.96); }
 
 .feedback-btn:hover {
-  background: rgba(64,158,255,0.12);
-  border-color: rgba(64,158,255,0.2);
-  color: #409eff;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent);
+  color: var(--brand);
   transform: translateY(-2px);
 }
 .opensource-btn {
@@ -1166,7 +851,7 @@ onUnmounted(() => {
 .opensource-btn:hover {
   background: rgba(16,185,129,0.10);
   border-color: rgba(16,185,129,0.15);
-  color: #34d399;
+  color: color-mix(in srgb, #34d399 65%, var(--text-primary));
   transform: translateY(-1px);
   opacity: 0.9;
 }
@@ -1183,7 +868,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 8px 14px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.05);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
   border: 1px solid rgba(255,255,255,0.06);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -1192,12 +877,12 @@ onUnmounted(() => {
   user-select: none;
 }
 .custom-select:hover {
-  background: rgba(255,255,255,0.10);
-  border-color: rgba(255,255,255,0.12);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
+  border-color: var(--line-soft);
   transform: translateY(-1px);
 }
 [data-theme="dark"] .custom-select {
-  background: rgba(255,255,255,0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
 }
 .select-display {
   color: var(--text-primary);
@@ -1216,10 +901,10 @@ onUnmounted(() => {
   top: 44px;
   left: 0;
   right: 0;
-  background: rgba(255,255,255,0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--line-soft);
   border-radius: 10px;
   padding: 4px 0;
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
@@ -1227,7 +912,7 @@ onUnmounted(() => {
   min-width: 160px;
 }
 [data-theme="dark"] .custom-select-dropdown {
-  background: rgba(0,0,0,0.35);
+  background: var(--well);
 }
 .select-option {
   padding: 8px 14px;
@@ -1239,12 +924,12 @@ onUnmounted(() => {
   margin: 2px 4px;
 }
 .select-option:hover {
-  background: rgba(255,255,255,0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   color: var(--text-primary);
   transform: translateX(2px);
 }
 .select-option.active {
-  background: rgba(255,255,255,0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   color: var(--text-primary);
 }
 
@@ -1262,111 +947,36 @@ onUnmounted(() => {
   position: relative;
 }
 .feedback-dialog :deep(.el-textarea__inner) {
-  background: rgba(255,255,255,0.05) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
   border-color: rgba(255,255,255,0.06) !important;
   color: var(--text-primary) !important;
   border-radius: 10px !important;
   transition: all 0.3s ease !important;
 }
 .feedback-dialog :deep(.el-textarea__inner:hover) {
-  border-color: rgba(255,255,255,0.15) !important;
+  border-color: var(--line) !important;
 }
 [data-theme="dark"] .feedback-dialog :deep(.el-textarea__inner) {
-  background: rgba(255,255,255,0.04) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
 }
 .feedback-dialog :deep(.el-textarea__inner:focus) {
-  border-color: rgba(255,255,255,0.2) !important;
+  border-color: var(--line-strong) !important;
 }
 .feedback-dialog :deep(.el-input__wrapper) {
-  background: rgba(255,255,255,0.05) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
   border-color: rgba(255,255,255,0.06) !important;
   border-radius: 10px !important;
   transition: all 0.3s ease !important;
 }
 .feedback-dialog :deep(.el-input__wrapper:hover) {
-  border-color: rgba(255,255,255,0.15) !important;
+  border-color: var(--line) !important;
 }
 [data-theme="dark"] .feedback-dialog :deep(.el-input__wrapper) {
-  background: rgba(255,255,255,0.04) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
 }
 </style>
 
 <style>
-/* ===== 工具面板（右侧滑出毛玻璃）===== */
-.tool-panel-overlay {
-  position: fixed; inset: 0; z-index: 200;
-  background: rgba(0,0,0,.25);
-  display: flex; justify-content: flex-end;
-}
-.tool-panel {
-  width: 380px; max-width: 90vw; height: 100vh;
-  background: linear-gradient(170deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-  backdrop-filter: blur(28px) saturate(1.2);
-  -webkit-backdrop-filter: blur(28px) saturate(1.2);
-  border-left: 1px solid rgba(255,255,255,.06);
-  display: flex; flex-direction: column;
-  padding: 20px;
-  overflow-y: auto;
-}
-.tp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-.tp-title { font-size: 18px; font-weight: 700; color: #e2e8f0; }
-.tp-close {
-  width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(255,255,255,.06);
-  background: rgba(255,255,255,.04); color: #94a3b8; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; transition: all .2s;
-}
-.tp-close:hover { background: rgba(255,255,255,.1); color: #e2e8f0; }
-.tp-close svg { width: 16px; height: 16px; }
-.tp-body { flex: 1; overflow-y: auto; }
-.tp-list { display: flex; flex-direction: column; gap: 8px; }
-.tp-item {
-  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
-  border-radius: 10px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.04);
-}
-.tp-item-info { flex: 1; min-width: 0; }
-.tp-item-name { font-size: 13px; font-weight: 600; color: #e2e8f0; }
-.tp-item-meta { font-size: 11px; color: #64748b; margin-top: 2px; display: block; }
-.tp-empty { text-align: center; padding: 40px 0; color: #475569; font-size: 14px; }
-.tp-add { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; align-items: center; }
-.tp-del {
-  width: 24px; height: 24px; border: none; background: transparent; color: #475569;
-  cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; transition: all .2s;
-}
-.tp-del:hover { color: #ef4444; background: rgba(239,68,68,.08); }
-.tp-del svg { width: 12px; height: 12px; }
-.chat-session-item { cursor: pointer; transition: all .2s; }
-.chat-session-item:hover { background: rgba(99,102,241,.06); border-color: rgba(99,102,241,.12); }
-.chat-session-item.active { background: rgba(99,102,241,.08); border-color: rgba(99,102,241,.2); }
-
-/* 计时器激活态 */
-.tp-timer-active {
-  padding: 16px; border-radius: 12px; margin-bottom: 16px;
-  background: rgba(168,85,247,.08); border: 1px solid rgba(168,85,247,.15);
-}
-.tp-timer-display { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.tp-timer-name { font-size: 14px; color: #e2e8f0; }
-.tp-timer-time { font-size: 28px; font-weight: 700; color: #a78bfa; font-variant-numeric: tabular-nums; }
-.tp-timer-ctls { display: flex; gap: 6px; }
-
-/* 日志 */
-.tp-log-group { margin-bottom: 12px; }
-.tp-log-date { font-size: 12px; font-weight: 600; color: #64748b; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,.04); margin-bottom: 4px; }
-.tp-log-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; color: #cbd5e1; }
-.tp-log-time { color: #64748b; font-size: 11px; flex-shrink: 0; width: 40px; }
-.tp-log-keyword { flex: 1; }
-
-/* 过渡动画 */
-.panel-slide-enter-active { transition: all .3s ease; }
-.panel-slide-leave-active { transition: all .25s ease; }
-.panel-slide-enter-from .tool-panel { transform: translateX(100%); }
-.panel-slide-enter-to .tool-panel { transform: translateX(0); }
-.panel-slide-leave-from .tool-panel { transform: translateX(0); }
-.panel-slide-leave-to .tool-panel { transform: translateX(100%); }
-.panel-slide-enter-from { opacity: 0; }
-.panel-slide-enter-to { opacity: 1; }
-.panel-slide-leave-from { opacity: 1; }
-.panel-slide-leave-to { opacity: 0; }
 
 .feedback-dialog-wrapper {
   --el-dialog-bg-color: transparent;
@@ -1376,15 +986,15 @@ onUnmounted(() => {
   backdrop-filter: none !important;
 }
 .feedback-dialog-wrapper .el-dialog {
-  background: rgba(255,255,255,0.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(255,255,255,0.10) !important;
+  border: 1px solid var(--line-soft) !important;
   border-radius: 16px !important;
   box-shadow: 0 8px 40px rgba(0,0,0,0.2) !important;
 }
 [data-theme="dark"] .feedback-dialog-wrapper .el-dialog {
-  background: rgba(0,0,0,0.3) !important;
+  background: var(--well) !important;
   border-color: rgba(255,255,255,0.06) !important;
   box-shadow: 0 8px 40px rgba(0,0,0,0.4) !important;
 }
@@ -1402,22 +1012,22 @@ onUnmounted(() => {
   padding: 0 20px 16px;
 }
 .feedback-dialog-wrapper .el-button {
-  background: rgba(255,255,255,0.06) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent) !important;
   border: 1px solid rgba(255,255,255,0.06) !important;
   color: var(--text-secondary) !important;
   border-radius: 8px !important;
   transition: all 0.3s ease !important;
 }
 .feedback-dialog-wrapper .el-button:hover {
-  background: rgba(255,255,255,0.12) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 12%, transparent) !important;
   transform: translateY(-2px);
 }
 .feedback-dialog-wrapper .el-button--primary {
-  background: rgba(64,158,255,0.15) !important;
-  border-color: rgba(64,158,255,0.2) !important;
-  color: #66b1ff !important;
+  background: color-mix(in srgb, var(--brand) 15%, transparent) !important;
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent) !important;
+  color: var(--brand-bright) !important;
 }
 .feedback-dialog-wrapper .el-button--primary:hover {
-  background: rgba(64,158,255,0.25) !important;
+  background: color-mix(in srgb, var(--brand) 25%, transparent) !important;
 }
 </style>

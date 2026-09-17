@@ -119,8 +119,8 @@
               <div class="ach-condition">{{ ach.condition }}</div>
               <div class="ach-reward">+{{ ach.reward }}</div>
               <div class="ach-status">
-                <span v-if="ach.done" style="color:#67c23a;">✅ 已拾取</span>
-                <span v-else-if="ach.ready" style="color:#e6a23c;">🎁 可领取</span>
+                <span v-if="ach.done" style="color:color-mix(in srgb, #67c23a 65%, var(--text-primary));">✅ 已拾取</span>
+                <span v-else-if="ach.ready" style="color:color-mix(in srgb, #e6a23c 70%, var(--text-primary));">🎁 可领取</span>
                 <span v-else :style="{ color: ach._color + '80' }">⏳ 未达成</span>
               </div>
               <div class="ach-progress-wrap">
@@ -223,8 +223,8 @@
           >★</span>
         </div>
         <div class="glass-detail-status">
-          <span v-if="detailData?.done" style="color:#67c23a;">✅ 已拾取</span>
-          <span v-else-if="detailData?.ready" style="color:#e6a23c;">🎁 可领取</span>
+          <span v-if="detailData?.done" style="color:color-mix(in srgb, #67c23a 65%, var(--text-primary));">✅ 已拾取</span>
+          <span v-else-if="detailData?.ready" style="color:color-mix(in srgb, #e6a23c 70%, var(--text-primary));">🎁 可领取</span>
           <span v-else :style="{ color: detailData?._color + '80' }">⏳ 未达成</span>
         </div>
         <div v-if="detailData?.done && detailData?.unlock_time" class="glass-detail-time">
@@ -754,7 +754,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   padding: 10px 18px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -766,14 +766,14 @@ onUnmounted(() => {
   font-size: 13px;
 }
 .score-value {
-  color: #FFD700;
+  color: color-mix(in srgb, #FFD700 70%, var(--text-primary));
   font-size: 20px;
   font-weight: 700;
   transition: all 0.3s ease;
   min-width: 28px;
 }
 .score-value.level-score {
-  color: #6BCB77;
+  color: color-mix(in srgb, #6BCB77 65%, var(--text-primary));
 }
 .score-divider {
   opacity: 0.15;
@@ -804,18 +804,18 @@ h1 { font-size: 28px; color: var(--text-primary); }
 .ach-card {
   padding: 18px 14px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid var(--line-soft);
   text-align: center;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
   position: relative;
 }
 [data-theme="dark"] .ach-card {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--well);
   border-color: rgba(255, 255, 255, 0.06);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
@@ -823,11 +823,11 @@ h1 { font-size: 28px; color: var(--text-primary); }
 .ach-card:hover {
   transform: translateY(-6px);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
-  border-color: rgba(255, 255, 255, 0.20);
+  border-color: var(--line);
 }
 [data-theme="dark"] .ach-card:hover {
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--line-soft);
 }
 .ach-card:active {
   transform: translateY(-2px) scale(0.98);
@@ -975,10 +975,10 @@ h1 { font-size: 28px; color: var(--text-primary); }
 }
 
 .glass-full-content {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid var(--line-soft);
   border-radius: 32px;
   padding: 40px 56px;
   text-align: center;
@@ -1006,12 +1006,12 @@ h1 { font-size: 28px; color: var(--text-primary); }
 }
 .glass-full-rank {
   font-size: 16px;
-  color: #FFD700;
+  color: color-mix(in srgb, #FFD700 70%, var(--text-primary));
   margin-top: 4px;
 }
 .glass-full-level {
   font-size: 16px;
-  color: #6BCB77;
+  color: color-mix(in srgb, #6BCB77 65%, var(--text-primary));
   margin-top: 2px;
 }
 .glass-full-points {
@@ -1033,11 +1033,11 @@ h1 { font-size: 28px; color: var(--text-primary); }
   margin-top: 12px;
 }
 .highlight-gold {
-  color: #FFD700;
+  color: color-mix(in srgb, #FFD700 70%, var(--text-primary));
   font-weight: 600;
 }
 .highlight-green {
-  color: #6BCB77;
+  color: color-mix(in srgb, #6BCB77 65%, var(--text-primary));
   font-weight: 600;
 }
 .glass-toast {

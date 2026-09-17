@@ -304,7 +304,7 @@ async function handleGenerate() {
       topic: data.topic
     })
 
-    await recordAction(authStore.user.id, 'generate_question')
+    await recordAction(authStore.user.id, 'generate_question', { touchpoint: 'reslib_generate' })
 
     setTimeout(() => {
       sessionStorage.setItem('current_question', JSON.stringify(data))
@@ -365,7 +365,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 8px 14px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid var(--border-color);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -376,11 +376,11 @@ onUnmounted(() => {
   position: relative;
 }
 .custom-select:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
+  border-color: var(--line-soft);
 }
 [data-theme="dark"] .custom-select {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
 }
 
 .select-display {
@@ -403,16 +403,16 @@ onUnmounted(() => {
   min-width: 100%;
   max-height: 220px;
   overflow-y: auto;
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-soft);
   border-radius: 10px;
   padding: 4px 0;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   z-index: 1000;
 }
 [data-theme="dark"] .custom-select-dropdown {
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--well);
 }
 
 .select-option {
@@ -425,11 +425,11 @@ onUnmounted(() => {
   margin: 2px 4px;
 }
 .select-option:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   color: var(--text-primary);
 }
 .select-option.active {
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   color: var(--text-primary);
 }
 
@@ -450,20 +450,20 @@ onUnmounted(() => {
   color: var(--text-secondary) !important;
 }
 :deep(.el-textarea__inner) {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
   border-color: var(--border-color) !important;
   color: var(--text-primary) !important;
   border-radius: 10px !important;
   transition: all 0.3s ease !important;
 }
 :deep(.el-textarea__inner:hover) {
-  border-color: rgba(255, 255, 255, 0.12) !important;
+  border-color: var(--line-soft) !important;
 }
 :deep(.el-textarea__inner:focus) {
-  border-color: rgba(255, 255, 255, 0.18) !important;
+  border-color: var(--line) !important;
 }
 [data-theme="dark"] :deep(.el-textarea__inner) {
-  background: rgba(255, 255, 255, 0.03) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent) !important;
 }
 
 /* ======================================== */
@@ -550,18 +550,18 @@ onUnmounted(() => {
 }
 .agent-icon {
   font-size: 18px;
-  color: #00d4ff;
+  color: color-mix(in srgb, #00d4ff 65%, var(--text-primary));
 }
 .agent-name {
   font-size: 13px;
   font-weight: 600;
-  color: #00d4ff;
+  color: color-mix(in srgb, #00d4ff 65%, var(--text-primary));
   font-family: 'Courier New', monospace;
   letter-spacing: 1px;
 }
 .agent-status {
   font-size: 13px;
-  color: #b0d4ff;
+  color: color-mix(in srgb, #b0d4ff 60%, var(--text-primary));
   margin-left: auto;
   font-family: 'Courier New', monospace;
 }
@@ -591,14 +591,14 @@ onUnmounted(() => {
   flex: 1;
   font-size: 14px;
   font-weight: 500;
-  color: #b0d4ff;
+  color: color-mix(in srgb, #b0d4ff 60%, var(--text-primary));
   letter-spacing: 0.5px;
   font-family: 'Courier New', monospace;
 }
 .status-percent {
   font-size: 22px;
   font-weight: 700;
-  color: #00d4ff;
+  color: color-mix(in srgb, #00d4ff 65%, var(--text-primary));
   font-family: 'Courier New', monospace;
   text-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
 }

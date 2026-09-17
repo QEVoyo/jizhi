@@ -1,77 +1,29 @@
 <template>
-  <div class="app-container" :style="bgStyle">
+  <div class="app-container">
     <router-view v-slot="{ Component, route }">
-      <Transition :name="route.meta.transition || 'page-fade'" mode="out-in">
+      <!-- 显式 :duration：即使浏览器丢了 transitionend，也会到点强制结束过渡，
+           绝不把新页面卡死在 enter-from(opacity:0)（2026-09-05 修「整页空白」） -->
+      <Transition :name="route.meta.transition || 'page-fade'" mode="out-in" :duration="220">
         <component :is="Component" :key="route.path" />
       </Transition>
     </router-view>
+    <!-- 全局搜索（登录后的主应用页面；落地页/登录/引导/管理后台不显示） -->
+    <GlobalSearch v-if="showGlobalSearch" />
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useThemeStore } from '@/stores/theme'
-import { BG_MAP } from '@/utils/constants'
+import GlobalSearch from '@/components/GlobalSearch.vue'
 
 const route = useRoute()
-const themeStore = useThemeStore()
 
-const bgKey = computed(() => {
-  const p = route.path
-  // 精确匹配
-  const map = {
-    '/': 'landing',
-    '/login': 'login',
-    '/home': 'main',
-    '/profile': 'profile',
-    '/resource-lib': 'resource_lib',
-    '/career': 'career',
-    '/career/rank': 'rank',
-    '/career/tasks': 'tasks',
-    '/career/achievements': 'achievements',
-    '/do-question': 'do_question',
-    '/mastery-board': 'mastery_board',
-    '/set-detail': 'set_detail',
-    '/generate-from-mastery': 'generate',
-    '/community': 'community',
-    '/qa': 'qa',
-    '/message': 'message',
-    '/subject-plan': 'subject_plan',
-    '/subject-plan/diagnosis': 'subject_plan_diagnosis',
-  }
-  if (map[p]) return map[p]
-  // 动态路由前缀匹配
-  if (p.startsWith('/subject-plan/') && p.endsWith('/practice')) return 'subject_practice'
-  if (p.startsWith('/subject-plan/') && p.includes('/exam/')) return 'subject_practice'
-  if (p.startsWith('/subject-plan/')) return 'subject_plan_detail'
-  if (p.startsWith('/do-question/')) return 'do_question'
-  if (p.startsWith('/community/')) return 'community'
-  return 'main'
-})
-
-const bgImage = computed(() => {
-  const theme = themeStore.currentTheme
-  return BG_MAP[theme]?.[bgKey.value] || BG_MAP[theme]?.main || ''
-})
-
-const overlayColor = computed(() => {
-  return themeStore.currentTheme === 'dark'
-    ? 'rgba(0, 0, 0, 0.5)'
-    : 'rgba(255, 255, 255, 0.15)'
-})
-
-const bgStyle = computed(() => {
-  const image = bgImage.value
-  return {
-    backgroundImage: `linear-gradient(${overlayColor.value}, ${overlayColor.value}), url(${image})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundAttachment: 'fixed',
-    minHeight: '100vh',
-    backgroundRepeat: 'no-repeat'
-  }
-})
+const showGlobalSearch = computed(() =>
+  !!route.meta.requiresAuth &&
+  !route.path.startsWith('/admin') &&
+  route.path !== '/onboarding'
+)
 </script>
 
 <style>

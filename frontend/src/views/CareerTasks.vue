@@ -233,7 +233,7 @@
               <span class="bonus-label">🎯 完成全部每日任务</span>
               <span class="bonus-reward">+50</span>
               <span class="bonus-value">
-                <span class="star" style="color:#FFD700;">★★★★★</span>
+                <span class="star" style="color:color-mix(in srgb, #FFD700 70%, var(--text-primary));">★★★★★</span>
               </span>
               <div class="bonus-progress">
                 <div class="progress-wrapper">
@@ -350,7 +350,7 @@
                 </div>
                 <span class="ach-status">
                   <span v-if="ach.done">✅ 已拾取</span>
-                  <span v-else-if="ach.ready" style="color:#e6a23c;">🎁 可领取</span>
+                  <span v-else-if="ach.ready" style="color:color-mix(in srgb, #e6a23c 70%, var(--text-primary));">🎁 可领取</span>
                   <span v-else>⏳ 未解锁</span>
                 </span>
                 <div class="ach-progress">
@@ -1007,7 +1007,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   padding: 10px 18px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -1019,14 +1019,14 @@ onUnmounted(() => {
   font-size: 13px;
 }
 .score-value {
-  color: #FFD700;
+  color: color-mix(in srgb, #FFD700 70%, var(--text-primary));
   font-size: 20px;
   font-weight: 700;
   transition: all 0.3s ease;
   min-width: 28px;
 }
 .score-value.level-score {
-  color: #6BCB77;
+  color: color-mix(in srgb, #6BCB77 65%, var(--text-primary));
 }
 .score-divider {
   opacity: 0.15;
@@ -1040,7 +1040,7 @@ h1 { font-size: 28px; color: var(--text-primary); }
 }
 
 .task-section {
-  background: rgba(255,255,255,0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(12px);
   border-radius: 14px;
   padding: 20px 24px;
@@ -1123,9 +1123,9 @@ h1 { font-size: 28px; color: var(--text-primary); }
 }
 .claim-btn:hover { transform: translateY(-2px) scale(1.03) !important; }
 .claim-btn.done { opacity: 0.5; cursor: not-allowed; }
-.claimed-text { color: #67c23a; font-size: 13px; }
+.claimed-text { color: color-mix(in srgb, #67c23a 65%, var(--text-primary)); font-size: 13px; }
 .pending-text { color: var(--text-muted); font-size: 13px; }
-.locked-text { color: #909399; font-size: 13px; }
+.locked-text { color: var(--text-muted); font-size: 13px; }
 
 .bonus-row {
   display: grid;
@@ -1139,7 +1139,7 @@ h1 { font-size: 28px; color: var(--text-primary); }
   border: 1px solid rgba(255,215,0,0.12);
 }
 .bonus-label { font-weight: 600; color: var(--text-primary); }
-.bonus-reward { color: #FFB300; font-weight: 600; }
+.bonus-reward { color: color-mix(in srgb, #FFB300 70%, var(--text-primary)); font-weight: 600; }
 
 .achievement-list {
   display: flex;
@@ -1224,10 +1224,10 @@ h1 { font-size: 28px; color: var(--text-primary); }
 }
 
 .glass-full-content {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid var(--line-soft);
   border-radius: 32px;
   padding: 40px 56px;
   text-align: center;
@@ -1256,12 +1256,12 @@ h1 { font-size: 28px; color: var(--text-primary); }
 }
 .glass-full-rank {
   font-size: 16px;
-  color: #FFD700;
+  color: color-mix(in srgb, #FFD700 70%, var(--text-primary));
   margin-top: 4px;
 }
 .glass-full-level {
   font-size: 16px;
-  color: #6BCB77;
+  color: color-mix(in srgb, #6BCB77 65%, var(--text-primary));
   margin-top: 2px;
 }
 .glass-full-points {
@@ -1283,11 +1283,11 @@ h1 { font-size: 28px; color: var(--text-primary); }
   margin-top: 12px;
 }
 .highlight-gold {
-  color: #FFD700;
+  color: color-mix(in srgb, #FFD700 70%, var(--text-primary));
   font-weight: 600;
 }
 .highlight-green {
-  color: #6BCB77;
+  color: color-mix(in srgb, #6BCB77 65%, var(--text-primary));
   font-weight: 600;
 }
 

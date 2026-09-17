@@ -37,8 +37,8 @@ defineProps({
   inset: 0;
   border-radius: 50%;
   border: 2px solid transparent;
-  border-top-color: rgba(64, 158, 255, 0.6);
-  border-right-color: rgba(64, 158, 255, 0.3);
+  border-top-color: color-mix(in srgb, var(--brand) 60%, transparent);
+  border-right-color: color-mix(in srgb, var(--brand) 30%, transparent);
   animation: ring-spin 0.8s linear infinite;
 }
 

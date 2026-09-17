@@ -377,7 +377,7 @@ onUnmounted(() => {
   position: fixed;
   top: 20px;
   right: 24px;
-  background: rgba(255,255,255,0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 14px;
@@ -430,9 +430,9 @@ onUnmounted(() => {
   backdrop-filter: blur(6px);
 }
 .glass-box {
-  background: rgba(255,255,255,0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   backdrop-filter: blur(32px);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--line-soft);
   border-radius: 28px;
   padding: 32px 48px;
   text-align: center;

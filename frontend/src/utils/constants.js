@@ -46,54 +46,5 @@ export const RANK_ORDER = ['启程', '求索', '明理', '致知', '笃行', '�
 
 export const SUB_SYMBOLS = { 1: '○', 2: '◌', 3: '◎', 4: '◍', 5: '●' }
 
-// ===== 背景图映射 =====
-export const BG_MAP = {
-  light: {
-    landing: '/assets/bg/main_bg.jpg',
-    login: '/assets/bg/main_bg.jpg',
-    main: '/assets/bg/main_bg.jpg',
-    career: '/assets/bg/career_bg.png',
-    rank: '/assets/bg/career_rank_bg.png',
-    tasks: '/assets/bg/career_tasks_bg.jpg',
-    achievements: '/assets/bg/career_achievements_bg.jpg',
-    resource_lib: '/assets/bg/resource_lib_bg.png',
-    do_question: '/assets/bg/do_question_bg.png',
-    mastery_board: '/assets/bg/mastery_board_bg.jpg',
-    set_detail: '/assets/bg/set_detail_bg.jpg',
-    generate: '/assets/bg/generate_from_mastery_bg.jpg',
-    profile: '/assets/bg/profile_bg.jpg',
-    settings: '/assets/bg/profile_bg.jpg',
-    // ===== 新增三个页面 =====
-    community: '/assets/bg/community_bg.jpg',
-    qa: '/assets/bg/qa_bg.jpg',
-    message: '/assets/bg/message_bg.jpg',
-    subject_plan: '/assets/bg/resource_lib_bg.png',
-    subject_plan_diagnosis: '/assets/bg/do_question_bg.png',
-    subject_plan_detail: '/assets/bg/resource_lib_bg.png',
-    subject_practice: '/assets/bg/do_question_bg.png'
-  },
-  dark: {
-    landing: '/assets/bg/main_bl.jpg',
-    login: '/assets/bg/main_bl.jpg',
-    main: '/assets/bg/main_bl.jpg',
-    career: '/assets/bg/career_bl.jpg',
-    rank: '/assets/bg/career_rank_bl.jpg',
-    tasks: '/assets/bg/career_tasks_bl.jpg',
-    achievements: '/assets/bg/career_achievements_bl.jpg',
-    resource_lib: '/assets/bg/resource_lib_bl.jpg',
-    do_question: '/assets/bg/do_question_bl.jpg',
-    mastery_board: '/assets/bg/mastery_board_bl.jpg',
-    set_detail: '/assets/bg/set_detail_bl.jpg',
-    generate: '/assets/bg/generate_from_mastery_bl.jpg',
-    profile: '/assets/bg/profile_bl.jpg',
-    settings: '/assets/bg/profile_bl.jpg',
-    // ===== 新增三个页面 =====
-    community: '/assets/bg/community_bl.jpg',
-    qa: '/assets/bg/qa_bl.jpg',
-    message: '/assets/bg/message_bl.jpg',
-    subject_plan: '/assets/bg/resource_lib_bl.jpg',
-    subject_plan_diagnosis: '/assets/bg/do_question_bl.jpg',
-    subject_plan_detail: '/assets/bg/resource_lib_bl.jpg',
-    subject_practice: '/assets/bg/do_question_bl.jpg'
-  }
-}
+// 背景图映射（BG_MAP）已于 2026-09-03 移除：舍弃背景图，页面底色/氛围由背景色 + 品牌色派生
+// （见 stores/theme.js 与 styles/theme.css `.app-container`）

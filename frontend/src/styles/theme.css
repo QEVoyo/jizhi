@@ -1,3 +1,13 @@
+/* ===== 品牌色体系（2026-09-02：主题定制——默认蓝，运行时被 themeStore 覆盖）===== */
+:root {
+  --brand: #409EFF;
+  --brand-bright: #66b1ff;   /* 深底上的亮字版（由 --brand 派生的默认值） */
+  --brand-ink: #1c5fb0;      /* 浅底上的深字版 */
+  --brand-glow: #7db8ff;
+  --brand-on: #ffffff;       /* 品牌色块上的可读字色（由 --brand 亮度派生，默认蓝取白） */
+  --surface: #ffffff;        /* 组件色基准（2026-09-03）：毛玻璃白描层，自定义时被 themeStore 覆盖 */
+}
+
 /* ===== 浅色主题 ===== */
 :root {
   --bg-color: #f5f5f5;
@@ -41,7 +51,27 @@
     --shadow-hover: 0 6px 24px rgba(0, 0, 0, 0.5);
     --input-bg: rgba(255, 255, 255, 0.05);
     --input-border: rgba(255, 255, 255, 0.06);
+    --well: color-mix(in srgb, var(--bg-color) 70%, #000000);
+    --well-soft: color-mix(in srgb, var(--bg-color) 85%, #000000);
   }
+}
+
+/* ===== 自适应衍生色（2026-09-03 用户定调：固定色全部从四轴派生，杜绝套装不适配）=====
+   公式 A 描边线：字体轴透明化——字色浅则线浅、字色深则线深，永远弱于文字一档、任何底上可见
+   公式 B 凹舱：背景轴按明暗沉浮——深主题=更深的舱、浅主题=向文字色收灰的舱
+   公式 C 语义色盲板化：固有色文字混合字体轴 ~60%——深套装提亮、浅套装压深（组件内直接写 color-mix） */
+:root {
+  --line-soft: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  --line: color-mix(in srgb, var(--text-primary) 14%, transparent);
+  --line-strong: color-mix(in srgb, var(--text-primary) 26%, transparent);
+}
+[data-theme="dark"] {
+  --well: color-mix(in srgb, var(--bg-color) 70%, #000000);
+  --well-soft: color-mix(in srgb, var(--bg-color) 85%, #000000);
+}
+[data-theme="light"] {
+  --well: color-mix(in srgb, var(--bg-color) 88%, var(--text-primary));
+  --well-soft: color-mix(in srgb, var(--bg-color) 95%, var(--text-primary));
 }
 
 /* ===== 全局应用 ===== */
@@ -49,6 +79,23 @@ body {
   background: transparent !important;
   color: var(--text-primary);
   transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ===== 页面整体背景（2026-09-03：舍弃背景图）=====
+   底色 = --bg-color（默认随浅/深模式，自定义背景色时被 themeStore 内联覆盖）
+   氛围 = 品牌色两层径向微光 + 背景色上下轻微明暗渐变（全部由颜色前端派生）
+*/
+.app-container {
+  background-color: var(--bg-color);
+  background-image:
+    radial-gradient(58% 55% at 88% -12%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 62%),
+    radial-gradient(48% 46% at -6% 108%, color-mix(in srgb, var(--brand) 9%, transparent), transparent 60%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--bg-color) 92%, #ffffff) 0%,
+      var(--bg-color) 45%,
+      color-mix(in srgb, var(--bg-color) 96%, #000000) 100%);
+  background-attachment: fixed;
+  transition: background-color 0.3s ease;
 }
 
 /* ===== Element Plus 深色适配 ===== */
@@ -90,24 +137,24 @@ body {
 }
 
 [data-theme="dark"] .el-button {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
   border-color: rgba(255, 255, 255, 0.06) !important;
   color: var(--text-secondary) !important;
 }
 
 [data-theme="dark"] .el-button:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent) !important;
   color: var(--text-primary) !important;
 }
 
 [data-theme="dark"] .el-button--primary {
-  background: rgba(64, 158, 255, 0.15) !important;
-  border-color: rgba(64, 158, 255, 0.2) !important;
-  color: #66b1ff !important;
+  background: color-mix(in srgb, var(--brand) 15%, transparent) !important;
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent) !important;
+  color: var(--brand-bright) !important;
 }
 
 [data-theme="dark"] .el-button--primary:hover {
-  background: rgba(64, 158, 255, 0.25) !important;
+  background: color-mix(in srgb, var(--brand) 25%, transparent) !important;
 }
 
 [data-theme="dark"] .el-button--success {
@@ -123,7 +170,7 @@ body {
 }
 
 [data-theme="dark"] .el-button--info {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
   border-color: rgba(255, 255, 255, 0.06) !important;
   color: var(--text-muted) !important;
 }
@@ -157,7 +204,7 @@ body {
 }
 
 [data-theme="dark"] .el-avatar {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent) !important;
   color: var(--text-muted) !important;
 }
 
@@ -184,10 +231,10 @@ body {
 }
 
 [data-theme="dark"] .el-popper .el-select-dropdown__item:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
   color: var(--text-primary) !important;
 }
 
 [data-theme="dark"] .el-popper .el-select-dropdown__item.is-selected {
-  color: #66b1ff !important;
+  color: var(--brand-bright) !important;
 }
