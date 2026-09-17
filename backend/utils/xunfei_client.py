@@ -8,11 +8,21 @@ from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote
 
-import websocket
-from websocket import WebSocketTimeoutException
-
 from config import settings
 from logging_config import logger
+
+
+def _ws_module():
+    """websocket-client 是可选依赖（只有讯飞 TTS / ASR 用它）。
+
+    延迟导入：缺这个包时语音合成与语音听写不可用，但不该拖垮整个服务启动。
+    返回 None 表示未安装。
+    """
+    try:
+        import websocket
+        return websocket
+    except ImportError:
+        return None
 
 
 class XunfeiClient:
@@ -92,6 +102,11 @@ class XunfeiClient:
             "tte": "UTF8",
         }
 
+        websocket = _ws_module()
+        if websocket is None:
+            logger.info("[讯飞TTS] 未安装 websocket-client，该功能不可用（pip install websocket-client）")
+            return None
+
         ws = None
         audio_parts = []
         try:
@@ -122,7 +137,7 @@ class XunfeiClient:
             while not done:
                 try:
                     msg = ws.recv()
-                except WebSocketTimeoutException:
+                except websocket.WebSocketTimeoutException:
                     break  # 静默 2s 视为合成结束
                 if isinstance(msg, bytes):
                     # 二进制音频帧：可能带 "AU"+音频类型(1字节) 前缀
@@ -183,6 +198,11 @@ class XunfeiClient:
         if not pcm:
             return None
 
+        websocket = _ws_module()
+        if websocket is None:
+            logger.info("[讯飞ASR] 未安装 websocket-client，该功能不可用（pip install websocket-client）")
+            return None
+
         business = {
             "domain": "iat",
             "language": "zh_cn",
@@ -228,7 +248,7 @@ class XunfeiClient:
             while True:
                 try:
                     msg = ws.recv()
-                except WebSocketTimeoutException:
+                except websocket.WebSocketTimeoutException:
                     break
                 if isinstance(msg, bytes):
                     continue

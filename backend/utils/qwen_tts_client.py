@@ -20,8 +20,6 @@ import uuid
 import base64
 from typing import Optional
 
-import websocket
-
 from config import settings
 from logging_config import logger
 
@@ -83,6 +81,14 @@ def get_tts_audio(
         return None
     text = _strip_emoji(text)[:2000]
     if not text:
+        return None
+
+    # websocket-client 是可选依赖（只有语音合成用它）。
+    # 延迟导入：缺这个包时语音播报不可用，但不该拖垮整个服务启动。
+    try:
+        import websocket
+    except ImportError:
+        logger.info("[千问TTS] 未安装 websocket-client，语音播报不可用（pip install websocket-client）")
         return None
 
     if voice not in {v["value"] for v in QWEN_TTS_VOICES}:
