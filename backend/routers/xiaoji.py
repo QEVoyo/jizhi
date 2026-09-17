@@ -10,12 +10,26 @@ import jwt
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from websockets.asyncio.client import connect as ws_connect
 from utils.xunfei_client import XunfeiClient
 from utils.qwen_tts_client import get_tts_audio, get_available_voices, QWEN_DEFAULT_VOICE, _strip_emoji
 from utils.auth_middleware import get_current_user, verify_user_match
 from services import xiaoji_persona
 from logging_config import logger
+
+
+async def _ws_connect(*args, **kwargs):
+    """连接下游 WebSocket（讯飞 ASR / 千问 realtime）。
+
+    websockets 是可选依赖，只被语音识别与语音通话用到。延迟导入，
+    缺这个包时那两个功能不可用，但不该拖垮整个服务启动。
+    """
+    try:
+        from websockets.asyncio.client import connect
+    except ImportError as e:
+        raise RuntimeError(
+            "未安装 websockets（pip install 'websockets>=13'），语音识别与语音通话不可用"
+        ) from e
+    return await connect(*args, **kwargs)
 
 logger.info("[xiaoji] router loaded")
 
@@ -435,7 +449,7 @@ async def xiaoji_asr_websocket(websocket: WebSocket):
 
     xf_ws = None
     try:
-        xf_ws = await ws_connect(client._ws_url(client.IAT_HOST, "/v2/iat"))
+        xf_ws = await _ws_connect(client._ws_url(client.IAT_HOST, "/v2/iat"))
         await xf_ws.send(json.dumps({
             "common": {"app_id": client.appid},
             "business": business,
@@ -709,7 +723,7 @@ async def xiaoji_call_websocket(websocket: WebSocket):
 
     # ── 连千问 realtime ──
     try:
-        qwen_ws = await ws_connect(
+        qwen_ws = await _ws_connect(
             QWEN_REALTIME_URL,
             additional_headers={"Authorization": f"Bearer {settings.DASHSCOPE_API_KEY}"},
             open_timeout=10,
