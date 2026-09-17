@@ -18,6 +18,8 @@ from local_question_bank import (
     count as bank_count,
     get_by_ids as bank_get_by_ids,
     has_bank,
+    search_global as bank_search,
+    syllabus_names,
     _banks,  # 用于跨考纲查题
 )
 from utils.code_runner import run_code, judge_test_case, LANGUAGE_LABELS, get_available_languages
@@ -947,6 +949,24 @@ async def get_questions_by_ids(
 
 
 # ====================================================================
+# 8c. 题库模糊搜索（2026-08-25 小基「发送题目」用，内存零延迟）
+# ====================================================================
+@router.get("/questions/search")
+async def search_questions(
+    q: str = Query(..., min_length=1),
+    syllabus_id: str = Query(""),
+    limit: int = Query(20, ge=1, le=50),
+):
+    """跨考纲模糊搜索题目（题干/知识点/标题），免登录"""
+    questions = bank_search(q.strip(), limit=limit, syllabus_id=syllabus_id or None)
+    return {
+        "questions": questions,
+        "total": len(questions),
+        "syllabus_names": syllabus_names(),
+    }
+
+
+# ====================================================================
 # 9. 提交答案 → AI 批改 → 更新掌握度
 # ====================================================================
 @router.post("/plans/{plan_id}/submit")
@@ -1242,20 +1262,55 @@ class CodeSubmit(BaseModel):
     task_id: Optional[str] = None
 
 
+async def _load_question_for_code(question_id: str, syllabus_id: str = ""):
+    """按 id 取题：先本地题库（学科计划题），再 Supabase questions 表（AI 生成题）。
+
+    旧版只查本地题库 —— AI 生成的编程题不在里面，提交必然 404。
+    返回 (题目 dict, 来源标记)，取不到返回 (None, None)。
+    """
+    if syllabus_id:
+        qs = bank_get_by_ids(syllabus_id, [question_id])
+        if qs:
+            return qs[0], "bank"
+
+    headers = get_supabase_headers()
+    url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}&select=*"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(url, headers=headers)
+        if res.status_code == 200 and res.json():
+            row = res.json()[0]
+            # 生成题把题干存在 title、用例存在 test_cases 列 → 拼成本地题库的 content 形状
+            tcs = row.get("test_cases")
+            if isinstance(tcs, str):
+                try:
+                    tcs = json.loads(tcs)
+                except Exception:
+                    tcs = []
+            return {
+                "id": row.get("id"),
+                "question_type": row.get("question_type"),
+                "answer": row.get("answer"),
+                "starter_code": row.get("starter_code"),
+                "content": {"stem": row.get("title") or "", "test_cases": tcs or []},
+            }, "generated"
+    except Exception as e:
+        logger.info(f"生成题查询失败: {e}")
+    return None, None
+
+
 @router.post("/code/submit")
 async def submit_code(data: CodeSubmit):
     """提交代码 → 沙箱执行 → 逐测试点评分，返回 AC/WA/TLE 等状态（无需登录）"""
 
-    # 1. 查题目 — 直接用 syllabus_id 从本地题库查
+    # 1. 查题目 — 本地题库优先，回落到 AI 生成题（Supabase questions 表）
     sid = data.syllabus_id
-    q = None
-    if sid:
-        qs = bank_get_by_ids(sid, [data.question_id])
-        q = qs[0] if qs else None
+    q, q_source = await _load_question_for_code(data.question_id, sid)
     if not q:
         raise HTTPException(status_code=404, detail="题目不存在")
 
-    if q.get("question_type") != "programming":
+    # 题库用 programming，早期生成题落库用的是 coding —— 两种都收
+    if q.get("question_type") not in ("programming", "coding"):
         raise HTTPException(status_code=400, detail="该题目不是编程题")
 
     # 2. 获取测试用例 — 支持 JSON 和文本两种格式
@@ -1334,7 +1389,8 @@ async def submit_code(data: CodeSubmit):
 
     for i, tc in enumerate(test_cases):
         stdin = tc.get("input", "")
-        expected = tc.get("expected_output", tc.get("expected", ""))
+        # expected_output / expected 为题库写法，output 为生成题写法，三者都要认
+        expected = tc.get("expected_output") or tc.get("expected") or tc.get("output") or ""
         points = tc.get("points", 10)
         desc = tc.get("description", f"测试点 {i + 1}")
 
@@ -1371,6 +1427,7 @@ async def submit_code(data: CodeSubmit):
             "earned": points if passed else 0,
             "stdout": result.get("stdout", "")[:500],
             "stderr": result.get("stderr", "")[:500],
+            "expected": str(expected)[:200],   # 前端展示「期望 vs 实得」，不给的话学生不知道错在哪
         })
 
         if not passed:

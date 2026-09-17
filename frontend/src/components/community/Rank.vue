@@ -187,7 +187,7 @@ onMounted(() => {
 
 .rank-item.is-self {
   border-color: var(--el-color-primary) !important;
-  background: rgba(64, 158, 255, 0.08) !important;
+  background: color-mix(in srgb, var(--brand) 8%, transparent) !important;
 }
 
 .rank-number {

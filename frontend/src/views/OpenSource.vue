@@ -108,7 +108,12 @@
             </a>
             <a href="https://www.xfyun.cn/" target="_blank" class="os-dep">
               <span class="os-dep-name">讯飞星火</span>
-              <span class="os-dep-desc">语音 + 大模型 API</span>
+              <span class="os-dep-desc">语音识别 API</span>
+              <span class="os-dep-license">商用</span>
+            </a>
+            <a href="https://www.aliyun.com/product/bailian" target="_blank" class="os-dep">
+              <span class="os-dep-name">阿里云百炼（千问）</span>
+              <span class="os-dep-desc">小基推理 / 识图 / 语音合成 / 语音通话</span>
               <span class="os-dep-license">商用</span>
             </a>
             <a href="https://www.volcengine.com/" target="_blank" class="os-dep">
@@ -160,7 +165,7 @@
         <h3>关于本项目</h3>
         <p>基智（Jizhi）是一个面向大学生的一站式学习平台，集学科计划、题库训练、AI 诊断、社区交流于一体。后端使用 FastAPI + Supabase（PostgreSQL），前端 Vue 3，部署于 GitHub，项目源码和文档将逐步开放。</p>
         <div class="os-meta">
-          <span class="os-ver">v1.0.0-alpha</span>
+          <span class="os-ver">v{{ appVersion }} · Beta</span>
           <span class="os-divider">|</span>
           <span>Built with ❤️ by Jizhi Team</span>
         </div>
@@ -170,6 +175,9 @@
 </template>
 
 <script setup>
+import pkg from '../../package.json'
+
+const appVersion = pkg.version
 </script>
 
 <style scoped>
@@ -195,7 +203,7 @@
   justify-content: space-between;
   padding: 16px 24px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   flex-shrink: 0;
@@ -207,7 +215,7 @@
   padding: 6px 14px;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
@@ -215,7 +223,7 @@
   font-family: inherit;
 }
 .os-back:hover {
-  background: rgba(255,255,255,0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   color: var(--text-primary);
   transform: translateX(-2px);
 }
@@ -256,7 +264,7 @@
 }
 
 .os-card {
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255,255,255,0.06);
@@ -265,7 +273,7 @@
   transition: all 0.3s ease;
 }
 .os-card:hover {
-  border-color: rgba(255,255,255,0.10);
+  border-color: var(--line-soft);
   transform: translateY(-2px);
   box-shadow: 0 8px 32px rgba(0,0,0,0.12);
 }
@@ -276,7 +284,7 @@
   padding: 14px 18px;
   font-size: 16px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .os-card-header i { font-size: 18px; }
@@ -301,7 +309,7 @@
 }
 .os-dep:last-child { border-bottom: none; }
 .os-dep:hover {
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   color: var(--text-primary);
   transform: translateX(4px);
 }
@@ -319,7 +327,7 @@
 .os-dep-license {
   font-size: 10px;
   color: var(--text-muted);
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   padding: 2px 8px;
   border-radius: 6px;
   flex-shrink: 0;
@@ -328,7 +336,7 @@
 .os-footer-card {
   margin-top: 16px;
   padding: 24px 28px;
-  background: rgba(255,255,255,0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255,255,255,0.05);
@@ -357,7 +365,7 @@
 }
 .os-ver {
   background: rgba(99,102,241,0.12);
-  color: #a78bfa;
+  color: color-mix(in srgb, #a78bfa 60%, var(--text-primary));
   padding: 2px 10px;
   border-radius: 6px;
   font-weight: 600;

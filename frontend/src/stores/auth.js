@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { login as apiLogin, register as apiRegister, getUserInfo, updateStatus, updateLearningInfo, getWechatQrcode, getWechatBindQrcode, wechatPoll } from '@/api/auth'
 import { setToken, removeToken, getToken, setUser, removeUser, getUser } from '@/utils/storage'
+import { useThemeStore } from '@/stores/theme'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(getUser() || null)
@@ -45,6 +46,8 @@ export const useAuthStore = defineStore('auth', () => {
         } catch (e) {
           console.error('更新在线状态失败:', e)
         }
+        // 账号主题定制：登录后拉取并应用（2026-09-02）
+        useThemeStore().loadFromAccount(res.id).catch(() => {})
         return { success: true, user: user.value }
       }
 
@@ -89,6 +92,8 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     removeToken()
     removeUser()
+    // 登出恢复默认主题（2026-09-02）
+    useThemeStore().resetCustom()
   }
 
   // ===== 切换隐身状态 =====

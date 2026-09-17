@@ -271,7 +271,7 @@ onMounted(loadUsers)
 
 /* ===== 表格 ===== */
 .table-wrap {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
@@ -302,7 +302,7 @@ onMounted(loadUsers)
 }
 
 .clickable-row { cursor: pointer; transition: background 0.2s; }
-.clickable-row:hover { background: rgba(255, 255, 255, 0.03); }
+.clickable-row:hover { background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent); }
 
 .user-cell { display: flex; align-items: center; gap: 10px; }
 .user-name { color: #e0e0e0; font-weight: 500; }
@@ -319,8 +319,8 @@ onMounted(loadUsers)
   font-weight: 500;
 }
 .role-badge.super_admin { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-.role-badge.admin { background: rgba(64, 158, 255, 0.12); color: #409eff; }
-.role-badge.user { background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.4); }
+.role-badge.admin { background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); }
+.role-badge.user { background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent); color: rgba(255, 255, 255, 0.4); }
 
 /* 权限标签 */
 .perm-tag {
@@ -331,8 +331,8 @@ onMounted(loadUsers)
   font-weight: 500;
 }
 .perm-tag.super { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
-.perm-tag.admin { background: rgba(64, 158, 255, 0.1); color: #409eff; }
-.perm-tag.user { background: rgba(255, 255, 255, 0.04); color: rgba(255, 255, 255, 0.35); }
+.perm-tag.admin { background: color-mix(in srgb, var(--brand) 10%, transparent); color: var(--brand); }
+.perm-tag.user { background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); color: rgba(255, 255, 255, 0.35); }
 
 .status-tag {
   display: inline-block;
@@ -382,14 +382,14 @@ onMounted(loadUsers)
 
 /* ===== Element Plus 覆盖 ===== */
 :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: 10px !important;
   box-shadow: none !important;
 }
 :deep(.el-input__inner) { color: #e0e0e0 !important; }
 :deep(.el-input__prefix) { color: rgba(255, 255, 255, 0.3) !important; }
-:deep(.el-select .el-input__wrapper) { background: rgba(255, 255, 255, 0.05) !important; }
+:deep(.el-select .el-input__wrapper) { background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important; }
 :deep(.el-select .el-input__inner) { color: #e0e0e0 !important; }
 
 :deep(.admin-dialog) {
@@ -410,7 +410,7 @@ onMounted(loadUsers)
   background: transparent !important;
 }
 :deep(.el-pager li.is-active) {
-  background: rgba(64, 158, 255, 0.15) !important;
-  color: #409eff !important;
+  background: color-mix(in srgb, var(--brand) 15%, transparent) !important;
+  color: var(--brand) !important;
 }
 </style>

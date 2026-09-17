@@ -83,7 +83,8 @@ const typeDisplayMap = {
   judge: '判断题',
   essay: '简答题/论述题',
   calculation: '计算题',
-  coding: '编程题'
+  coding: '编程题',
+  programming: '编程题'
 }
 
 function getTypeDisplay(type) {
@@ -199,11 +200,11 @@ onMounted(loadMistakes)
 }
 
 [data-theme="dark"] .mistake-item {
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   border-color: rgba(255, 255, 255, 0.06);
 }
 [data-theme="dark"] .mistake-item:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--line-soft);
 }
 
 @media (max-width: 640px) {

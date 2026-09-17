@@ -172,11 +172,11 @@ function removeImage() {
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
 }
 .upload-area:hover {
-  border-color: rgba(64, 158, 255, 0.3);
-  background: rgba(64, 158, 255, 0.04);
+  border-color: color-mix(in srgb, var(--brand) 30%, transparent);
+  background: color-mix(in srgb, var(--brand) 4%, transparent);
 }
 .upload-area.uploading {
   opacity: 0.6;
@@ -201,7 +201,7 @@ function removeImage() {
   width: 22px;
   height: 22px;
   border: 2px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #409eff;
+  border-top-color: var(--brand);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -213,7 +213,7 @@ function removeImage() {
   align-items: center;
   gap: 5px;
   padding: 6px 14px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.5);
@@ -223,7 +223,7 @@ function removeImage() {
   align-self: flex-start;
 }
 .replace-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, var(--surface, #ffffff) 7%, transparent);
   color: rgba(255, 255, 255, 0.7);
 }
 

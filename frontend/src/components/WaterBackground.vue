@@ -178,6 +178,8 @@ function initParticles() {
 }
 
 function onMouseMove(e) {
+  // 卸载后 Vue 会把模板 ref 置 null，而监听器可能还挂在场（元素未及摘除）→ 必须判空
+  if (!containerRef.value) return
   const rect = containerRef.value.getBoundingClientRect()
   targetX = e.clientX - rect.left
   targetY = e.clientY - rect.top
@@ -260,14 +262,17 @@ function initCanvas() {
   initParticles()
 }
 
+// 挂载时把元素存下来：onUnmounted 里模板 ref 已被置 null，靠它才摘得掉监听器
+let containerEl = null
+
 onMounted(() => {
   nextTick(() => {
     initCanvas()
     animate()
 
-    const container = containerRef.value
-    container.addEventListener('mousemove', onMouseMove)
-    container.addEventListener('mouseleave', onMouseLeave)
+    containerEl = containerRef.value
+    containerEl.addEventListener('mousemove', onMouseMove)
+    containerEl.addEventListener('mouseleave', onMouseLeave)
     window.addEventListener('resize', onResize)
   })
 })
@@ -276,10 +281,10 @@ onUnmounted(() => {
   if (animationId) {
     cancelAnimationFrame(animationId)
   }
-  const container = containerRef.value
-  if (container) {
-    container.removeEventListener('mousemove', onMouseMove)
-    container.removeEventListener('mouseleave', onMouseLeave)
+  if (containerEl) {
+    containerEl.removeEventListener('mousemove', onMouseMove)
+    containerEl.removeEventListener('mouseleave', onMouseLeave)
+    containerEl = null
   }
   window.removeEventListener('resize', onResize)
 })

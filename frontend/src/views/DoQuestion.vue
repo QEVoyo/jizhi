@@ -59,6 +59,13 @@
         </div>
 
         <div class="answer-area">
+          <!-- 提交评估中：友好加载态（2026-08-30：AI 批改需数秒，不让用户空等） -->
+          <LoadingSpinner
+            v-if="submitting"
+            variant="orbit"
+            :flow-steps="['正在阅读你的答案…', 'AI 正在逐项批改…', '正在分析知识点掌握度…', '正在寻找相关讲解视频…']"
+          />
+          <template v-else>
           <el-radio-group v-if="question.question_type === 'choice'" v-model="userAnswer" class="choice-group">
             <el-radio
               v-for="(opt, key) in question.options"
@@ -90,13 +97,69 @@
             placeholder="请输入你的回答..."
           />
 
-          <el-input
-            v-else-if="question.question_type === 'coding'"
-            v-model="userAnswer"
-            type="textarea"
-            :rows="6"
-            :placeholder="question.starter_code || '# 请在这里编写代码'"
-          />
+          <div
+            v-else-if="question.question_type === 'coding' || question.question_type === 'programming'"
+            class="code-editor"
+          >
+            <div class="ce-bar">
+              <span class="ce-lang"><i class="fas fa-code"></i> Python 3</span>
+              <button class="ce-run" :disabled="codeRunning || !userAnswer" @click="runUserCode">
+                <i class="fas" :class="codeRunning ? 'fa-spinner fa-spin' : 'fa-play'"></i>
+                {{ codeRunning ? '运行中…' : '运行' }}
+              </button>
+            </div>
+
+            <el-input
+              v-model="userAnswer"
+              type="textarea"
+              :rows="10"
+              class="ce-input"
+              :placeholder="question.starter_code || '# 请在这里编写代码'"
+            />
+
+            <div class="ce-stdin">
+              <span class="ce-lbl">运行输入（stdin）</span>
+              <el-input v-model="codeStdin" size="small" placeholder="程序需要读入时填这里，可留空" />
+            </div>
+
+            <div v-if="codeRunResult" class="ce-out">
+              <div class="ce-out-head">
+                运行结果
+                <span class="ce-exit">exit {{ codeRunResult.exit_code }}</span>
+              </div>
+              <pre class="ce-out-body">{{ codeRunResult.output || '（无输出）' }}</pre>
+            </div>
+
+            <div v-if="sampleCases.length" class="ce-samples">
+              <div class="ce-samples-title">样例（共 {{ sampleCases.length }} 组）</div>
+              <div v-for="(tc, i) in sampleCases" :key="i" class="ce-sample">
+                <div class="ce-sample-col">
+                  <span class="ce-lbl">输入</span>
+                  <pre>{{ tc.input || '(无)' }}</pre>
+                </div>
+                <div class="ce-sample-col">
+                  <span class="ce-lbl">输出</span>
+                  <pre>{{ tc.output || tc.expected_output || '' }}</pre>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="codeTestResults && codeTestResults.length" class="ce-results">
+              <div class="ce-samples-title">判分结果</div>
+              <div
+                v-for="t in codeTestResults"
+                :key="t.index"
+                class="ce-res"
+                :class="'ce-res-' + String(t.status).toLowerCase()"
+              >
+                <span class="ce-res-badge">{{ t.status }}</span>
+                <span class="ce-res-desc">{{ t.description }}</span>
+                <span v-if="!t.passed" class="ce-res-note">
+                  期望 {{ t.expected || '(空)' }} · 实得 {{ (t.stdout || '').trim() || '(空)' }}
+                </span>
+              </div>
+            </div>
+          </div>
 
           <el-input
             v-else-if="question.question_type === 'calculation'"
@@ -107,7 +170,6 @@
           />
 
           <el-input v-else v-model="userAnswer" placeholder="请输入答案..." size="large" />
-        </div>
 
         <el-divider />
 
@@ -155,9 +217,76 @@
             <strong>💡 建议：</strong>{{ evaluationResult.suggestion }}
           </div>
 
+          <!-- 自营视频库（2026-09-04）：知识点讲解 · 强相关排行 + 用户自选 -->
+          <div v-if="libVideos.length || libGenerating" class="video-section lib-section">
+            <div class="video-header">
+              <span class="video-title">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 4L2 9l10 5 10-5-10-5z"/>
+                  <path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5"/>
+                  <path d="M22 9v5"/>
+                </svg>
+                「{{ libKpName }}」知识点讲解
+              </span>
+              <span class="lib-badge">基智自营视频库</span>
+            </div>
+            <div class="lib-grid">
+              <div
+                v-for="v in libVideos"
+                :key="v.id"
+                class="lib-card"
+                @click="openLibVideo(v)"
+              >
+                <div class="lib-poster">
+                  <VideoPoster :video="v" />
+                  <div v-if="!v.script" class="lib-name-fallback">{{ v.title || v.knowledge_name }}</div>
+                  <span class="lib-poster-play">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  </span>
+                  <span class="lib-poster-mark">{{ ANGLE_LABELS[v.angle] || '讲解' }}</span>
+                  <span class="lib-score" :class="{ exact: v.match_score >= 100 }">{{ scoreLabel(v.match_score) }}</span>
+                </div>
+                <div class="lib-info">
+                  <div class="lib-name">{{ v.title || v.knowledge_name }}</div>
+                  <div class="lib-meta">
+                    <span class="lib-author">
+                      <img v-if="v.author_avatar" :src="v.author_avatar" alt="" />
+                      {{ v.author_name || '基智' }}
+                    </span>
+                    <span class="lib-dur">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="9"/>
+                      <path d="M12 7v5l3 3"/>
+                    </svg>
+                    {{ Math.round(v.audio_duration || 90) }}s
+                  </span>
+                  </div>
+                </div>
+              </div>
+              <div v-if="libGenerating" class="lib-card generating">
+                <div class="lib-poster generating">
+                  <svg class="lib-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                  </svg>
+                </div>
+                <div class="lib-info">
+                  <div class="lib-name">讲解师正在写讲稿…</div>
+                  <div class="lib-meta">十几秒后刷新一下试试</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div v-if="videos.length > 0" class="video-section">
             <div class="video-header">
-              <span class="video-title">📺 相关视频讲解</span>
+              <span class="video-title">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2"/>
+                  <path d="M17 2l-5 5h6l-5 5"/>
+                </svg>
+                更多参考视频
+              </span>
               <a
                 :href="`https://search.bilibili.com/all?keyword=${encodeURIComponent(searchKeyword)}`"
                 target="_blank"
@@ -191,7 +320,7 @@
             </div>
           </div>
           <div v-else-if="videoSearched && !videoLoading && !videos.length" class="video-empty">
-            📺 暂无相关视频推荐
+            暂无更多参考视频
           </div>
 
           <el-button type="primary" @click="resetEvaluation">继续练习 →</el-button>
@@ -213,6 +342,8 @@
           <el-button @click="showHint">
             <i class="fas fa-lightbulb"></i> 提示
           </el-button>
+        </div>
+          </template>
         </div>
       </div>
     </div>
@@ -311,12 +442,13 @@
       :close-on-click-modal="true"
     >
       <div v-if="currentVideo" class="video-player-container">
-        <div class="video-wrapper">
+        <div class="video-wrapper" v-loading="iframeLoading" element-loading-text="正在加载视频…" element-loading-background="rgba(10, 14, 24, 0.88)">
           <iframe
             :src="`https://player.bilibili.com/player.html?bvid=${currentVideo.bvid}&page=1&autoplay=0&high_quality=1`"
             frameborder="0"
             allowfullscreen
             class="video-iframe"
+            @load="iframeLoading = false"
           />
         </div>
         <div class="video-detail-info">
@@ -336,11 +468,22 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- ===== 自营视频库播放弹窗 ===== -->
+    <el-dialog
+      v-model="libDialogVisible"
+      :title="libCurrent?.title || libCurrent?.knowledge_name || '知识点讲解'"
+      width="760px"
+      class="video-dialog lib-dialog"
+      :close-on-click-modal="true"
+    >
+      <VideoLessonPlayer ref="libPlayer" v-if="libCurrent" :video="libCurrent" />
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -350,6 +493,10 @@ import {
   addQuestionToSet
 } from '@/api/questions'
 import { searchBilibili } from '@/api/video'
+import { ensureVideoLib, getVideoRelated, recordVideoPlay } from '@/api/video'
+import { knowledgeKey, questionFingerprint, ANGLE_LABELS } from '@/utils/videoLib'
+import VideoLessonPlayer from '@/components/VideoLessonPlayer.vue'
+import VideoPoster from '@/components/VideoPoster.vue'
 import { ElMessage } from 'element-plus'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
@@ -363,6 +510,69 @@ const userAnswer = ref('')
 const evaluated = ref(false)
 const evaluationResult = ref(null)
 const submitting = ref(false)
+
+// ===== 编程题：沙箱运行 + 逐测试点判分（2026-09-11）=====
+const codeRunning = ref(false)
+const codeStdin = ref('')
+const codeRunResult = ref(null)
+const codeTestResults = ref(null)
+const isProgramming = computed(() =>
+  ['coding', 'programming'].includes(question.value?.question_type))
+// 测试用例可能在顶层（生成题）或 content 内（题库题）
+const sampleCases = computed(() => {
+  const q = question.value || {}
+  if (Array.isArray(q.test_cases) && q.test_cases.length) return q.test_cases
+  const c = q.content
+  if (c && Array.isArray(c.test_cases) && c.test_cases.length) return c.test_cases
+  return []
+})
+const hasTestCases = computed(() => sampleCases.value.length > 0)
+
+async function runUserCode() {
+  if (codeRunning.value) return
+  codeRunning.value = true
+  codeRunResult.value = null
+  try {
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+    const res = await fetch(`${baseUrl}/subject-plan/code/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: userAnswer.value || '', language: 'python', input: codeStdin.value || '' })
+    })
+    const d = await res.json()
+    codeRunResult.value = { output: d.output, exit_code: d.exit_code }
+  } catch (e) {
+    codeRunResult.value = { output: '运行失败：' + (e?.message || '网络错误'), exit_code: -1 }
+  } finally {
+    codeRunning.value = false
+  }
+}
+
+/** 编程题提交：有测试用例 → 沙箱逐点判分；没有 → 仍走 AI 批改 */
+async function submitProgramming() {
+  const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+  const res = await fetch(`${baseUrl}/subject-plan/code/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: authStore.user?.id || '',
+      question_id: question.value.id,
+      syllabus_id: question.value.syllabus_id || '',
+      language: 'python',
+      code: userAnswer.value,
+      source: 'generated'
+    })
+  })
+  const d = await res.json()
+  if (!res.ok) throw new Error(d?.detail || '判分失败')
+  codeTestResults.value = d.test_results || []
+  evaluationResult.value = {
+    is_correct: !!d.is_correct,
+    correct_answer: question.value.answer || '',
+    detailed_analysis: `沙箱判分：${d.passed_count}/${d.total_count} 个测试点通过，得分 ${d.score}`
+  }
+  evaluated.value = true
+}
 const regenerating = ref(false)
 const changingType = ref(false)
 const addingSetId = ref(null)
@@ -382,6 +592,47 @@ const videoSearched = ref(false)
 const searchKeyword = ref('')
 const videoDialogVisible = ref(false)
 const currentVideo = ref(null)
+const iframeLoading = ref(false)
+
+// ===== 自营视频库（2026-09-04）=====
+const libVideos = ref([])
+const libGenerating = ref(false)
+const libTriggered = ref(false)
+const libDialogVisible = ref(false)
+const libCurrent = ref(null)
+const libPlayer = ref(null)
+let libPollTimer = null
+let libPollTries = 0
+// 弹窗不再销毁，组件常驻保秒开：关窗停音轨，二次打开从头自动开播
+// 播放量（2026-09-05 用户定调：进入满 10 秒才 +1 次）
+let libViewTimer = null
+watch(libDialogVisible, (v) => {
+  if (!v) {
+    if (libViewTimer) { clearTimeout(libViewTimer); libViewTimer = null }
+    if (libPlayer.value) libPlayer.value.stop()
+  } else {
+    if (libPlayer.value) libPlayer.value.start()
+    const vid = libCurrent.value && libCurrent.value.id
+    if (libViewTimer) clearTimeout(libViewTimer)
+    libViewTimer = setTimeout(() => {
+      if (libDialogVisible.value && vid) recordVideoPlay(vid)
+    }, 10000)
+  }
+})
+
+const libKpName = computed(() => question.value.normalized_topic || question.value.topic || '本题')
+
+function scoreLabel(score) {
+  if (score >= 100) return '精准匹配'
+  if (score >= 70) return '同学科'
+  return '热门讲解'
+}
+
+function openLibVideo(v) {
+  // 播放量改为弹窗停留满 10 秒才计（watch libDialogVisible）
+  libCurrent.value = v
+  libDialogVisible.value = true
+}
 
 const difficultyScore = computed(() => {
   return question.value.difficulty_score || 5
@@ -402,7 +653,8 @@ const typeDisplayMap = {
   judge: '判断题',
   essay: '简答题/论述题',
   calculation: '计算题',
-  coding: '编程题'
+  coding: '编程题',
+  programming: '编程题'
 }
 
 const allTypes = ['选择题', '填空题', '判断题', '简答题', '计算题', '编程题']
@@ -489,8 +741,62 @@ async function searchVideos(keyword) {
 }
 
 function openVideo(video) {
+  // 换了视频才重新亮起加载遮罩；同一条复用不重复等待
+  if (!currentVideo.value || currentVideo.value.bvid !== video.bvid) iframeLoading.value = true
   currentVideo.value = video
   videoDialogVisible.value = true
+}
+
+// ===== 自营视频库加载：ensure（触发懒生成）+ related（排行自选）+ 未就绪轮询 =====
+async function fetchLibVideos(key, subject, fp) {
+  try {
+    const res = await getVideoRelated({ knowledge_key: key, subject, question_fingerprint: fp, limit: 6 })
+    libVideos.value = res.items || []
+    return libVideos.value.length
+  } catch (e) {
+    console.error('视频库检索失败:', e)
+    return 0
+  }
+}
+
+async function loadLibraryVideos() {
+  const q = question.value || {}
+  const subject = q.category || '通用'
+  const kp = q.normalized_topic || q.topic || ''
+  if (!kp) return
+  const key = knowledgeKey(subject, kp)
+  const fp = questionFingerprint(q.title || '')
+  libPollTries = 0
+
+  try {
+    const ensured = await ensureVideoLib({ knowledge_key: key, knowledge_name: kp, subject })
+    libTriggered.value = !!ensured.triggered
+  } catch (e) {
+    console.error('视频库 ensure 失败:', e)
+  }
+
+  const count = await fetchLibVideos(key, subject, fp)
+  // 还没生成完 → 显示「写讲稿」卡 + 轮询（最多 5 次 × 8s）
+  libGenerating.value = count === 0
+  if (count === 0) scheduleLibPoll(key, subject, fp)
+}
+
+function scheduleLibPoll(key, subject, fp) {
+  clearLibPoll()
+  libPollTimer = setTimeout(async () => {
+    if (libPollTries >= 5) { libGenerating.value = false; return }
+    libPollTries++
+    const count = await fetchLibVideos(key, subject, fp)
+    if (count === 0 && libPollTries < 5) {
+      scheduleLibPoll(key, subject, fp)
+    } else {
+      libGenerating.value = count === 0
+    }
+  }, 8000)
+}
+
+function clearLibPoll() {
+  if (libPollTimer) { clearTimeout(libPollTimer); libPollTimer = null }
 }
 
 // ============================================================
@@ -600,6 +906,21 @@ async function handleSubmit() {
     return
   }
 
+  // 编程题且有测试用例 → 沙箱逐点判分，不再交给 AI 批改
+  if (isProgramming.value && hasTestCases.value) {
+    submitting.value = true
+    try {
+      await submitProgramming()
+      if (evaluationResult.value?.is_correct) ElMessage.success('全部测试点通过 🎉')
+      else ElMessage.warning('还有测试点没通过，再改改')
+    } catch (e) {
+      ElMessage.error('判分失败：' + (e?.message || '请重试'))
+    } finally {
+      submitting.value = false
+    }
+    return
+  }
+
   submitting.value = true
   try {
     const result = await evaluateAnswer({
@@ -640,6 +961,7 @@ async function handleSubmit() {
 
     searchKeyword.value = keyword
     await searchVideos(keyword)
+    await loadLibraryVideos()
 
   } catch (error) {
     ElMessage.error('评估失败: ' + error.message)
@@ -655,17 +977,23 @@ function resetEvaluation() {
   videos.value = []
   videoSearched.value = false
   videoLoading.value = false
+  // 视频库状态一并重置
+  clearLibPoll()
+  libVideos.value = []
+  libGenerating.value = false
+  libTriggered.value = false
 }
 
 async function handleRegenerate() {
   const { category, topic, question_type, difficulty_score } = question.value
   regenerating.value = true
   try {
-    const diffMap = { 2: '简单', 6: '中等', 8.5: '困难' }
-    const diff = diffMap[difficulty_score] || '中等'
+    const s = Number(difficulty_score) || 6
+    // 三档区间映射（与后端一致：简单 1-3 / 中等 4-6 / 困难 7-10）
+    const diff = s <= 3 ? '简单' : s < 7 ? '中等' : '困难'
     const typeMap = {
       choice: '选择题', fill: '填空题', judge: '判断题',
-      essay: '简答题', calculation: '计算题', coding: '编程题'
+      essay: '简答题', calculation: '计算题', coding: '编程题', programming: '编程题'
     }
     const newQuestion = await generateQuestion({
       user_id: authStore.user.id,
@@ -709,8 +1037,9 @@ async function handleChangeType() {
   changingType.value = true
   try {
     const { category, topic, difficulty_score } = question.value
-    const diffMap = { 2: '简单', 6: '中等', 8.5: '困难' }
-    const diff = diffMap[difficulty_score] || '中等'
+    const s = Number(difficulty_score) || 6
+    // 三档区间映射（与后端一致：简单 1-3 / 中等 4-6 / 困难 7-10）
+    const diff = s <= 3 ? '简单' : s < 7 ? '中等' : '困难'
 
     const newQuestion = await generateQuestion({
       user_id: authStore.user.id,
@@ -793,6 +1122,10 @@ function goBack() {
 }
 
 onMounted(loadQuestion)
+onUnmounted(() => {
+  clearLibPoll()
+  if (libViewTimer) clearTimeout(libViewTimer)
+})
 </script>
 
 <style scoped>
@@ -809,10 +1142,10 @@ onMounted(loadQuestion)
   width: 100%;
   padding: 40px 48px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-soft);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.04);
   transition: all 0.3s ease;
 }
@@ -822,7 +1155,7 @@ onMounted(loadQuestion)
 }
 
 [data-theme="dark"] .question-container {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--well);
   border-color: rgba(255, 255, 255, 0.04);
 }
 [data-theme="dark"] .question-container:hover {
@@ -862,8 +1195,8 @@ onMounted(loadQuestion)
 .loader {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(64, 158, 255, 0.1);
-  border-top-color: #409EFF;
+  border: 3px solid color-mix(in srgb, var(--brand) 10%, transparent);
+  border-top-color: var(--brand);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -971,8 +1304,8 @@ onMounted(loadQuestion)
   transform: translateX(4px);
 }
 .choice-item.is-checked {
-  border-color: #409eff;
-  background: rgba(64, 158, 255, 0.06);
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
   transform: translateX(4px);
 }
 
@@ -996,8 +1329,8 @@ onMounted(loadQuestion)
   transform: translateY(-2px) scale(1.02);
 }
 .judge-item.is-checked {
-  border-color: #409eff;
-  background: rgba(64, 158, 255, 0.06);
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
 }
 
 .evaluation {
@@ -1011,7 +1344,7 @@ onMounted(loadQuestion)
 }
 
 .correct {
-  color: #6BCB77;
+  color: color-mix(in srgb, #6BCB77 65%, var(--text-primary));
   font-weight: 600;
   font-size: 20px;
 }
@@ -1034,7 +1367,7 @@ onMounted(loadQuestion)
   color: var(--text-secondary);
 }
 .correct-answer .answer {
-  color: #6BCB77;
+  color: color-mix(in srgb, #6BCB77 65%, var(--text-primary));
   font-weight: 600;
 }
 .user-answer-display .answer {
@@ -1077,8 +1410,8 @@ onMounted(loadQuestion)
   margin: 12px 0;
   padding: 14px 16px;
   border-radius: 10px;
-  background: rgba(64, 158, 255, 0.04);
-  border-left: 3px solid #409eff;
+  background: color-mix(in srgb, var(--brand) 4%, transparent);
+  border-left: 3px solid var(--brand);
 }
 .analysis-title {
   font-weight: 600;
@@ -1116,19 +1449,28 @@ onMounted(loadQuestion)
   margin-bottom: 12px;
 }
 .video-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-weight: 600;
   font-size: 15px;
   color: var(--text-primary);
 }
+.video-title .icon {
+  width: 17px;
+  height: 17px;
+  color: var(--brand-bright);
+  flex: none;
+}
 .more-link {
   font-size: 13px;
-  color: #409eff;
+  color: var(--brand);
   text-decoration: none;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 .more-link:hover {
-  color: #66b1ff;
+  color: var(--brand-bright);
   transform: translateX(2px);
 }
 
@@ -1153,13 +1495,161 @@ onMounted(loadQuestion)
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ====== 自营视频库（2026-09-04）====== */
+.lib-badge {
+  font-size: 11px;
+  color: var(--brand-bright);
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+}
+.lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.lib-card {
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.lib-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: color-mix(in srgb, var(--brand) 35%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+.lib-poster {
+  position: relative;
+  aspect-ratio: 16/9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+.lib-name-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #e8edf7;
+}
+.lib-poster.tpl-chalkboard {
+  background: linear-gradient(160deg, #0f1722 0%, #142030 60%, #101a28 100%);
+  border-bottom: 1px solid rgba(160, 200, 255, .12);
+}
+.lib-poster.tpl-cards {
+  background: linear-gradient(160deg, #f4f6fb 0%, #e9eef7 100%);
+  border-bottom: 1px solid rgba(120, 140, 180, .14);
+}
+.lib-poster.generating { background: rgba(128, 128, 128, .08); }
+.lib-poster .lib-pen { width: 30px; height: 30px; color: var(--text-secondary); }
+.lib-poster-body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0 30px 0 12px; text-align: center; width: 100%; height: 100%; }
+.lib-poster-t { font-size: 13px; font-weight: 700; color: #e8edf7; }
+.lib-poster-l { font-size: 10px; color: rgba(201, 214, 234, .7); max-width: 92%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tpl-cards .lib-poster-t { color: #1c2b45; }
+.tpl-cards .lib-poster-l { color: rgba(69, 83, 110, .75); }
+.lib-poster-play { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.16); color: #5ed0ff; }
+.lib-poster-play svg { width: 12px; height: 12px; margin-left: 1px; }
+.lib-card:hover .lib-poster-play { background: rgba(255,255,255,.25); }
+.lib-dur { display: inline-flex; align-items: center; gap: 4px; }
+.lib-dur svg { width: 12px; height: 12px; }
+.lib-poster-mark {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(10, 14, 24, .55);
+  color: #dfe7f5;
+  border: 1px solid rgba(255, 255, 255, .14);
+}
+.lib-score {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(10, 14, 24, .55);
+  color: #ffd97a;
+  border: 1px solid rgba(255, 217, 122, .25);
+}
+.lib-score.exact {
+  color: #7af0b0;
+  border-color: rgba(122, 240, 176, .3);
+}
+.lib-info { padding: 9px 11px 10px; }
+.lib-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.lib-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+.lib-author img {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  flex: none;
+}
+.lib-card.generating { cursor: default; opacity: .85; }
+.lib-card.generating .lib-poster { animation: lib-pulse 1.6s ease-in-out infinite; }
+.lib-card.generating .lib-poster::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .13) 50%, transparent 62%);
+  background-size: 220% 100%;
+  animation: lib-shimmer 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes lib-pulse {
+  0%, 100% { opacity: .55; }
+  50% { opacity: 1; }
+}
+@keyframes lib-shimmer {
+  from { background-position: 130% 0; }
+  to { background-position: -130% 0; }
 }
 .video-card:hover {
   transform: translateY(-4px) scale(1.02);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--line-soft);
 }
 .video-card img {
   width: 100%;
@@ -1212,12 +1702,12 @@ onMounted(loadQuestion)
   transform: translateY(0px) scale(0.98);
 }
 .action-buttons .el-button--primary {
-  background: rgba(64, 158, 255, 0.12) !important;
-  border-color: rgba(64, 158, 255, 0.2) !important;
-  color: #409eff !important;
+  background: color-mix(in srgb, var(--brand) 12%, transparent) !important;
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent) !important;
+  color: var(--brand) !important;
 }
 .action-buttons .el-button--primary:hover {
-  background: rgba(64, 158, 255, 0.2) !important;
+  background: color-mix(in srgb, var(--brand) 20%, transparent) !important;
 }
 
 .change-type-dialog {
@@ -1295,14 +1785,15 @@ onMounted(loadQuestion)
 }
 
 .video-dialog :deep(.el-dialog) {
-  background: rgba(255, 255, 255, 0.06) !important;
+  max-width: 94vw;   /* 手机上 760px 会溢出屏幕 */
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid var(--line-soft) !important;
   border-radius: 16px !important;
 }
 [data-theme="dark"] .video-dialog :deep(.el-dialog) {
-  background: rgba(0, 0, 0, 0.35) !important;
+  background: var(--well) !important;
 }
 .video-dialog :deep(.el-dialog__title) {
   color: var(--text-primary) !important;
@@ -1353,62 +1844,62 @@ onMounted(loadQuestion)
   display: inline-block;
   padding: 6px 18px;
   border-radius: 8px;
-  background: rgba(64, 158, 255, 0.12);
-  border: 1px solid rgba(64, 158, 255, 0.2);
-  color: #409eff;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
+  color: var(--brand);
   text-decoration: none;
   font-size: 14px;
   transition: all 0.3s ease;
 }
 .goto-bilibili-btn:hover {
-  background: rgba(64, 158, 255, 0.2);
+  background: color-mix(in srgb, var(--brand) 20%, transparent);
   transform: translateY(-2px);
 }
 
 [data-theme="dark"] :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
+  border-color: var(--line-soft) !important;
 }
 [data-theme="dark"] :deep(.el-input__wrapper:hover) {
-  border-color: rgba(255, 255, 255, 0.14) !important;
+  border-color: var(--line-soft) !important;
 }
 [data-theme="dark"] :deep(.el-textarea__inner) {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
+  border-color: var(--line-soft) !important;
   color: var(--text-primary) !important;
 }
 [data-theme="dark"] :deep(.el-textarea__inner:hover) {
-  border-color: rgba(255, 255, 255, 0.14) !important;
+  border-color: var(--line-soft) !important;
 }
 [data-theme="dark"] :deep(.el-textarea__inner:focus) {
-  border-color: rgba(255, 255, 255, 0.18) !important;
+  border-color: var(--line) !important;
 }
 
 [data-theme="dark"] .choice-item {
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--line-soft);
 }
 [data-theme="dark"] .choice-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  border-color: var(--line);
 }
 [data-theme="dark"] .judge-item {
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--line-soft);
 }
 [data-theme="dark"] .judge-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  border-color: var(--line);
 }
 [data-theme="dark"] .evaluation {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
 }
 [data-theme="dark"] .evaluation:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
 }
 [data-theme="dark"] .set-item {
   border-color: rgba(255, 255, 255, 0.06);
 }
 [data-theme="dark"] .set-item:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
 }
 
 @media (max-width: 640px) {
@@ -1471,5 +1962,139 @@ onMounted(loadQuestion)
   .video-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ===== 编程题：代码编辑器 + 沙箱判分 ===== */
+.code-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ce-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface, #ffffff) 70%, transparent);
+  border: 1px solid var(--line-soft, rgba(128, 128, 128, .14));
+}
+.ce-lang {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ce-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-on, #fff);
+  background: var(--brand, #4a6cf7);
+  transition: opacity .2s;
+}
+.ce-run:disabled { opacity: .5; cursor: not-allowed; }
+.ce-input :deep(textarea) {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ce-stdin { display: flex; align-items: center; gap: 10px; }
+.ce-lbl {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-tertiary, #999);
+}
+.ce-out {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line-soft, rgba(128, 128, 128, .14));
+}
+.ce-out-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+  background: color-mix(in srgb, var(--surface, #ffffff) 60%, transparent);
+}
+.ce-exit { font-weight: 400; color: var(--text-tertiary, #999); }
+.ce-out-body {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-primary, #222);
+}
+.ce-samples-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary, #999);
+  margin-bottom: 6px;
+}
+.ce-sample {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ce-sample pre {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: color-mix(in srgb, var(--surface, #ffffff) 55%, transparent);
+  border: 1px solid var(--line-soft, rgba(128, 128, 128, .14));
+  color: var(--text-primary, #222);
+}
+.ce-results { margin-top: 4px; }
+.ce-res {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  background: color-mix(in srgb, var(--surface, #ffffff) 55%, transparent);
+  border: 1px solid var(--line-soft, rgba(128, 128, 128, .14));
+}
+.ce-res-badge {
+  flex: none;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: #fff;
+  background: var(--text-tertiary, #999);
+}
+.ce-res-ac .ce-res-badge { background: #2e9e5b; }
+.ce-res-wa .ce-res-badge { background: #d98b1e; }
+.ce-res-re .ce-res-badge,
+.ce-res-tle .ce-res-badge { background: #cf4a4a; }
+.ce-res-desc { color: var(--text-secondary, #666); }
+.ce-res-note {
+  margin-left: auto;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  color: var(--text-tertiary, #999);
+}
+@media (max-width: 560px) {
+  .ce-sample { grid-template-columns: 1fr; }
+  .ce-res-note { display: none; }
 }
 </style>

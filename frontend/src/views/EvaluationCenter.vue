@@ -39,13 +39,13 @@
       <div class="ev-icon-wrap">
         <svg viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/><path d="M9 14l2 2 4-4"/></svg>
       </div>
-      <div class="ev-title">学习规划</div>
-      <div class="ev-desc">量身定制的长期学习路线</div>
+      <div class="ev-title">自定义计划</div>
+      <div class="ev-desc">任意主题 · 无考纲限制的学习路线</div>
       <ul class="ev-points">
-        <li>AI 拆分知识点 → 生成每日任务</li>
-        <li>日期解锁机制，逐天推进</li>
-        <li>学习内容 + 做题 + 视频三大板块</li>
-        <li>评估表可一键跳转生成规划</li>
+        <li>AI 按天数拆解知识点 → 每日任务</li>
+        <li>自带练习 + 视频推荐，自给自足</li>
+        <li>难度 / 周期 / 节奏全部自定义</li>
+        <li>评估表可一键跳转生成计划</li>
       </ul>
       <div class="ev-enter">进入 →</div>
     </div>
@@ -58,7 +58,8 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 
 function goBack() {
-  router.push('/resource-lib')
+  // 2026-08-30：评估中心移出资源库，成为全局模块（轮盘入口），返回主界面
+  router.push('/home')
 }
 
 function goReport() {
@@ -87,11 +88,11 @@ function goPlan() {
   position: absolute; top: 14px; left: 24px; z-index: 10;
   display: flex; align-items: center; gap: 6px; padding: 8px 14px;
   border-radius: 10px; border: 1px solid rgba(255,255,255,.06);
-  background: rgba(0,0,0,.3); color: #94a3b8; font-size: 13px;
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent); color: var(--text-secondary); font-size: 13px;
   cursor: pointer; backdrop-filter: blur(12px); transition: all .25s;
   font-family: inherit;
 }
-.ev-back:hover { background: rgba(0,0,0,.5); color: #e2e8f0; }
+.ev-back:hover { background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent); color: var(--text-primary); }
 .ev-back svg { width: 14px; height: 14px; }
 
 .ev-section {
@@ -123,13 +124,13 @@ function goPlan() {
 .ev-icon-wrap svg { width: 28px; height: 28px; }
 .ev-section:hover .ev-icon-wrap { transform: scale(1.08); }
 
-.ev-title { font-size: 20px; font-weight: 700; color: #e2e8f0; }
-.ev-desc { font-size: 13px; color: #64748b; text-align: center; max-width: 280px; line-height: 1.6; }
+.ev-title { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+.ev-desc { font-size: 13px; color: var(--text-muted); text-align: center; max-width: 280px; line-height: 1.6; }
 .ev-points { margin: 0; padding: 0 0 0 16px; list-style: none; text-align: left; }
-.ev-points li { font-size: 12px; color: #94a3b8; line-height: 2; position: relative; }
-.ev-points li::before { content: '·'; position: absolute; left: -12px; color: #475569; font-weight: 700; }
+.ev-points li { font-size: 12px; color: var(--text-secondary); line-height: 2; position: relative; }
+.ev-points li::before { content: '·'; position: absolute; left: -12px; color: var(--text-muted); font-weight: 700; }
 .ev-enter {
-  margin-top: 4px; font-size: 13px; color: #475569;
+  margin-top: 4px; font-size: 13px; color: var(--text-muted);
   opacity: 0; transform: translateY(6px); transition: all .3s;
 }
 .ev-section:hover .ev-enter { opacity: 1; transform: translateY(0); }

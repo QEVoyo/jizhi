@@ -49,26 +49,7 @@
           <i class="fas fa-spinner fa-spin"></i> 加载中...
         </div>
         <div v-else class="friend-list">
-          <!-- ===== AI好友「小基」= 始终显示 ===== -->
-          <div class="friend-card xiaoji-card">
-            <div class="friend-info" @click="goChat('xiaoji')">
-              <div class="friend-avatar-wrapper">
-                <img src="/images/xiaoji/xiaoji_idle.png" class="friend-avatar-full" />
-              </div>
-              <div class="friend-detail">
-                <div class="friend-name-row">
-                  <span class="friend-name">小基</span>
-                  <span class="friend-status-dot online"></span>
-                </div>
-                <span class="friend-account">AI 学习伙伴</span>
-              </div>
-            </div>
-            <div class="friend-actions">
-              <el-button size="small" type="primary" @click="goChat('xiaoji')">
-                <i class="fas fa-comment"></i> 聊天
-              </el-button>
-            </div>
-          </div>
+          <!-- 小基已升级为产品主界面（2026-08-25），不再作为好友出现在列表 -->
 
           <!-- ===== 真人好友 ===== -->
           <div
@@ -314,11 +295,7 @@ function goUserProfile(userId) {
 }
 
 function goChat(friendId) {
-  if (friendId === 'xiaoji') {
-    router.push('/xiaoji/call')
-  } else {
-    router.push(`/community/chat/${friendId}`)
-  }
+  router.push(`/community/chat/${friendId}`)
 }
 
 onMounted(() => {
@@ -373,7 +350,7 @@ onUnmounted(() => {
   padding: 6px 18px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
@@ -383,13 +360,13 @@ onUnmounted(() => {
   gap: 6px;
 }
 .friends-tab:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   transform: translateY(-2px);
 }
 .friends-tab.active {
-  background: rgba(64, 158, 255, 0.10);
-  border-color: rgba(64, 158, 255, 0.2);
-  color: #409eff;
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent);
+  color: var(--brand);
 }
 .tab-badge {
   background: rgba(128, 128, 128, 0.15);
@@ -419,8 +396,8 @@ onUnmounted(() => {
 }
 .search-wrapper :deep(.el-input__wrapper) {
   padding-left: 30px;
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
+  border: 1px solid var(--line-soft) !important;
   border-radius: 10px !important;
 }
 
@@ -441,37 +418,14 @@ onUnmounted(() => {
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   transition: all 0.3s ease;
 }
 .friend-card:hover,
 .request-card:hover,
 .search-result-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-/* ===== 小基专属样式 ===== */
-.xiaoji-card {
-  border: 1px solid rgba(64, 158, 255, 0.15);
-  background: rgba(64, 158, 255, 0.04);
-}
-.xiaoji-card:hover {
-  background: rgba(64, 158, 255, 0.08);
-  border-color: rgba(64, 158, 255, 0.25);
-}
-
-/* ===== 小基头像 ===== */
-.friend-avatar-wrapper {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-}
-.friend-avatar-full {
-  width: 44px;
-  height: 44px;
-  object-fit: contain;
-  display: block;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  border-color: var(--line-soft);
 }
 
 .friend-info,

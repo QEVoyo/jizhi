@@ -217,12 +217,12 @@ onMounted(loadSets)
 .create-section {
   border-radius: 12px;
   border: 1px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   overflow: hidden;
   margin-bottom: 16px;
 }
 [data-theme="dark"] .create-section {
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
 }
 
 .create-header {
@@ -237,7 +237,7 @@ onMounted(loadSets)
   transition: all 0.3s ease;
 }
 .create-header:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   color: var(--text-primary);
 }
 .create-header .fa-chevron-down {
@@ -263,11 +263,11 @@ onMounted(loadSets)
 }
 .create-input :deep(.el-input__wrapper) {
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid var(--border-color);
 }
 [data-theme="dark"] .create-input :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
 }
 .create-input :deep(.el-input__inner) {
   color: var(--text-primary);
@@ -286,11 +286,11 @@ onMounted(loadSets)
 /* ===== 搜索框 ===== */
 .search-input :deep(.el-input__wrapper) {
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid var(--border-color);
 }
 [data-theme="dark"] .search-input :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
 }
 .search-input :deep(.el-input__inner) {
   color: var(--text-primary);
@@ -359,11 +359,11 @@ onMounted(loadSets)
 }
 
 [data-theme="dark"] .set-item {
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   border-color: rgba(255, 255, 255, 0.06);
 }
 [data-theme="dark"] .set-item:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--line-soft);
 }
 
 @media (max-width: 640px) {

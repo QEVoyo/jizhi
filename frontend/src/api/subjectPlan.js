@@ -25,17 +25,11 @@ export function getQuestions(syllabusId, params) {
 export function getPlanDetail(planId, userId) {
   return request.get(`/subject-plan/plans/${planId}`, { params: { user_id: userId } }).then(r => r.data)
 }
-export function updatePlan(planId, userId, data) {
-  return request.put(`/subject-plan/plans/${planId}`, data, { params: { user_id: userId } }).then(r => r.data)
-}
 export function deletePlan(planId, userId) {
   return request.delete(`/subject-plan/plans/${planId}`, { params: { user_id: userId } }).then(r => r.data)
 }
 
 // ===== 每日任务 =====
-export function getAllTasks(planId, userId) {
-  return request.get(`/subject-plan/plans/${planId}/tasks`, { params: { user_id: userId } }).then(r => r.data)
-}
 export function getTodayTasks(planId, userId) {
   return request.get(`/subject-plan/plans/${planId}/tasks/today`, { params: { user_id: userId } }).then(r => r.data)
 }
@@ -65,14 +59,6 @@ export function getMistakes(planId, userId, params = {}) {
 export function getMistakesOverview(userId) {
   return request.get('/subject-plan/mistakes/overview', { params: { user_id: userId } }).then(r => r.data)
 }
-export function randomMistakePractice(params) {
-  return request.get('/subject-plan/mistakes/practice', { params }).then(r => r.data)
-}
-
-// ===== 代码判题 =====
-export function submitCode(data) {
-  return request.post('/subject-plan/code/submit', data).then(r => r.data)
-}
 
 // ===== 真题套卷 =====
 export function listExamPapers(syllabusId, userId) {
@@ -86,4 +72,17 @@ export function submitExamPaper(paperId, data) {
 }
 export function submitExamPlan(paperId, data) {
   return request.post(`/subject-plan/exam-papers/${paperId}/generate-plan`, data).then(r => r.data)
+}
+
+// ===== 题库模糊搜索（小基「发送题目」用，免登录） =====
+export function searchBankQuestions(q, syllabusId = '', limit = 20) {
+  return request.get('/subject-plan/questions/search', {
+    params: { q, syllabus_id: syllabusId, limit }
+  }).then(r => r.data)
+}
+
+// 代码沙箱：运行代码（聊天代码卡「沙箱运行」用，2026-08-27）
+export function runCode(code, language = 'python', input = '') {
+  return request.post('/subject-plan/code/run', { code, language, input })
+    .then(r => r.data)
 }

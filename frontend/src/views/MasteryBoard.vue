@@ -398,7 +398,7 @@ onUnmounted(() => {
   padding: 18px 16px;
   border-radius: 14px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
   backdrop-filter: blur(12px);
   border: 2px solid transparent;
   transition: all 0.4s ease;
@@ -413,28 +413,28 @@ onUnmounted(() => {
 }
 .stat-card.active {
   border-color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
 }
 [data-theme="dark"] .stat-card {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--well);
   border-color: transparent;
 }
 [data-theme="dark"] .stat-card:hover {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
 }
 [data-theme="dark"] .stat-card.active {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
+  border-color: var(--line);
 }
 
 .stat-card.weak { border-left: 4px solid #FF4444; }
 .stat-card.consolidate { border-left: 4px solid #FFB74D; }
 .stat-card.strong { border-left: 4px solid #6BCB77; }
-.stat-card.total { border-left: 4px solid #409eff; }
+.stat-card.total { border-left: 4px solid var(--brand); }
 .stat-card.weak.active { border: 2px solid #FF4444; }
 .stat-card.consolidate.active { border: 2px solid #FFB74D; }
 .stat-card.strong.active { border: 2px solid #6BCB77; }
-.stat-card.total.active { border: 2px solid #409eff; }
+.stat-card.total.active { border: 2px solid var(--brand); }
 
 .stat-number {
   display: block;
@@ -455,9 +455,9 @@ onUnmounted(() => {
   margin-top: 2px;
 }
 .stat-card.weak .stat-label { color: #FF4444; }
-.stat-card.consolidate .stat-label { color: #FFB74D; }
-.stat-card.strong .stat-label { color: #6BCB77; }
-.stat-card.total .stat-label { color: #409eff; }
+.stat-card.consolidate .stat-label { color: color-mix(in srgb, #FFB74D 70%, var(--text-primary)); }
+.stat-card.strong .stat-label { color: color-mix(in srgb, #6BCB77 65%, var(--text-primary)); }
+.stat-card.total .stat-label { color: var(--brand); }
 
 .color-legend {
   display: flex;
@@ -466,7 +466,7 @@ onUnmounted(() => {
   margin-bottom: 18px;
   padding: 10px 16px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -501,11 +501,11 @@ onUnmounted(() => {
 }
 .filter-input :deep(.el-input__wrapper) {
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid var(--border-color);
 }
 [data-theme="dark"] .filter-input :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
 }
 .filter-input :deep(.el-input__inner) {
   color: var(--text-primary);
@@ -523,7 +523,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 8px 14px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid var(--border-color);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -534,11 +534,11 @@ onUnmounted(() => {
   position: relative;
 }
 .custom-select:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
+  border-color: var(--line-soft);
 }
 [data-theme="dark"] .custom-select {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
 }
 
 .select-display {
@@ -561,16 +561,16 @@ onUnmounted(() => {
   min-width: 100%;
   max-height: 200px;
   overflow-y: auto;
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-soft);
   border-radius: 10px;
   padding: 4px 0;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   z-index: 1000;
 }
 [data-theme="dark"] .custom-select-dropdown {
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--well);
 }
 
 .select-option {
@@ -583,11 +583,11 @@ onUnmounted(() => {
   margin: 2px 4px;
 }
 .select-option:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   color: var(--text-primary);
 }
 .select-option.active {
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   color: var(--text-primary);
 }
 
@@ -608,8 +608,8 @@ onUnmounted(() => {
   font-weight: 600;
 }
 .section-title.weak-title { color: #FF4444; }
-.section-title.consolidate-title { color: #FFB74D; }
-.section-title.strong-title { color: #6BCB77; }
+.section-title.consolidate-title { color: color-mix(in srgb, #FFB74D 70%, var(--text-primary)); }
+.section-title.strong-title { color: color-mix(in srgb, #6BCB77 65%, var(--text-primary)); }
 .section-count {
   font-size: 13px;
   color: var(--text-muted);
@@ -679,15 +679,15 @@ onUnmounted(() => {
 }
 .card-btn {
   margin-top: 8px;
-  color: white !important;
+  color: var(--text-primary) !important;
   border-color: rgba(255,255,255,0.3) !important;
-  background: rgba(255,255,255,0.1) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent) !important;
   transition: all 0.3s ease !important;
   position: relative;
   z-index: 1;
 }
 .card-btn:hover {
-  background: rgba(255,255,255,0.25) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 25%, transparent) !important;
   transform: scale(1.08) translateY(-2px);
 }
 .card-btn:active {

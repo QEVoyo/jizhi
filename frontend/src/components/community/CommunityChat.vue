@@ -334,7 +334,7 @@ function goBack() {
 
 function goUserProfile() {
   if (isXiaoji.value) {
-    ElMessage.info('小基设置开发中')
+    router.push('/xiaoji/settings')
     return
   }
   router.push(`/community/user/${friendId}`)
@@ -345,7 +345,7 @@ function goSettings() {
 }
 
 function goCall() {
-  router.push('/xiaoji/call')
+  router.push('/home')
 }
 
 function goDoQuestion(msg) {
@@ -752,13 +752,13 @@ onMounted(() => {
   color: var(--text-muted);
 }
 .chat-status.online {
-  color: #22c55e;
+  color: color-mix(in srgb, #22c55e 65%, var(--text-primary));
 }
 .xiaoji-badge {
   font-size: 11px;
   font-weight: 500;
-  background: rgba(64, 158, 255, 0.12);
-  color: #409eff;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
   padding: 0 10px;
   border-radius: 12px;
   line-height: 20px;
@@ -779,7 +779,7 @@ onMounted(() => {
   color: var(--text-primary) !important;
 }
 .action-btn.active {
-  color: #409eff !important;
+  color: var(--brand) !important;
 }
 
 .el-divider {
@@ -890,19 +890,19 @@ onMounted(() => {
 .message-bubble {
   padding: 10px 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.04);
   word-break: break-word;
 }
 .message-item.sent .message-bubble {
-  background: rgba(64, 158, 255, 0.12);
-  border-color: rgba(64, 158, 255, 0.10);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 [data-theme="dark"] .message-bubble {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
 }
 [data-theme="dark"] .message-item.sent .message-bubble {
-  background: rgba(64, 158, 255, 0.10);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
 .message-text {
@@ -954,7 +954,7 @@ onMounted(() => {
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   min-width: 180px;
@@ -962,7 +962,7 @@ onMounted(() => {
 .message-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-  border-color: rgba(64, 158, 255, 0.15);
+  border-color: color-mix(in srgb, var(--brand) 15%, transparent);
 }
 .card-header {
   display: flex;
@@ -981,8 +981,8 @@ onMounted(() => {
   font-size: 11px;
   padding: 2px 10px;
   border-radius: 10px;
-  background: rgba(64, 158, 255, 0.08);
-  color: #409eff;
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  color: var(--brand);
 }
 .card-body {
   margin: 4px 0;
@@ -999,7 +999,7 @@ onMounted(() => {
 }
 .card-hint {
   font-size: 11px;
-  color: #409eff;
+  color: var(--brand);
   opacity: 0.6;
 }
 
@@ -1011,7 +1011,7 @@ onMounted(() => {
   right: 0;
   z-index: 100;
   padding: 12px 20px 16px 20px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -1031,7 +1031,7 @@ onMounted(() => {
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-soft);
   flex-shrink: 0;
 }
 .thumb-wrapper img {
@@ -1044,7 +1044,7 @@ onMounted(() => {
   height: 22px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   color: var(--text-muted);
   cursor: pointer;
   display: flex;
@@ -1073,7 +1073,7 @@ onMounted(() => {
   height: 36px;
   border-radius: 10px;
   border: none;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   color: var(--text-muted);
   font-size: 15px;
   cursor: pointer;
@@ -1083,12 +1083,12 @@ onMounted(() => {
   justify-content: center;
 }
 .tool-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   color: var(--text-primary);
 }
 .tool-btn.active {
-  color: #409eff;
-  background: rgba(64, 158, 255, 0.10);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
 .chat-input-field {
@@ -1096,16 +1096,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  border: 1px solid var(--line-soft);
   border-radius: 12px;
   padding: 2px 4px 2px 14px;
   transition: all 0.3s ease;
   backdrop-filter: blur(8px);
 }
 .chat-input-field:focus-within {
-  border-color: rgba(64, 158, 255, 0.35);
-  box-shadow: 0 0 0 4px rgba(64, 158, 255, 0.06);
+  border-color: color-mix(in srgb, var(--brand) 35%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 6%, transparent);
 }
 
 .input-field {
@@ -1127,8 +1127,8 @@ onMounted(() => {
   height: 36px;
   border-radius: 10px;
   border: none;
-  background: rgba(64, 158, 255, 0.10);
-  color: #409eff;
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--brand);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -1138,7 +1138,7 @@ onMounted(() => {
   flex-shrink: 0;
 }
 .send-btn:hover:not(:disabled) {
-  background: rgba(64, 158, 255, 0.20);
+  background: color-mix(in srgb, var(--brand) 20%, transparent);
   transform: scale(1.05);
 }
 .send-btn:active:not(:disabled) {
@@ -1151,7 +1151,7 @@ onMounted(() => {
 
 /* ===== 弹窗 ===== */
 .custom-glass-dialog :deep(.el-dialog) {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
@@ -1159,7 +1159,7 @@ onMounted(() => {
   box-shadow: 0 8px 40px rgba(0,0,0,0.08) !important;
 }
 [data-theme="dark"] .custom-glass-dialog :deep(.el-dialog) {
-  background: rgba(0,0,0,0.35) !important;
+  background: var(--well) !important;
   border-color: rgba(255,255,255,0.04) !important;
 }
 .custom-glass-dialog :deep(.el-dialog__title) {
@@ -1194,7 +1194,7 @@ onMounted(() => {
   color: var(--text-primary) !important;
 }
 .custom-glass-tabs :deep(.el-tabs__active-bar) {
-  background: #409eff !important;
+  background: var(--brand) !important;
 }
 
 .question-dialog {
@@ -1219,16 +1219,16 @@ onMounted(() => {
   margin-bottom: 6px;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
 }
 .question-item:hover {
-  background: rgba(64,158,255,0.04);
-  border-color: rgba(64,158,255,0.12);
+  background: color-mix(in srgb, var(--brand) 4%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 12%, transparent);
 }
 .q-title {
   flex: 1;
   font-size: 14px;
-  color: #409eff;
+  color: var(--brand);
 }
 .q-type {
   font-size: 12px;
@@ -1248,7 +1248,7 @@ onMounted(() => {
   border: 1px solid var(--border-color);
   cursor: pointer;
   transition: all 0.3s ease;
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
 }
 .set-item:hover {
   background: rgba(139,92,246,0.04);
@@ -1263,15 +1263,15 @@ onMounted(() => {
 .set-name {
   font-size: 14px;
   font-weight: 500;
-  color: #409eff;
+  color: var(--brand);
 }
 .set-count {
   font-size: 12px;
-  color: #409eff;
+  color: var(--brand);
 }
 .set-expand-icon {
   transition: transform 0.3s ease;
-  color: #409eff;
+  color: var(--brand);
   font-size: 14px;
 }
 .set-expand-icon.expanded {
@@ -1304,7 +1304,7 @@ onMounted(() => {
   border-bottom: 1px solid rgba(128,128,128,0.04);
 }
 .set-question-item:hover {
-  background: rgba(64,158,255,0.04);
+  background: color-mix(in srgb, var(--brand) 4%, transparent);
 }
 .set-question-item:last-child {
   border-bottom: none;
@@ -1317,7 +1317,7 @@ onMounted(() => {
 }
 .sq-title {
   font-size: 13px;
-  color: #409eff;
+  color: var(--brand);
   font-weight: 500;
 }
 .sq-preview {

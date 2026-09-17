@@ -79,10 +79,6 @@ export function getAnnouncements() {
   return request.get('/admin/announcements').then(res => res.data)
 }
 
-export function getActiveAnnouncements() {
-  return request.get('/admin/announcements/active').then(res => res.data)
-}
-
 export function createAnnouncement(data) {
   return request.post('/admin/announcements', data).then(res => res.data)
 }
@@ -100,7 +96,35 @@ export function getAuditLogs(params = {}) {
   return request.get('/admin/logs', { params }).then(res => res.data)
 }
 
-// ===== 系统信息 =====
-export function getSystemInfo() {
-  return request.get('/admin/settings').then(res => res.data)
+// ===== 视频库管理（2026-09-04）=====
+export function getAdminVideos(params = {}) {
+  return request.get('/admin/video/list', { params }).then(res => res.data)
+}
+
+export function reviewAdminVideo(videoId, action) {
+  return request.post(`/admin/video/${videoId}/review`, { action }).then(res => res.data)
+}
+
+export function removeAdminVideo(videoId) {
+  return request.delete(`/admin/video/${videoId}`).then(res => res.data)
+}
+
+export function getAdminVideoReports(params = {}) {
+  return request.get('/admin/video/reports', { params }).then(res => res.data)
+}
+
+export function handleAdminVideoReport(reportId, action) {
+  return request.post(`/admin/video/reports/${reportId}/handle`, { action }).then(res => res.data)
+}
+
+export function adminVideoWarm(payload) {
+  return request.post('/admin/video/warm', payload).then(res => res.data)
+}
+
+export function getAdminVideoStats() {
+  return request.get('/admin/video/stats').then(res => res.data)
+}
+
+export function retryAdminVideo(videoId) {
+  return request.post(`/admin/video/${videoId}/retry`).then(res => res.data)
 }

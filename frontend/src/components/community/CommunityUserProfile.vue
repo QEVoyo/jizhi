@@ -470,14 +470,14 @@ onMounted(() => {
   gap: 6px;
   padding: 6px 14px 6px 10px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.05);
   font-size: 14px;
   transition: all 0.3s ease;
 }
 .achievement-item:hover {
   transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, var(--surface, #ffffff) 7%, transparent);
 }
 .achievement-item i {
   font-size: 20px;

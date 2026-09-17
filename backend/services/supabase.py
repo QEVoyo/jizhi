@@ -82,6 +82,7 @@ class SupabaseService:
         order: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        or_: Optional[str] = None,
         use_service_role: bool = False,
     ) -> httpx.Response:
         """SELECT 查询"""
@@ -89,6 +90,8 @@ class SupabaseService:
         if eq:
             for col, val in eq.items():
                 url += f"&{col}=eq.{val}"
+        if or_:
+            url += f"&or={or_}"
         if order:
             url += f"&order={order}"
         if limit is not None:
@@ -142,10 +145,19 @@ class SupabaseService:
         h = self.service_headers if use_service_role else self.headers
         return await self._request("DELETE", url, h)
 
-    async def storage_upload(self, bucket: str, file_path: str, content: bytes) -> httpx.Response:
-        """文件上传到 Storage"""
+    async def storage_upload(
+        self, bucket: str, file_path: str, content: bytes, content_type: str = "image/png",
+        upsert: bool = False, use_service_role: bool = False,
+    ) -> httpx.Response:
+        """文件上传到 Storage（默认 png，传音频等用 content_type 覆盖）。
+        upsert=True 时带 x-upsert 头允许覆盖已存在对象——但覆盖路径会碰 storage.objects
+        的 RLS，anon key 会被拒（403），需同时 use_service_role=True（重合成音轨等场景）。"""
         url = self._storage_url(f"{bucket}/{file_path}")
-        return await self._request("POST", url, self.storage_headers, content=content)
+        headers = dict(self.service_headers if use_service_role else self.storage_headers)
+        headers["Content-Type"] = content_type
+        if upsert:
+            headers["x-upsert"] = "true"
+        return await self._request("POST", url, headers, content=content)
 
 
 # 全局单例

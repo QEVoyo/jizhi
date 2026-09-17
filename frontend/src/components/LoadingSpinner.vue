@@ -94,7 +94,7 @@
       <svg class="pr-svg" viewBox="0 0 100 100">
         <defs>
           <linearGradient id="pr-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#4a6cf7" />
+            <stop offset="0%" stop-color="var(--brand)" />
             <stop offset="100%" stop-color="#a78bfa" />
           </linearGradient>
         </defs>
@@ -362,20 +362,20 @@ defineExpose({
    1. stages 阶段式
    ============================================================ */
 .ls-stages { position: relative; display: flex; flex-direction: column; gap: 20px; padding: 8px 0 8px 48px; }
-.stage-line-track { position: absolute; left: 19px; top: 16px; bottom: 16px; width: 2px; background: rgba(255,255,255,.06); border-radius: 1px; overflow: hidden; }
-.stage-line-fill { width: 100%; background: linear-gradient(180deg, #4a6cf7, #6c8cff); border-radius: 1px; transition: height .6s cubic-bezier(.4,0,.2,1); }
+.stage-line-track { position: absolute; left: 19px; top: 16px; bottom: 16px; width: 2px; background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent); border-radius: 1px; overflow: hidden; }
+.stage-line-fill { width: 100%; background: linear-gradient(180deg, var(--brand), var(--brand-bright)); border-radius: 1px; transition: height .6s cubic-bezier(.4,0,.2,1); }
 .stage-row { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
 .stage-dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .4s ease; }
-.stage-done .stage-dot { background: rgba(74,108,247,.2); border: 2px solid #4a6cf7; }
-.stage-check { color: #4a6cf7; font-size: 12px; font-weight: bold; }
+.stage-done .stage-dot { background: color-mix(in srgb, var(--brand) 20%, transparent); border: 2px solid var(--brand); }
+.stage-check { color: var(--brand); font-size: 12px; font-weight: bold; }
 .stage-done .stage-label { color: var(--text-secondary); }
-.stage-now .stage-dot { background: rgba(74,108,247,.15); border: 2px solid #6c8cff; }
-.stage-active { width: 10px; height: 10px; border-radius: 50%; background: #6c8cff; box-shadow: 0 0 12px rgba(74,108,247,.6); animation: active-blink .8s ease-in-out infinite; }
+.stage-now .stage-dot { background: color-mix(in srgb, var(--brand) 15%, transparent); border: 2px solid var(--brand-bright); }
+.stage-active { width: 10px; height: 10px; border-radius: 50%; background: var(--brand-bright); box-shadow: 0 0 12px color-mix(in srgb, var(--brand) 60%, transparent); animation: active-blink .8s ease-in-out infinite; }
 @keyframes active-blink { 0%,100%{opacity:.4;transform:scale(.8)} 50%{opacity:1;transform:scale(1.1)} }
-.stage-now .stage-label { color: #6c8cff; font-weight: 600; font-size: 15px; }
+.stage-now .stage-label { color: var(--brand-bright); font-weight: 600; font-size: 15px; }
 .stage-hint { font-size: 12px; color: var(--text-muted); margin-left: 4px; animation: text-fade 1.5s ease-in-out infinite; }
 .stage-wait .stage-dot { background: transparent; border: 2px solid rgba(255,255,255,.08); }
-.stage-pending { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.1); }
+.stage-pending { width: 6px; height: 6px; border-radius: 50%; background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent); }
 .stage-wait .stage-label { color: rgba(255,255,255,.2); }
 
 /* ============================================================
@@ -383,7 +383,7 @@ defineExpose({
    ============================================================ */
 .ls-typewriter { padding: 8px 0; }
 .tw-window { background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; overflow: hidden; min-width: 300px; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,.3); }
-.tw-header { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: rgba(255,255,255,.03); border-bottom: 1px solid rgba(255,255,255,.05); }
+.tw-header { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent); border-bottom: 1px solid rgba(255,255,255,.05); }
 .tw-dot { width: 10px; height: 10px; border-radius: 50%; }
 .tw-dot-red { background: #ff5f57; }
 .tw-dot-yellow { background: #febc2e; }
@@ -391,8 +391,8 @@ defineExpose({
 .tw-title { margin-left: 8px; font-size: 12px; color: var(--text-muted); letter-spacing: .5px; }
 .tw-body { padding: 14px 16px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; line-height: 1.8; color: #a8d8a8; min-height: 80px; }
 .tw-line { display: flex; }
-.tw-prefix { color: #6c8cff; margin-right: 4px; flex-shrink: 0; }
-.tw-cursor-blink { animation: cursor-blink .8s step-end infinite; color: #6c8cff; }
+.tw-prefix { color: var(--brand-bright); margin-right: 4px; flex-shrink: 0; }
+.tw-cursor-blink { animation: cursor-blink .8s step-end infinite; color: var(--brand-bright); }
 @keyframes cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
 /* ============================================================
@@ -402,11 +402,11 @@ defineExpose({
 .cs-canvas { width: 200px; height: 160px; }
 .cs-svg { width: 100%; height: 100%; }
 .cs-star { fill: rgba(255,255,255,.08); transition: all .5s ease; }
-.cs-star-on { fill: rgba(200,210,255,.7); filter: drop-shadow(0 0 4px rgba(140,160,255,.5)); }
-.cs-star-core { fill: #fff; filter: drop-shadow(0 0 8px rgba(140,180,255,.8)); animation: star-pulse 1.2s ease-in-out infinite; }
+.cs-star-on { fill: color-mix(in srgb, var(--brand-bright) 70%, transparent); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--brand-bright) 50%, transparent)); }
+.cs-star-core { fill: #fff; filter: drop-shadow(0 0 8px color-mix(in srgb, var(--brand-bright) 80%, transparent)); animation: star-pulse 1.2s ease-in-out infinite; }
 @keyframes star-pulse { 0%,100%{r:3;opacity:.8} 50%{r:4.5;opacity:1} }
 .cs-line { stroke: rgba(255,255,255,.03); stroke-width: 1; transition: all .6s ease; }
-.cs-line-on { stroke: rgba(140,180,255,.4); stroke-width: 1.5; filter: drop-shadow(0 0 3px rgba(140,160,255,.3)); }
+.cs-line-on { stroke: color-mix(in srgb, var(--brand-bright) 40%, transparent); stroke-width: 1.5; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--brand-bright) 30%, transparent)); }
 .cs-label { margin: 0; font-size: 13px; color: var(--text-muted); animation: text-fade 2s ease-in-out infinite; }
 
 /* ============================================================
@@ -414,8 +414,8 @@ defineExpose({
    ============================================================ */
 .ls-orbit { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px; }
 .ob-atom { position: relative; display: flex; align-items: center; justify-content: center; }
-.ob-nucleus { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, #a78bfa, #4a6cf7); box-shadow: 0 0 20px rgba(74,108,247,.6), 0 0 40px rgba(74,108,247,.2); animation: nucleus-pulse 2s ease-in-out infinite; }
-@keyframes nucleus-pulse { 0%,100%{transform:scale(1);box-shadow:0 0 20px rgba(74,108,247,.6)} 50%{transform:scale(1.2);box-shadow:0 0 35px rgba(74,108,247,.9)} }
+.ob-nucleus { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, #a78bfa, var(--brand)); box-shadow: 0 0 20px color-mix(in srgb, var(--brand) 60%, transparent), 0 0 40px color-mix(in srgb, var(--brand) 20%, transparent); animation: nucleus-pulse 2s ease-in-out infinite; }
+@keyframes nucleus-pulse { 0%,100%{transform:scale(1);box-shadow:0 0 20px color-mix(in srgb, var(--brand) 60%, transparent)} 50%{transform:scale(1.2);box-shadow:0 0 35px color-mix(in srgb, var(--brand) 90%, transparent)} }
 .ob-ring { position: absolute; inset: 0; border: 1px solid rgba(255,255,255,.06); border-radius: 50%; }
 .ob-ring-1 { animation: orbit-spin 3s linear infinite; }
 .ob-ring-2 { animation: orbit-spin 4s linear infinite reverse; transform: rotateX(60deg); }
@@ -425,14 +425,14 @@ defineExpose({
 @keyframes orbit-spin-2 { to { transform: rotateX(60deg) rotate(360deg); } }
 .ob-ring-3 { animation: orbit-spin-3 5s linear infinite; }
 @keyframes orbit-spin-3 { to { transform: rotateX(-60deg) rotate(360deg); } }
-.ob-electron { width: 6px; height: 6px; border-radius: 50%; background: #6c8cff; box-shadow: 0 0 8px rgba(108,140,255,.7); position: absolute; top: -3px; left: 50%; margin-left: -3px; }
+.ob-electron { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-bright); box-shadow: 0 0 8px color-mix(in srgb, var(--brand-bright) 70%, transparent); position: absolute; top: -3px; left: 50%; margin-left: -3px; }
 
 /* ============================================================
    5. breathe 呼吸形态
    ============================================================ */
 .ls-breathe { display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 24px; }
 .br-core { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; }
-.br-shape { width: 24px; height: 24px; background: linear-gradient(135deg, #4a6cf7, #a78bfa); animation: shape-morph 4s ease-in-out infinite; }
+.br-shape { width: 24px; height: 24px; background: linear-gradient(135deg, var(--brand), #a78bfa); animation: shape-morph 4s ease-in-out infinite; }
 @keyframes shape-morph {
   0%   { border-radius: 50%; transform: scale(1) rotate(0deg); }
   25%  { border-radius: 30%; transform: scale(1.3) rotate(45deg); }
@@ -440,7 +440,7 @@ defineExpose({
   75%  { border-radius: 30%; transform: scale(1.3) rotate(135deg); }
   100% { border-radius: 50%; transform: scale(1) rotate(180deg); }
 }
-.br-ring { position: absolute; inset: 0; border: 1px solid rgba(74,108,247,.15); border-radius: 50%; animation: br-expand 2s ease-out infinite; }
+.br-ring { position: absolute; inset: 0; border: 1px solid color-mix(in srgb, var(--brand) 15%, transparent); border-radius: 50%; animation: br-expand 2s ease-out infinite; }
 .br-ring-1 { animation-delay: 0s; }
 .br-ring-2 { animation-delay: .6s; }
 .br-ring-3 { animation-delay: 1.2s; }
@@ -456,9 +456,9 @@ defineExpose({
 .cd-card-inner { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; animation: card-flip .6s ease-out forwards; }
 .cd-card.cd-dealt .cd-card-inner { animation: none; }
 .cd-card-back, .cd-card-front { position: absolute; inset: 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; backface-visibility: hidden; }
-.cd-card-back { background: linear-gradient(135deg, rgba(74,108,247,.3), rgba(108,140,255,.15)); border: 1px solid rgba(108,140,255,.2); }
+.cd-card-back { background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 30%, transparent), color-mix(in srgb, var(--brand-bright) 15%, transparent)); border: 1px solid color-mix(in srgb, var(--brand-bright) 20%, transparent); }
 .cd-card-back span { font-size: 22px; color: rgba(255,255,255,.3); font-weight: bold; }
-.cd-card-front { background: linear-gradient(135deg, rgba(74,108,247,.4), rgba(167,139,250,.3)); border: 1px solid rgba(167,139,250,.3); transform: rotateY(180deg); }
+.cd-card-front { background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 40%, transparent), rgba(167,139,250,.3)); border: 1px solid rgba(167,139,250,.3); transform: rotateY(180deg); }
 .cd-card-front span { font-size: 22px; }
 @keyframes card-flip { 0%{transform:rotateY(0)} 100%{transform:rotateY(180deg)} }
 
@@ -471,7 +471,7 @@ defineExpose({
 .pr-track { fill: none; stroke: rgba(255,255,255,.06); stroke-width: 4; }
 .pr-fill { fill: none; stroke: url(#pr-grad); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset .3s ease; }
 .pr-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.pr-count { font-size: 24px; font-weight: 700; color: #6c8cff; font-variant-numeric: tabular-nums; line-height: 1; }
+.pr-count { font-size: 24px; font-weight: 700; color: var(--brand-bright); font-variant-numeric: tabular-nums; line-height: 1; }
 .pr-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 
 /* ============================================================
@@ -489,12 +489,12 @@ defineExpose({
    ============================================================ */
 .ls-flow { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 24px 32px; min-width: 280px; }
 .flow-bar-wrap { display: flex; align-items: center; gap: 12px; width: 100%; }
-.flow-bar { flex: 1; height: 8px; background: rgba(255,255,255,.05); border-radius: 8px; overflow: hidden; }
-.flow-fill { height: 100%; border-radius: 8px; background: linear-gradient(90deg,#4a6cf7,#6c8cff 40%,#a78bfa 80%); background-size: 200% 100%; animation: flow-gradient 2s linear infinite; transition: width .4s ease; position: relative; overflow: hidden; }
+.flow-bar { flex: 1; height: 8px; background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent); border-radius: 8px; overflow: hidden; }
+.flow-fill { height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--brand), var(--brand-bright) 40%, #a78bfa 80%); background-size: 200% 100%; animation: flow-gradient 2s linear infinite; transition: width .4s ease; position: relative; overflow: hidden; }
 @keyframes flow-gradient { 0%{background-position:200% 0} 100%{background-position:0 0} }
 .flow-shine { position: absolute; right: 0; top: 0; width: 20px; height: 100%; background: linear-gradient(90deg,transparent,rgba(255,255,255,.6)); border-radius: 0 8px 8px 0; animation: shine-pulse 1s ease-in-out infinite; }
 @keyframes shine-pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
-.flow-percent { font-size: 18px; font-weight: 700; color: #6c8cff; min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+.flow-percent { font-size: 18px; font-weight: 700; color: var(--brand-bright); min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
 .flow-tip { margin: 0; font-size: 13px; color: var(--text-muted); animation: text-fade 2s ease-in-out infinite; }
 
 /* ============================================================
@@ -502,9 +502,9 @@ defineExpose({
    ============================================================ */
 .ls-ring { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px 20px; }
 .ring-spinner { position: relative; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.ring-outer { position: absolute; inset: 0; border: 2px solid transparent; border-top-color: #4a6cf7; border-right-color: rgba(74,108,247,.3); border-radius: 50%; animation: ring-spin 1.2s linear infinite; }
-.ring-inner { position: absolute; inset: 8px; border: 2px solid transparent; border-bottom-color: rgba(108,140,255,.6); border-left-color: rgba(108,140,255,.2); border-radius: 50%; animation: ring-spin 1.8s linear infinite reverse; }
-.ring-core { width: 30%; height: 30%; background: radial-gradient(circle,#4a6cf7,rgba(74,108,247,.4)); border-radius: 50%; box-shadow: 0 0 16px rgba(74,108,247,.5); animation: core-pulse 1.5s ease-in-out infinite; }
+.ring-outer { position: absolute; inset: 0; border: 2px solid transparent; border-top-color: var(--brand); border-right-color: color-mix(in srgb, var(--brand) 30%, transparent); border-radius: 50%; animation: ring-spin 1.2s linear infinite; }
+.ring-inner { position: absolute; inset: 8px; border: 2px solid transparent; border-bottom-color: color-mix(in srgb, var(--brand-bright) 60%, transparent); border-left-color: color-mix(in srgb, var(--brand-bright) 20%, transparent); border-radius: 50%; animation: ring-spin 1.8s linear infinite reverse; }
+.ring-core { width: 30%; height: 30%; background: radial-gradient(circle, var(--brand), color-mix(in srgb, var(--brand) 40%, transparent)); border-radius: 50%; box-shadow: 0 0 16px color-mix(in srgb, var(--brand) 50%, transparent); animation: core-pulse 1.5s ease-in-out infinite; }
 @keyframes ring-spin { to{transform:rotate(360deg)} }
 @keyframes core-pulse { 0%,100%{transform:scale(.9);opacity:.6} 50%{transform:scale(1.15);opacity:1} }
 </style>

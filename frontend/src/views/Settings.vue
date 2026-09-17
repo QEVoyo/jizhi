@@ -133,20 +133,190 @@
           <span class="card-title">外观</span>
         </div>
         <div class="card-body">
-          <div class="toggle-group">
-            <div
-              v-for="opt in themeOptions" :key="opt.value"
-              class="toggle-card"
-              :class="{ active: themeStore.mode === opt.value }"
-              @click="themeStore.setMode(opt.value)"
-            >
-              <span class="toggle-icon">{{ opt.icon }}</span>
-              <span class="toggle-label">{{ opt.label }}</span>
-              <span class="toggle-check" v-if="themeStore.mode === opt.value">✓</span>
+          <!-- 主题定制（09-03 用户拍板：去掉浅/深/跟随系统开关，外观只有四轴定制——
+               背景色 + 组件色 + 主题色 + 字体色，默认方案 = 深空蓝四轴，全站生效 + 账号同步） -->
+          <div class="theme-custom">
+            <!-- 整套方案 -->
+            <div class="tc-section">
+              <div class="tc-title">预设一套（背景 + 组件 + 主题 + 字体一键换好）</div>
+              <div class="tc-sets">
+                <span
+                  v-for="t in themeSets" :key="t.key"
+                  class="tc-set"
+                  :class="{ active: isSetActive(t) }"
+                  @click="applySet(t)"
+                  :title="`${t.name}：背景 ${t.bg} / 组件 ${t.surface} / 主题 ${t.brand} / 字体 ${t.scheme}`"
+                >
+                  <span class="tc-set-tile" :style="{ background: t.bg }">
+                    <i class="tc-set-surface" :style="{ background: t.surface }"></i>
+                    <i class="tc-set-brand" :style="{ background: t.brand }"></i>
+                    <i class="tc-set-ink" :style="{ background: (FONT_SCHEMES[t.scheme] || {}).primary || '#e8e8f0' }"></i>
+                  </span>
+                  <small>{{ t.name }}</small>
+                </span>
+              </div>
+            </div>
+
+            <!-- 背景色 -->
+            <div class="tc-section">
+              <div class="tc-title">背景色（页面底色，氛围自动派生）</div>
+              <div class="tc-colors">
+                <template v-for="c in bgPresets.light" :key="'l' + c">
+                  <span class="tc-swatch" :class="{ active: isBg(c) }" :style="{ background: c }" @click="chooseBg(c)" :title="c"></span>
+                </template>
+                <template v-for="c in bgPresets.dark" :key="'d' + c">
+                  <span class="tc-swatch" :class="{ active: isBg(c) }" :style="{ background: c }" @click="chooseBg(c)" :title="c"></span>
+                </template>
+                <el-color-picker v-model="bgPick" size="small" @change="chooseBg" title="高级选色（自由取色）" />
+              </div>
+            </div>
+
+            <!-- 组件色 -->
+            <div class="tc-section">
+              <div class="tc-title">组件色（毛玻璃卡片 / 输入框 / 浮层）</div>
+              <div class="tc-colors">
+                <template v-for="c in surfacePresets.light" :key="'sl' + c">
+                  <span class="tc-swatch" :class="{ active: isSurface(c) }" :style="{ background: c }" @click="chooseSurface(c)" :title="c"></span>
+                </template>
+                <template v-for="c in surfacePresets.dark" :key="'sd' + c">
+                  <span class="tc-swatch" :class="{ active: isSurface(c) }" :style="{ background: c }" @click="chooseSurface(c)" :title="c"></span>
+                </template>
+                <el-color-picker v-model="surfacePick" size="small" @change="chooseSurface" title="高级选色（自由取色）" />
+              </div>
+            </div>
+
+            <!-- 主题色 -->
+            <div class="tc-section">
+              <div class="tc-title">主题色（按钮 / 链接 / 选中态 / 发光）</div>
+              <div class="tc-colors">
+                <span
+                  v-for="c in brandPresets" :key="c"
+                  class="tc-swatch"
+                  :class="{ active: themeStore.brandColor.toLowerCase() === c.toLowerCase() }"
+                  :style="{ background: c }"
+                  @click="chooseBrand(c)"
+                  :title="c"
+                ></span>
+                <el-color-picker v-model="brandPick" size="small" @change="chooseBrand" title="高级选色（自由取色）" />
+              </div>
+            </div>
+
+            <!-- 字体色 -->
+            <div class="tc-section">
+              <div class="tc-title">字体色（主 / 次 / 弱三档文字）</div>
+              <div class="tc-schemes">
+                <span
+                  v-for="s in schemeOptions" :key="s.key"
+                  class="tc-scheme"
+                  :class="{ active: themeStore.textScheme === s.key }"
+                  @click="chooseScheme(s.key)"
+                >
+                  <span v-if="s.colors" class="tc-dots">
+                    <i :style="{ background: s.colors.primary }"></i>
+                    <i :style="{ background: s.colors.secondary }"></i>
+                    <i :style="{ background: s.colors.muted }"></i>
+                  </span>
+                  <i v-else class="tc-dot-def"></i>
+                  {{ s.label }}
+                </span>
+                <span class="tc-scheme" :class="{ active: isCustomText }" @click="chooseScheme('custom')">自定义（高级）</span>
+              </div>
+
+              <div v-if="isCustomText" class="tc-custom">
+                <div v-for="k in [['primary','主文字'],['secondary','次文字'],['muted','弱文字']]" :key="k[0]" class="tc-pick-row">
+                  <span class="tc-pick-label">{{ k[1] }}</span>
+                  <el-color-picker v-model="textPick[k[0]]" size="small" @change="applyCustomText" title="高级选色（自由取色）" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 实时预览 + 适配度 -->
+            <div class="tc-section tc-fit">
+              <div class="tc-fit-head">
+                <span class="tc-title">实时预览（嵌入小页面 · 四色联动）</span>
+                <span class="tc-pv-score-wrap">适配度 <b :class="fit.cls">{{ fit.pct }}%</b></span>
+              </div>
+
+              <!-- 小页面预览窗（2026-09-03 升级 / 2026-09-04 抽成组件供外观码复用） -->
+              <ThemePreviewWindow :bg="effectiveBg" :surface="effectiveSurface" :brand="themeStore.brandColor" :text="effectiveText" />
+
+              <div class="tc-fit-bar"><i :class="fit.cls" :style="{ width: fit.pct + '%' }"></i></div>
+              <div class="tc-fit-checks">
+                <div v-for="c in fit.checks" :key="c.key" class="tc-fit-row" :class="c.cls">
+                  <i class="tc-fit-dot" :class="c.cls"></i>
+                  <span class="tc-fit-label">{{ c.label }}</span>
+                  <span class="tc-fit-val">{{ c.ratio }}:1</span>
+                  <span v-if="c.advice" class="tc-fit-advice">{{ c.advice }}</span>
+                </div>
+              </div>
+              <div class="tc-fit-summary" :class="fit.cls">{{ fit.summary }}</div>
+              <div v-if="fit.canAutoFix" class="tc-fit-fix">
+                <el-button size="small" @click="autoFixText">✨ 自动调整字体色</el-button>
+              </div>
+            </div>
+
+            <div class="tc-actions">
+              <el-button size="small" type="primary" :loading="savingTheme" @click="saveTheme">保存到账号</el-button>
+              <el-button size="small" @click="resetTheme">恢复默认</el-button>
+            </div>
+
+            <!-- 外观码（2026-09-04：四轴打包成可分享码——码本身就是色值，可读可手改） -->
+            <div class="tc-section tc-share">
+              <div class="tc-title">📤 分享外观 · 外观码</div>
+              <div class="tc-share-desc">
+                把背景 / 组件 / 主题 / 字体整套打包成「外观码」，好友粘贴就能一键复刻你的外观；
+                当前外观{{ appearanceCode.setName ? ` = 「${appearanceCode.setName}」套装` : '' }}
+              </div>
+              <div class="tc-share-code" @click="copyCode" :title="'点击复制\n' + appearanceCode.code">
+                <span class="tc-share-dots">
+                  <i :style="{ background: themeStore.bgColor }"></i>
+                  <i :style="{ background: themeStore.surfaceColor }"></i>
+                  <i :style="{ background: themeStore.brandColor }"></i>
+                  <i :style="{ background: effectiveText.primary }"></i>
+                </span>
+                <code>{{ appearanceCode.code }}</code>
+              </div>
+              <div class="tc-actions">
+                <el-button size="small" @click="copyCode">📋 复制外观码</el-button>
+                <el-button size="small" @click="copyLink">🔗 复制分享链接</el-button>
+                <el-button size="small" @click="openImport">📥 粘贴导入</el-button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- 导入外观码弹窗 -->
+      <el-dialog v-model="importVisible" title="📥 导入外观码" width="560px" class="tc-import-dialog" destroy-on-close>
+        <div class="tc-import">
+          <textarea
+            v-model="importText"
+            class="tc-import-input"
+            rows="2"
+            placeholder="粘贴好友发来的外观码，例如：JZ1-space 或 JZ1-0d1220-16233c-409eff-paper-CK2F8"></textarea>
+          <div v-if="importText.trim() && importResult && !importResult.ok" class="tc-import-err">
+            ⚠️ {{ importResult.error }}
+          </div>
+          <template v-if="importOk">
+            <div class="tc-import-head">
+              <span v-if="importResult.setName" class="tc-import-tag">「{{ importResult.setName }}」套装</span>
+              <span class="tc-import-score" :class="importFit.cls">适配度 {{ importFit.pct }}%</span>
+            </div>
+            <ThemePreviewWindow
+              :bg="importResult.payload.bg"
+              :surface="importResult.payload.surface"
+              :brand="importResult.payload.brand"
+              :text="importTextResolved" />
+            <div v-if="importFit.cls === 'bad'" class="tc-import-warn">
+              ⚠️ 这份外观对比度不足，应用后文字可能看不清，建议确认后再应用
+            </div>
+          </template>
+        </div>
+        <template #footer>
+          <el-button size="small" @click="importVisible = false">取消</el-button>
+          <el-button size="small" type="primary" :disabled="!importOk" @click="applyImport">应用外观</el-button>
+        </template>
+      </el-dialog>
 
       <!-- ====== 4. 隐私 ====== -->
       <div class="settings-card">
@@ -270,6 +440,45 @@
         </div>
       </div>
 
+      <!-- ====== 8. 关于 ====== -->
+      <div class="settings-card">
+        <div class="card-header">
+          <span class="card-icon">ℹ️</span>
+          <span class="card-title">关于</span>
+          <span class="card-hint">基智学习助手</span>
+        </div>
+        <div class="card-body">
+          <div class="about-version">
+            <span class="about-label">当前版本</span>
+            <span class="about-ver">v{{ appVersion }} <em class="about-tag">Beta</em></span>
+          </div>
+          <div class="about-version">
+            <span class="about-label">ICP 备案</span>
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" class="about-ver about-icp-link">粤ICP备2026109012号-2</a>
+          </div>
+          <div class="link-grid about-links">
+            <router-link to="/guide" class="link-card">
+              <span class="link-icon">📖</span>
+              <span class="link-label">使用指引</span>
+              <span class="link-desc">产品使用说明书</span>
+              <svg class="link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </router-link>
+            <router-link to="/qa" class="link-card">
+              <span class="link-icon">❓</span>
+              <span class="link-label">帮助中心</span>
+              <span class="link-desc">常见问题与提问</span>
+              <svg class="link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </router-link>
+            <router-link to="/open-source" class="link-card">
+              <span class="link-icon">📚</span>
+              <span class="link-label">开源文档</span>
+              <span class="link-desc">技术架构与开源说明</span>
+              <svg class="link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </router-link>
+          </div>
+        </div>
+      </div>
+
       <!-- 底部间距 -->
       <div style="height:40px"></div>
     </div>
@@ -279,14 +488,19 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { useThemeStore } from '@/stores/theme'
+import { useThemeStore, BRAND_PRESETS, BG_PRESETS, SURFACE_PRESETS, FONT_SCHEMES, THEME_SETS, luminance, resolveText, computeFit } from '@/stores/theme'
+import { encodeAppearance, decodeAppearance, appearanceLink } from '@/utils/appearanceCode'
+import ThemePreviewWindow from '@/components/ThemePreviewWindow.vue'
 import { setUser } from '@/utils/storage'
-import { updateNickname, updateBio, uploadAvatar } from '@/api/auth'
+import { updateNickname, updateBio, uploadAvatar, updateUserTheme } from '@/api/auth'
 import { getNotificationSettings, updateNotificationSettings } from '@/api/community'
 import { recordAction } from '@/api/career'
+import pkg from '../../package.json'
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
+
+const appVersion = pkg.version
 
 const user = computed(() => authStore.user)
 const userStatus = ref(authStore.user?.status || 'online')
@@ -336,12 +550,189 @@ const difficultyOptions = ['基础巩固', '适中练习', '挑战难题']
 const styleOptions = ['详细讲解', '精简要点', '举例说明']
 const timeOptions = ['30分钟内', '1小时左右', '2小时左右', '2小时以上']
 
-// ===== 主题 =====
-const themeOptions = [
-  { value: 'light', label: '浅色', icon: '☀️' },
-  { value: 'dark', label: '深色', icon: '🌙' },
-  { value: 'system', label: '跟随系统', icon: '💻' },
+// ===== 主题定制（2026-09-02/03：背景色 + 组件色 + 品牌色 + 字体色，存账号跨设备同步）=====
+const brandPresets = BRAND_PRESETS
+const bgPresets = BG_PRESETS
+const surfacePresets = SURFACE_PRESETS
+const themeSets = THEME_SETS
+const brandPick = ref(themeStore.brandColor)
+const bgPick = ref(themeStore.bgColor || '')
+const surfacePick = ref(themeStore.surfaceColor || '')
+const schemeOptions = [
+  { key: 'default', label: '默认（随明暗）', colors: null },
+  { key: 'paper', label: '纯净白纸', colors: FONT_SCHEMES.paper },
+  { key: 'warmink', label: '暖墨', colors: FONT_SCHEMES.warmink },
+  { key: 'cyanink', label: '青灰', colors: FONT_SCHEMES.cyanink },
+  { key: 'ink', label: '曜黑', colors: FONT_SCHEMES.ink },
 ]
+const savingTheme = ref(false)
+const textPick = reactive({
+  primary: themeStore.textOverrides?.primary || '#e8e8f0',
+  secondary: themeStore.textOverrides?.secondary || '#a8a8c0',
+  muted: themeStore.textOverrides?.muted || '#8888aa',
+})
+const isCustomText = computed(() => themeStore.textScheme === 'custom')
+
+// 有效背景色 / 组件色（四轴恒有具体值：默认方案或用户定制）；有效三档字色（自定义/预设档/派生明暗默认）
+const effectiveBg = computed(() => themeStore.bgColor)
+const effectiveSurface = computed(() => themeStore.surfaceColor)
+const effectiveText = computed(() => resolveText(themeStore.textScheme, themeStore.textOverrides, themeStore.bgColor))
+
+// 适配度：五组对比度按标杆折算成百分比加权（文字落在组件上，以组件色为基准；逻辑在 theme.js 供导入预览复用）
+const fit = computed(() => computeFit(effectiveBg.value, effectiveSurface.value, themeStore.brandColor, effectiveText.value))
+
+// ===== 外观码（2026-09-04：四轴打包成可分享码）=====
+const appearanceCode = computed(() => encodeAppearance(themeStore.currentAppearance()))
+// 链接域名跟随当前站点：上线后自动是正式域名；开发期可用 VITE_SHARE_BASE_URL 覆盖
+const shareLink = computed(() => appearanceLink(appearanceCode.value.code))
+
+async function copyText(t, okMsg) {
+  try {
+    await navigator.clipboard.writeText(t)
+    toast(okMsg)
+  } catch {
+    toast('复制失败，请长按手动复制', 'error')
+  }
+}
+const copyCode = () => copyText(appearanceCode.value.code, '外观码已复制，粘贴给好友即可')
+const copyLink = () => copyText(shareLink.value, '分享链接已复制，好友点开即可预览')
+
+// 导入弹窗：粘贴 → 实时校验 → 复用预览窗 + 适配度
+const importVisible = ref(false)
+const importText = ref('')
+const openImport = () => { importVisible.value = true }
+const importResult = computed(() => {
+  const t = importText.value.trim()
+  if (!t) return null
+  return decodeAppearance(t)
+})
+const importOk = computed(() => !!importResult.value?.ok)
+const importTextResolved = computed(() => {
+  const p = importResult.value?.payload
+  return p ? resolveText(p.textScheme, p.textOverrides, p.bg) : null
+})
+const importFit = computed(() => {
+  const p = importResult.value?.payload
+  if (!p || !importTextResolved.value) return { pct: 0, cls: '' }
+  return computeFit(p.bg, p.surface, p.brand, importTextResolved.value)
+})
+
+async function applyImport() {
+  const p = importResult.value?.payload
+  if (!p) return
+  themeStore.applyAppearance(p)
+  // 回显设置页各控件
+  brandPick.value = p.brand
+  bgPick.value = p.bg
+  surfacePick.value = p.surface
+  if (p.textScheme === 'custom' && p.textOverrides) Object.assign(textPick, p.textOverrides)
+  importVisible.value = false
+  importText.value = ''
+  if (!authStore.user?.id) {
+    toast('已应用新外观（登录后保存到账号可跨设备同步）')
+    return
+  }
+  try {
+    await updateUserTheme(authStore.user.id, {
+      brand_color: p.brand, text_scheme: p.textScheme, text_overrides: p.textOverrides,
+      bg_color: p.bg, surface_color: p.surface,
+    })
+    toast('已应用并同步到账号，跨设备一致')
+  } catch (e) {
+    toast('已应用，但账号同步失败（' + (e?.response?.data?.detail || '网络异常') + '）', 'error')
+  }
+}
+
+function chooseBrand(c) {
+  if (!c) return
+  themeStore.setBrand(c)
+  brandPick.value = c
+}
+
+function isBg(c) {
+  return (themeStore.bgColor || '').toLowerCase() === c.toLowerCase()
+}
+
+function chooseBg(c) {
+  themeStore.setBg(c || null)
+  bgPick.value = themeStore.bgColor || ''
+}
+
+function isSurface(c) {
+  return (themeStore.surfaceColor || '').toLowerCase() === c.toLowerCase()
+}
+
+function chooseSurface(c) {
+  themeStore.setSurface(c || null)
+  surfacePick.value = themeStore.surfaceColor || ''
+}
+
+function applySet(t) {
+  themeStore.setBg(t.bg)
+  themeStore.setSurface(t.surface)
+  themeStore.setBrand(t.brand)
+  themeStore.setTextScheme(t.scheme)
+  brandPick.value = t.brand
+  bgPick.value = t.bg
+  surfacePick.value = t.surface
+}
+
+function isSetActive(t) {
+  return themeStore.brandColor.toLowerCase() === t.brand.toLowerCase()
+    && themeStore.textScheme === t.scheme
+    && (themeStore.bgColor || '').toLowerCase() === t.bg.toLowerCase()
+    && (themeStore.surfaceColor || '').toLowerCase() === t.surface.toLowerCase()
+}
+
+function chooseScheme(k) {
+  if (k === 'custom') {
+    if (!isCustomText.value) {
+      const base = FONT_SCHEMES[themeStore.textScheme] || { primary: '#e8e8f0', secondary: '#a8a8c0', muted: '#8888aa' }
+      Object.assign(textPick, base)
+    }
+    applyCustomText()
+    return
+  }
+  themeStore.setTextScheme(k)
+}
+
+function applyCustomText() {
+  themeStore.setTextOverrides({ primary: textPick.primary, secondary: textPick.secondary, muted: textPick.muted })
+}
+
+// 按当前组件深浅自动选字体档：深底 → 纯净白纸（浅字），浅底 → 曜黑（深字）
+function autoFixText() {
+  themeStore.setTextScheme(luminance(effectiveSurface.value) < 0.45 ? 'paper' : 'ink')
+}
+
+async function saveTheme() {
+  savingTheme.value = true
+  try {
+    await updateUserTheme(authStore.user.id, {
+      brand_color: themeStore.brandColor,
+      text_scheme: themeStore.textScheme,
+      text_overrides: themeStore.textOverrides,
+      bg_color: themeStore.bgColor,
+      surface_color: themeStore.surfaceColor,
+    })
+    themeStore.cachePersist()
+    toast('主题已保存，跨设备同步')
+  } catch (e) {
+    const detail = e?.response?.data?.detail
+    toast(detail || '保存失败（若未执行 fix_user_theme.sql，先在 Supabase 执行）', 'error')
+  } finally {
+    savingTheme.value = false
+  }
+}
+
+async function resetTheme() {
+  themeStore.resetCustom()
+  brandPick.value = themeStore.brandColor
+  bgPick.value = themeStore.bgColor
+  surfacePick.value = themeStore.surfaceColor
+  Object.assign(textPick, { primary: '#e8e8f0', secondary: '#a8a8c0', muted: '#8888aa' })
+  await saveTheme()
+}
 
 // ===== 在线状态 =====
 const statusOptions = [
@@ -515,8 +906,14 @@ async function loadNotifSettings() {
   if (!authStore.user?.id) return
   try {
     const data = await getNotificationSettings(authStore.user.id)
-    if (data && data.settings) {
-      Object.assign(notifSettings, data.settings)
+    // 后端返回平铺对象 {chat_enabled, ...}，只取已知键避免脏字段
+    if (data && typeof data.chat_enabled === 'boolean') {
+      const KEYS = [
+        'chat_enabled', 'social_enabled', 'learning_enabled', 'plan_reminder_enabled',
+        'evaluation_enabled', 'daily_rec_enabled', 'daily_summary_enabled', 'system_enabled',
+        'daily_rec_time', 'daily_summary_time'
+      ]
+      KEYS.forEach(k => { if (data[k] !== undefined) notifSettings[k] = data[k] })
     }
   } catch { /* 使用默认值 */ }
 }
@@ -559,12 +956,7 @@ onUnmounted(() => {
 .settings-page {
   min-height: 100vh;
   padding: 20px 28px;
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-}
-[data-theme="light"] .settings-page { background-image: url('/assets/bg/profile_bg.jpg'); }
-[data-theme="dark"]  .settings-page { background-image: url('/assets/bg/profile_bl.jpg'); }
+  }
 
 .settings-topbar {
   display: flex;
@@ -590,7 +982,7 @@ onUnmounted(() => {
 /* ====== 卡片 ====== */
 .settings-card {
   border-radius: 16px;
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255,255,255,0.06);
@@ -598,14 +990,14 @@ onUnmounted(() => {
   overflow: hidden;
 }
 .settings-card:hover {
-  border-color: rgba(255,255,255,0.10);
+  border-color: var(--line-soft);
 }
 [data-theme="dark"] .settings-card {
-  background: rgba(0,0,0,0.25);
+  background: var(--well);
   border-color: rgba(255,255,255,0.04);
 }
 [data-theme="dark"] .settings-card:hover {
-  border-color: rgba(255,255,255,0.08);
+  border-color: var(--line-soft);
 }
 
 .card-header {
@@ -630,15 +1022,15 @@ onUnmounted(() => {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   border: 1px solid rgba(255,255,255,0.04);
   cursor: pointer;
   transition: all 0.25s ease;
   font-family: inherit;
 }
 .glass-btn:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
+  border-color: var(--line-soft);
   transform: translateY(-1px);
   box-shadow: 0 4px 16px rgba(0,0,0,0.06);
 }
@@ -649,17 +1041,17 @@ onUnmounted(() => {
 .back-btn .icon { width: 20px; height: 20px; }
 
 .glass-btn.primary {
-  color: #409EFF;
-  background: rgba(64,158,255,0.08);
-  border-color: rgba(64,158,255,0.10);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 .glass-btn.primary:hover {
-  background: rgba(64,158,255,0.15);
-  border-color: rgba(64,158,255,0.22);
-  box-shadow: 0 4px 20px rgba(64,158,255,0.12);
+  background: color-mix(in srgb, var(--brand) 15%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 22%, transparent);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--brand) 12%, transparent);
 }
 .glass-btn.warning {
-  color: #F59E0B;
+  color: color-mix(in srgb, #F59E0B 70%, var(--text-primary));
   background: rgba(245,158,11,0.08);
   border-color: rgba(245,158,11,0.10);
 }
@@ -687,7 +1079,7 @@ onUnmounted(() => {
   border-radius: 10px;
   font-size: 14px;
   color: var(--text-primary);
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   border: 1px solid rgba(255,255,255,0.04);
   transition: all 0.25s ease;
   outline: none;
@@ -696,9 +1088,9 @@ onUnmounted(() => {
 }
 .glass-input::placeholder { color: var(--text-muted); opacity: 0.4; }
 .glass-input:focus {
-  border-color: rgba(64,158,255,0.20);
-  background: rgba(255,255,255,0.04);
-  box-shadow: 0 0 0 4px rgba(64,158,255,0.04);
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 4%, transparent);
 }
 .glass-input.textarea { resize: vertical; min-height: 60px; }
 select.glass-input { cursor: pointer; appearance: none; }
@@ -715,7 +1107,7 @@ select.glass-input { cursor: pointer; appearance: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   flex-shrink: 0;
 }
 .avatar-img { width: 100%; height: 100%; object-fit: cover; }
@@ -742,20 +1134,20 @@ select.glass-input { cursor: pointer; appearance: none; }
   gap: 6px;
   padding: 16px 12px;
   border-radius: 12px;
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   border: 2px solid rgba(255,255,255,0.04);
   cursor: pointer;
   transition: all 0.25s ease;
   position: relative;
 }
 .toggle-card:hover {
-  background: rgba(255,255,255,0.05);
-  border-color: rgba(255,255,255,0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
+  border-color: var(--line-soft);
   transform: translateY(-2px);
 }
 .toggle-card.active {
-  background: rgba(64,158,255,0.08);
-  border-color: rgba(64,158,255,0.25);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 25%, transparent);
 }
 .toggle-icon { font-size: 24px; }
 .toggle-label { font-size: 14px; font-weight: 600; color: var(--text-primary); }
@@ -763,9 +1155,256 @@ select.glass-input { cursor: pointer; appearance: none; }
 .toggle-check {
   position: absolute; top: 8px; right: 10px;
   width: 20px; height: 20px; border-radius: 50%;
-  background: #409EFF; color: #fff;
+  background: var(--brand, var(--brand)); color: var(--brand-on);
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700;
+}
+
+/* ====== 主题定制（2026-09-02：品牌色 / 字体色） ====== */
+.theme-custom {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.tc-section { display: flex; flex-direction: column; gap: 8px; }
+.tc-title { font-size: 12px; color: var(--text-muted); }
+.tc-colors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tc-swatch {
+  width: 24px; height: 24px; border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.tc-swatch:hover { transform: scale(1.15); }
+.tc-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255,255,255,.25), 0 0 10px rgba(0,0,0,.3);
+}
+.tc-schemes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tc-scheme {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 5px 11px;
+  border-radius: 16px;
+  border: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.tc-scheme:hover { background: color-mix(in srgb, var(--surface, #ffffff) 7%, transparent); }
+.tc-scheme.active {
+  color: var(--brand, var(--brand));
+  border-color: color-mix(in srgb, var(--brand, var(--brand)) 55%, transparent);
+  background: color-mix(in srgb, var(--brand, var(--brand)) 10%, transparent);
+}
+.tc-dots { display: inline-flex; gap: 3px; }
+.tc-dots i {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 1px solid rgba(0,0,0,.15);
+}
+.tc-dot-def {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: conic-gradient(#ddd 0 25%, #999 0 50%, #555 0 75%, #222 0);
+  border: 1px solid rgba(0,0,0,.2);
+}
+.tc-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
+  border: 1px dashed var(--line-soft);
+}
+.tc-pick-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.tc-pick-label { min-width: 58px; }
+.tc-actions { display: flex; gap: 10px; }
+
+/* ====== 主题定制：整套方案 / 背景色 / 适配度（2026-09-03）====== */
+.tc-sets { display: flex; gap: 10px; flex-wrap: wrap; }
+.tc-set {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 8px; border-radius: 8px; cursor: pointer;
+  border: 1px solid rgba(128,128,128,.18); font-size: 12px; color: var(--text-secondary);
+  transition: border-color .2s ease, background .2s ease;
+}
+.tc-set:hover { background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent); }
+.tc-set.active {
+  border-color: color-mix(in srgb, var(--brand) 55%, transparent);
+  color: var(--brand-bright);
+}
+.tc-set-tile {
+  position: relative; display: block; width: 34px; height: 24px;
+  border-radius: 4px; overflow: hidden; border: 1px solid rgba(0,0,0,.2);
+}
+.tc-set-surface { position: absolute; left: 5px; top: 4px; width: 8px; height: 6px; border-radius: 2px; border: 1px solid rgba(128,128,128,.25); }
+.tc-set-brand { position: absolute; right: 4px; top: 4px; width: 9px; height: 9px; border-radius: 50%; }
+.tc-set-ink { position: absolute; left: 5px; bottom: 4px; width: 12px; height: 3px; border-radius: 1px; }
+
+.tc-fit {
+  padding: 10px 12px; border-radius: 10px;
+  border: 1px solid rgba(128,128,128,.16);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
+}
+.tc-fit-head { display: flex; align-items: center; justify-content: space-between; }
+.tc-fit-head b { font-size: 20px; font-weight: 700; }
+.tc-fit-head b.good, .tc-fit-summary.good { color: color-mix(in srgb, #67c23a 65%, var(--text-primary)); }
+.tc-fit-head b.warn, .tc-fit-summary.warn { color: color-mix(in srgb, #e6a23c 70%, var(--text-primary)); }
+.tc-fit-head b.bad, .tc-fit-summary.bad { color: #f56c6c; }
+.tc-fit-bar {
+  height: 6px; border-radius: 3px; margin: 8px 0 2px;
+  background: rgba(128,128,128,.18); overflow: hidden;
+}
+.tc-fit-bar i {
+  display: block; height: 100%; border-radius: 3px;
+  transition: width .3s ease;
+}
+.tc-fit-bar i.good { background: #67c23a; }
+.tc-fit-bar i.warn { background: #e6a23c; }
+.tc-fit-bar i.bad { background: #f56c6c; }
+.tc-fit-checks { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
+.tc-fit-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; }
+.tc-fit-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.tc-fit-dot.good { background: #67c23a; }
+.tc-fit-dot.warn { background: #e6a23c; }
+.tc-fit-dot.bad { background: #f56c6c; }
+.tc-fit-label { color: var(--text-secondary); }
+.tc-fit-val { color: var(--text-muted); font-size: 11px; }
+.tc-fit-advice { font-size: 11px; flex-basis: 100%; color: var(--text-muted); }
+.tc-fit-row.bad .tc-fit-advice { color: #f56c6c; }
+.tc-fit-row.warn .tc-fit-advice { color: #e6a23c; }
+.tc-fit-summary { margin-top: 8px; font-size: 12px; }
+.tc-fit-fix { margin-top: 8px; }
+
+/* ====== 实时预览：嵌入小页面（2026-09-03 / 2026-09-04 抽为 ThemePreviewWindow 组件，样式随组件走）====== */
+.tc-pv-score-wrap { font-size: 12px; color: var(--text-secondary); }
+.tc-pv-score-wrap b { font-size: 18px; font-weight: 700; margin-left: 2px; }
+.tc-pv-score-wrap b.good { color: #67c23a; }
+.tc-pv-score-wrap b.warn { color: #e6a23c; }
+.tc-pv-score-wrap b.bad { color: #f56c6c; }
+
+/* ====== 外观码（2026-09-04）====== */
+.tc-share {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--line-soft);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
+}
+.tc-share-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+.tc-share-code {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 10px;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
+  border: 1px solid var(--line-soft);
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease;
+}
+.tc-share-code:hover {
+  border-color: color-mix(in srgb, var(--brand) 35%, transparent);
+  background: color-mix(in srgb, var(--surface, #ffffff) 9%, transparent);
+}
+.tc-share-code code {
+  flex: 1; min-width: 0;
+  font-size: 12px; font-family: 'Consolas', 'Menlo', monospace;
+  color: var(--text-primary);
+  word-break: break-all;
+  user-select: all;
+}
+.tc-share-dots { display: inline-flex; gap: 4px; flex: none; }
+.tc-share-dots i {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 1px solid rgba(0,0,0,.25);
+}
+
+/* ====== 导入外观码弹窗（el-dialog 挂在 body，按 .settings-dialog 同款 :deep 模式）====== */
+.tc-import-dialog :deep(.el-dialog) {
+  background: var(--well) !important;
+  backdrop-filter: blur(24px) !important;
+  border: 1px solid var(--line-soft) !important;
+  border-radius: 16px !important;
+}
+.tc-import-dialog :deep(.el-dialog__title) {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+.tc-import-dialog :deep(.el-dialog__body) { padding: 18px 24px 8px; }
+.tc-import-dialog :deep(.el-dialog__footer) { padding: 8px 24px 18px; }
+.tc-import-dialog :deep(.el-button) {
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  color: var(--text-secondary) !important;
+  border-radius: 8px !important;
+}
+.tc-import-dialog :deep(.el-button--primary) {
+  background: color-mix(in srgb, var(--brand) 15%, transparent) !important;
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent) !important;
+  color: var(--brand-bright) !important;
+}
+
+.tc-import { display: flex; flex-direction: column; gap: 10px; }
+.tc-import-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: 'Consolas', 'Menlo', monospace;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 52px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  border: 1px solid var(--line-soft);
+  outline: none;
+  box-sizing: border-box;
+}
+.tc-import-input::placeholder { color: var(--text-muted); opacity: 0.45; font-family: inherit; }
+.tc-import-input:focus {
+  border-color: color-mix(in srgb, var(--brand) 30%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 5%, transparent);
+}
+.tc-import-err {
+  font-size: 12px; color: #f56c6c;
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(245,108,108,.08);
+  border: 1px solid rgba(245,108,108,.2);
+}
+.tc-import-head { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
+.tc-import-tag {
+  font-size: 12px; font-weight: 600; color: var(--brand-bright);
+  padding: 2px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+}
+.tc-import-score { font-size: 13px; font-weight: 700; }
+.tc-import-score.good { color: #67c23a; }
+.tc-import-score.warn { color: #e6a23c; }
+.tc-import-score.bad { color: #f56c6c; }
+.tc-import-warn {
+  font-size: 12px; color: #e6a23c;
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(230,162,60,.08);
+  border: 1px solid rgba(230,162,60,.2);
 }
 
 /* ====== 通知设置 ====== */
@@ -778,7 +1417,7 @@ select.glass-input { cursor: pointer; appearance: none; }
   border-radius: 10px;
   transition: background 0.2s;
 }
-.notif-row:hover { background: rgba(255,255,255,0.03); }
+.notif-row:hover { background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent); }
 .notif-info { display: flex; flex-direction: column; gap: 2px; }
 .notif-label { font-size: 14px; color: var(--text-primary); font-weight: 500; }
 .notif-desc { font-size: 12px; color: var(--text-muted); }
@@ -791,7 +1430,7 @@ select.glass-input { cursor: pointer; appearance: none; }
 .switch-slider {
   position: absolute; cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(255,255,255,0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   border-radius: 24px;
   transition: all 0.3s ease;
 }
@@ -803,11 +1442,45 @@ select.glass-input { cursor: pointer; appearance: none; }
   border-radius: 50%;
   transition: all 0.3s ease;
 }
-.switch input:checked + .switch-slider { background: #409EFF; }
+.switch input:checked + .switch-slider { background: var(--brand); }
 .switch input:checked + .switch-slider::before { transform: translateX(20px); }
 
+/* ====== 关于 ====== */
+.about-version {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
+  border: 1px solid rgba(255,255,255,0.04);
+  margin-bottom: 12px;
+}
+.about-label { font-size: 13px; color: var(--text-secondary); }
+.about-ver {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Consolas', 'Menlo', monospace;
+}
+.about-tag {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
+  padding: 1px 7px;
+  border-radius: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.about-icp-link { text-decoration: none; transition: color .25s ease; }
+.about-icp-link:hover { color: var(--brand); }
+.about-links { margin-top: 4px; }
+
 /* ====== 分隔线 ====== */
-.divider { height: 1px; background: rgba(255,255,255,0.05); margin: 18px 0; }
+.divider { height: 1px; background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent); margin: 18px 0; }
 
 /* ====== 微信 ====== */
 .wechat-bound { display: flex; align-items: center; gap: 10px; padding: 10px 0; font-size: 15px; color: var(--text-primary); }
@@ -832,15 +1505,15 @@ select.glass-input { cursor: pointer; appearance: none; }
   gap: 12px;
   padding: 14px 16px;
   border-radius: 12px;
-  background: rgba(255,255,255,0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   border: 1px solid rgba(255,255,255,0.04);
   text-decoration: none;
   cursor: pointer;
   transition: all 0.25s ease;
 }
 .link-card:hover {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(64,158,255,0.15);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 15%, transparent);
   transform: translateY(-2px);
 }
 .link-icon { font-size: 22px; flex-shrink: 0; }
@@ -872,18 +1545,18 @@ select.glass-input { cursor: pointer; appearance: none; }
 .toast-item {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 18px; border-radius: 12px;
-  background: rgba(20,20,40,0.92);
+  background: var(--well);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--line-soft);
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   pointer-events: auto;
   font-size: 14px;
   color: var(--text-primary);
 }
-.toast-success .toast-icon { color: #67c23a; font-weight: 700; }
+.toast-success .toast-icon { color: color-mix(in srgb, #67c23a 65%, var(--text-primary)); font-weight: 700; }
 .toast-error .toast-icon { color: #f56c6c; font-weight: 700; }
-.toast-warning .toast-icon { color: #e6a23c; font-weight: 700; }
+.toast-warning .toast-icon { color: color-mix(in srgb, #e6a23c 70%, var(--text-primary)); font-weight: 700; }
 .toast-enter-active { transition: all 0.3s ease-out; }
 .toast-leave-active { transition: all 0.2s ease-in; }
 .toast-enter-from { opacity: 0; transform: translateX(40px); }

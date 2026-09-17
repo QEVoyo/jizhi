@@ -107,7 +107,7 @@ onMounted(loadLogs)
 .filter-select { width: 160px; }
 
 .table-wrap {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
@@ -140,7 +140,7 @@ onMounted(loadLogs)
   border-radius: 10px;
   font-size: 11px;
   font-weight: 500;
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   color: rgba(255, 255, 255, 0.5);
 }
 .action-tag.ban_user, .action-tag.delete_question { background: rgba(245, 108, 108, 0.12); color: #f56c6c; }
@@ -151,7 +151,7 @@ onMounted(loadLogs)
 .pagination { display: flex; justify-content: center; padding: 16px; }
 
 :deep(.el-select .el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
   border-radius: 8px !important;
   box-shadow: none !important;

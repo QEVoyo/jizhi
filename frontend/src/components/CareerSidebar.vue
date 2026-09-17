@@ -57,20 +57,6 @@
 
     <!-- ===== 底部固定 ===== -->
     <div class="sidebar-footer">
-      <div class="theme-toggle" :class="{ collapsed: isCollapsed }">
-        <div class="theme-options" :class="{ vertical: isCollapsed }">
-          <button class="theme-btn" :class="{ active: themeStore.mode === 'light' }" @click="themeStore.setMode('light')" title="浅色">
-            <i class="fas fa-sun"></i>
-          </button>
-          <button class="theme-btn" :class="{ active: themeStore.mode === 'dark' }" @click="themeStore.setMode('dark')" title="深色">
-            <i class="fas fa-moon"></i>
-          </button>
-          <button class="theme-btn" :class="{ active: themeStore.mode === 'system' }" @click="themeStore.setMode('system')" title="跟随系统">
-            <i class="fas fa-desktop"></i>
-          </button>
-        </div>
-      </div>
-
       <button class="footer-btn feedback-btn" @click="showFeedback = true" :title="isCollapsed ? '意见反馈' : ''">
         <i class="fas fa-envelope"></i>
         <span v-if="!isCollapsed">意见反馈</span>
@@ -138,7 +124,6 @@
 import { ref, computed, onMounted, inject, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useThemeStore } from '@/stores/theme'
 import { getUserStats } from '@/api/career'
 import { getSidebarBadges } from '@/api/community'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -153,7 +138,6 @@ const props = defineProps({
 
 const router = useRouter()
 const authStore = useAuthStore()
-const themeStore = useThemeStore()
 
 const isCollapsed = inject('sidebarCollapsed', ref(false))
 const showFeedback = ref(false)
@@ -341,15 +325,6 @@ onUnmounted(() => {
   justify-content: center;
   padding: 4px;
 }
-.sidebar-content.collapsed .theme-options {
-  flex-direction: column;
-  gap: 2px;
-}
-.sidebar-content.collapsed .theme-btn {
-  width: 28px;
-  height: 28px;
-  font-size: 14px;
-}
 .sidebar-content.collapsed .footer-btn {
   justify-content: center;
   padding: 8px;
@@ -406,12 +381,12 @@ onUnmounted(() => {
 }
 .nav-item i { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   color: var(--text-primary);
   transform: translateX(4px);
 }
 .nav-item.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   color: var(--text-primary);
 }
 .nav-item.back-item {
@@ -426,16 +401,16 @@ onUnmounted(() => {
 .nav-badge {
   margin-left: auto;
   background: rgba(245,158,11,0.15);
-  color: #f59e0b;
+  color: color-mix(in srgb, #f59e0b 70%, var(--text-primary));
   font-size: 10px; font-weight: 700;
   padding: 1px 7px; border-radius: 10px;
   min-width: 18px; text-align: center; line-height: 1.6;
 }
 [data-theme="dark"] .nav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
 }
 [data-theme="dark"] .nav-item.active {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
 }
 
 .sidebar-footer {
@@ -447,53 +422,6 @@ onUnmounted(() => {
   margin-top: auto;
 }
 
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-}
-.theme-options {
-  display: flex;
-  gap: 4px;
-}
-.theme-options.vertical {
-  flex-direction: column;
-  gap: 2px;
-}
-.theme-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.3s ease;
-  color: var(--text-secondary);
-}
-.theme-btn:hover {
-  background: rgba(255, 255, 255, 0.10);
-  transform: scale(1.08);
-  color: var(--text-primary);
-}
-.theme-btn.active {
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 0 0 2px rgba(128, 128, 128, 0.12);
-  color: var(--text-primary);
-}
-.sidebar-content.collapsed .theme-btn {
-  width: 28px;
-  height: 28px;
-  font-size: 14px;
-}
-
 .footer-btn {
   display: flex;
   align-items: center;
@@ -503,7 +431,7 @@ onUnmounted(() => {
   padding: 8px 12px;
   border: none;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.03);
   color: var(--text-secondary);
   font-size: 14px;
@@ -512,9 +440,9 @@ onUnmounted(() => {
 }
 .footer-btn i { font-size: 16px; }
 .feedback-btn:hover {
-  background: rgba(64, 158, 255, 0.12);
-  border-color: rgba(64, 158, 255, 0.2);
-  color: #409eff;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent);
+  color: var(--brand);
   transform: translateY(-2px);
 }
 .logout-btn:hover {
@@ -530,7 +458,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 8px 14px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.06);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -539,12 +467,12 @@ onUnmounted(() => {
   user-select: none;
 }
 .custom-select:hover {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
+  border-color: var(--line-soft);
   transform: translateY(-1px);
 }
 [data-theme="dark"] .custom-select {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
 }
 .select-display { color: var(--text-primary); }
 .select-arrow {
@@ -559,10 +487,10 @@ onUnmounted(() => {
   top: 44px;
   left: 0;
   right: 0;
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-soft);
   border-radius: 10px;
   padding: 4px 0;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
@@ -570,7 +498,7 @@ onUnmounted(() => {
   min-width: 160px;
 }
 [data-theme="dark"] .custom-select-dropdown {
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--well);
 }
 .select-option {
   padding: 8px 14px;
@@ -582,12 +510,12 @@ onUnmounted(() => {
   margin: 2px 4px;
 }
 .select-option:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   color: var(--text-primary);
   transform: translateX(2px);
 }
 .select-option.active {
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
   color: var(--text-primary);
 }
 
@@ -601,21 +529,21 @@ onUnmounted(() => {
   text-align: center;
 }
 .feedback-dialog :deep(.el-textarea__inner) {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
   border-color: rgba(255, 255, 255, 0.06) !important;
   color: var(--text-primary) !important;
   border-radius: 10px !important;
 }
 [data-theme="dark"] .feedback-dialog :deep(.el-textarea__inner) {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
 }
 .feedback-dialog :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
   border-color: rgba(255, 255, 255, 0.06) !important;
   border-radius: 10px !important;
 }
 [data-theme="dark"] .feedback-dialog :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
 }
 </style>
 
@@ -628,15 +556,15 @@ onUnmounted(() => {
   backdrop-filter: none !important;
 }
 .feedback-dialog-wrapper .el-dialog {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border: 1px solid var(--line-soft) !important;
   border-radius: 16px !important;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2) !important;
 }
 [data-theme="dark"] .feedback-dialog-wrapper .el-dialog {
-  background: rgba(0, 0, 0, 0.3) !important;
+  background: var(--well) !important;
   border-color: rgba(255, 255, 255, 0.06) !important;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4) !important;
 }
@@ -645,22 +573,22 @@ onUnmounted(() => {
   font-weight: 600;
 }
 .feedback-dialog-wrapper .el-button {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent) !important;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
   color: var(--text-secondary) !important;
   border-radius: 8px !important;
   transition: all 0.3s ease !important;
 }
 .feedback-dialog-wrapper .el-button:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 12%, transparent) !important;
   transform: translateY(-2px);
 }
 .feedback-dialog-wrapper .el-button--primary {
-  background: rgba(64, 158, 255, 0.15) !important;
-  border-color: rgba(64, 158, 255, 0.2) !important;
-  color: #66b1ff !important;
+  background: color-mix(in srgb, var(--brand) 15%, transparent) !important;
+  border-color: color-mix(in srgb, var(--brand) 20%, transparent) !important;
+  color: var(--brand-bright) !important;
 }
 .feedback-dialog-wrapper .el-button--primary:hover {
-  background: rgba(64, 158, 255, 0.25) !important;
+  background: color-mix(in srgb, var(--brand) 25%, transparent) !important;
 }
 </style>

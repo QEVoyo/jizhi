@@ -472,7 +472,7 @@ function cometStyle(i) {
   position: absolute;
   width: 80px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(74, 108, 247, 0.4), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--brand) 40%, transparent), transparent);
   animation: cometFly linear infinite;
   opacity: 0;
 }
@@ -535,10 +535,10 @@ function cometStyle(i) {
 }
 .step-line {
   height: 100%;
-  background: linear-gradient(90deg, #4a6cf7, #6c8cff);
+  background: linear-gradient(90deg, var(--brand), var(--brand-bright));
   border-radius: 2px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 0 8px rgba(74, 108, 247, 0.6);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--brand) 60%, transparent);
 }
 .step-dot {
   display: flex;
@@ -558,16 +558,16 @@ function cometStyle(i) {
   display: block;
 }
 .step-dot.active .dot-core {
-  background: #4a6cf7;
-  box-shadow: 0 0 12px rgba(74, 108, 247, 0.6);
+  background: var(--brand);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--brand) 60%, transparent);
 }
 .step-dot.current .dot-core {
-  box-shadow: 0 0 20px rgba(74, 108, 247, 0.9);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--brand) 90%, transparent);
   animation: pulse-dot 1.5s ease-in-out infinite;
 }
 @keyframes pulse-dot {
-  0%, 100% { box-shadow: 0 0 8px rgba(74, 108, 247, 0.5); }
-  50% { box-shadow: 0 0 20px rgba(74, 108, 247, 0.9); }
+  0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--brand) 50%, transparent); }
+  50% { box-shadow: 0 0 20px color-mix(in srgb, var(--brand) 90%, transparent); }
 }
 .dot-label {
   font-size: 11px;
@@ -576,7 +576,7 @@ function cometStyle(i) {
   transition: color 0.3s;
 }
 .step-dot.active .dot-label { color: var(--text-secondary); }
-.step-dot.current .dot-label { color: #4a6cf7; }
+.step-dot.current .dot-label { color: var(--brand); }
 
 /* ====== 步骤内容 ====== */
 .step-content {
@@ -649,18 +649,18 @@ function cometStyle(i) {
   gap: 6px;
 }
 .option-card:hover {
-  border-color: rgba(74, 108, 247, 0.3);
+  border-color: color-mix(in srgb, var(--brand) 30%, transparent);
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
 }
 .option-card.selected {
-  border-color: #4a6cf7;
-  background: rgba(74, 108, 247, 0.1);
-  box-shadow: 0 0 20px rgba(74, 108, 247, 0.15), inset 0 0 20px rgba(74, 108, 247, 0.05);
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--brand) 15%, transparent), inset 0 0 20px color-mix(in srgb, var(--brand) 5%, transparent);
 }
 [data-theme="dark"] .option-card.selected {
-  background: rgba(74, 108, 247, 0.15);
-  box-shadow: 0 0 24px rgba(74, 108, 247, 0.2), inset 0 0 20px rgba(74, 108, 247, 0.08);
+  background: color-mix(in srgb, var(--brand) 15%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--brand) 20%, transparent), inset 0 0 20px color-mix(in srgb, var(--brand) 8%, transparent);
 }
 .option-icon { font-size: 22px; }
 .option-text {
@@ -669,7 +669,7 @@ function cometStyle(i) {
   color: var(--text-secondary);
   transition: color 0.2s;
 }
-.option-card.selected .option-text { color: #4a6cf7; }
+.option-card.selected .option-text { color: var(--brand); }
 
 /* ====== 下拉框 ====== */
 .select-wrapper {
@@ -690,8 +690,8 @@ function cometStyle(i) {
 }
 .sci-select:focus {
   outline: none;
-  border-color: #4a6cf7;
-  box-shadow: 0 0 12px rgba(74, 108, 247, 0.15);
+  border-color: var(--brand);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--brand) 15%, transparent);
 }
 .sci-select:disabled {
   opacity: 0.4;
@@ -722,8 +722,8 @@ function cometStyle(i) {
 }
 .sci-input:focus {
   outline: none;
-  border-color: #4a6cf7;
-  box-shadow: 0 0 12px rgba(74, 108, 247, 0.15);
+  border-color: var(--brand);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--brand) 15%, transparent);
 }
 .sci-input::placeholder { color: var(--text-muted); }
 .suggest-drop {
@@ -748,7 +748,7 @@ function cometStyle(i) {
   transition: background 0.15s;
 }
 .suggest-item:hover {
-  background: rgba(74, 108, 247, 0.1);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
   color: var(--text-primary);
 }
 
@@ -773,25 +773,25 @@ function cometStyle(i) {
   font-family: inherit;
 }
 .btn-next {
-  background: linear-gradient(135deg, #4a6cf7, #6c8cff);
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(74, 108, 247, 0.3);
+  background: linear-gradient(135deg, var(--brand), var(--brand-bright));
+  color: var(--brand-on);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--brand) 30%, transparent);
 }
 .btn-next:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(74, 108, 247, 0.45);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--brand) 45%, transparent);
 }
 .btn-next:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 .btn-next.primary-glow {
-  box-shadow: 0 4px 24px rgba(74, 108, 247, 0.5), 0 0 40px rgba(74, 108, 247, 0.2);
+  box-shadow: 0 4px 24px color-mix(in srgb, var(--brand) 50%, transparent), 0 0 40px color-mix(in srgb, var(--brand) 20%, transparent);
   animation: glow-pulse 2s ease-in-out infinite;
 }
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 4px 24px rgba(74, 108, 247, 0.4), 0 0 40px rgba(74, 108, 247, 0.15); }
-  50% { box-shadow: 0 4px 32px rgba(74, 108, 247, 0.6), 0 0 56px rgba(74, 108, 247, 0.3); }
+  0%, 100% { box-shadow: 0 4px 24px color-mix(in srgb, var(--brand) 40%, transparent), 0 0 40px color-mix(in srgb, var(--brand) 15%, transparent); }
+  50% { box-shadow: 0 4px 32px color-mix(in srgb, var(--brand) 60%, transparent), 0 0 56px color-mix(in srgb, var(--brand) 30%, transparent); }
 }
 .btn-back {
   background: var(--input-bg);
@@ -799,7 +799,7 @@ function cometStyle(i) {
   border: 1px solid var(--border-color);
 }
 .btn-back:hover {
-  border-color: rgba(74, 108, 247, 0.3);
+  border-color: color-mix(in srgb, var(--brand) 30%, transparent);
   color: var(--text-primary);
 }
 .btn-skip {
@@ -831,7 +831,7 @@ function cometStyle(i) {
   position: absolute;
   inset: 0;
   border: 2px solid transparent;
-  border-top-color: #4a6cf7;
+  border-top-color: var(--brand);
   border-radius: 50%;
   animation: hex-spin 1.2s linear infinite;
 }
@@ -840,7 +840,7 @@ function cometStyle(i) {
   position: absolute;
   inset: 8px;
   border: 2px solid transparent;
-  border-bottom-color: rgba(74, 108, 247, 0.5);
+  border-bottom-color: color-mix(in srgb, var(--brand) 50%, transparent);
   border-radius: 50%;
   animation: hex-spin 1.8s linear infinite reverse;
 }
@@ -850,9 +850,9 @@ function cometStyle(i) {
 .hex-core {
   width: 16px;
   height: 16px;
-  background: #4a6cf7;
+  background: var(--brand);
   border-radius: 50%;
-  box-shadow: 0 0 20px rgba(74, 108, 247, 0.7);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--brand) 70%, transparent);
   animation: core-pulse 1.5s ease-in-out infinite;
 }
 @keyframes core-pulse {
@@ -872,7 +872,7 @@ function cometStyle(i) {
 }
 .sci-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4a6cf7, #6c8cff, #4a6cf7);
+  background: linear-gradient(90deg, var(--brand), var(--brand-bright), var(--brand));
   background-size: 200% 100%;
   border-radius: 4px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -899,10 +899,10 @@ function cometStyle(i) {
   display: block;
   font-size: 28px;
   font-weight: 700;
-  color: #4a6cf7;
+  color: var(--brand);
   margin-top: 12px;
   font-family: 'Courier New', monospace;
-  text-shadow: 0 0 16px rgba(74, 108, 247, 0.4);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--brand) 40%, transparent);
 }
 .loading-hint {
   font-size: 12px;

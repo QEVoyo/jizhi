@@ -24,11 +24,6 @@ export function getMistakes(userId) {
     .then(res => res.data)
 }
 
-export function conquerMistake(questionId) {
-  return request.post(`/questions/mistakes/conquer/${questionId}`)
-    .then(res => res.data)
-}
-
 // 题集
 export function getQuestionSets(userId) {
   return request.get(`/questions/set/list/${userId}`)

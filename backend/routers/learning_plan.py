@@ -1,6 +1,6 @@
 """学习规划 - AI 生成个性化学习计划"""
 from fastapi import APIRouter, HTTPException, Query, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from config import settings
 import httpx
 from datetime import datetime
@@ -11,21 +11,46 @@ from logging_config import logger
 
 router = APIRouter(prefix="/learning-plan", tags=["学习规划"])
 
+# 平台通用三档难度 → 数值中值（与出题提示词的 1-3 / 4-6 / 7-10 分档对齐）
+_DIFFICULTY_WORDS = {"简单": 2, "容易": 2, "中等": 5, "普通": 5, "困难": 8, "难": 8}
 
-class GenerateTasksRequest(BaseModel):
-    keywords: str
+
+class _DifficultyMixin(BaseModel):
+    """difficulty 兼容「中文档位」与数值两种传法。
+
+    小基规划卡一直按平台口语传 '中等'，而模型声明的是 int → pydantic 直接 422，
+    导致「生成草稿」和「建计划」两步全断。收口语档位，别让调用方猜数字。
+    """
     difficulty: int
+
+    @field_validator("difficulty", mode="before")
+    @classmethod
+    def _norm_difficulty(cls, v):
+        if isinstance(v, str):
+            s = v.strip()
+            if s in _DIFFICULTY_WORDS:
+                return _DIFFICULTY_WORDS[s]
+            try:
+                return int(float(s))
+            except ValueError:
+                return 5
+        if isinstance(v, float):
+            return int(v)
+        return v
+
+
+class GenerateTasksRequest(_DifficultyMixin):
+    keywords: str
     daily_minutes: int
     total_days: int
 
 
-class CreatePlanRequest(BaseModel):
+class CreatePlanRequest(_DifficultyMixin):
     user_id: str
     name: str
     stage: str
     grade: str
     major: str
-    difficulty: int
     daily_minutes: int
     start_date: str
     end_date: str
@@ -56,74 +81,89 @@ async def generate_tasks(req: GenerateTasksRequest):
 请生成 {req.total_days} 天的学习计划，每天包含：
 1. 该天的子知识点名称 (topic)
 2. 学习内容 (content, 100-200字)
-3. 2 道与该日子知识点相关的练习题
+3. 与该日子知识点相关的练习题 (questions)
 4. 推荐一个 B站/YouTube 搜索关键词，用于找学习视频 (video_query)
 
+出题要求：
+- 先判断【{keyword}】所属的学科/知识领域，再按该学科实际的练习与考试形式决定题型，不要固定套用某几种题型：
+  数学/理工计算类 → 计算题、填空题、选择题；英语/语言类 → 选择题、填空题、翻译题、写作题；
+  编程/计算机类 → 编程题、代码填空、选择题；文史/理论类 → 简答题、材料分析题、选择题；
+  其他学科按该领域常见题型出题
+- 每天的题量与题型配比由你根据当天知识点的特点和 {req.daily_minutes} 分钟的可用时长自行决定，各天不必相同
+- 题目要能检验当天所学，不要出与知识点无关的凑数题
+
 每道题包含：
-- type: "选择题"/"填空题"/"判断题"
+- type: 题型名称（按学科惯例命名，如 "选择题"/"计算题"/"翻译题"/"编程题"/"简答题" 等）
 - question: 题目文本
-- options: 选择题提供["A","B","C","D"]，其他题型空数组
-- answer: 正确答案
+- answer: 正确答案（选择题填选项字母；计算题/编程题/简答题给出参考答案或要点）
 - difficulty_score: 1-10
+- 仅当 type 为选择题时，才额外提供 options: ["A. ...","B. ...","C. ...","D. ..."]；其他题型不要输出 options 字段
 
 知识点拆分原则：
 - 第1天：基础概念入门
 - 中间：逐步深入核心原理
 - 最后1-2天：综合应用/实践
+（若该学科有更合适的学习节奏，可按学科惯例调整）
 
-返回 JSON 数组，每天一个对象：
+返回 JSON 数组，每天一个对象。questions 中的题型与题量请按上述要求自行决定，不要照抄下面的结构占位：
 [
   {{
     "day": 1,
     "topic": "第1天子知识点",
     "content": "学习内容...",
     "video_query": "B站搜索关键词",
-    "questions": [
-      {{"type":"选择题","question":"...","options":["A","B","C","D"],"answer":"A","difficulty_score":5}},
-      {{"type":"填空题","question":"...","options":[],"answer":"xxx","difficulty_score":6}}
-    ]
+    "questions": [{{"type": "按学科决定的题型", "question": "...", "answer": "...", "difficulty_score": 5}}]
   }},
   ...
 ]
 
 只返回 JSON 数组，不要额外文字。"""
 
+    sys_prompt = "你是学习规划专家，只返回 JSON 数组，不要额外文字。"
+    response = ""
     try:
-        from utils.volc_client import VolcClient
-        client = VolcClient()
-        response = client.chat([
-            {"role": "system", "content": "你是学习规划专家，只返回 JSON 数组，不要额外文字。"},
-            {"role": "user", "content": prompt}
-        ], temperature=0.7)
+        # 2026-08-30：DeepSeek 生成整份计划需 70s+（实测 73.7s），切 qwen-flash（实测 7.1s，与小基同 key）
+        from agents.qwen_client import call_qwen
+        response = call_qwen(
+            [{"role": "system", "content": sys_prompt}, {"role": "user", "content": prompt}],
+            model=getattr(settings, "QWEN_CHAT_MODEL", "qwen-flash"),
+            temperature=0.7)
+    except Exception as e:
+        logger.info(f"[learning-plan] qwen 生成失败，回退 DeepSeek: {e}")
+        try:
+            from agents.llm_client import call_llm
+            response = call_llm([
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": prompt}
+            ], temperature=0.7)
+        except Exception as e2:
+            logger.info(f"[learning-plan] DeepSeek 也失败: {e2}")
+            response = ""
 
+    try:
         json_match = re.search(r'\[[\s\S]*\]', response)
         if json_match:
             days = json.loads(json_match.group())
-            return {"success": True, "data": days, "source": "ai"}
-
+            if isinstance(days, list) and days:
+                return {"success": True, "data": days, "source": "ai"}
     except Exception as e:
         logger.info(f"AI 生成失败，使用降级方案: {e}")
 
-    # 降级方案
+    # 降级方案：不预设学科、题型与示例题，只给通用的「自学 + 自测」结构
     fallback = []
-    phases = ["基础概念", "核心原理"] + [f"进阶应用 ({i+3})" for i in range(max(0, req.total_days - 3))] + ["综合实践"]
-    if len(phases) > req.total_days:
-        phases = phases[:req.total_days]
-    while len(phases) < req.total_days:
-        phases.append(f"拓展学习 ({len(phases)+1})")
-
-    for i, phase in enumerate(phases[:req.total_days]):
+    for i in range(req.total_days):
+        day_no = i + 1
         fallback.append({
-            "day": i + 1,
-            "topic": f"{keyword} - {phase}",
-            "content": f"{keyword} {phase}部分的核心内容，理解基本定义与应用场景。",
-            "video_query": f"{keyword} {phase} 教程",
-            "questions": [
-                {"type": "选择题", "question": f"关于 {keyword} {phase}，以下说法正确的是？",
-                 "options": ["A. 核心定义准确", "B. 理解有偏差", "C. 混淆了概念", "D. 以上都不对"], "answer": "A", "difficulty_score": 5},
-                {"type": "判断题", "question": f"{keyword} {phase} 是学习的重要基础。",
-                 "options": [], "answer": "对", "difficulty_score": 3},
-            ]
+            "day": day_no,
+            "topic": f"{keyword}（第{day_no}天）",
+            "content": f"围绕「{keyword}」自主安排第 {day_no} 天的学习：先梳理当天要掌握的核心概念，再结合例题或实践加深理解，最后用自己的话总结要点。",
+            "video_query": f"{keyword} 教程",
+            "questions": [{
+                "type": "简答题",
+                "question": f"用自己的话总结「{keyword}」第 {day_no} 天学习内容的核心要点，并举一个例子说明。",
+                "answer": "能准确复述核心概念并举出恰当例子即可。",
+                "difficulty_score": 5,
+            }]
         })
 
     return {"success": True, "data": fallback, "source": "fallback"}

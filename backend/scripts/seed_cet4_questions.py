@@ -10,7 +10,7 @@ import json
 import uuid
 import httpx
 from config import settings
-from utils.volc_client import VolcClient
+from agents.llm_client import call_llm
 from logging_config import logger
 
 # Supabase 配置
@@ -188,7 +188,6 @@ async def insert_questions(questions: list) -> int:
 
 
 async def main():
-    client = VolcClient()
     total_inserted = 0
     total_planned = sum(p["count"] for p in QUESTION_PLAN)
 
@@ -216,7 +215,7 @@ async def main():
 
             prompt = build_prompt(plan, current_batch)
             try:
-                response = client.chat([
+                response = call_llm([
                     {"role": "system", "content": "你是 CET-4 真题出题专家。只返回 JSON 数组，不要额外文字。"},
                     {"role": "user", "content": prompt}
                 ], temperature=0.8)

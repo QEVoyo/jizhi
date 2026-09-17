@@ -54,7 +54,7 @@
                   class="progress-fill blue"
                   :style="{
                     width: levelProgress + '%',
-                    background: '#409eff'
+                    background: 'var(--brand)'
                   }"
                 />
               </div>
@@ -324,7 +324,7 @@ h1 {
   padding: 20px 24px;
   border-radius: 14px;
   border: 1px solid var(--border-color);
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(12px);
 }
 
@@ -396,8 +396,8 @@ h1 {
   margin-top: 6px;
 }
 .progress-fill.blue {
-  background: #409eff !important;
-  box-shadow: 0 0 12px rgba(64, 158, 255, 0.3);
+  background: var(--brand) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--brand) 30%, transparent);
 }
 
 /* ===== 攀登足迹 ===== */
@@ -412,7 +412,7 @@ h1 {
   border-radius: 10px;
   border: 1px solid var(--border-color);
   text-align: center;
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   transition: all 0.3s ease;
 }
 .history-item:hover {
@@ -446,7 +446,7 @@ h1 {
 .rank-info-wrapper {
   border-radius: 12px;
   border: 1px solid var(--border-color);
-  background: rgba(255,255,255,0.03);
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(8px);
   overflow: hidden;
 }
@@ -464,7 +464,7 @@ h1 {
 }
 .rank-info-header:hover {
   color: var(--text-primary);
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
 }
 .rank-info-header i {
   transition: transform 0.3s ease;
@@ -487,7 +487,7 @@ h1 {
   padding: 12px 14px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
 }
 .info-card h4 {
   font-size: 13px;

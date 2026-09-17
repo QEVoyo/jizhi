@@ -167,7 +167,7 @@ function formatTime(timeStr) {
   transition: all 0.3s ease;
 }
 .post-card:hover {
-  border-color: rgba(255,255,255,0.08);
+  border-color: var(--line-soft);
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0,0,0,0.04);
 }
@@ -198,7 +198,7 @@ function formatTime(timeStr) {
   color: var(--text-primary);
 }
 .post-nickname:hover {
-  color: #409EFF;
+  color: var(--brand);
 }
 .post-time {
   font-size: 12px;
@@ -213,7 +213,7 @@ function formatTime(timeStr) {
 }
 .post-more-btn:hover {
   color: var(--text-primary);
-  background: rgba(255,255,255,0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
 }
 
 /* ===== 标题 ===== */
@@ -242,7 +242,7 @@ function formatTime(timeStr) {
 }
 .post-tag {
   font-size: 13px;
-  color: #409EFF;
+  color: var(--brand);
   cursor: pointer;
 }
 .post-tag:hover {
@@ -308,7 +308,7 @@ function formatTime(timeStr) {
 }
 /* 收藏状态 */
 .fa-bookmark.collected {
-  color: #f59e0b;
+  color: color-mix(in srgb, #f59e0b 70%, var(--text-primary));
   font-weight: 900;
 }
 
@@ -346,7 +346,7 @@ function formatTime(timeStr) {
 
 /* ===== 深色适配 ===== */
 [data-theme="dark"] .post-card {
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   border-color: rgba(255,255,255,0.06);
 }
 </style>

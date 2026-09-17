@@ -16,7 +16,6 @@ from typing import Optional
 import httpx
 
 from config import settings
-from utils.auth_middleware import get_current_user
 
 router = APIRouter(prefix="/subject-plan", tags=["真题套卷"])
 
@@ -446,52 +445,171 @@ def _build_batch_wrong_prompt(batch):
 输出 JSON 数组：
 [{{"index": "题号", "reason": "选错原因（30字内）", "correction": "正确思路（40字内）", "study_tip": "针对性的学习建议（30字内）"}}]"""
 
+# 题目未自带 grading_rubric 时，按考纲学科选用的通用评分口径（非四级专属）
+_FAMILY_RUBRICS = {
+    "english": [
+        ("内容完整", 40, "原文/题目要点是否全部覆盖，有无遗漏或曲解"),
+        ("语言准确", 30, "语法、时态、搭配是否正确"),
+        ("用词恰当", 20, "词汇选择是否准确、地道"),
+        ("表达流畅", 10, "整体行文是否连贯、可读"),
+    ],
+    "math": [
+        ("思路方法", 30, "解题思路、所选定理与公式是否正确"),
+        ("推导过程", 40, "关键步骤是否完整、推导是否严密（按步给分）"),
+        ("结果正确", 30, "最终结果是否正确；结果错但过程对可按步得分"),
+    ],
+    "politics": [
+        ("原理准确", 40, "所运用的理论、原理是否准确切题"),
+        ("分析充分", 30, "论证是否严密、有层次，能否展开分析"),
+        ("结合材料", 30, "是否结合材料或实际，观点与材料是否对应"),
+    ],
+    "computer": [
+        ("功能正确", 40, "程序/操作结果是否正确，能否通过典型用例"),
+        ("逻辑结构", 30, "算法思路、控制结构、代码组织是否合理"),
+        ("规范细节", 30, "语法、边界处理、命名与格式是否规范"),
+    ],
+    "professional": [
+        ("要点覆盖", 40, "标准答案要求的采分点是否齐全（按点给分）"),
+        ("专业准确", 30, "专业概念、法条/准则/理论的表述是否准确"),
+        ("分析论证", 30, "结合材料展开论证的深度与逻辑性"),
+    ],
+    "general": [
+        ("要点覆盖", 40, "参考答案要求的核心要点是否答全（按点给分）"),
+        ("内容准确", 35, "概念、事实、推理是否准确无误"),
+        ("表达条理", 25, "作答是否条理清晰、逻辑连贯"),
+    ],
+}
+
+_SYLLABUS_CACHE: Optional[list] = None
+
+
+def _syllabus_by_id(syllabus_id: str) -> dict:
+    """按 id 读考纲信息（syllabi.json），查不到返回空字典"""
+    global _SYLLABUS_CACHE
+    if _SYLLABUS_CACHE is None:
+        try:
+            _SYLLABUS_CACHE = _load_syllabi()
+        except Exception as e:
+            print(f"[真题批改] 读取考纲配置失败: {e}")
+            return {}
+    return next((s for s in _SYLLABUS_CACHE if s.get("id") == syllabus_id), {})
+
+
+def _subject_family(syllabus_id: str, syllabus_name: str) -> str:
+    """按考纲 id/名称归类学科，用于挑选通用评分口径"""
+    sid = (syllabus_id or "").lower()
+    name = syllabus_name or ""
+    if any(k in sid for k in ("cet", "ielts", "toefl", "english")) or "英语" in name:
+        return "english"
+    if "math" in sid or "数学" in name:
+        return "math"
+    if "politics" in sid or "政治" in name:
+        return "politics"
+    if any(k in sid for k in ("ncre", "algorithm", "acm", "python", "office")) or \
+       any(k in name for k in ("计算机", "程序", "算法", "Office")):
+        return "computer"
+    if any(k in sid for k in ("cpa", "judicial")) or \
+       any(k in name for k in ("会计", "法律", "注册", "教师", "公务员")):
+        return "professional"
+    return "general"
+
+
+def _as_text(v) -> str:
+    """把题干里的 list/dict 统一转成可读文本"""
+    if isinstance(v, (list, tuple)):
+        return "；".join(_as_text(x) for x in v)
+    if isinstance(v, dict):
+        return "；".join(f"{k}：{_as_text(val)}" for k, val in v.items())
+    return str(v)
+
+
+def _question_text(question: dict, limit: int = 2000) -> str:
+    """兼容各考纲题干的存放位置（top-level stem / content.stem / source / materials ...）"""
+    q = question or {}
+    content = q.get("content") if isinstance(q.get("content"), dict) else {}
+    parts = []
+    if q.get("stem"):
+        parts.append(_as_text(q["stem"]))
+    for key in ("stem", "source", "material", "materials", "teaching_content", "data"):
+        v = content.get(key)
+        if v and _as_text(v) not in "\n".join(parts):
+            parts.append(_as_text(v))
+    for key, label in (("requirements", "要求"), ("sub_questions", "问题")):
+        v = content.get(key)
+        if v:
+            parts.append(f"{label}：{_as_text(v)}")
+    return "\n".join(parts)[:limit]
+
+
+def _reference_text(question: dict, limit: int = 2500) -> str:
+    """兼容各考纲参考答案的不同字段（reference_translation / sample_essay / reference_answer / reference_steps ...）"""
+    ans = question.get("answer")
+    if isinstance(ans, str):
+        return ans[:limit]
+    ans = ans if isinstance(ans, dict) else {}
+    parts = []
+    for key in ("reference_translation", "sample_essay", "reference_answer", "final_result", "reference_design"):
+        if ans.get(key):
+            parts.append(_as_text(ans[key]))
+            break
+    if ans.get("reference_steps"):
+        steps = list(ans["reference_steps"])[:8] if isinstance(ans["reference_steps"], (list, tuple)) else [ans["reference_steps"]]
+        parts.append("参考步骤：" + "；".join(_as_text(s) for s in steps))
+    if ans.get("key_points"):
+        kps = list(ans["key_points"])[:10] if isinstance(ans["key_points"], (list, tuple)) else [ans["key_points"]]
+        parts.append("采分点：" + "；".join(_as_text(k) for k in kps))
+    if ans.get("grading_notes"):
+        parts.append(f"评分说明：{_as_text(ans['grading_notes'])}")
+    return "\n".join(parts)[:limit]
+
+
 async def _ai_grade_question(question: dict, user_answer: str, syllabus_id: str) -> dict:
-    """调用 LLM 批改主观题（essay / translation）"""
+    """调用 LLM 批改主观题（翻译/写作/计算/分析/编程等），评分口径随考纲适配"""
     from agents.llm_client import call_llm
 
     q_type = question.get("question_type", "")
-    rubric = question.get("grading_rubric", {})
     max_score = question.get("score", 100)
-    ref_answer = question.get("answer", {}).get("reference_translation") or \
-                 question.get("answer", {}).get("sample_essay", "")
+
+    info = _syllabus_by_id(syllabus_id)
+    syllabus_name = info.get("name") or ""
+    label = syllabus_name or (f"考纲 {syllabus_id}" if syllabus_id else "该学科")
+    family = _subject_family(syllabus_id, syllabus_name)
+
+    # 题目/考纲自带的评分细则优先（真题数据里已按学科写好），否则用该学科的通用口径
+    criteria = (question.get("grading_rubric") or {}).get("criteria") or []
+    if criteria:
+        rubric_lines = [
+            f"- {c.get('name', '')}（{c.get('weight', '')}%）：{c.get('description', '')}"
+            for c in criteria
+        ]
+        dims = [str(c.get("name", "")) for c in criteria if c.get("name")]
+    else:
+        rubric_lines = [f"- {n}（{w}%）：{d}" for n, w, d in _FAMILY_RUBRICS[family]]
+        dims = [n for n, _, _ in _FAMILY_RUBRICS[family]]
+    dim_text = "、".join(dims) or "内容/表达"
 
     if q_type == "translation":
-        prompt = f"""你是 CET-4 翻译题批改专家。请按以下评分标准批改学生的翻译。
+        q_label, stem_label, ans_label, user_label = "翻译题", "原文", "参考译文", "学生译文"
+    elif q_type == "essay":
+        q_label, stem_label, ans_label, user_label = "写作题", "题目", "参考范文", "学生作文"
+    else:
+        q_label, stem_label, ans_label, user_label = "主观题", "题目", "参考答案", "学生作答"
+
+    prompt = f"""你是{label}的阅卷专家。请按以下评分标准批改学生的{q_label}（满分 {max_score} 分）。
 
 评分标准：
-- 内容完整 (40%)：原文主要信息点是否翻译到位
-- 语法正确 (30%)：时态、语态、主谓一致等
-- 词汇恰当 (20%)：用词准确度，有无中式英语
-- 语言流畅 (10%)：整体可读性
+{chr(10).join(rubric_lines)}
 
-原文：{question.get("content", {}).get("stem", "")}
-参考译文：{ref_answer}
-学生译文：{user_answer}
-满分：{max_score}
+{stem_label}：{_question_text(question)}
+{ans_label}：{_reference_text(question)}
+{user_label}：{user_answer}
 
 请输出 JSON（严格格式，不要额外文字）：
-{{"score": 数字, "feedback": "整体评价（100字内，中文）", "highlights": ["做得好的地方1", "做得好的地方2"], "errors": [{{"type": "语法/词汇/内容完整", "detail": "具体错误说明"}}], "suggestion": "改进建议（80字内，中文）"}}"""
-    else:
-        prompt = f"""你是 CET-4 写作题批改专家。请按以下评分标准批改学生的英文作文。
-
-评分标准（CET-4）：
-- 内容切题 (30%)：是否准确理解题目，立场明确
-- 表达清楚 (30%)：思想表达清晰，逻辑连贯
-- 文字连贯 (20%)：段落衔接、过渡词使用
-- 语法词汇 (20%)：语法正确、词汇丰富准确
-
-题目：{question.get("content", {}).get("stem", "")}
-参考范文：{ref_answer}
-学生作文：{user_answer}
-满分：{max_score}
-
-请输出 JSON（严格格式，不要额外文字）：
-{{"score": 数字, "feedback": "整体评价（100字内，中文）", "highlights": ["亮点1", "亮点2"], "errors": [{{"type": "语法/逻辑/词汇/连贯", "detail": "具体说明"}}], "suggestion": "改进方向（80字内，中文）"}}"""
+{{"score": 数字, "feedback": "整体评价（100字内，中文）", "highlights": ["做得好的地方1", "做得好的地方2"], "errors": [{{"type": "从评分维度中选：{dim_text}", "detail": "具体错误说明"}}], "suggestion": "改进建议（80字内，中文）"}}"""
 
     try:
         response = call_llm([
-            {"role": "system", "content": "你是大学英语四级考试批改专家。只输出 JSON，不要额外文字。"},
+            {"role": "system", "content": f"你是{label}的阅卷专家。只输出 JSON，不要额外文字。"},
             {"role": "user", "content": prompt}
         ], temperature=0.3)
 

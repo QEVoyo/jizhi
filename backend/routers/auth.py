@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Header, Depends, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from typing import Optional
 from config import settings
 import httpx
 import time
@@ -10,6 +11,7 @@ from PIL import Image
 import io
 from utils.email import send_verification_code_email
 from utils.auth_middleware import get_current_user, verify_user_match
+from services.supabase import get_supabase_headers
 from utils.rate_limit import check_rate_limit
 from logging_config import logger
 
@@ -448,11 +450,8 @@ async def upload_avatar(user_id: str, file: UploadFile = File(...), current_user
 @router.put("/status")
 async def update_status(user_id: str = Query(...), status: str = Query(...), current_user: str = Depends(get_current_user)):
     verify_user_match(user_id, current_user)
-    headers = {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",  # ← 改这里
-        "Content-Type": "application/json"
-    }
+    # 标准 anon headers：profiles 表未授予 service_role UPDATE 权限，用 service_role 会被 403
+    headers = get_supabase_headers()
 
     valid_status = ["online", "offline", "invisible"]
     if status not in valid_status:
@@ -1093,3 +1092,93 @@ async def get_wechat_user(user_id: str):
         pass
 
     raise HTTPException(status_code=404, detail="用户不存在")
+
+# ============================================================
+# 账号主题定制四轴：背景色 + 组件色 + 品牌色 + 字体方案，跨设备同步
+#   2026-09-02 品牌/字体 → 2026-09-03 补背景色/组件色、PUT 改全量保存
+# 存储：user_theme_settings 表（backend/sql/fix_user_theme.sql，幂等）
+# ============================================================
+
+class ThemeRequest(BaseModel):
+    user_id: str
+    brand_color: Optional[str] = None
+    text_scheme: Optional[str] = None
+    text_overrides: Optional[dict] = None
+    bg_color: Optional[str] = None       # 自定义背景色 hex；None = 跟随浅/深模式
+    surface_color: Optional[str] = None  # 自定义组件色（毛玻璃）hex；None = 白描层默认
+
+
+def _valid_hex(color: str) -> bool:
+    return bool(color) and len(color) in (4, 7) and color.startswith("#")
+
+
+@router.get("/theme/{user_id}")
+async def get_theme(user_id: str, current_user: str = Depends(get_current_user)):
+    """读取账号主题定制（无记录返回默认值）"""
+    verify_user_match(user_id, current_user)
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+    }
+    url = f"{settings.SUPABASE_URL}/rest/v1/user_theme_settings?user_id=eq.{user_id}"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        res = await client.get(url, headers=headers)
+        if res.status_code == 200 and res.json():
+            row = res.json()[0]
+            return {
+                "brand_color": row.get("brand_color") or "#409EFF",
+                "text_scheme": row.get("text_scheme") or "default",
+                "text_overrides": row.get("text_overrides") or None,
+                "bg_color": row.get("bg_color") or None,
+                "surface_color": row.get("surface_color") or None,
+            }
+        return {"brand_color": "#409EFF", "text_scheme": "default", "text_overrides": None,
+                "bg_color": None, "surface_color": None}
+
+
+@router.put("/theme")
+async def update_theme(req: ThemeRequest, current_user: str = Depends(get_current_user)):
+    """保存账号主题定制（全量保存 + upsert：前端始终发完整状态，null 即清空该轴）"""
+    verify_user_match(req.user_id, current_user)
+
+    brand = req.brand_color or "#409EFF"
+    if not _valid_hex(brand):
+        raise HTTPException(status_code=400, detail="品牌色格式错误（应为 #RRGGBB）")
+    bg = req.bg_color or None
+    if bg is not None and not _valid_hex(bg):
+        raise HTTPException(status_code=400, detail="背景色格式错误（应为 #RRGGBB）")
+    surface = req.surface_color or None
+    if surface is not None and not _valid_hex(surface):
+        raise HTTPException(status_code=400, detail="组件色格式错误（应为 #RRGGBB）")
+
+    payload = {
+        "brand_color": brand,
+        "text_scheme": req.text_scheme or "default",
+        "text_overrides": req.text_overrides,
+        "bg_color": bg,
+        "surface_color": surface,
+    }
+
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        check = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/user_theme_settings?user_id=eq.{req.user_id}",
+            headers=headers)
+        exists = check.status_code == 200 and check.json()
+
+        if exists:
+            url = f"{settings.SUPABASE_URL}/rest/v1/user_theme_settings?user_id=eq.{req.user_id}"
+            res = await client.patch(url, headers=headers, json=payload)
+        else:
+            payload["user_id"] = req.user_id
+            url = f"{settings.SUPABASE_URL}/rest/v1/user_theme_settings"
+            res = await client.post(url, headers=headers, json=payload)
+
+        if res.status_code not in (200, 201, 204):
+            raise HTTPException(status_code=400, detail=f"保存主题失败: {res.text}")
+        return {"success": True}

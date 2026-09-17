@@ -39,7 +39,6 @@ const navItems = computed(() => [
   { key: 'rank', label: '排行榜', icon: 'fas fa-trophy', path: '/community/rank' },
   { key: 'collections', label: '收藏', icon: 'fas fa-star', path: '/community/collections' },
   { key: 'my-posts', label: '我的发布', icon: 'fas fa-pen', path: '/community/my-posts' },
-  { key: 'profile-card', label: '资料卡', icon: 'fas fa-id-card', path: '/community/profile-card' },
   { key: 'home', label: '返回主界面', icon: 'fas fa-arrow-left', path: '/home' }
 ])
 
@@ -57,7 +56,6 @@ const activeTab = computed(() => {
   if (path.startsWith('/community/rank')) return 'rank'
   if (path.startsWith('/community/collections')) return 'collections'
   if (path.startsWith('/community/my-posts')) return 'my-posts'
-  if (path.startsWith('/community/profile-card')) return 'profile-card'
   if (path === '/home') return 'home'
   return null
 })
@@ -156,12 +154,12 @@ onMounted(() => {
 }
 .nav-item:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   transform: translateX(2px);
 }
 .nav-item.active {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface, #ffffff) 8%, transparent);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
@@ -183,10 +181,10 @@ onMounted(() => {
   line-height: 1;
 }
 [data-theme="dark"] .nav-badge {
-  background: rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent);
 }
 .nav-item.active .nav-badge {
-  background: rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--surface, #ffffff) 15%, transparent);
 }
 
 @media (max-width: 768px) {

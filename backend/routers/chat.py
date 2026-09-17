@@ -8,7 +8,6 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-import json
 import httpx
 from datetime import datetime
 from utils.sensitive_words import check_content_safety
@@ -16,7 +15,7 @@ from utils.auth_middleware import get_current_user, verify_user_match
 from agents.planner import plan_with_history_stream
 from agents.generator import generate_with_history_stream
 from agents.evaluator import evaluate_with_history_stream
-from agents.llm_client import call_llm_stream, call_llm
+from agents.llm_client import call_llm_stream, call_llm, call_llm_vision_stream
 from config import settings
 from logging_config import logger
 
@@ -40,10 +39,6 @@ class SummaryRequest(BaseModel):
     user_id: str
 
 
-class IntentRequest(BaseModel):
-    text: str
-
-
 class TitleRequest(BaseModel):
     user_id: str
     content: str
@@ -54,32 +49,6 @@ class VisionRequest(BaseModel):
     user_id: str
     image_url: str
     question: str = "请描述这张图片的内容"
-
-
-@router.post("/detect-intent")
-async def detect_intent(req: IntentRequest):
-    if not req.text or len(req.text) < 2:
-        return {"intent": "chat"}
-
-    prompt = f"""判断用户输入的意图，只输出一个词：
-- plan：用户想规划学习路径、制定学习计划、问怎么学
-- generate：用户想生成题目、练习题、试卷、出题
-- evaluate：用户想被评估、批改、了解自己的学习水平
-- chat：普通聊天、提问、咨询、闲聊
-
-用户输入：{req.text[:300]}
-
-只输出一个词：plan / generate / evaluate / chat"""
-
-    try:
-        result = call_llm([{"role": "user", "content": prompt}], temperature=0.1)
-        intent = result.strip().lower()
-        if intent not in ['plan', 'generate', 'evaluate', 'chat']:
-            intent = 'chat'
-        return {"intent": intent}
-    except Exception as e:
-        logger.info(f"意图分类失败: {e}")
-        return {"intent": "chat"}
 
 
 async def get_user_profile(user_id: str) -> dict:
@@ -209,22 +178,6 @@ def stream_generator(stream):
     for chunk in stream:
         yield chunk
 
-def doubao_stream_generator(stream):
-    """专门解析豆包（VolcEngine）流式响应的生成器（逐字追加版）"""
-    for line in stream:
-        if line:
-            if line.startswith("data:") and line != "data: [DONE]":
-                try:
-                    data = json.loads(line[5:])
-                    if "choices" in data and len(data["choices"]) > 0:
-                        delta = data["choices"][0].get("delta", {})
-                        if "content" in delta:
-                            # 豆包一个 token 是单个字或词，直接原样推送
-                            yield delta["content"]
-                except Exception:
-                    continue
-
-
 @router.post("/log")
 async def save_log(req: LogRequest, current_user: str = Depends(get_current_user)):
     verify_user_match(req.user_id, current_user)
@@ -309,14 +262,11 @@ AI回答：{req.response[:200]}
 @router.post("/vision")
 async def handle_vision(req: VisionRequest, current_user: str = Depends(get_current_user)):
     verify_user_match(req.user_id, current_user)
-    """豆包多模态图片理解 - 真流式输出"""
-    from utils.volc_client import VolcClient
-
-    client = VolcClient()
-    stream = client.vision_stream(req.image_url, req.question)
+    """DeepSeek 视觉模型图片理解 - 流式输出"""
+    stream = call_llm_vision_stream(req.image_url, req.question)
 
     return StreamingResponse(
-        doubao_stream_generator(stream),  # 👈 换用豆包专用解析生成器
+        stream_generator(stream),
         media_type="text/event-stream"
     )
 

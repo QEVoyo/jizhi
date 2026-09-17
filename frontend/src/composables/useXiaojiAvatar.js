@@ -5,7 +5,6 @@ const avatarPath = '/images/xiaoji/'
 export function useXiaojiAvatar() {
   const status = ref('idle')
   const agentLabel = ref('')
-  const agentStep = ref(0)
 
   const avatarUrl = computed(() => {
     const map = {
@@ -29,20 +28,21 @@ export function useXiaojiAvatar() {
     return map[status.value] || map.idle
   })
 
-  // 智能体状态列表（用于显示进度）
-  const agentSteps = [
-    { label: '理解 Agent', desc: '分析题目知识点', status: 'processing' },
-    { label: '评估 Agent', desc: '评估难度与水平', status: 'processing' },
-    { label: '生成 Agent', desc: '生成解析思路', status: 'processing' },
-    { label: '规划 Agent', desc: '制定学习规划', status: 'processing' }
-  ]
+  // 真实阶段（2026-09-10）：取代原来那套写死的「理解/评估/生成/规划 Agent」假进度——
+  // 它由 setInterval 每 1.5s 推进一格，与后端实际在干什么毫无关系，纯表演。
+  // 现在阶段文案由调用方按实际动作设置（如「正在出第 2/3 道题…」），
+  // 进度百分比已知才显示，未知就只显示文案。
+  const stage = ref('')
+  const stagePercent = ref(null)
 
-  const currentAgent = computed(() => {
-    if (agentStep.value >= 0 && agentStep.value < agentSteps.length) {
-      return agentSteps[agentStep.value]
+  function setStage(text, percent = null) {
+    stage.value = text || ''
+    stagePercent.value = percent
+    if (text) {
+      status.value = 'thinking'
+      agentLabel.value = ''
     }
-    return null
-  })
+  }
 
   const isProcessing = computed(() => {
     return status.value === 'thinking' || status.value === 'speaking'
@@ -55,7 +55,8 @@ export function useXiaojiAvatar() {
   function setIdle() {
     status.value = 'idle'
     agentLabel.value = ''
-    agentStep.value = 0
+    stage.value = ''
+    stagePercent.value = null
   }
 
   function setThinking(label = '思考中...') {
@@ -66,12 +67,15 @@ export function useXiaojiAvatar() {
   function setSpeaking() {
     status.value = 'speaking'
     agentLabel.value = ''
+    stage.value = ''
+    stagePercent.value = null
   }
 
   function setHappy() {
     status.value = 'happy'
     agentLabel.value = ''
-    agentStep.value = 0
+    stage.value = ''
+    stagePercent.value = null
     setTimeout(() => {
       if (status.value === 'happy') {
         status.value = 'idle'
@@ -82,46 +86,8 @@ export function useXiaojiAvatar() {
   function setSleeping() {
     status.value = 'sleeping'
     agentLabel.value = ''
-    agentStep.value = 0
-  }
-
-  // 推进到下一个智能体
-  function nextAgent() {
-    if (agentStep.value < agentSteps.length - 1) {
-      agentStep.value++
-      const step = agentSteps[agentStep.value]
-      status.value = 'thinking'
-      agentLabel.value = step.label
-      return step
-    } else {
-      // 所有智能体完成
-      return null
-    }
-  }
-
-  // 开始智能体流程（从头开始）
-  function startAgentFlow() {
-    agentStep.value = 0
-    status.value = 'thinking'
-    agentLabel.value = agentSteps[0].label
-    return agentSteps[0]
-  }
-
-  // 重置智能体流程
-  function resetAgentFlow() {
-    agentStep.value = 0
-    agentLabel.value = ''
-    status.value = 'idle'
-  }
-
-  // 获取当前智能体进度（用于显示）
-  function getAgentProgress() {
-    return {
-      current: agentStep.value + 1,
-      total: agentSteps.length,
-      label: agentSteps[agentStep.value]?.label || '',
-      desc: agentSteps[agentStep.value]?.desc || ''
-    }
+    stage.value = ''
+    stagePercent.value = null
   }
 
   return {
@@ -129,19 +95,15 @@ export function useXiaojiAvatar() {
     avatarUrl,
     statusText,
     agentLabel,
-    agentStep,
-    agentSteps,
-    currentAgent,
+    stage,
+    stagePercent,
     isProcessing,
     setStatus,
     setIdle,
     setThinking,
+    setStage,
     setSpeaking,
     setHappy,
-    setSleeping,
-    nextAgent,
-    startAgentFlow,
-    resetAgentFlow,
-    getAgentProgress
+    setSleeping
   }
 }

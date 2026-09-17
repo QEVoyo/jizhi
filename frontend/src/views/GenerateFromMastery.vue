@@ -231,7 +231,7 @@ async function handleGenerate() {
       topic: data.topic
     })
 
-    await recordAction(authStore.user.id, 'generate_question')
+    await recordAction(authStore.user.id, 'generate_question', { touchpoint: 'mastery_generate' })
 
     sessionStorage.setItem('current_question', JSON.stringify(data))
     ElMessage.success('✅ 题目生成成功！')
@@ -270,15 +270,6 @@ onUnmounted(() => {
 .generate-page {
   min-height: 100vh;
   padding: 20px;
-  background: var(--bg-color);
-  background-image: url('/assets/bg/resource_lib_bg.png');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-}
-
-[data-theme="dark"] .generate-page {
-  background-image: url('/assets/bg/resource_lib_bl.jpg');
 }
 
 .generate-container {
@@ -286,15 +277,15 @@ onUnmounted(() => {
   margin: 0 auto;
   padding: 24px 28px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-soft);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.04);
 }
 
 [data-theme="dark"] .generate-container {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--well);
   border-color: rgba(255, 255, 255, 0.04);
 }
 
@@ -423,18 +414,18 @@ onUnmounted(() => {
 }
 .agent-icon {
   font-size: 18px;
-  color: #00d4ff;
+  color: color-mix(in srgb, #00d4ff 65%, var(--text-primary));
 }
 .agent-name {
   font-size: 13px;
   font-weight: 600;
-  color: #00d4ff;
+  color: color-mix(in srgb, #00d4ff 65%, var(--text-primary));
   font-family: 'Courier New', monospace;
   letter-spacing: 1px;
 }
 .agent-status {
   font-size: 13px;
-  color: #b0d4ff;
+  color: color-mix(in srgb, #b0d4ff 60%, var(--text-primary));
   margin-left: auto;
   font-family: 'Courier New', monospace;
 }
@@ -463,14 +454,14 @@ onUnmounted(() => {
   flex: 1;
   font-size: 14px;
   font-weight: 500;
-  color: #b0d4ff;
+  color: color-mix(in srgb, #b0d4ff 60%, var(--text-primary));
   letter-spacing: 0.5px;
   font-family: 'Courier New', monospace;
 }
 .status-percent {
   font-size: 22px;
   font-weight: 700;
-  color: #00d4ff;
+  color: color-mix(in srgb, #00d4ff 65%, var(--text-primary));
   font-family: 'Courier New', monospace;
   text-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
 }

@@ -13,10 +13,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': {
+      // 注意：必须是 '/api/' 而不是 '/api'——后者会把 /api-center 等前端路由也代理到后端（刷新即 404）
+      '/api/': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        rewrite: (path) => path.replace(/^\/api\//, '/'),
       },
     },
   },
