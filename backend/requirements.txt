@@ -10,3 +10,5 @@ pydantic
 requests
 PyJWT
 qrcode
+websocket-client
+websockets>=13
