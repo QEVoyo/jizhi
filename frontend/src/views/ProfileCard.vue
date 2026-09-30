@@ -912,7 +912,7 @@ function destroySolar() {
 async function loadData() {
   loading.value = true
   try {
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/evaluation/profile-data?user_id=${authStore.user.id}`,
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/evaluation/profile-data?user_id=${authStore.user.id}`,
       { headers: { Authorization: `Bearer ${authStore.token}` } })
     data.value = await res.json()
   } catch (e) { console.error(e) }
@@ -1219,7 +1219,7 @@ onBeforeUnmount(() => { destroySolar(); destroyIntr3D(); Object.values(charts).f
 </script>
 
 <style scoped>
-.du-root { width: 100vw; height: 100vh; overflow: hidden; position: relative; background: #060610; }
+.du-root { width: 100vw; height: calc(100vh - var(--jz-top, 0px)); overflow: hidden; position: relative; background: #060610; }
 .hub-3d { width: 100%; height: 100%; position: absolute; inset: 0; }
 
 .du-topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; padding: 14px 22px; pointer-events: none; }

@@ -9,7 +9,7 @@ from utils.sensitive_words import check_content_safety
 from utils.email import send_report_email
 from utils.auth_middleware import get_current_user, verify_user_match
 from utils.notification import create_notification
-from services.supabase import get_supabase_headers
+from services.supabase import get_supabase_headers, get_supabase_service_headers
 from logging_config import logger
 from .models import *
 router = APIRouter(prefix="/community", tags=["社区-消息"])
@@ -328,15 +328,19 @@ async def create_report(user_id: str, data: ReportCreate, current_user: str = De
         if profile_res.status_code == 200 and profile_res.json():
             nickname = profile_res.json()[0].get("nickname", "用户")
 
-        # 2. 获取被举报内容
+        # 2. 获取被举报内容 —— 同时把**作者 id**也留下来。
+        #    原先只取了昵称（还是为了发邮件），没取 user_id，
+        #    于是举报记录里根本没有"被举报人"这个字段，管理员审核完无从处罚。
         target_content = "（内容已删除）"
         target_author = "未知用户"
+        target_author_id = None
         if data.target_type == "post":
             post_url = f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{data.target_id}&select=content,user_id,profiles!user_id(nickname)"
             post_res = await client.get(post_url, headers=headers)
             if post_res.status_code == 200 and post_res.json():
                 post = post_res.json()[0]
-                target_content = post.get("content", "（内容已删除）")[:200]
+                target_content = (post.get("content") or "（内容已删除）")[:200]
+                target_author_id = post.get("user_id")
                 if post.get("profiles"):
                     target_author = post.get("profiles", {}).get("nickname", "未知用户")
         elif data.target_type == "comment":
@@ -344,22 +348,44 @@ async def create_report(user_id: str, data: ReportCreate, current_user: str = De
             comment_res = await client.get(comment_url, headers=headers)
             if comment_res.status_code == 200 and comment_res.json():
                 comment = comment_res.json()[0]
-                target_content = comment.get("content", "（内容已删除）")[:200]
+                target_content = (comment.get("content") or "（内容已删除）")[:200]
+                target_author_id = comment.get("user_id")
                 if comment.get("profiles"):
                     target_author = comment.get("profiles", {}).get("nickname", "未知用户")
 
         # 3. 插入举报记录
+        # ⚠️ 写的是 content_reports，不是 reports —— 后台一直读 content_reports，
+        #    而这里原先写 reports，两边字段还恰好是子集关系，所以"写入成功但后台永远空"。
+        #    reports 表已由 admin_rework_20260930.sql 迁移并保留作历史。
+        # 用 service_role：这两张表的 RLS 是 WITH CHECK (true)（等于没有防线），
+        # GRANT 才是唯一门槛；而 anon key 打包在前端产物里，绝不能给它直接访问权。
+        # 本端点已通过 Depends(get_current_user) 鉴权，用 service_role 是正确的。
         report_data = {
             "reporter_id": user_id,
+            "reporter_nickname": nickname,
             "target_type": data.target_type,
             "target_id": data.target_id,
-            "reason": data.reason
+            "reason": data.reason,
+            "status": "pending",
+            "target_author_id": target_author_id,
+            "target_author_nickname": target_author,
+            "target_snapshot": target_content,
         }
 
-        url = f"{settings.SUPABASE_URL}/rest/v1/reports"
-        res = await client.post(url, headers=headers, json=report_data)
-        if res.status_code not in [200, 201]:
+        url = f"{settings.SUPABASE_URL}/rest/v1/content_reports"
+        res = await client.post(url, headers=get_supabase_service_headers(),
+                                json=report_data, params={"select": "id"})
+        if res.status_code not in (200, 201):
+            logger.error(f"举报写入失败 status={res.status_code} body={res.text[:300]}")
             raise HTTPException(status_code=400, detail=f"举报失败: {res.text}")
+        # 回读：PostgREST 在被拦截时可能返回 201 + 空数组（本项目的老坑）
+        try:
+            created = res.json()
+        except Exception:
+            created = None
+        if isinstance(created, list) and not created:
+            logger.error("举报写入返回空数组，实际未落库")
+            raise HTTPException(status_code=502, detail="举报未成功写入，请稍后重试")
 
         # 4. 发邮件
         send_report_email(
@@ -382,14 +408,20 @@ async def create_report(user_id: str, data: ReportCreate, current_user: str = De
 async def get_collections(user_id: str = Query(...), page: int = 1, page_size: int = 20, current_user: str = Depends(get_current_user)):
     """获取我的收藏"""
     verify_user_match(user_id, current_user)
-    headers = get_supabase_headers()
+    # ⚠️ service_role：anon key 对 post_collects 没有 SELECT 权限（实测 401）。
+    #    09-27 那次只把"静默返回空列表"改成了显式报错，根因一直没动 ——
+    #    所以收藏页一直是 502，而不是"暂无收藏"。
+    headers = get_supabase_service_headers()
     offset = (page - 1) * page_size
     url = f"{settings.SUPABASE_URL}/rest/v1/post_collects?user_id=eq.{user_id}&select=post_id,posts(*,profiles!user_id(nickname,avatar_url,user_account))&order=created_at.desc&limit={page_size}&offset={offset}"
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         res = await client.get(url, headers=headers)
         if res.status_code != 200:
-            return {"collections": [], "total": 0}
+            # 原来静默返回空列表 —— 用户看到的是「暂无收藏」，把真实的
+            # 404（表不存在）/ 权限错误 / 缺外键（PGRST200）全掩盖了。2026-09-27 修。
+            logger.error(f"❌ 查询收藏列表失败 {res.status_code}: {res.text[:300]}")
+            raise HTTPException(status_code=502, detail=f"获取收藏失败：{res.status_code}")
         return {"collections": res.json(), "total": len(res.json())}
 
 

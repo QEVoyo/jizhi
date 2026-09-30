@@ -1,5 +1,5 @@
 // ===== 后端地址 =====
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
 console.log('=== constants.js BACKEND_URL:', BACKEND_URL)
 // ===== 题型映射 =====
 export const TYPE_MAP = {

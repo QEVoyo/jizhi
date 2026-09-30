@@ -257,7 +257,7 @@ onMounted(loadUsers)
 .page-title {
   font-size: 20px;
   font-weight: 600;
-  color: #e0e0e0;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -273,7 +273,7 @@ onMounted(loadUsers)
 .table-wrap {
   background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   border-radius: 14px;
   overflow: hidden;
 }
@@ -288,27 +288,27 @@ onMounted(loadUsers)
   padding: 12px 16px;
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 5%, transparent);
 }
 
 .data-table td {
   padding: 10px 16px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 3%, transparent);
 }
 
 .clickable-row { cursor: pointer; transition: background 0.2s; }
 .clickable-row:hover { background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent); }
 
 .user-cell { display: flex; align-items: center; gap: 10px; }
-.user-name { color: #e0e0e0; font-weight: 500; }
-.user-account { font-size: 11px; color: rgba(255, 255, 255, 0.3); }
-.email-cell { color: rgba(255, 255, 255, 0.5); font-size: 12px; }
-.date-cell { font-size: 12px; color: rgba(255, 255, 255, 0.35); white-space: nowrap; }
+.user-name { color: var(--text-primary); font-weight: 500; }
+.user-account { font-size: 11px; color: var(--text-muted); }
+.email-cell { color: var(--text-secondary); font-size: 12px; }
+.date-cell { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 
 /* 角色徽章 */
 .role-badge {
@@ -320,7 +320,7 @@ onMounted(loadUsers)
 }
 .role-badge.super_admin { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
 .role-badge.admin { background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); }
-.role-badge.user { background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent); color: rgba(255, 255, 255, 0.4); }
+.role-badge.user { background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent); color: var(--text-muted); }
 
 /* 权限标签 */
 .perm-tag {
@@ -332,7 +332,7 @@ onMounted(loadUsers)
 }
 .perm-tag.super { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
 .perm-tag.admin { background: color-mix(in srgb, var(--brand) 10%, transparent); color: var(--brand); }
-.perm-tag.user { background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); color: rgba(255, 255, 255, 0.35); }
+.perm-tag.user { background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); color: var(--text-muted); }
 
 .status-tag {
   display: inline-block;
@@ -349,7 +349,7 @@ onMounted(loadUsers)
 .empty {
   padding: 48px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--text-muted);
   font-size: 14px;
 }
 
@@ -372,41 +372,41 @@ onMounted(loadUsers)
 }
 .detail-item label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   text-transform: uppercase;
 }
 .detail-item span {
   font-size: 14px;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
 
 /* ===== Element Plus 覆盖 ===== */
 :deep(.el-input__wrapper) {
   background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent) !important;
   border-radius: 10px !important;
   box-shadow: none !important;
 }
-:deep(.el-input__inner) { color: #e0e0e0 !important; }
-:deep(.el-input__prefix) { color: rgba(255, 255, 255, 0.3) !important; }
+:deep(.el-input__inner) { color: var(--text-primary) !important; }
+:deep(.el-input__prefix) { color: var(--text-muted) !important; }
 :deep(.el-select .el-input__wrapper) { background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important; }
-:deep(.el-select .el-input__inner) { color: #e0e0e0 !important; }
+:deep(.el-select .el-input__inner) { color: var(--text-primary) !important; }
 
 :deep(.admin-dialog) {
-  background: #111827 !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: var(--card-bg) !important;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent) !important;
   border-radius: 16px !important;
 }
 :deep(.admin-dialog .el-dialog__header) {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   padding: 18px 24px;
 }
-:deep(.admin-dialog .el-dialog__title) { color: #e0e0e0 !important; font-weight: 600; }
+:deep(.admin-dialog .el-dialog__title) { color: var(--text-primary) !important; font-weight: 600; }
 :deep(.admin-dialog .el-dialog__body) { padding: 24px; }
-:deep(.admin-dialog .el-dialog__close) { color: rgba(255, 255, 255, 0.4) !important; }
+:deep(.admin-dialog .el-dialog__close) { color: var(--text-muted) !important; }
 
 :deep(.el-pagination button), :deep(.el-pager li) {
-  color: rgba(255, 255, 255, 0.5) !important;
+  color: var(--text-secondary) !important;
   background: transparent !important;
 }
 :deep(.el-pager li.is-active) {

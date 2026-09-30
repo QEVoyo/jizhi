@@ -79,7 +79,7 @@ function goPlan() {
 .eval-fullpage {
   display: flex; align-items: center; justify-content: center;
   gap: 16px; padding: 52px 24px 24px;
-  height: 100vh;
+  height: calc(100vh - var(--jz-top, 0px));
   position: relative;
 }
 

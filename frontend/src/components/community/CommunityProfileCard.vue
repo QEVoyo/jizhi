@@ -450,6 +450,8 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import html2canvas from 'html2canvas'
+import { withNormalizedColors } from '@/utils/exportColor'
+import { isDesktop, saveDataUrlNative } from '@/desktop'
 import jsPDF from 'jspdf'
 import { getProfileCard, updateProfileCardSettings } from '@/api/profileCard'
 import { RANK_ICONS, RANK_COLORS, SUB_SYMBOLS } from '@/utils/constants'
@@ -733,7 +735,7 @@ async function doExport(element, type) {
   const width = element.scrollWidth
   const height = element.scrollHeight
 
-  const canvas = await html2canvas(element, {
+  const canvas = await withNormalizedColors(element, () => html2canvas(element, {
     scale: 4,
     useCORS: true,
     backgroundColor: bgColor,
@@ -792,19 +794,29 @@ async function doExport(element, type) {
         })
       }
     }
-  })
+  }))
 
   element.style.width = ''
   element.style.maxWidth = ''
   element.style.padding = ''
   element.style.overflow = ''
 
+  const who = profile.value?.nickname || '用户'
+
   if (type === 'image') {
-    const link = document.createElement('a')
-    link.download = `基智学习成果卡_${profile.value?.nickname || '用户'}.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
-    ElMessage.success('图片导出成功')
+    const dataUrl = canvas.toDataURL('image/png')
+    const filename = `基智学习成果卡_${who}.png`
+    if (isDesktop) {
+      // 桌面版：弹原生「另存为」，用户自己选路径
+      const ok = await saveDataUrlNative(dataUrl, filename)
+      ok ? ElMessage.success('图片已保存') : ElMessage.info('已取消保存')
+    } else {
+      const link = document.createElement('a')
+      link.download = filename
+      link.href = dataUrl
+      link.click()
+      ElMessage.success('图片导出成功')
+    }
   } else {
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF('p', 'mm', 'a4')
@@ -815,8 +827,14 @@ async function doExport(element, type) {
     const x = (pdfWidth - imgWidth) / 2
     const y = (pdfHeight - imgHeight) / 2
     pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight)
-    pdf.save(`基智学习成果卡_${profile.value?.nickname || '用户'}.pdf`)
-    ElMessage.success('PDF导出成功')
+    const filename = `基智学习成果卡_${who}.pdf`
+    if (isDesktop) {
+      const ok = await saveDataUrlNative(pdf.output('dataurlstring'), filename)
+      ok ? ElMessage.success('PDF 已保存') : ElMessage.info('已取消保存')
+    } else {
+      pdf.save(filename)
+      ElMessage.success('PDF导出成功')
+    }
   }
 }
 

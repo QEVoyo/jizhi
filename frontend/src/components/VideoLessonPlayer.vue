@@ -301,6 +301,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { drawFrame } from '@/utils/videoRender'
 import { exportStoryboardVideo, supportsFastExport } from '@/utils/videoExport'
 import { ANGLE_LABELS } from '@/utils/videoLib'
+import { isDesktop, saveBlobNative } from '@/desktop'
 
 const props = defineProps({
   video: { type: Object, required: true },   // video_library 行
@@ -845,13 +846,20 @@ async function downloadVideo() {
     } else {
       blob = await recordRealtimeFallback(props.video, (p) => { exportPct.value = p })
     }
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${props.video.title || props.video.knowledge_name || '讲解视频'}.webm`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+    const filename = `${props.video.title || props.video.knowledge_name || '讲解视频'}.webm`
+    if (isDesktop) {
+      // 桌面版：弹原生「另存为」。用户取消时【不抛错】——
+      // 上游把这个函数当"抛错即失败"用，抛了会误弹「导出失败」。
+      await saveBlobNative(blob, filename)
+    } else {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+    }
   } finally {
     exporting.value = false
     exportPct.value = 0

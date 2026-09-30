@@ -701,8 +701,8 @@ onMounted(() => {
 .community-chat {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  max-height: 100vh;
+  height: calc(100vh - var(--jz-top, 0px));
+  max-height: calc(100vh - var(--jz-top, 0px));
   padding: 0 4px;
   position: relative;
   overflow: hidden;
@@ -1367,8 +1367,8 @@ onMounted(() => {
 
 @media (max-width: 640px) {
   .community-chat {
-    height: 100vh;
-    max-height: 100vh;
+    height: calc(100vh - var(--jz-top, 0px));
+    max-height: calc(100vh - var(--jz-top, 0px));
     padding: 0 2px;
   }
   .chat-username {

@@ -182,11 +182,12 @@ const appVersion = pkg.version
 
 <style scoped>
 .os-page {
-  min-height: 100vh;
-  background: linear-gradient(180deg,
-    rgba(15,23,42,.95) 0%,
-    rgba(17,24,39,.95) 100%
-  );
+  min-height: calc(100vh - var(--jz-top, 0px));
+  /* 原为写死的深色渐变（rgba(15,23,42) / rgba(17,24,39)），
+     导致本页完全脱离「外观色」——自定义主题/切浅色时这里纹丝不动，
+     而文字用的是 var(--text-primary)，浅色下会变成深字压深底。
+     改用与其它页面一致的 --bg-color。 */
+  background: var(--bg-color);
   display: flex;
   flex-direction: column;
   animation: osFadeIn 0.35s ease;
@@ -202,7 +203,7 @@ const appVersion = pkg.version
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -214,7 +215,7 @@ const appVersion = pkg.version
   gap: 6px;
   padding: 6px 14px;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   color: var(--text-secondary);
   font-size: 13px;
@@ -267,7 +268,7 @@ const appVersion = pkg.version
   background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   border-radius: 14px;
   overflow: hidden;
   transition: all 0.3s ease;
@@ -285,7 +286,7 @@ const appVersion = pkg.version
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
 }
 .os-card-header i { font-size: 18px; }
 .os-card-header.frontend { background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(99,102,241,0.08)); }
@@ -305,7 +306,7 @@ const appVersion = pkg.version
   text-decoration: none;
   color: var(--text-secondary);
   transition: all 0.2s ease;
-  border-bottom: 1px solid rgba(255,255,255,0.02);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 .os-dep:last-child { border-bottom: none; }
 .os-dep:hover {
@@ -339,7 +340,7 @@ const appVersion = pkg.version
   background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   border-radius: 14px;
   text-align: center;
 }

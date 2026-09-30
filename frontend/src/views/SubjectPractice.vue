@@ -557,11 +557,11 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
 <style scoped>
 /* ==================== 基底：深空背景 ==================== */
 .sp-page {
-  min-height: 100vh; position: relative; padding: 32px 24px 80px;
+  min-height: calc(100vh - var(--jz-top, 0px)); position: relative; padding: 32px 24px 80px;
   background: var(--bg-color);
   color: var(--text-primary); overflow-x: hidden;
 }
-.sp-page.pgm-mode { height: 100vh; padding: 10px 20px 10px; overflow: hidden; display: flex; flex-direction: column; }
+.sp-page.pgm-mode { height: calc(100vh - var(--jz-top, 0px)); padding: 10px 20px 10px; overflow: hidden; display: flex; flex-direction: column; }
 .sp-page.pgm-mode .sp-bg { display: none; }
 .sp-page.pgm-mode .sp-container { flex: 1; min-height: 0; display: flex; flex-direction: column; max-width: none; }
 .sp-page.pgm-mode .sp-topbar { flex-shrink: 0; margin-bottom: 6px; }

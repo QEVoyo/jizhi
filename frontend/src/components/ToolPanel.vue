@@ -393,7 +393,7 @@ defineExpose({ openTool, closeToolPanel })
   display: flex; justify-content: flex-end;
 }
 .tool-panel {
-  width: 380px; max-width: 90vw; height: 100vh;
+  width: 380px; max-width: 90vw; height: calc(100vh - var(--jz-top, 0px));
   background: linear-gradient(170deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
   backdrop-filter: blur(28px) saturate(1.2);
   -webkit-backdrop-filter: blur(28px) saturate(1.2);

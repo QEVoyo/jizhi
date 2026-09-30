@@ -196,7 +196,7 @@ onMounted(loadMastery)
 
 <style scoped>
 .resource-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   padding: 24px 32px 120px 32px;
   background: transparent !important;
 }

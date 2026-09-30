@@ -456,7 +456,7 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: calc(100vh - var(--jz-top, 0px));
   overflow: hidden;
   background:
     radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, var(--brand) 14%, transparent) 0%, transparent 70%),

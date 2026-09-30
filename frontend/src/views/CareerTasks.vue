@@ -833,7 +833,7 @@ async function claimTask(task, event) {
       taskType = 'long'
     }
 
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/career/task/claim`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/career/task/claim`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -900,7 +900,7 @@ async function claimBonus(event) {
   const endY = barRect.top + barRect.height / 2
 
   try {
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/career/bonus/claim`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/career/bonus/claim`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { login as apiLogin, register as apiRegister, getUserInfo, updateStatus, updateLearningInfo, getWechatQrcode, getWechatBindQrcode, wechatPoll } from '@/api/auth'
+import { login as apiLogin, register as apiRegister, getUserInfo, updateStatus, updateLearningInfo } from '@/api/auth'
 import { setToken, removeToken, getToken, setUser, removeUser, getUser } from '@/utils/storage'
 import { useThemeStore } from '@/stores/theme'
 
@@ -149,68 +149,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // ===== 微信扫码登录 =====
-
-  // 第一步：获取二维码和轮询 token
-  async function wechatLogin(redirect = '/home') {
-    try {
-      const data = await getWechatQrcode(redirect)
-      return { success: true, qrcode: data.qrcode, pollToken: data.poll_token }
-    } catch (e) {
-      console.error('获取微信二维码失败:', e)
-      return { success: false, message: e?.response?.data?.detail || '微信登录配置未就绪' }
-    }
-  }
-
-  // 第二步：轮询等待用户扫码授权
-  async function wechatPollLogin(pollToken) {
-    try {
-      const res = await wechatPoll(pollToken)
-      if (res.ready) {
-        if (res.access_token) {
-          token.value = res.access_token
-          user.value = res.user
-          setToken(res.access_token)
-          setUser(res.user)
-          try { await updateStatus(res.user.id, 'online') } catch (e) {}
-          return { success: true, user: res.user }
-        }
-        // bound: false — 微信未绑定任何账号
-        if (res.bound === false) {
-          return { success: false, notBound: true }
-        }
-      }
-      return { success: false, ready: false }
-    } catch (e) {
-      console.error('微信轮询失败:', e)
-      return { success: false, message: '登录检查失败' }
-    }
-  }
-
-  // ===== 微信绑定（已登录用户）=====
-  async function bindWechat() {
-    try {
-      const data = await getWechatBindQrcode()
-      return { success: true, qrcode: data.qrcode, pollToken: data.poll_token }
-    } catch (e) {
-      return { success: false, message: e?.response?.data?.detail || '获取绑定二维码失败' }
-    }
-  }
-
-  // 轮询绑定结果
-  async function bindWechatPoll(pollToken) {
-    try {
-      const res = await wechatPoll(pollToken)
-      if (res.ready) {
-        if (res.bound) return { success: true, nickname: res.nickname }
-        return { success: false, message: res.error || '绑定失败' }
-      }
-      return { success: false, ready: false }
-    } catch (e) {
-      return { success: false, message: '绑定检查失败' }
-    }
-  }
-
   return {
     user,
     token,
@@ -221,10 +159,6 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     setUserStatus,
     fetchUserInfo,
-    updatePreferences,
-    wechatLogin,
-    wechatPollLogin,
-    bindWechat,
-    bindWechatPoll
+    updatePreferences
   }
 })

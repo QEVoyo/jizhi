@@ -1,7 +1,8 @@
 <template>
   <div class="xiaoji-settings-page">
-    <!-- ===== 顶部导航 ===== -->
-    <div class="settings-header">
+    <!-- 独立成页时才有自己的顶栏；被主设置页嵌入时（embedded）不画，
+         否则一页里会出现两个标题、一个多余的返回键 -->
+    <div v-if="!embedded" class="settings-header">
       <el-button text class="back-btn" @click="goBack">
         <i class="fas fa-arrow-left"></i>
       </el-button>
@@ -10,7 +11,7 @@
       <span class="dev-tag">Beta</span>
     </div>
 
-    <el-divider />
+    <el-divider v-if="!embedded" />
 
     <!-- ===== 形象轮播（无背景，带阴影底盘） ===== -->
     <div class="avatar-carousel-wrapper">
@@ -198,6 +199,10 @@
 </template>
 
 <script setup>
+// embedded = 被 /settings 嵌入。主设置页把「小基 AI 设置」从一张链接卡
+// 换成了真内容 —— 用户要的是「设置融合为一个」，不该点两次才到。
+const props = defineProps({ embedded: { type: Boolean, default: false } })
+
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -349,7 +354,7 @@ onUnmounted(() => {
   padding: 20px 28px;
   max-width: 760px;
   margin: 0 auto;
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
 }
 
 /* ===== 顶部 ===== */

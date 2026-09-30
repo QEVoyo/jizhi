@@ -59,7 +59,7 @@ defineProps({
 
 .loading-text {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
   letter-spacing: 0.5px;
   animation: text-pulse 2s ease-in-out infinite;
 }

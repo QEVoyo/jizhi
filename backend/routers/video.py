@@ -227,13 +227,35 @@ async def video_questions(video_id: str, limit: int = Query(12, ge=1, le=30)):
     kk = row.get("knowledge_key") or ""
     items: List[dict] = []
     try:
-        bank = local_question_bank.get_bank(subject)
-        for q in (bank or {}).get("questions") or []:
-            kp_id = q.get("kp_id") or q.get("sub_category")
-            if kp_id and video_gen.make_knowledge_key(subject, str(kp_id)) == kk:
-                items.append(q)
-                if len(items) >= limit:
-                    break
+        # knowledge_key 的形式是 f"{subject}:{sha1(知识点)[:12]}"。
+        # ⚠️ 视频行的 subject 历史上有三套命名（syllabus id / syllabus 中文名 /
+        # 出题 AI 判定的 category），而 get_bank() 只认 syllabus id ——
+        # 传中文名直接返回 None，题目就恒为 0 条（实测 32 条视频里 12 条属于此类）。
+        # 所以这里：先按 subject 找本库，找不到再跨库扫，且只比对「知识点哈希」部分，
+        # 前缀不参与比较。哈希是知识点名的 sha1，与学科无关，跨库才匹配得上。
+        # 本库优先，避免同名知识点被别的学科抢走。2026-09-27 修。
+        kp_hash = kk.split(":", 1)[1] if ":" in kk else kk
+
+        banks = []
+        own = local_question_bank.get_bank(subject)
+        if own:
+            banks.append(own)
+        for sid, bank in local_question_bank.all_banks().items():
+            if sid != subject:
+                banks.append(bank)
+
+        for bank in banks:
+            for q in (bank or {}).get("questions") or []:
+                kp_id = q.get("kp_id") or q.get("sub_category")
+                if not kp_id:
+                    continue
+                q_hash = video_gen.make_knowledge_key("x", str(kp_id)).split(":", 1)[-1]
+                if q_hash == kp_hash:
+                    items.append(q)
+                    if len(items) >= limit:
+                        break
+            if len(items) >= limit:
+                break
     except Exception as e:
         logger.info(f"⚠️ 视频练题查找失败: {e}")
     return {"subject": subject, "knowledge_name": row.get("knowledge_name"), "items": items}

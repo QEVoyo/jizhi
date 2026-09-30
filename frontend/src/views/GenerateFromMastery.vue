@@ -268,7 +268,7 @@ onUnmounted(() => {
 
 <style scoped>
 .generate-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   padding: 20px;
 }
 

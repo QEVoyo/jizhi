@@ -372,7 +372,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.vs-page { min-height: 100vh; padding: 20px 28px 60px; }
+.vs-page { min-height: calc(100vh - var(--jz-top, 0px)); padding: 20px 28px 60px; }
 .vs-topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
 .vs-topbar h1 { display: inline-flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; color: var(--text-primary); margin: 0; }
 .title-icon { width: 22px; height: 22px; color: var(--brand-bright); }

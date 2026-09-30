@@ -128,3 +128,10 @@ export function getAdminVideoStats() {
 export function retryAdminVideo(videoId) {
   return request.post(`/admin/video/${videoId}/retry`).then(res => res.data)
 }
+
+// 系统信息（题库总量 / 考纲数 / 各 API 提供方是否已配置）。
+// 后端这个端点在 admin.py 里一直存在，但前端此前**连封装都没有、全站零调用** ——
+// 后台侧边栏也没有入口。2026-09-30 补上。
+export function getSystemSettings() {
+  return request.get('/admin/settings').then(res => res.data)
+}

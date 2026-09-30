@@ -7,7 +7,8 @@ import httpx, uuid, re, json
 from collections import defaultdict
 from utils.sensitive_words import check_content_safety
 from utils.auth_middleware import get_current_user, verify_user_match
-from services.supabase import get_supabase_headers
+from utils.sanctions import assert_can_act
+from services.supabase import get_supabase_headers, get_supabase_service_headers
 from logging_config import logger
 from .models import *
 router = APIRouter(prefix="/community", tags=["社区-动态"])
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/community", tags=["社区-动态"])
 async def create_post(user_id: str, data: PostCreate, current_user: str = Depends(get_current_user)):
     """发布动态（修复标签和图片写入）"""
     verify_user_match(user_id, current_user)
+    await assert_can_act(user_id, "post")      # 禁言范围含 post 时挡在这里
     # ✅ 内容安全过滤
     if data.content:
         safe, reason = check_content_safety(data.content)
@@ -151,26 +153,38 @@ async def get_posts(
             post_ids = [p["id"] for p in posts]
             ids_filter = ",".join([f"\"{pid}\"" for pid in post_ids])
 
+            # ⚠️ 这三张表（post_likes / post_collects / comments）**anon key 读不了**（实测 401）。
+            #    原先用 anon 查、失败时静默降级成空集合 → 动态流里
+            #    is_liked / is_collected 恒为 false、每条帖子的 comments 恒为空，
+            #    而且没有任何报错。改用 service_role（本端点已 verify_user_match 鉴权）。
+            svc = get_supabase_service_headers()
+
             # ✅ 批量查询点赞（1 次查询替代 N 次）
             likes_res = await client.get(
                 f"{settings.SUPABASE_URL}/rest/v1/post_likes?post_id=in.({ids_filter})&user_id=eq.{user_id}&select=post_id",
-                headers=headers
+                headers=svc
             )
-            liked_ids = {like["post_id"] for like in (likes_res.json() if likes_res.status_code == 200 else [])}
+            if likes_res.status_code not in (200, 206):
+                logger.error(f"❌ 查询点赞状态失败 {likes_res.status_code}: {likes_res.text[:200]}")
+            liked_ids = {like["post_id"] for like in (likes_res.json() if likes_res.status_code in (200, 206) else [])}
 
             # ✅ 批量查询收藏（1 次查询替代 N 次）
             collects_res = await client.get(
                 f"{settings.SUPABASE_URL}/rest/v1/post_collects?post_id=in.({ids_filter})&user_id=eq.{user_id}&select=post_id",
-                headers=headers
+                headers=svc
             )
-            collected_ids = {col["post_id"] for col in (collects_res.json() if collects_res.status_code == 200 else [])}
+            if collects_res.status_code not in (200, 206):
+                logger.error(f"❌ 查询收藏状态失败 {collects_res.status_code}: {collects_res.text[:200]}")
+            collected_ids = {col["post_id"] for col in (collects_res.json() if collects_res.status_code in (200, 206) else [])}
 
             # ✅ 批量查询评论（1 次查询替代 N 次）
             comments_res = await client.get(
                 f"{settings.SUPABASE_URL}/rest/v1/comments?post_id=in.({ids_filter})&order=created_at.desc&select=*,profiles!user_id(nickname,avatar_url)",
-                headers=headers
+                headers=svc
             )
-            all_comments = comments_res.json() if comments_res.status_code == 200 else []
+            if comments_res.status_code not in (200, 206):
+                logger.error(f"❌ 查询评论失败 {comments_res.status_code}: {comments_res.text[:200]}")
+            all_comments = comments_res.json() if comments_res.status_code in (200, 206) else []
             comments_by_post = {}
             for c in all_comments:
                 pid = c.get("post_id")
@@ -331,11 +345,24 @@ async def collect_post(post_id: str, user_id: str, current_user: str = Depends(g
     async with httpx.AsyncClient() as client:
         check_url = f"{settings.SUPABASE_URL}/rest/v1/post_collects?post_id=eq.{post_id}&user_id=eq.{user_id}"
         check_res = await client.get(check_url, headers=headers)
+        # ⚠️ 必须先判状态码。表不存在/无权限时 Supabase 返回 404 + {"code":"42P01",...}，
+        # 那是个真值 dict，只看 check_res.json() 的真值会把它当成「已有收藏记录」
+        # → 直接返回「已收藏」且 HTTP 200，前端照样点亮书签。2026-09-27 修。
+        if check_res.status_code != 200:
+            logger.error(f"❌ 查询收藏记录失败 {check_res.status_code}: {check_res.text[:200]}")
+            raise HTTPException(status_code=502, detail=f"收藏查询失败：{check_res.status_code}")
         if check_res.json():
             return {"success": False, "message": "已收藏"}
 
         collect_data = {"post_id": post_id, "user_id": user_id}
-        await client.post(f"{settings.SUPABASE_URL}/rest/v1/post_collects", headers=headers, json=collect_data)
+        insert_res = await client.post(
+            f"{settings.SUPABASE_URL}/rest/v1/post_collects", headers=headers, json=collect_data
+        )
+        # 原来是 await 完就把返回值丢掉，写失败也照样回「收藏成功」——
+        # 用户看到成功提示、刷新就没了。2026-09-27 修。
+        if insert_res.status_code not in (200, 201, 204):
+            logger.error(f"❌ 写入 post_collects 失败 {insert_res.status_code}: {insert_res.text[:300]}")
+            raise HTTPException(status_code=502, detail=f"收藏写入失败：{insert_res.status_code}")
 
         # 获取当前 collect_count，避免字符串写入
         get_res = await client.get(
@@ -346,11 +373,16 @@ async def collect_post(post_id: str, user_id: str, current_user: str = Depends(g
         if get_res.status_code == 200 and get_res.json():
             current_count = get_res.json()[0].get("collect_count", 0)
 
-        await client.patch(
+        patch_res = await client.patch(
             f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}",
             headers=headers,
             json={"collect_count": current_count + 1}
         )
+        if patch_res.status_code not in (200, 204):
+            # 收藏关系已经写成功了，计数是次要数据，不因此让整个操作失败 —— 但必须留痕，
+            # 不能像以前那样一声不吭。2026-09-27。
+            logger.error(f"⚠️ 更新 collect_count 失败 {patch_res.status_code}: {patch_res.text[:200]}")
+
         return {"success": True, "message": "收藏成功"}
 
 
@@ -358,11 +390,14 @@ async def collect_post(post_id: str, user_id: str, current_user: str = Depends(g
 async def uncollect_post(post_id: str, user_id: str, current_user: str = Depends(get_current_user)):
     """取消收藏"""
     verify_user_match(user_id, current_user)
-    headers = get_supabase_headers()
-
+    headers = get_supabase_service_headers()   # 同上：anon 对 post_collects 无权限
     async with httpx.AsyncClient() as client:
         url = f"{settings.SUPABASE_URL}/rest/v1/post_collects?post_id=eq.{post_id}&user_id=eq.{user_id}"
-        await client.delete(url, headers=headers)
+        delete_res = await client.delete(url, headers=headers)
+        # 同 collect_post：返回值原来直接丢掉，取消收藏失败也报成功。2026-09-27 修。
+        if delete_res.status_code not in (200, 204):
+            logger.error(f"❌ 删除 post_collects 失败 {delete_res.status_code}: {delete_res.text[:300]}")
+            raise HTTPException(status_code=502, detail=f"取消收藏失败：{delete_res.status_code}")
 
         # 获取当前 collect_count，避免字符串写入
         get_res = await client.get(
@@ -373,11 +408,14 @@ async def uncollect_post(post_id: str, user_id: str, current_user: str = Depends
         if get_res.status_code == 200 and get_res.json():
             current_count = get_res.json()[0].get("collect_count", 0)
 
-        await client.patch(
+        patch_res = await client.patch(
             f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}",
             headers=headers,
             json={"collect_count": max(0, current_count - 1)}
         )
+        if patch_res.status_code not in (200, 204):
+            logger.error(f"⚠️ 更新 collect_count 失败 {patch_res.status_code}: {patch_res.text[:200]}")
+
         return {"success": True}
 
 
@@ -386,6 +424,7 @@ async def uncollect_post(post_id: str, user_id: str, current_user: str = Depends
 async def create_comment(post_id: str, user_id: str, data: CommentCreate, current_user: str = Depends(get_current_user)):
     """发布评论"""
     verify_user_match(user_id, current_user)
+    await assert_can_act(user_id, "comment")   # 禁言范围含 comment 时挡在这里
     # ✅ 内容安全过滤
     if data.content:
         safe, reason = check_content_safety(data.content)
@@ -427,15 +466,24 @@ async def create_comment(post_id: str, user_id: str, data: CommentCreate, curren
 async def delete_comment(comment_id: str, user_id: str = Query(...), current_user: str = Depends(get_current_user)):
     """删除评论"""
     verify_user_match(user_id, current_user)
-    headers = get_supabase_headers()
+    # ⚠️ 用 service_role：anon key 对 comments / post_likes / post_collects / messages
+    #    这四张表没有 SELECT 权限（实测 401），而 anon key 打包在前端产物里，
+    #    也不能反过来给它开权限（那会让全站私信与评论可被任意读取）。
+    headers = get_supabase_service_headers()
 
     async with httpx.AsyncClient() as client:
         check_url = f"{settings.SUPABASE_URL}/rest/v1/comments?id=eq.{comment_id}&user_id=eq.{user_id}"
         check_res = await client.get(check_url, headers=headers)
-        if not check_res.json():
+        # 先判状态码再取 [0] —— 查询失败时 PostgREST 返回的是错误**对象**（dict），
+        # 直接 [0] 会 KeyError: 0 → 500（2026-09-30 探测实测到）。
+        if check_res.status_code not in (200, 206):
+            logger.error(f"❌ 查询待删评论失败 {check_res.status_code}: {check_res.text[:200]}")
+            raise HTTPException(status_code=502, detail=f"删除评论失败：{check_res.status_code}")
+        rows = check_res.json()
+        if not rows:
             raise HTTPException(status_code=403, detail="无权删除")
 
-        comment = check_res.json()[0]
+        comment = rows[0]
         post_id = comment.get("post_id")
 
         url = f"{settings.SUPABASE_URL}/rest/v1/comments?id=eq.{comment_id}"

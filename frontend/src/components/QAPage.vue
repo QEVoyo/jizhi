@@ -514,11 +514,11 @@ const faqs = ref([
   ], expanded: false, actions: [
     { icon: '', label: '去设置', route: '/settings' },
   ]},
-  { id: 51, tag: '账号管理', tagColor: '#FF9800', question: '如何修改密码和绑定微信？', answer: [
+  { id: 51, tag: '账号管理', tagColor: '#FF9800', question: '如何修改密码？', answer: [
     '在「设置 → 账号安全」完成：',
     '',
     '修改密码 — 输入当前密码验证 → 设置新密码 → 确认',
-    '微信绑定 — 点击绑定 → 展示二维码 → 手机微信扫码授权完成绑定（绑定后可用微信扫码登录）',
+    '微信登录创建的账号 — 该页会显示「设置邮箱和密码」；补上之后，同一个账号就能在网页端登录，学习记录互通',
     '',
     '邮箱用于登录和邮件回复，暂不支持自助修改',
   ], expanded: false, actions: [
@@ -532,7 +532,7 @@ const faqs = ref([
     '外观 — 浅色/深色/跟随系统',
     '隐私 — 在线/隐身状态',
     '通知设置 — 8 个开关 + 每日推荐/总结时间',
-    '账号安全 — 改密码 + 微信绑定',
+    '账号安全 — 改密码（微信登录创建的账号显示「设置邮箱和密码」）',
     'AI 与 API — 跳转小基 AI 设置和 API 管理中心',
   ], expanded: false, actions: [
     { icon: '', label: '去设置', route: '/settings' },
@@ -659,7 +659,7 @@ async function submitAsk() {
 </script>
 
 <style scoped>
-.qa-page { min-height: 100vh; display: flex; justify-content: center; padding: 30px 20px; background: transparent; }
+.qa-page { min-height: calc(100vh - var(--jz-top, 0px)); display: flex; justify-content: center; padding: 30px 20px; background: transparent; }
 .qa-container { max-width: 820px; width: 100%; padding: 28px 36px; border-radius: 18px; background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 8px 32px rgba(0,0,0,.06); height: fit-content; max-height: 90vh; overflow-y: auto; }
 .qa-container::-webkit-scrollbar { width: 4px; }
 .qa-container::-webkit-scrollbar-thumb { background: rgba(128,128,128,.2); border-radius: 2px; }

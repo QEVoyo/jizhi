@@ -118,7 +118,7 @@ function goApp() {
 
 <style scoped>
 .ts-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   display: flex;
   align-items: center;
   justify-content: center;

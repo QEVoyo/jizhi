@@ -306,6 +306,8 @@ import { ElMessage } from 'element-plus'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import * as echarts from 'echarts'
 import html2canvas from 'html2canvas'
+import { isDesktop, saveDataUrlNative } from '@/desktop'
+import { withNormalizedColors } from '@/utils/exportColor'
 import jsPDF from 'jspdf'
 
 const router = useRouter()
@@ -473,10 +475,10 @@ async function loadData() {
   try {
     const uid = authStore.user.id
     const [ovRes, anRes] = await Promise.all([
-      fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/evaluation/overview?user_id=${uid}`, {
+      fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/evaluation/overview?user_id=${uid}`, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }).then(r => r.json()),
-      fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/evaluation/deep-analysis?user_id=${uid}`, {
+      fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/evaluation/deep-analysis?user_id=${uid}`, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }).then(r => r.json()).catch(() => ({ analysis: null })),
     ])
@@ -517,18 +519,24 @@ async function refreshData() {
 
 // ===== 多页PDF导出 =====
 async function exportPDF() {
-  if (!reportContentRef.value) return
+  if (!reportContentRef.value) {
+    // 导出根节点只存在于 v-else 分支，报告还在加载时它是 null。
+    // 原来这里直接 return —— 用户点了没有任何反馈（没 toast、没 loading、没报错），
+    // 会被误当成「导出失败」去查。2026-09-27 修。
+    ElMessage.warning('报告还在加载，请稍候再试')
+    return
+  }
   pdfExporting.value = true
   try {
     const isLight = document.documentElement.getAttribute('data-theme') === 'light'
-    const canvas = await html2canvas(reportContentRef.value, {
+    const canvas = await withNormalizedColors(reportContentRef.value, () => html2canvas(reportContentRef.value, {
       scale: 2,
       useCORS: true,
       backgroundColor: isLight ? '#f4f6fb' : '#0b1220',
       logging: false,
       windowHeight: reportContentRef.value.scrollHeight,
       height: reportContentRef.value.scrollHeight,
-    })
+    }))
 
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF('p', 'mm', 'a4')
@@ -561,8 +569,15 @@ async function exportPDF() {
       position += sliceHeight
     }
 
-    pdf.save(`学情报告_${new Date().toISOString().slice(0, 10)}.pdf`)
-    ElMessage.success('导出成功')
+    const pdfName = `学情报告_${new Date().toISOString().slice(0, 10)}.pdf`
+    if (isDesktop) {
+      // 桌面版：弹原生「另存为」，用户自己选路径
+      const ok = await saveDataUrlNative(pdf.output('dataurlstring'), pdfName)
+      ok ? ElMessage.success('已保存') : ElMessage.info('已取消保存')
+    } else {
+      pdf.save(pdfName)
+      ElMessage.success('导出成功')
+    }
   } catch (error) {
     console.error('导出失败:', error)
     ElMessage.error('导出失败')
@@ -593,7 +608,7 @@ onUnmounted(() => {
 
 <style scoped>
 .evaluation-report-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   display: flex;
   justify-content: center;
   align-items: flex-start;

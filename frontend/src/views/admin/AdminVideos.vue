@@ -194,7 +194,7 @@ onMounted(async () => {
 .adv { padding: 8px 4px 60px; }
 .adv-title { font-size: 19px; font-weight: 700; color: var(--text-primary); margin: 8px 0 16px; }
 .adv-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 18px; }
-.adv-stat { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); border: 1px solid rgba(255,255,255,0.06); }
+.adv-stat { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent); }
 .adv-stat b { font-size: 22px; color: var(--text-primary); }
 .adv-stat b.warn { color: #e6a23c; }
 .adv-stat b.bad { color: #f56c6c; }
@@ -219,13 +219,13 @@ onMounted(async () => {
 .cell-ops { white-space: nowrap; display: flex; gap: 6px; }
 .badge { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: rgba(128,128,128,.14); color: var(--text-secondary); }
 .badge.st-ready { color: #67c23a; background: rgba(103,194,58,.1); }
-.badge.st-generating { color: #409EFF; background: rgba(64,158,255,.1); }
+.badge.st-generating { color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, transparent); }
 .badge.st-failed { color: #f56c6c; background: rgba(245,108,108,.1); }
 .badge.ps-pending { color: #e6a23c; background: rgba(230,162,60,.1); }
 .badge.ps-public { color: #67c23a; background: rgba(103,194,58,.1); }
 .badge.ps-rejected { color: #f56c6c; background: rgba(245,108,108,.1); }
 .badge.warn { color: #e6a23c; background: rgba(230,162,60,.1); }
-.adv-report { padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 8px; }
+.adv-report { padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent); display: flex; flex-direction: column; gap: 8px; }
 .adv-report-head { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-primary); }
 .adv-report-head i { font-style: normal; font-size: 11.5px; color: var(--text-muted); margin-left: auto; }
 .adv-report-detail { font-size: 12.5px; color: var(--text-secondary); }

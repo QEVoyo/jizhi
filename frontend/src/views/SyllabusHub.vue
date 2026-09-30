@@ -200,7 +200,7 @@ function enterSyllabus(s) {
 <style scoped>
 /* ===== 页面基底 ===== */
 .hub-page {
-  min-height: 100vh; position: relative; display: flex; justify-content: center;
+  min-height: calc(100vh - var(--jz-top, 0px)); position: relative; display: flex; justify-content: center;
   padding: 40px 24px 80px;
   background: var(--bg-color);
   color: var(--text-primary);

@@ -526,7 +526,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.vd-page { min-height: 100vh; padding: 20px 28px 60px; max-width: 1200px; margin: 0 auto; }
+.vd-page { min-height: calc(100vh - var(--jz-top, 0px)); padding: 20px 28px 60px; max-width: 1200px; margin: 0 auto; }
 .vd-topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
 .vd-crumb { font-size: 12.5px; color: var(--text-muted); }
 .vd-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; }

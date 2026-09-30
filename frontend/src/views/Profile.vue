@@ -57,7 +57,7 @@ async function handleLogout() {
 
 <style scoped>
 .profile-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   padding: 20px 28px;
 }
 

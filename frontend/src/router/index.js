@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import CommunityFriends from '@/components/community/CommunityFriends.vue'
-import XiaojiSettings from '@/components/XiaojiSettings.vue'
+import { isDesktop } from '@/desktop'
 
 const routes = [
   {
@@ -143,10 +143,10 @@ const routes = [
     component: () => import('@/views/AnimationDemo.vue')
   },
   {
+    // 小基设置已并进 /settings（用户要「设置融合为一个」）。
+    // 保留这条路由做重定向，老链接和浏览器书签不会断。
     path: '/xiaoji/settings',
-    name: 'XiaojiSettings',
-    component: XiaojiSettings,
-    meta: { requiresAuth: true }
+    redirect: '/settings',
   },
   {
     path: '/xiaoji/call',
@@ -321,12 +321,17 @@ const routes = [
     children: [
       { path: '', name: 'AdminDashboard', component: () => import('@/views/admin/AdminDashboard.vue') },
       { path: 'users', name: 'AdminUsers', component: () => import('@/views/admin/AdminUsers.vue') },
+      // 举报 / 反馈 / Q&A 共用同一个组件（页内是三个标签），
+      // 但**各有各的路径** —— 否则侧边栏点「反馈」时地址变了、页面却不动。
+      // 组件内用 PATH_TAB 把路径映射成初始标签。
       { path: 'reports', name: 'AdminReports', component: () => import('@/views/admin/AdminReports.vue') },
       { path: 'feedback', name: 'AdminFeedback', component: () => import('@/views/admin/AdminReports.vue') },
+      { path: 'qa', name: 'AdminQA', component: () => import('@/views/admin/AdminReports.vue') },
       { path: 'questions', name: 'AdminQuestions', component: () => import('@/views/admin/AdminQuestions.vue') },
       { path: 'announcements', name: 'AdminAnnouncements', component: () => import('@/views/admin/AdminAnnouncements.vue') },
       { path: 'videos', name: 'AdminVideos', component: () => import('@/views/admin/AdminVideos.vue') },
       { path: 'logs', name: 'AdminLogs', component: () => import('@/views/admin/AdminLogs.vue') },
+      { path: 'settings', name: 'AdminSettings', component: () => import('@/views/admin/AdminSettings.vue') },
     ]
   }
 ]
@@ -361,8 +366,15 @@ router.beforeEach((to, from, next) => {
     useThemeStore().loadFromAccount(authStore.user.id).catch(() => {})
   }
 
+  // 桌面版：没有「落地页」这个概念 —— 营销页是给搜索引擎和陌生人看的，
+  // 而装了客户端的人已经决定要用了，再给他看一遍「免费注册」很出戏。
+  // 未登录直接进登录页；已登录落到下面已有的分支（引导页 / 首页）。
+  // 网页版 isDesktop=false，这条永远不成立。
+  if (isDesktop && to.path === '/' && !authStore.isLoggedIn) {
+    next('/login')
+  }
   // 未登录访问受保护页面 → 去登录（带 redirect 参数）
-  if (to.meta.requiresAuth && !authStore.isLoggedIn) {
+  else if (to.meta.requiresAuth && !authStore.isLoggedIn) {
     next({ path: '/login', query: { redirect: to.fullPath } })
   }
   // 已登录但不是管理员访问管理后台 → 去首页

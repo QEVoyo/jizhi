@@ -83,13 +83,23 @@ class SupabaseService:
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         or_: Optional[str] = None,
+        in_: Optional[Dict[str, list]] = None,
         use_service_role: bool = False,
     ) -> httpx.Response:
-        """SELECT 查询"""
+        """SELECT 查询
+
+        in_：批量匹配，形如 {"id": [a, b, c]} → `id=in.(a,b,c)`。
+             用于"按一批 id 精确取行"，避免为了筛几十条而全表拉取。
+        """
         url = f"{self._url(table)}?select={select}"
         if eq:
             for col, val in eq.items():
                 url += f"&{col}=eq.{val}"
+        if in_:
+            for col, vals in in_.items():
+                if not vals:
+                    continue
+                url += f"&{col}=in.({','.join(str(v) for v in vals)})"
         if or_:
             url += f"&or={or_}"
         if order:

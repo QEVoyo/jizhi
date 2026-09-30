@@ -82,7 +82,7 @@ async function handleFile(e) {
     const formData = new FormData()
     formData.append('file', file)
 
-    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
     const token = localStorage.getItem('jizhi-token')
 
     const res = await fetch(`${baseUrl}/admin/upload-image`, {
@@ -127,7 +127,7 @@ function removeImage() {
   display: inline-block;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
   background: rgba(0, 0, 0, 0.2);
 }
 
@@ -168,7 +168,7 @@ function removeImage() {
   justify-content: center;
   gap: 6px;
   padding: 28px 20px;
-  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border: 2px dashed color-mix(in srgb, var(--text-primary) 10%, transparent);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -185,22 +185,22 @@ function removeImage() {
 
 .upload-area i {
   font-size: 24px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
 }
 .upload-area span {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
 }
 .upload-area .hint {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--text-muted);
 }
 
 /* 迷你旋转 */
 .mini-spinner {
   width: 22px;
   height: 22px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid color-mix(in srgb, var(--text-primary) 10%, transparent);
   border-top-color: var(--brand);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
@@ -214,9 +214,9 @@ function removeImage() {
   gap: 5px;
   padding: 6px 14px;
   background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -224,7 +224,7 @@ function removeImage() {
 }
 .replace-btn:hover {
   background: color-mix(in srgb, var(--surface, #ffffff) 7%, transparent);
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
 }
 
 .upload-error {

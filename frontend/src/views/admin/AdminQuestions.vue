@@ -55,7 +55,7 @@
                 <div v-for="(opt, i) in getOptions(q)" :key="i" class="q-option" :class="{ correct: isCorrectAnswer(q, i) }">{{ opt }}</div>
               </div>
               <div class="q-answer"><strong>答案：</strong>{{ formatAnswer(q) }}</div>
-              <div class="q-explanation" v-if="q.explanation"><strong>解析：</strong>{{ q.explanation }}</div>
+              <div class="q-explanation" v-if="getExplanation(q)"><strong>解析：</strong>{{ getExplanation(q) }}</div>
               <div class="q-actions">
                 <el-button size="small" text @click="editQuestion(q)">编辑</el-button>
                 <el-button size="small" text type="danger" @click="deleteQuestionItem(q)">删除</el-button>
@@ -214,22 +214,47 @@ async function loadQuestions() {
   finally { loading.value = false }
 }
 
+// ⚠️ content 有三种形态：对象 / JSON 字符串 / **整段为 null**。
+//    实测全库 19338 题里有 1456 题 content 为 null（cet4 一个考纲就 239 题），
+//    旧写法 `q.content || {}` 在**键存在但值为 null** 时仍会拿到 null → 列表题干全空白。
+function contentOf(q) {
+  const c = typeof q.content === 'string' ? tryParse(q.content) : q.content
+  return c && typeof c === 'object' ? c : {}
+}
+
 function getStem(q) {
-  const c = typeof q.content === 'string' ? tryParse(q.content) : (q.content || {})
-  const s = c.stem || ''
+  const c = contentOf(q)
+  // 少数题的字段在**顶层**而不在 content 里，一并兜住
+  const s = c.stem || c.title || q.stem || q.title || ''
   return s.length > 100 ? s.slice(0, 100) + '...' : s
 }
+
 function getOptions(q) {
-  const c = typeof q.content === 'string' ? tryParse(q.content) : (q.content || {})
-  return c.options || []
+  const c = contentOf(q)
+  const opts = c.options || q.options || []      // cet4 有 55 题的 options 在顶层
+  return Array.isArray(opts) ? opts : []
 }
+
+// 解析字段在题库里有三种写法，只认 explanation 会让 4773 题永远显示空解析
+function getExplanation(q) {
+  return q.explanation || q.analysis || q.distractor_analysis || ''
+}
+
 function formatAnswer(q) {
   if (Array.isArray(q.answer)) return q.answer.join(' / ')
-  return String(q.answer || '')
+  return String(q.answer ?? '')
 }
+
 function isCorrectAnswer(q, idx) {
   const letters = 'ABCDEFGH'
-  return q.answer === letters[idx]
+  const want = letters[idx]
+  const a = q.answer
+  // 多选题的答案是数组 ["A","B","D"]（cet4 有 152 道 choice_multi），
+  // 旧写法 `q.answer === letters[idx]` 对它们永远不成立 → 正确项一个都不高亮。
+  if (Array.isArray(a)) {
+    return a.map(x => String(x).trim().toUpperCase()).includes(want)
+  }
+  return String(a ?? '').trim().toUpperCase() === want
 }
 function diffClass(d) {
   if (!d || d <= 3) return 'd1'
@@ -246,6 +271,8 @@ function toggleExpand(q) {
 const dialogVisible = ref(false)
 const editingId = ref(null)
 const saving = ref(false)
+// 编辑时原始 content 的留底。保存时在它之上合并 —— 见 saveQuestion 的说明。
+const editingOriginalContent = ref(null)
 const form = reactive({
   category: '', sub_category: '', question_type: 'choice',
   difficulty: 3, kp_name: '', stem: '', optionsText: '', answerText: '', explanation: ''
@@ -253,6 +280,7 @@ const form = reactive({
 
 function resetForm() {
   editingId.value = null
+  editingOriginalContent.value = null
   const defCat = currentDimensions.value[0]?.category || ''
   const defType = currentTypes.value[0] || 'choice'
   Object.assign(form, {
@@ -269,7 +297,8 @@ function showCreateDialog() {
 
 async function editQuestion(q) {
   editingId.value = q.id
-  const c = typeof q.content === 'string' ? tryParse(q.content) : (q.content || {})
+  const c = contentOf(q)
+  editingOriginalContent.value = { ...c }   // 留底，保存时合并用
   form.category = q.category || ''
   form.sub_category = q.sub_category || ''
   form.question_type = q.question_type || 'choice'
@@ -278,7 +307,7 @@ async function editQuestion(q) {
   form.stem = c.stem || ''
   form.optionsText = (c.options || []).join('\n')
   form.answerText = typeof q.answer === 'string' ? q.answer : (Array.isArray(q.answer) ? q.answer.join(', ') : String(q.answer || ''))
-  form.explanation = q.explanation || ''
+  form.explanation = getExplanation(q)   // 三种解析字段写法都兜住，否则编辑时解析框是空的
   dialogVisible.value = true
 }
 
@@ -286,8 +315,16 @@ async function saveQuestion() {
   saving.value = true
   try {
     const options = form.optionsText.split('\n').filter(o => o.trim())
-    const content = { stem: form.stem }
+
+    // ⚠️ 必须在**原始 content 之上合并**，不能从零重建。
+    //    题库里的 content 还带着本表单不认识的字段 —— 实测编程题 1947 题带
+    //    test_cases、2342 题带 input_description/output_description、2338 题带
+    //    constraints、145 题带 hint。而后端 update_question 是 q.update() **整体替换**
+    //    content 这个键 —— 从零重建等于把它们全部删掉，且没有任何提示。
+    const content = { ...(editingOriginalContent.value || {}) }
+    content.stem = form.stem
     if (options.length > 0) content.options = options
+    else delete content.options
 
     // 智能解析 answer：数组格式 "word1, word2" → 数组
     let answer = form.answerText.trim()
@@ -347,54 +384,54 @@ onMounted(async () => { await loadSyllabi() })
 <style scoped>
 .admin-questions { max-width: 1100px; }
 .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 12px; }
-.page-title { font-size: 20px; font-weight: 600; color: #e0e0e0; margin: 0; }
+.page-title { font-size: 20px; font-weight: 600; color: var(--text-primary); margin: 0; }
 .header-actions { display: flex; gap: 10px; }
 .filter-row { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
 .search-inline { width: 200px; }
-.hint { font-size: 13px; color: rgba(255,255,255,.3); }
-.stat-chip { font-size: 13px; color: rgba(255,255,255,.4); }
-.stat-chip strong { color: #e0e0e0; }
+.hint { font-size: 13px; color: var(--text-muted); }
+.stat-chip { font-size: 13px; color: var(--text-muted); }
+.stat-chip strong { color: var(--text-primary); }
 
 .table-wrap {
   background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent); backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,.06); border-radius: 14px; overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent); border-radius: 14px; overflow: hidden;
 }
 .question-list { padding: 4px 0; }
-.q-item { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.03); transition: background .2s; }
+.q-item { padding: 12px 16px; border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 3%, transparent); transition: background .2s; }
 .q-item:hover { background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); }
 .q-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-.q-id { font-size: 11px; color: rgba(255,255,255,.2); font-family: monospace; }
+.q-id { font-size: 11px; color: var(--text-muted); font-family: monospace; }
 .q-tag { padding: 1px 8px; border-radius: 6px; font-size: 11px; background: color-mix(in srgb, var(--brand) 10%, transparent); color: var(--brand); }
 .q-tag.sub { background: rgba(20,184,166,.1); color: #14b8a6; }
 .q-tag.type-tag { background: rgba(139,92,246,.1); color: #a78bfa; }
-.q-difficulty { font-size: 11px; color: rgba(255,255,255,.3); margin-left: auto; }
+.q-difficulty { font-size: 11px; color: var(--text-muted); margin-left: auto; }
 .q-difficulty.d1 { color: #67c23a; }
 .q-difficulty.d5 { color: #e6a23c; }
 .q-difficulty.d7 { color: #f56c6c; }
-.q-stem { font-size: 13px; color: rgba(255,255,255,.7); cursor: pointer; line-height: 1.5; transition: color .2s; }
+.q-stem { font-size: 13px; color: var(--text-primary); cursor: pointer; line-height: 1.5; transition: color .2s; }
 .q-stem:hover { color: var(--brand); }
 .q-expanded { margin-top: 12px; padding: 14px; background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent); border-radius: 10px; }
 .q-options { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-.q-option { font-size: 13px; color: rgba(255,255,255,.5); padding: 4px 10px; border-radius: 6px; background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); }
+.q-option { font-size: 13px; color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); }
 .q-option.correct { background: rgba(103,194,58,.1); color: #67c23a; font-weight: 500; }
 .q-answer { font-size: 13px; color: #67c23a; margin-bottom: 4px; }
-.q-explanation { font-size: 13px; color: rgba(255,255,255,.5); line-height: 1.5; margin-bottom: 8px; }
+.q-explanation { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; }
 .q-actions { display: flex; gap: 6px; }
-.empty { padding: 48px; text-align: center; color: rgba(255,255,255,.2); font-size: 14px; }
+.empty { padding: 48px; text-align: center; color: var(--text-muted); font-size: 14px; }
 .pagination { display: flex; justify-content: center; padding: 16px; }
 
-.q-form :deep(.el-form-item__label) { color: rgba(255,255,255,.5) !important; font-size: 12px !important; }
+.q-form :deep(.el-form-item__label) { color: var(--text-secondary) !important; font-size: 12px !important; }
 :deep(.el-select .el-input__wrapper), :deep(.el-input__wrapper) {
-  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important; border: 1px solid rgba(255,255,255,.08) !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important; border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent) !important;
   border-radius: 10px !important; box-shadow: none !important;
 }
-:deep(.el-input__inner), :deep(.el-textarea__inner) { color: #e0e0e0 !important; }
+:deep(.el-input__inner), :deep(.el-textarea__inner) { color: var(--text-primary) !important; }
 :deep(.el-textarea__inner) {
-  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important; border: 1px solid rgba(255,255,255,.08) !important; border-radius: 10px !important;
+  background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important; border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent) !important; border-radius: 10px !important;
 }
-:deep(.admin-dialog) { background: #111827 !important; border: 1px solid rgba(255,255,255,.08) !important; border-radius: 16px !important; }
-:deep(.admin-dialog .el-dialog__header) { border-bottom: 1px solid rgba(255,255,255,.06); padding: 18px 24px; }
-:deep(.admin-dialog .el-dialog__title) { color: #e0e0e0 !important; }
+:deep(.admin-dialog) { background: var(--card-bg) !important; border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent) !important; border-radius: 16px !important; }
+:deep(.admin-dialog .el-dialog__header) { border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent); padding: 18px 24px; }
+:deep(.admin-dialog .el-dialog__title) { color: var(--text-primary) !important; }
 :deep(.admin-dialog .el-dialog__body) { padding: 24px; }
-:deep(.admin-dialog .el-dialog__close) { color: rgba(255,255,255,.4) !important; }
+:deep(.admin-dialog .el-dialog__close) { color: var(--text-muted) !important; }
 </style>

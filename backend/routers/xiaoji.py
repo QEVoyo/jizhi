@@ -335,8 +335,12 @@ async def text_to_speech(data: TTSRequest):
             "format": "mp3"
         }
 
+    except HTTPException:
+        # 上面自己抛的那个直接放行。否则会被下面的宽泛 except 抓住再包一层，
+        # 客户端收到的是「TTS 错误: 500: 语音合成失败」这种套娃信息。
+        raise
     except Exception as e:
-        logger.info(f"TTS 错误: {e}")
+        logger.error(f"TTS 错误: {e}")
         raise HTTPException(status_code=500, detail=f"TTS 错误: {str(e)}")
 
 

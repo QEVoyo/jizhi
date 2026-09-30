@@ -409,10 +409,9 @@ function jumpTo(path) {
 let recentHooked = false
 
 function onGlobalKey(e) {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-    e.preventDefault()
-    navStore.toggleSearch()
-  } else if (e.key === 'Escape' && navStore.searchOpen) {
+  // Ctrl+K 已移交快捷键系统（registry 的 `action.search`）——
+  // 用户能在设置页把它改掉，硬绑在这里就改不动了。这里只管面板内部的 Escape。
+  if (e.key === 'Escape' && navStore.searchOpen) {
     if (pickerOpen.value) { pickerOpen.value = false; return } // 先退出选择器，再 Esc 才关面板
     close()
   }

@@ -1,10 +1,10 @@
 <template>
   <div class="admin-reports">
     <div class="page-header">
-      <h2 class="page-title">举报 &amp; 反馈审核</h2>
+      <h2 class="page-title">{{ pageTitle }}</h2>
     </div>
 
-    <!-- Tabs -->
+    <!-- Tabs：点击即切路由，标签 / 地址 / 侧边栏高亮三者保持一致 -->
     <div class="tab-bar">
       <button class="tab-btn" :class="{ active: tab === 'reports' }" @click="tab = 'reports'">
         <i class="fas fa-flag"></i> 举报 ({{ reportTotal }})
@@ -32,7 +32,8 @@
         <thead>
           <tr>
             <th>举报人</th>
-            <th>目标类型</th>
+            <th>被举报内容</th>
+            <th>被举报人</th>
             <th>原因</th>
             <th>状态</th>
             <th>时间</th>
@@ -42,9 +43,11 @@
         <tbody>
           <tr v-for="r in reports" :key="r.id">
             <td>{{ r.reporter_nickname || '-' }}</td>
-            <td>
+            <td class="snapshot-cell">
               <span class="target-tag">{{ r.target_type === 'post' ? '帖子' : '评论' }}</span>
+              <span class="snapshot-text">{{ r.target_snapshot || '（无快照）' }}</span>
             </td>
+            <td>{{ r.target_author_nickname || '-' }}</td>
             <td class="reason-cell">{{ r.reason || '-' }}</td>
             <td>
               <span class="status-tag" :class="r.status">{{ statusLabel(r.status) }}</span>
@@ -52,10 +55,24 @@
             <td class="date-cell">{{ formatDate(r.created_at) }}</td>
             <td>
               <div class="action-btns" v-if="r.status === 'pending'">
-                <el-button size="small" text type="success" @click="resolveReport(r, 'resolved')">通过</el-button>
-                <el-button size="small" text type="danger" @click="resolveReport(r, 'dismissed')">驳回</el-button>
+                <el-button size="small" text @click="resolveReportItem(r, { action: 'dismiss' })">驳回</el-button>
+                <!-- 处置动作一步到位：判定 + 处罚 + 留痕，不用再跳去用户管理页手动搜人 -->
+                <el-dropdown trigger="click" @command="cmd => onDispose(r, cmd)">
+                  <el-button size="small" text type="danger">处置<el-icon><arrow-down /></el-icon></el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="warn">警告并通知</el-dropdown-item>
+                      <el-dropdown-item command="delete_content">删除该内容</el-dropdown-item>
+                      <el-dropdown-item command="mute:1">禁言 1 天</el-dropdown-item>
+                      <el-dropdown-item command="mute:7">禁言 7 天</el-dropdown-item>
+                      <el-dropdown-item command="mute:30">禁言 30 天</el-dropdown-item>
+                      <el-dropdown-item command="mute:0">永久禁言</el-dropdown-item>
+                      <el-dropdown-item command="ban" divided>封禁账号</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </div>
-              <span v-else class="done-text">已处理</span>
+              <span v-else class="done-text">{{ actionTakenLabel(r.action_taken) }}</span>
             </td>
           </tr>
         </tbody>
@@ -96,7 +113,7 @@
             </td>
             <td class="date-cell">{{ formatDate(f.created_at) }}</td>
             <td>
-              <el-button v-if="f.status === 'pending'" size="small" text type="success" @click="resolveFeedback(f)">标记已处理</el-button>
+              <el-button v-if="f.status === 'pending'" size="small" text type="success" @click="resolveFeedbackItem(f)">标记已处理</el-button>
               <span v-else class="done-text">-</span>
             </td>
           </tr>
@@ -151,13 +168,37 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getReports, resolveReport, getFeedbacks, resolveFeedback, getQAList, resolveQA } from '@/api/admin'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowDown } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import AdminLoading from '@/components/admin/AdminLoading.vue'
 
-const tab = ref('reports')
+// ⚠️ 标签页由**路由**决定，不能是本地状态。
+//    原先写死 `const tab = ref('reports')`，而侧边栏「反馈 & Q&A」指向 /admin/feedback ——
+//    地址变了、侧边栏高亮也跟着变了，页面却仍停在「举报」标签，看起来就是点了没反应。
+//    更麻烦的是 /admin/reports 与 /admin/feedback 用的是**同一个组件**，
+//    Vue Router 会复用实例、连重新挂载都不会发生，所以这个错位是永久性的。
+//    现在三者各有各的路由，标签、地址、侧边栏高亮三者永远一致。
+const route = useRoute()
+const router = useRouter()
+const TAB_PATH = { reports: '/admin/reports', feedback: '/admin/feedback', qa: '/admin/qa' }
+const PATH_TAB = { '/admin/reports': 'reports', '/admin/feedback': 'feedback', '/admin/qa': 'qa' }
+
+const tab = computed({
+  get: () => PATH_TAB[route.path] || 'reports',
+  set: (v) => { const p = TAB_PATH[v]; if (p && p !== route.path) router.push(p) },
+})
+
+const PAGE_TITLE = {
+  reports: '举报审核',
+  feedback: '用户反馈',
+  qa: 'Q&A 帮助中心',
+}
+const pageTitle = computed(() => PAGE_TITLE[tab.value] || '举报 & 反馈审核')
+
 const loading = ref(false)
 
 // Reports
@@ -211,13 +252,69 @@ async function loadQA() {
   finally { loading.value = false }
 }
 
-async function resolveReportItem(r, status) {
+// 统一的处置出口。opts 形如 { action, status?, mute_days?, mute_scope?, admin_note? }
+async function doResolve(r, opts, okText) {
   try {
-    await resolveReport(r.id, { status })
-    r.status = status
-    ElMessage.success(status === 'resolved' ? '已通过' : '已驳回')
-  } catch (e) { ElMessage.error('操作失败') }
+    const res = await resolveReport(r.id, opts)
+    r.status = res?.status || opts.status || 'resolved'
+    r.action_taken = res?.action || opts.action || ''
+    ElMessage.success(okText || res?.message || '已处理')
+  } catch (e) {
+    // 后端现在会把真实原因放在 detail 里（例如「处置记录未写入」、
+    // 「查不到被举报人」），透出来比笼统的"操作失败"有用得多
+    ElMessage.error(e?.response?.data?.detail || '操作失败')
+  }
 }
+
+// 「驳回」和 Q&A/反馈两个 Tab 走同一个形状
+function resolveReportItem(r, opts) {
+  if (typeof opts === 'string') opts = { status: opts }      // 兼容旧调用
+  const action = opts.action || 'mark'
+  return doResolve(r, { ...opts, action },
+    action === 'dismiss' ? '已驳回' : '已处理')
+}
+
+// 处置下拉：命令形如 warn / delete_content / mute:7 / mute:0 / ban
+async function onDispose(r, cmd) {
+  const [kind, arg] = String(cmd).split(':')
+  const opts = { action: kind }
+  let okText = ''
+  let confirmText = ''
+
+  if (kind === 'warn') {
+    opts.status = 'resolved'; okText = '已警告并通知对方'
+    confirmText = `确定向「${r.target_author_nickname || '该用户'}」发出警告？会同时发送站内通知。`
+  } else if (kind === 'delete_content') {
+    opts.status = 'resolved'; okText = '已删除被举报内容'
+    confirmText = '确定删除这条被举报内容？该内容将不再对用户可见（软删除，可追溯）。'
+  } else if (kind === 'mute') {
+    opts.mute_days = Number(arg || 0)
+    opts.mute_scope = 'all'
+    opts.status = 'resolved'
+    okText = opts.mute_days > 0 ? `已禁言 ${opts.mute_days} 天` : '已永久禁言'
+    confirmText = `确定对「${r.target_author_nickname || '该用户'}」执行${
+      opts.mute_days > 0 ? `禁言 ${opts.mute_days} 天` : '永久禁言'}？`
+  } else if (kind === 'ban') {
+    opts.status = 'resolved'; okText = '已封禁'
+    confirmText = `确定封禁「${r.target_author_nickname || '该用户'}」？` +
+                  '对方将无法登录、发帖、评论。'
+  }
+
+  // 处罚类动作一律二次确认 —— 这类操作误点代价高，且此前暖库那种"点了就跑"是记过档的问题
+  try {
+    await ElMessageBox.confirm(confirmText, '确认处置', {
+      confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning',
+    })
+  } catch { return }   // 用户取消
+
+  return doResolve(r, opts, okText)
+}
+
+const ACTION_TAKEN_LABEL = {
+  dismiss: '已驳回', mark: '已处理', warn: '已警告',
+  delete_content: '已删内容', mute: '已禁言', ban: '已封禁',
+}
+function actionTakenLabel(a) { return ACTION_TAKEN_LABEL[a] || '已处理' }
 
 async function resolveFeedbackItem(f) {
   try {
@@ -254,7 +351,7 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
 .admin-reports { max-width: 1100px; }
 
 .page-header { margin-bottom: 18px; }
-.page-title { font-size: 20px; font-weight: 600; color: #e0e0e0; margin: 0; }
+.page-title { font-size: 20px; font-weight: 600; color: var(--text-primary); margin: 0; }
 
 /* ===== Tab ===== */
 .tab-bar {
@@ -269,14 +366,14 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
   gap: 6px;
   padding: 8px 18px;
   background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.25s;
 }
-.tab-btn:hover { background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent); color: rgba(255, 255, 255, 0.7); }
+.tab-btn:hover { background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent); color: var(--text-primary); }
 .tab-btn.active {
   background: color-mix(in srgb, var(--brand) 12%, transparent);
   border-color: color-mix(in srgb, var(--brand) 20%, transparent);
@@ -287,14 +384,14 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
 .table-wrap {
   background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   border-radius: 14px;
   overflow: hidden;
 }
 
 .filter-row {
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .data-table {
@@ -307,20 +404,33 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
   padding: 10px 14px;
   font-size: 11px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
   text-transform: uppercase;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .data-table td {
   padding: 10px 14px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.65);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 2%, transparent);
 }
 
 .reason-cell, .content-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.date-cell { font-size: 12px; color: rgba(255, 255, 255, 0.3); white-space: nowrap; }
+
+/* 被举报内容快照：管理员审核时要先看清"被举报的是什么"，
+   所以这里给足宽度并允许换行（与只会截断的 reason-cell 不同） */
+.snapshot-cell { max-width: 320px; }
+.snapshot-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.date-cell { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 
 .target-tag, .type-tag {
   display: inline-block;
@@ -328,7 +438,7 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
   border-radius: 10px;
   font-size: 11px;
   background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .status-tag {
@@ -343,23 +453,23 @@ onMounted(() => { loadReports(); loadFeedback(); loadQA() })
 .status-tag.dismissed { background: rgba(144, 147, 153, 0.12); color: #909399; }
 
 .action-btns { display: flex; gap: 4px; }
-.done-text { color: rgba(255, 255, 255, 0.2); font-size: 12px; }
+.done-text { color: var(--text-muted); font-size: 12px; }
 .img-link { color: var(--brand); font-size: 12px; text-decoration: none; }
 .img-link:hover { text-decoration: underline; }
 
 .empty {
   padding: 48px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--text-muted);
   font-size: 14px;
 }
 
 /* ===== Element 覆盖 ===== */
 :deep(.el-select .el-input__wrapper) {
   background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent) !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent) !important;
   border-radius: 8px !important;
   box-shadow: none !important;
 }
-:deep(.el-select .el-input__inner) { color: #e0e0e0 !important; }
+:deep(.el-select .el-input__inner) { color: var(--text-primary) !important; }
 </style>

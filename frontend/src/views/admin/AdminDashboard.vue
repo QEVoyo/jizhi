@@ -138,13 +138,13 @@ onMounted(loadStats)
 .page-title {
   font-size: 22px;
   font-weight: 600;
-  color: #e0e0e0;
+  color: var(--text-primary);
   margin: 0 0 4px;
 }
 
 .page-subtitle {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   margin: 0 0 28px;
 }
 
@@ -159,7 +159,7 @@ onMounted(loadStats)
 .stat-card {
   background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   border-radius: 14px;
   padding: 20px;
   display: flex;
@@ -171,7 +171,7 @@ onMounted(loadStats)
 .stat-card:hover {
   background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--text-muted);
 }
 .stat-card.warning {
   cursor: pointer;
@@ -204,13 +204,13 @@ onMounted(loadStats)
 .stat-value {
   font-size: 24px;
   font-weight: 700;
-  color: #e0e0e0;
+  color: var(--text-primary);
   line-height: 1.2;
 }
 
 .stat-label {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -218,7 +218,7 @@ onMounted(loadStats)
 .quick-actions h3 {
   font-size: 15px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   margin: 0 0 14px;
 }
 
@@ -235,16 +235,16 @@ onMounted(loadStats)
   gap: 8px;
   padding: 10px 22px;
   background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.25s ease;
 }
 .action-btn:hover {
   background: color-mix(in srgb, var(--surface, #ffffff) 7%, transparent);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--text-muted);
   transform: translateY(-1px);
   color: var(--text-primary);
 }

@@ -294,7 +294,7 @@ onUnmounted(() => {
 .particle-container {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   overflow: hidden;
 }
 

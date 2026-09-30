@@ -10,7 +10,7 @@ import json
 import re
 from utils.sensitive_words import check_content_safety
 from utils.auth_middleware import get_current_user, verify_user_match
-from services import video_gen
+from services import task_queue, video_gen
 from logging_config import logger
 
 router = APIRouter(prefix="/questions", tags=["题目"])
@@ -782,15 +782,22 @@ async def generate_question_core(user_id, category, topic, question_type, diffic
                     raise HTTPException(status_code=400, detail=f"保存题目失败: {res.text}")
 
         # 题入库即排视频（2026-09-04 定稿）：知识点级懒生成。
-        # fire-and-forget：命中库直接复用零消耗；缺口后台排产，不阻塞出题返回
+        # 走 Redis 队列而不是 asyncio.create_task —— 生成要几分钟，
+        # 挂进程里重启就丢、多开 uvicorn 还会重复跑同一格。
+        # 排产失败**不影响出题**（排产是附带的），但要 ERROR 级留痕：
+        # 静默吞掉的话，「视频一直不出来」会变成一桩查不出的悬案。
         try:
             subject = result.get("category") or "通用"
             kp_name = result.get("normalized_topic") or topic or ""
             if kp_name:
                 nk = video_gen.make_knowledge_key(subject, kp_name)
-                asyncio.create_task(video_gen.ensure_videos(nk, kp_name, subject=subject))
+                await task_queue.enqueue(
+                    "video.generate",
+                    subject=subject,
+                    knowledge_key=nk,
+                )
         except Exception as e:
-            logger.info(f"视频排产失败（不影响出题）: {e}")
+            logger.error(f"❌ 视频排产入队失败（出题不受影响）: {e}")
 
         return result
 

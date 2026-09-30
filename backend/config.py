@@ -38,6 +38,16 @@ class Settings:
     REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
     REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 
+    # ===== 异步任务队列（Redis）=====
+    # 视频生成、批量 AI 分析这类几十秒到几分钟的活走队列，不要在请求里同步跑，
+    # 也不要用裸 asyncio.create_task（进程重启就丢、多 worker 不协调）。
+    # 服务器上需要跑一个 Redis，以及一个 `python worker.py` 常驻进程。
+    REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
+    # 队列连不上时是否退回进程内执行。**默认 False** ——
+    # 静默降级正是这个项目反复吃亏的地方：看起来在跑，其实没进队列，
+    # 重启就丢且没人知道。要退回必须显式打开，并且日志里会有 ERROR。
+    TASK_QUEUE_FALLBACK_INLINE = os.getenv("TASK_QUEUE_FALLBACK_INLINE", "false").lower() == "true"
+
     # 火山引擎（豆包）
     VOLC_ACCESS_KEY = os.getenv("VOLC_ACCESS_KEY")
     VOLC_SECRET_KEY = os.getenv("VOLC_SECRET_KEY")

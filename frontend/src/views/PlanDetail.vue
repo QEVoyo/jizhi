@@ -366,7 +366,7 @@ onMounted(() => {
 <style scoped>
 /* 样式基本不变，只改 date-num 和布局 */
 .plan-detail-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   display: flex;
   justify-content: center;
   align-items: flex-start;

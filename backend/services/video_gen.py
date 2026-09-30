@@ -655,22 +655,37 @@ async def related_videos(
     if len(items) < limit:
         resp = await db.select("video_library", select="*", use_service_role=True)
         pool = [r for r in (resp.json() if resp.status_code < 300 else []) if r.get("status") == "ready"]
+
+        # ⚠️ 视频库历史上混用了三套 subject 命名：syllabus id（ncre2-office）、
+        # syllabus 中文名、以及出题 AI 判定的 category（计算机 / excel …）。
+        # knowledge_key 的形式是 f"{subject}:{sha1(知识点)[:12]}"，前缀不同 → 同一个
+        # 知识点算出来的完整 key 也不同，只按完整 key 精确匹配会把它在别的命名下的
+        # 视频全部漏掉（实测：ncre2-office:5ca68d755414 有 4 条，excel:5ca68d755414 0 条）。
+        #
+        # 另外，老代码的兜底写在 `if subject:` 分支里，而前端永远传非空 subject，
+        # 所以 55 分的全局兜底**永远走不到**，结果必然是空列表。
+        # 这里改成按分值降级的三档，且第一档只看「知识点哈希」跨命名匹配。2026-09-27 修。
+        def _kp_hash(v):
+            s = str(v or "")
+            return s.split(":", 1)[1] if ":" in s else s
+
+        kp_hash = _kp_hash(knowledge_key)
+        seen = {r.get("id") for r in items}
+
+        tiers = [(90, [r for r in pool if _kp_hash(r.get("knowledge_key")) == kp_hash])]
         if subject:
-            reserve = sorted(
-                (r for r in pool if r.get("subject") == subject and r.get("knowledge_key") != knowledge_key),
-                key=lambda r: -(r.get("use_count") or 0),
-            )
-            fallback_score = 70
-        else:
-            reserve = sorted(
-                (r for r in pool if r.get("knowledge_key") != knowledge_key),
-                key=lambda r: -(r.get("use_count") or 0),
-            )
-            fallback_score = 55
-        for r in reserve:
-            if len(items) >= limit:
-                break
-            items.append(dict(r, match_score=fallback_score))
+            tiers.append((70, [r for r in pool if r.get("subject") == subject]))
+        tiers.append((55, [r for r in pool if r.get("knowledge_key") != knowledge_key]))
+
+        for score, group in tiers:
+            group.sort(key=lambda r: -(r.get("use_count") or 0))
+            for r in group:
+                if len(items) >= limit:
+                    break
+                if r.get("id") in seen:
+                    continue
+                seen.add(r.get("id"))
+                items.append(dict(r, match_score=score))
 
     # 快照题↔视频绑定（先删后插，简单幂等；失败不阻塞检索返回）
     if question_fingerprint and items:
