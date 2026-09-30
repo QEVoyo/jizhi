@@ -25,7 +25,7 @@
       <section class="guide-section">
         <h3>一、快速上手</h3>
         <ol class="guide-steps">
-          <li><strong>注册登录</strong> — 邮箱注册或微信扫码，完成学习偏好引导（阶段/目标/每日时长）</li>
+          <li><strong>注册登录</strong> — 邮箱注册，完成学习偏好引导（阶段/目标/每日时长）</li>
           <li><strong>选考纲，生成计划</strong> — 学科计划 17 考纲任选，摸底诊断或真题答卷生成三阶段计划</li>
           <li><strong>每日任务</strong> — AI 实时讲解 → 做题练习 → 错题复习，掌握度自动更新</li>
           <li><strong>真题冲刺</strong> — 12 套真题计时做题、交卷出分、AI 错因分析</li>
@@ -105,7 +105,7 @@ const modules = [
 
 <style scoped>
 .guide-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   padding: 32px 20px 48px;
   display: flex;
   justify-content: center;

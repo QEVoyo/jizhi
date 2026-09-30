@@ -1443,7 +1443,7 @@ let liveText = ''
 let closeTimer = null
 
 function asrWsUrl() {
-  const base = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+  const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
   return base.replace(/^http/, 'ws') + '/xiaoji/asr-ws'
 }
 
@@ -2542,7 +2542,8 @@ async function clearHistory() {
 }
 
 function goSettings() {
-  router.push('/xiaoji/settings')
+  // 全站只有一处设置：小基的各项已并进 /settings，不再单独成页
+  router.push('/settings')
 }
 
 function handleResize() {
@@ -2581,7 +2582,7 @@ onUnmounted(() => {
 .xiaoji-call-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: calc(100vh - var(--jz-top, 0px));
   background: var(--bg-color);
   color: var(--text-primary);
   overflow: hidden;

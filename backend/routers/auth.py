@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Header, Depends, Request
-from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
 from config import settings
@@ -11,11 +10,15 @@ from PIL import Image
 import io
 from utils.email import send_verification_code_email
 from utils.auth_middleware import get_current_user, verify_user_match
-from services.supabase import get_supabase_headers
+from services.supabase import get_supabase_headers, get_supabase_service_headers
 from utils.rate_limit import check_rate_limit
 from logging_config import logger
 
 router = APIRouter(prefix="/auth", tags=["认证"])
+
+# 微信不提供邮箱，而建号必须有个唯一登录标识 —— 用这个保留域做占位。
+# .local 是 RFC 6762 保留 TLD，永远不可投递；用户之后可在设置页补真实邮箱+密码。
+WECHAT_PLACEHOLDER_DOMAIN = "miniapp.local"
 
 
 class LoginRequest(BaseModel):
@@ -523,24 +526,158 @@ async def update_password(
         return {"success": True, "message": "密码修改成功"}
 
 
+class SetCredentialsRequest(BaseModel):
+    email: str
+    code: str
+    password: str
+
+
+@router.post("/set-credentials")
+async def set_credentials(
+    req: SetCredentialsRequest,
+    user_id: str = Query(...),
+    current_user: str = Depends(get_current_user)
+):
+    """给「微信一键登录」建的账号补上真实邮箱和密码。
+
+    微信建的号只有一个占位邮箱（wx_*@miniapp.local）和一个没人知道的随机密码，
+    用户在网页端/桌面端/手机端够不着它。补上邮箱+密码后，同一个账号到处都能登。
+
+    这是**替代「账号合并」**的做法：不迁移任何数据，只是给账号补一把能用的钥匙。
+    所以不存在「两个账号合一个」那种要改 user_id 的工程。
+
+    只对占位邮箱的账号开放；已有真实邮箱的账号要改邮箱是另一件事（未做）。
+    """
+    verify_user_match(user_id, current_user)
+
+    if not settings.SUPABASE_SERVICE_ROLE_KEY:
+        logger.error("❌ 未配置 SUPABASE_SERVICE_ROLE_KEY，无法设置邮箱密码")
+        raise HTTPException(status_code=500,
+                            detail="服务端未配置 SUPABASE_SERVICE_ROLE_KEY，该功能不可用")
+
+    email = (req.email or "").strip().lower()
+    if "@" not in email or email.startswith("@") or email.endswith("@"):
+        raise HTTPException(status_code=400, detail="邮箱格式不正确")
+    if len(req.password or "") < 6:
+        raise HTTPException(status_code=400, detail="密码至少 6 位")
+
+    svc_headers = get_supabase_service_headers()
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # ── 1. 确认这是微信建的号 ──
+        profile_res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=id,email",
+            headers=svc_headers)
+        rows = profile_res.json() if profile_res.status_code == 200 else []
+        if not rows:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        current_email = (rows[0].get("email") or "").lower()
+        if not current_email.endswith("@" + WECHAT_PLACEHOLDER_DOMAIN):
+            raise HTTPException(status_code=400,
+                                detail="该账号已有邮箱和密码，如需修改密码请用「修改密码」")
+
+        # ── 2. 新邮箱不能已被别人占用 ──
+        taken_res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/profiles?email=eq.{email}&select=id&limit=1",
+            headers=svc_headers)
+        if taken_res.status_code == 200 and taken_res.json():
+            raise HTTPException(status_code=400, detail="该邮箱已被其他账号使用")
+
+        # ── 3. 校验邮箱验证码（与 /register 同一张表、同一套规则）──
+        code_res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/email_verification_codes"
+            f"?email=eq.{email}&order=created_at.desc&limit=1",
+            headers=svc_headers)
+        if code_res.status_code != 200 or not code_res.json():
+            raise HTTPException(status_code=400, detail="请先获取验证码")
+        record = code_res.json()[0]
+        if record.get("code") != req.code:
+            raise HTTPException(status_code=400, detail="验证码错误")
+        expires_at = record.get("expires_at")
+        if expires_at and time.time() > expires_at:
+            raise HTTPException(status_code=400, detail="验证码已过期，请重新获取")
+        if record.get("used", False):
+            raise HTTPException(status_code=400, detail="验证码已使用，请重新获取")
+
+        # ── 4. 写 auth 用户（这一步才是真正让「邮箱登录」生效的）──
+        upd_res = await client.put(
+            f"{settings.SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+            headers=svc_headers,
+            json={"email": email, "password": req.password, "email_confirm": True})
+        if upd_res.status_code not in [200, 201]:
+            logger.error(f"❌ 设置邮箱密码失败({upd_res.status_code}): {upd_res.text}")
+            if "already" in (upd_res.text or "").lower():
+                raise HTTPException(status_code=400, detail="该邮箱已被其他账号使用")
+            raise HTTPException(status_code=502, detail="设置失败，请稍后重试")
+
+        # ── 5. 同步 profiles.email ──
+        # 注意顺序：auth 先写、profiles 后写。若这步失败，profiles.email 仍是占位值，
+        # 第 1 步的闸门就还开着、验证码也还没标记已用 —— 用户原地重试即可，不会卡死。
+        patch_res = await client.patch(
+            f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}",
+            headers=svc_headers, json={"email": email})
+        if patch_res.status_code not in [200, 204]:
+            logger.error(f"❌ 同步 profiles.email 失败({patch_res.status_code}): {patch_res.text}")
+            raise HTTPException(status_code=502, detail="设置失败，请稍后重试")
+
+        # 回读：RLS 拦住的 UPDATE 是「静默 0 行 + 204」，只有回读能发现（09-27 的教训）
+        check_res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=email",
+            headers=svc_headers)
+        crows = check_res.json() if check_res.status_code == 200 else []
+        stored = (crows[0].get("email") or "").lower() if crows else None
+        if stored != email:
+            logger.error(f"❌ 邮箱回读校验失败: 期望 {email}，库里 {stored}")
+            raise HTTPException(status_code=502, detail="设置失败，请稍后重试")
+
+        # ── 6. 验证码标记已用 ──
+        await client.patch(
+            f"{settings.SUPABASE_URL}/rest/v1/email_verification_codes?id=eq.{record['id']}",
+            headers=svc_headers, json={"used": True})
+
+    logger.info(f"✅ 用户 {user_id} 补设邮箱密码: {email}")
+    return {"success": True, "email": email,
+            "message": "设置成功，现在可以用这个邮箱在网页端/桌面端/手机端登录了"}
+
+
+@router.get("/account-status")
+async def account_status(
+    user_id: str = Query(...),
+    current_user: str = Depends(get_current_user)
+):
+    """账号登录凭据状态 —— 让客户端知道该显示「修改密码」还是「设置邮箱和密码」。
+
+    微信一键登录建的号：占位邮箱 + 一个没人知道的随机密码。这种账号在「修改密码」
+    表单里必然卡死（第一步就要输当前密码，而用户根本不知道）。所以要先问清楚。
+    """
+    verify_user_match(user_id, current_user)
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=email",
+            headers=get_supabase_service_headers())
+        rows = res.json() if res.status_code == 200 else []
+        if not rows:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        email = (rows[0].get("email") or "").strip().lower()
+
+    # 邮箱为空或还是占位域 —— 都算「没有可用凭据」
+    has_credentials = bool(email) and not email.endswith("@" + WECHAT_PLACEHOLDER_DOMAIN)
+    return {
+        "email_set": has_credentials,
+        "email": email if has_credentials else None,
+        "can_change_password": has_credentials,
+    }
+
+
 # ============================================================
-# 微信公众平台测试号 · 网页扫码登录（个人可用，免费）
+# JWT 签发
 # ============================================================
-# 流程：网页生成二维码 → 用户微信扫码 → 公众号授权页 → 授权后
-#       微信浏览器回调后端 → 后端记录结果 → 网页轮询拿到 token
-# ============================================================
-import hashlib
 import secrets
 import jwt as pyjwt
-import qrcode as qrcode_lib
-import io as _io
-import base64 as _b64
 from datetime import datetime, timedelta
-from urllib.parse import quote
 
 # 内存临时存储（生产环境应换 Redis）
-_poll_results: dict[str, dict] = {}              # poll_token → {jwt, user_info, created_at}
-_state_map: dict[str, dict] = {}                  # state → {poll_token, created_at}
 _temp_user_store: dict[str, dict] = {}            # user_id → user info（Supabase 不可用时）
 
 
@@ -557,306 +694,110 @@ def _gen_jwt(user_id: str, extra: dict = None) -> str:
     return pyjwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-def _cleanup_expired():
-    """清理过期的 poll / state"""
-    now = time.time()
-    for store in [_poll_results, _state_map]:
-        expired = [k for k, v in store.items()
-                   if now - v.get("created_at", now) > 600]
-        for k in expired:
-            del store[k]
+# ── 微信首次登录：直接建号 ──
+async def _delete_auth_user(client: httpx.AsyncClient, svc_headers: dict, user_id: str) -> None:
+    """回滚：删掉刚建的 auth 用户。尽力而为，失败只留痕——留着孤儿账号也比抛错强。"""
+    try:
+        r = await client.delete(
+            f"{settings.SUPABASE_URL}/auth/v1/admin/users/{user_id}", headers=svc_headers)
+        if r.status_code not in [200, 204]:
+            logger.warning(f"回滚删除 auth 用户失败({r.status_code}): {r.text}")
+    except Exception as e:
+        logger.warning(f"回滚删除 auth 用户异常: {e}")
 
 
-@router.get("/wechat/qrcode")
-async def wechat_qrcode(redirect: str = "/home"):
+async def _pick_user_account(client: httpx.AsyncClient, svc_headers: dict) -> str:
+    """生成一个没被占用的 8 位数字账号。
+
+    profiles.user_account 目前没有 UNIQUE 约束（/auth/register 也不查重），
+    而 /auth/login 按用户名登录时取的是 `[0]`——真撞了会登进别人的号。
+    这里先做一层应用侧查重兜住常见情况。
     """
-    返回微信扫码登录的二维码（base64 PNG）和轮询 token。
-    仅限已绑定微信的账号——未绑定则返回 bound: false。
+    for _ in range(5):
+        candidate = str(random.randint(10000000, 99999999))
+        r = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/profiles?user_account=eq.{candidate}&select=id&limit=1",
+            headers=svc_headers)
+        if r.status_code == 200 and not r.json():
+            return candidate
+        if r.status_code != 200:
+            logger.warning(f"账号查重失败({r.status_code})，改用更大取值范围")
+            break
+    return str(random.randint(100000000, 999999999))
+
+
+async def _create_wechat_account(openid: str, unionid: str) -> tuple[str, str, str]:
+    """给首次登录的微信用户建一个基智账号，返回 (user_id, nickname, user_account)。
+
+    微信不提供邮箱，而建号又必须有个唯一登录标识，所以用一个占位邮箱。
+    占位域用 .local（RFC 6762 保留 TLD，永远不可投递）——用户之后可以在设置页
+    补真实邮箱+密码（见 /auth/set-credentials），补完就能在网页/桌面/手机端登录同一个号。
     """
-    if not settings.WECHAT_WEB_APPID or not settings.WECHAT_WEB_SECRET:
-        raise HTTPException(status_code=503,
-                            detail="微信登录未配置。请前往 mp.weixin.qq.com/debug 获取测试号 appid/secret")
+    if not settings.SUPABASE_SERVICE_ROLE_KEY:
+        # 没 service_role 就建不了号。这时必须报错：
+        # 静默降级会让用户以为登录成功，实际什么都没建。
+        logger.error("❌ 未配置 SUPABASE_SERVICE_ROLE_KEY，无法为微信新用户建号")
+        raise HTTPException(status_code=500,
+                            detail="服务端未配置 SUPABASE_SERVICE_ROLE_KEY，微信登录不可用")
 
-    _cleanup_expired()
+    svc_headers = get_supabase_service_headers()
+    nickname = f"微信用户{openid[-6:]}"
+    placeholder_email = f"wx_{openid}@{WECHAT_PLACEHOLDER_DOMAIN}"
 
-    poll_token = secrets.token_urlsafe(24)
-    state = secrets.token_urlsafe(32)
-    _state_map[state] = {"poll_token": poll_token, "mode": "login", "created_at": time.time()}
-    _poll_results[poll_token] = {"created_at": time.time()}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # ── 1. 建 auth 用户 ──
+        create_res = await client.post(
+            f"{settings.SUPABASE_URL}/auth/v1/admin/users",
+            headers=svc_headers,
+            json={
+                "email": placeholder_email,
+                "password": secrets.token_urlsafe(32),  # 随机密码：没人知道，也登不了
+                "email_confirm": True,                  # 占位邮箱收不到确认信，必须直接确认
+            })
+        if create_res.status_code not in [200, 201]:
+            logger.error(f"❌ 微信建号失败({create_res.status_code}): {create_res.text}")
+            raise HTTPException(status_code=502, detail="创建账号失败，请稍后重试")
 
-    callback_url = f"{settings.BACKEND_EXTERNAL_URL}/auth/wechat/callback"
-    oauth_url = (
-        f"https://open.weixin.qq.com/connect/oauth2/authorize"
-        f"?appid={settings.WECHAT_WEB_APPID}"
-        f"&redirect_uri={quote(callback_url, safe='')}"
-        f"&response_type=code"
-        f"&scope=snsapi_userinfo"
-        f"&state={state}"
-        f"#wechat_redirect"
-    )
+        user_id = (create_res.json() or {}).get("id")
+        if not user_id:
+            logger.error(f"❌ 微信建号未返回 id: {create_res.text}")
+            raise HTTPException(status_code=502, detail="创建账号失败，请稍后重试")
 
-    img = qrcode_lib.make(oauth_url)
-    buf = _io.BytesIO()
-    img.save(buf, format='PNG')
-    qr_base64 = _b64.b64encode(buf.getvalue()).decode()
-
-    return {
-        "qrcode": f"data:image/png;base64,{qr_base64}",
-        "poll_token": poll_token,
-        "expires_in": 300,
-    }
-
-
-@router.get("/wechat/bind-qrcode")
-async def wechat_bind_qrcode(current_user: str = Depends(get_current_user)):
-    """
-    已登录用户绑定微信——返回二维码，扫码后 openid 写入该用户的 profiles。
-    """
-    if not settings.WECHAT_WEB_APPID or not settings.WECHAT_WEB_SECRET:
-        raise HTTPException(status_code=503,
-                            detail="微信登录未配置。请前往 mp.weixin.qq.com/debug 获取测试号 appid/secret")
-
-    _cleanup_expired()
-
-    poll_token = secrets.token_urlsafe(24)
-    state = secrets.token_urlsafe(32)
-    _state_map[state] = {
-        "poll_token": poll_token,
-        "mode": "bind",
-        "user_id": current_user,
-        "created_at": time.time()
-    }
-    _poll_results[poll_token] = {"created_at": time.time()}
-
-    callback_url = f"{settings.BACKEND_EXTERNAL_URL}/auth/wechat/callback"
-    oauth_url = (
-        f"https://open.weixin.qq.com/connect/oauth2/authorize"
-        f"?appid={settings.WECHAT_WEB_APPID}"
-        f"&redirect_uri={quote(callback_url, safe='')}"
-        f"&response_type=code"
-        f"&scope=snsapi_userinfo"
-        f"&state={state}"
-        f"#wechat_redirect"
-    )
-
-    img = qrcode_lib.make(oauth_url)
-    buf = _io.BytesIO()
-    img.save(buf, format='PNG')
-    qr_base64 = _b64.b64encode(buf.getvalue()).decode()
-
-    return {
-        "qrcode": f"data:image/png;base64,{qr_base64}",
-        "poll_token": poll_token,
-        "expires_in": 300,
-    }
-
-
-@router.get("/wechat/callback")
-async def wechat_oauth_callback(code: str, state: str):
-    """
-    微信公众号 OAuth 回调——微信浏览器扫码授权后调这里。
-
-    这个端点被手机微信浏览器访问，因此需要 BACKEND_EXTERNAL_URL 能从手机访问到。
-    """
-    entry = _state_map.pop(state, None)
-    if not entry:
-        return HTMLResponse("<h2>已过期，请返回网页重新操作</h2>", status_code=400)
-    poll_token = entry.get("poll_token")
-    mode = entry.get("mode", "login")
-    bind_user_id = entry.get("user_id")  # 仅 bind 模式有
-
-    # 用 code 换 access_token
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        token_url = (
-            f"https://api.weixin.qq.com/sns/oauth2/access_token"
-            f"?appid={settings.WECHAT_WEB_APPID}"
-            f"&secret={settings.WECHAT_WEB_SECRET}"
-            f"&code={code}"
-            f"&grant_type=authorization_code"
-        )
-        token_res = await client.get(token_url)
-        if token_res.status_code != 200:
-            return HTMLResponse("<h2>微信服务器无响应，请重试</h2>", status_code=502)
-
-        token_data = token_res.json()
-        if "errcode" in token_data:
-            errmsg = token_data.get("errmsg", "")
-            return HTMLResponse(f"<h2>微信授权失败：{errmsg}</h2>", status_code=400)
-
-        access_token = token_data.get("access_token")
-        openid = token_data.get("openid")
-        unionid = token_data.get("unionid", "")
-
-        if not openid:
-            return HTMLResponse("<h2>未获取到用户标识</h2>", status_code=502)
-
-        # 获取用户信息
-        nickname = ""
-        avatar_url = ""
-        userinfo_res = await client.get(
-            f"https://api.weixin.qq.com/sns/userinfo?access_token={access_token}&openid={openid}"
-        )
-        if userinfo_res.status_code == 200:
-            ui = userinfo_res.json()
-            if "errcode" not in ui:
-                nickname = ui.get("nickname", "")
-                avatar_url = ui.get("headimgurl", "")
-
-    if mode == "bind":
-        # ── 绑定模式：将 openid 写入已登录用户 ──
-        ok = await _bind_wechat_to_user(bind_user_id, openid, unionid, nickname, avatar_url)
-        if ok:
-            _poll_results[poll_token] = {
-                "created_at": time.time(),
-                "bound": True,
+        # ── 2. 建 profile ──
+        user_account = await _pick_user_account(client, svc_headers)
+        profile_res = await client.post(
+            f"{settings.SUPABASE_URL}/rest/v1/profiles",
+            headers=svc_headers,
+            json={
+                "id": user_id,
+                "email": placeholder_email,
                 "nickname": nickname,
-            }
-            return HTMLResponse(f"""
-            <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-            <style>body{{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;
-            font-family:-apple-system,sans-serif;background:#f5f5f5}}</style></head>
-            <body><div style="text-align:center;padding:24px;border-radius:16px;background:#fff;box-shadow:0 2px 16px rgba(0,0,0,.08)">
-            <div style="font-size:48px;margin-bottom:12px">🔗</div>
-            <h2 style="margin:0 0 4px;color:#07c160">绑定成功</h2>
-            <p style="color:#999;margin:0">微信已绑定到账号</p>
-            <p style="color:#bbb;font-size:13px;margin-top:16px">{nickname or ''}</p>
-            </div></body></html>
-            """)
-        else:
-            _poll_results[poll_token] = {"created_at": time.time(), "bound": False, "error": "绑定失败，请重试"}
-            return HTMLResponse("<h2>绑定失败，请重试</h2>", status_code=400)
+                "user_account": user_account,
+                "wechat_openid": openid,
+                "wechat_unionid": unionid or "",
+            })
+        if profile_res.status_code not in [200, 201]:
+            # profile 写不进去 = openid 没落库 = 下次登录会再建一个新号。
+            # 必须回滚掉刚建的 auth 用户，否则每次重试都漏一个孤儿账号。
+            logger.error(f"❌ 微信建号 profile 写入失败({profile_res.status_code}): {profile_res.text}")
+            await _delete_auth_user(client, svc_headers, user_id)
+            raise HTTPException(status_code=502, detail="创建账号失败，请稍后重试")
 
-    else:
-        # ── 登录模式：查 openid 是否已绑定 ──
-        user = await _find_wechat_user(openid, unionid)
-        if user:
-            jwt_token = _gen_jwt(user["id"])
-            _poll_results[poll_token] = {
-                "created_at": time.time(),
-                "access_token": jwt_token,
-                "user": user,
-            }
-            return HTMLResponse(f"""
-            <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-            <style>body{{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;
-            font-family:-apple-system,sans-serif;background:#f5f5f5}}</style></head>
-            <body><div style="text-align:center;padding:24px;border-radius:16px;background:#fff;box-shadow:0 2px 16px rgba(0,0,0,.08)">
-            <div style="font-size:48px;margin-bottom:12px">✅</div>
-            <h2 style="margin:0 0 4px;color:#07c160">登录成功</h2>
-            <p style="color:#999;margin:0">请返回网页继续</p>
-            <p style="color:#bbb;font-size:13px;margin-top:16px">{user.get('nickname', '')}</p>
-            </div></body></html>
-            """)
-        else:
-            # 未绑定
-            _poll_results[poll_token] = {
-                "created_at": time.time(),
-                "bound": False,
-                "wechat_nickname": nickname,
-                "wechat_avatar": avatar_url,
-            }
-            return HTMLResponse(f"""
-            <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-            <style>body{{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;
-            font-family:-apple-system,sans-serif;background:#f5f5f5}}</style></head>
-            <body><div style="text-align:center;padding:24px;border-radius:16px;background:#fff;box-shadow:0 2px 16px rgba(0,0,0,.08)">
-            <div style="font-size:48px;margin-bottom:12px">⚠️</div>
-            <h2 style="margin:0 0 4px;color:#f59e0b">未绑定账号</h2>
-            <p style="color:#999;margin:4px 0">请用账号密码登录后</p>
-            <p style="color:#999;margin:0">在个人中心绑定微信</p>
-            <p style="color:#bbb;font-size:13px;margin-top:16px">{nickname or ''}</p>
-            </div></body></html>
-            """)
+        # ── 3. 回读校验：openid 必须真的落库 ──
+        # 它是这个账号唯一的找回凭据；写丢了用户下次登录就会变成一个全新账号，
+        # 而且学习记录全留在旧号上。INSERT 失败会报错，但值被改写不会——只有回读能发现。
+        check_res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=id,wechat_openid",
+            headers=svc_headers)
+        rows = check_res.json() if check_res.status_code == 200 else []
+        stored_openid = rows[0].get("wechat_openid") if rows else None
+        if stored_openid != openid:
+            logger.error(f"❌ 微信建号回读校验失败: 期望 {openid}，库里 {stored_openid}")
+            await _delete_auth_user(client, svc_headers, user_id)
+            raise HTTPException(status_code=502, detail="创建账号失败，请稍后重试")
 
-
-@router.get("/wechat/poll/{poll_token}")
-async def wechat_poll(poll_token: str):
-    """
-    网页端轮询此接口。
-
-    返回：
-    - {ready: false}                     → 还没扫码
-    - {ready: true, access_token, user}  → 登录成功
-    - {ready: true, bound: false}        → 未绑定账号
-    - {ready: true, bound: true}         → 绑定成功
-    """
-    _cleanup_expired()
-
-    result = _poll_results.get(poll_token)
-    if not result:
-        return {"ready": False, "error": "二维码已过期，请重新获取"}
-
-    if "access_token" in result:
-        token = result.pop("access_token")
-        user = result.pop("user")
-        return {"ready": True, "access_token": token, "user": user}
-    elif "bound" in result:
-        # 绑定结果或未绑定
-        out = {"ready": True, "bound": result.get("bound", False)}
-        if "error" in result:
-            out["error"] = result["error"]
-        if "nickname" in result:
-            out["nickname"] = result["nickname"]
-        del _poll_results[poll_token]
-        return out
-
-    return {"ready": False}
-
-
-# ── 查找微信用户（仅查询，不创建）──
-async def _find_wechat_user(openid: str, unionid: str) -> dict | None:
-    """从 Supabase profiles 查 openid/unionid 对应的用户，未找到返回 None"""
-    try:
-        headers = {
-            "apikey": settings.SUPABASE_KEY,
-            "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-        }
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            for field, val in [("wechat_unionid", unionid), ("wechat_openid", openid)]:
-                if not val:
-                    continue
-                r = await client.get(
-                    f"{settings.SUPABASE_URL}/rest/v1/profiles?{field}=eq.{val}&limit=1",
-                    headers=headers)
-                if r.status_code == 200 and r.json():
-                    p = r.json()[0]
-                    return {
-                        "id": p["id"], "email": p.get("email"), "nickname": p.get("nickname"),
-                        "user_account": p.get("user_account"), "avatar_url": p.get("avatar_url"),
-                        "role": p.get("role", "user"), "is_admin": p.get("is_admin", False),
-                        "wechat_openid": openid, "wechat_unionid": unionid,
-                    }
-    except Exception as e:
-        logger.warning(f"查询微信用户失败: {e}")
-    return None
-
-
-# ── 绑定微信到账户 ──
-async def _bind_wechat_to_user(user_id: str, openid: str, unionid: str, nickname: str, avatar_url: str) -> bool:
-    """将 openid/unionid 写入指定用户的 profiles"""
-    try:
-        headers = {
-            "apikey": settings.SUPABASE_KEY,
-            "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-            "Prefer": "return=minimal",
-        }
-        data = {"wechat_openid": openid, "wechat_unionid": unionid or ""}
-        if nickname:
-            data["nickname"] = nickname
-        if avatar_url:
-            data["avatar_url"] = avatar_url
-
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.patch(
-                f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}",
-                headers=headers, json=data)
-            if r.status_code in [200, 204]:
-                return True
-            logger.warning(f"绑定微信失败({r.status_code}): {r.text}")
-    except Exception as e:
-        logger.warning(f"绑定微信异常: {e}")
-    return False
+    logger.info(f"✅ 微信首次登录建号 user_id={user_id} account={user_account}")
+    return user_id, nickname, user_account
 
 
 # ============================================================
@@ -909,7 +850,7 @@ async def wx_miniapp_login(req: WxLoginRequest):
     if not openid:
         raise HTTPException(status_code=502, detail="未获取到微信 openid")
 
-    # ── 查找已绑定用户（不再自动创建新账号）──
+    # ── 先按 openid / unionid 找已有账号 ──
     user_id = None
     exist_user = None
 
@@ -939,28 +880,19 @@ async def wx_miniapp_login(req: WxLoginRequest):
                     exist_user = query_res.json()[0]
 
             if exist_user:
-                # ✅ 已绑定 — 直接登录
+                # ✅ 已有账号 — 直接登录
                 user_id = exist_user.get("id")
                 nickname = exist_user.get("nickname") or f"微信用户{openid[-6:]}"
                 user_account = exist_user.get("user_account")
-            else:
-                # ❌ 未绑定 — 返回 need_bind，让用户输入网页账号密码来绑定
-                return {
-                    "success": True,
-                    "need_bind": True,
-                    "openid": openid,
-                    "unionid": unionid or "",
-                    "message": "请绑定已有网页账号，或创建新账号后绑定",
-                }
     except Exception as e:
-        logger.warning(f"小程序登录 Supabase 查询失败: {e}，降级返回 need_bind")
-        return {
-            "success": True,
-            "need_bind": True,
-            "openid": openid,
-            "unionid": unionid or "",
-            "message": "服务暂不可用，请稍后重试",
-        }
+        # 这里原来「降级返回 need_bind」。need_bind 那条路已经没了，
+        # 再降级等于把用户送进一个不存在的流程 —— 如实报错。
+        logger.error(f"❌ 小程序登录查询失败: {e}")
+        raise HTTPException(status_code=503, detail="服务暂不可用，请稍后重试")
+
+    # 首次登录 —— 直接建号，不再要求先绑定网页账号
+    if not user_id:
+        user_id, nickname, user_account = await _create_wechat_account(openid, unionid)
 
     token = _gen_jwt(user_id)
     return {
@@ -990,7 +922,15 @@ async def wx_bind(req: WxBindRequest, request: Request):
         raise HTTPException(status_code=400, detail="缺少 openid")
 
     client_ip = request.client.host if request.client else "unknown"
-    check_rate_limit(f"wxbind:{client_ip}", max_requests=5, window_seconds=60,
+    # 两级限流（2026-09-27 修）：
+    # 原来只按纯 IP 限 5 次/60 秒 —— NAT / 校园网下整栋楼共用一个桶，
+    # 别人试几次就把你挤掉，用户侧表现就是「能走到绑定、但绑定失败」。
+    # 改成和本文件 /login（第 30 行）同一套写法：按「IP + 登录账号」限，各账号各占一个桶。
+    check_rate_limit(f"wxbind:{client_ip}:{req.login_input.strip().lower()}",
+                     max_requests=5, window_seconds=60,
+                     error_message="该账号绑定尝试过于频繁，请60秒后重试")
+    # 再补一条按 IP 的总量闸，防止换个账号名继续扫。
+    check_rate_limit(f"wxbind:ip:{client_ip}", max_requests=20, window_seconds=60,
                      error_message="绑定尝试过于频繁，请60秒后重试")
 
     headers = {
@@ -1031,6 +971,18 @@ async def wx_bind(req: WxBindRequest, request: Request):
         user_id = user.get("id")
 
     # 3. 把 openid 写入 profiles 表
+    #    ⚠️ 必须用 service_role：这是服务端代表用户写 profiles，anon key 会被 RLS 拦掉。
+    #    而 UPDATE 被 RLS 拦是「静默 0 行、照样返回 204」—— 老代码既不检查返回值也不回读，
+    #    于是照样发 token，客户端以为绑好了，下次登录又要求绑定（用户报的「绑定失败」）。
+    #    services/supabase.py:154 已经记过同一个坑（存音频同理）。2026-09-27 修。
+    if not settings.SUPABASE_SERVICE_ROLE_KEY:
+        # ⚠️ 没有 service_role key 时 service_headers 会拼出 "Bearer None"，
+        # 请求直接 401 —— 这比老代码（静默假成功）更难排查。显式报出来。
+        # 部署前务必确认服务器 .env 配了 SUPABASE_SERVICE_ROLE_KEY。
+        logger.error("❌ 未配置 SUPABASE_SERVICE_ROLE_KEY，wx-bind 无法绕过 RLS 写 profiles")
+        raise HTTPException(status_code=500, detail="服务端未配置 SUPABASE_SERVICE_ROLE_KEY，绑定功能不可用")
+
+    svc_headers = get_supabase_service_headers()
     async with httpx.AsyncClient(timeout=10.0) as client:
         patch_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
         patch_data = {
@@ -1038,13 +990,22 @@ async def wx_bind(req: WxBindRequest, request: Request):
         }
         if req.unionid:
             patch_data["wechat_unionid"] = req.unionid
-        patch_res = await client.patch(patch_url, headers=headers, json=patch_data)
+        patch_res = await client.patch(patch_url, headers=svc_headers, json=patch_data)
+        if patch_res.status_code not in (200, 204):
+            logger.error(f"❌ 绑定写入 profiles 失败 user={user_id} {patch_res.status_code}: {patch_res.text[:300]}")
+            raise HTTPException(status_code=502, detail=f"绑定失败：写入用户资料出错（{patch_res.status_code}）")
 
-    # 4. 查询完整用户信息
+    # 4. 回读确认真的落库了 —— RLS 静默 0 行这种情况，只有回读能发现
     async with httpx.AsyncClient(timeout=10.0) as client:
         profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
-        profile_res = await client.get(profile_url, headers=headers)
+        profile_res = await client.get(profile_url, headers=svc_headers)
         profile = profile_res.json()[0] if profile_res.status_code == 200 and profile_res.json() else {}
+
+    if profile.get("wechat_openid") != req.openid:
+        logger.error(
+            f"❌ 绑定回读不一致 user={user_id}: 期望 {req.openid}，库里 {profile.get('wechat_openid')!r}"
+        )
+        raise HTTPException(status_code=502, detail="绑定未生效，请重试；若反复出现请联系管理员")
 
     token = _gen_jwt(user_id)
     return {
@@ -1055,8 +1016,10 @@ async def wx_bind(req: WxBindRequest, request: Request):
             "nickname": profile.get("nickname", ""),
             "user_account": profile.get("user_account", ""),
             "email": email,
-            "wechat_openid": req.openid,
-            "wechat_unionid": req.unionid or profile.get("wechat_unionid", ""),
+            # 回显库里的值，不再回显请求参数 —— 老代码回显 req.openid，
+            # 写入失败时客户端照样看到自己的 openid，更坐实了「绑定成功」的假象。
+            "wechat_openid": profile.get("wechat_openid", ""),
+            "wechat_unionid": profile.get("wechat_unionid", "") or req.unionid or "",
             "grade": profile.get("grade", ""),
             "major": profile.get("major", ""),
             "learning_stage": profile.get("learning_stage", ""),
@@ -1098,6 +1061,13 @@ async def get_wechat_user(user_id: str):
 #   2026-09-02 品牌/字体 → 2026-09-03 补背景色/组件色、PUT 改全量保存
 # 存储：user_theme_settings 表（backend/sql/fix_user_theme.sql，幂等）
 # ============================================================
+
+class ShortcutsRequest(BaseModel):
+    user_id: str
+    # {动作 id: 组合键}。空串 = 用户主动解绑。
+    # 用 dict 而不是固定字段：动作会随时增删，做成列就得跟着改表。
+    bindings: dict = {}
+
 
 class ThemeRequest(BaseModel):
     user_id: str
@@ -1182,3 +1152,79 @@ async def update_theme(req: ThemeRequest, current_user: str = Depends(get_curren
         if res.status_code not in (200, 201, 204):
             raise HTTPException(status_code=400, detail=f"保存主题失败: {res.text}")
         return {"success": True}
+
+# ============================================================
+# 自定义快捷键（跟随账号）
+# ============================================================
+@router.get("/shortcuts/{user_id}")
+async def get_shortcuts(user_id: str, current_user: str = Depends(get_current_user)):
+    """读取账号的快捷键绑定。没有记录就返回空映射 —— 由前端的注册表补默认值。
+
+    这里**不返回默认值**：默认键定义在前端 `shortcuts/registry.js` 里，
+    后端不该重复维护一份（两边不一致时，「默认」到底是哪个就说不清了）。
+    """
+    verify_user_match(user_id, current_user)
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+    }
+    url = f"{settings.SUPABASE_URL}/rest/v1/user_shortcuts?user_id=eq.{user_id}&select=bindings"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        res = await client.get(url, headers=headers)
+        if res.status_code == 200 and res.json():
+            return {"bindings": res.json()[0].get("bindings") or {}}
+        if res.status_code != 200:
+            # 表还没建会走到这里（42P01）。明确报出来，
+            # 别让前端以为「这个人没配过快捷键」而把默认值当作用户选择写回去。
+            logger.warning(f"读取快捷键失败({res.status_code}): {res.text[:200]}")
+            raise HTTPException(status_code=502, detail="读取快捷键设置失败，请稍后重试")
+        return {"bindings": {}}
+
+
+@router.put("/shortcuts")
+async def update_shortcuts(req: ShortcutsRequest, current_user: str = Depends(get_current_user)):
+    """全量保存快捷键绑定（前端始终发完整状态，与主题那套一致）。
+
+    只做最基本的形状校验：id 非空、值是字符串。**不校验 id 是否是已知动作** ——
+    旧版本客户端可能带着已下线的动作 id，硬拒会让用户整个保存不了；
+    前端会忽略不认识的 id。
+    """
+    verify_user_match(req.user_id, current_user)
+
+    clean = {}
+    for k, v in (req.bindings or {}).items():
+        if not isinstance(k, str) or not k.strip():
+            continue
+        if not isinstance(v, str):
+            raise HTTPException(status_code=400, detail=f"快捷键「{k}」的值必须是字符串")
+        # 长度兜底，防脏数据把 JSONB 撑爆；正常组合键不会超过这个数
+        if len(v) > 64:
+            raise HTTPException(status_code=400, detail=f"快捷键「{k}」过长")
+        clean[k.strip()] = v
+
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+    base = f"{settings.SUPABASE_URL}/rest/v1/user_shortcuts"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        check = await client.get(f"{base}?user_id=eq.{req.user_id}&select=user_id", headers=headers)
+        exists = check.status_code == 200 and check.json()
+
+        if exists:
+            res = await client.patch(
+                f"{base}?user_id=eq.{req.user_id}",
+                headers=headers,
+                json={"bindings": clean, "updated_at": datetime.utcnow().isoformat() + "Z"})
+        else:
+            res = await client.post(
+                base, headers=headers,
+                json={"user_id": req.user_id, "bindings": clean})
+
+        if res.status_code not in (200, 201, 204):
+            logger.error(f"保存快捷键失败({res.status_code}): {res.text[:200]}")
+            raise HTTPException(status_code=502, detail="保存快捷键失败，请稍后重试")
+
+    return {"success": True, "count": len(clean)}

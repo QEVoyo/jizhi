@@ -217,7 +217,7 @@ const announcementCount = computed(() => announcements.value.length)
 
 async function loadAnnouncements() {
   try {
-    const base = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+    const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
     const res = await fetch(`${base}/admin/announcements/active`)
     if (res.ok) announcements.value = await res.json()
   } catch { announcements.value = [] }
@@ -313,7 +313,7 @@ onUnmounted(() => clearInterval(poll))
 </script>
 
 <style scoped>
-.mc-page { min-height: 100vh; display: flex; justify-content: center; padding: 28px 20px; }
+.mc-page { min-height: calc(100vh - var(--jz-top, 0px)); display: flex; justify-content: center; padding: 28px 20px; }
 
 .mc-container {
   max-width: 780px; width: 100%; padding: 24px 30px;

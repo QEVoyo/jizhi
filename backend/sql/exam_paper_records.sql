@@ -28,11 +28,19 @@ CREATE POLICY "service_all" ON exam_paper_records
   FOR ALL USING (true);
 
 -- 允许用户读自己的记录
+--
+-- ⚠️ `auth.uid()::text` 这个转换**不能删**。auth.uid() 返回 uuid，
+--    而本表的 user_id 是 TEXT —— Postgres 里 `uuid = text` 没有操作符，
+--    直接写 `auth.uid() = user_id` 会报：
+--        42883: operator does not exist: uuid = text
+--    反过来写成 `user_id::uuid = auth.uid()` 也能过编译，但更危险：
+--    只要表里有一行 user_id 不是合法 uuid，查询就直接抛错。
+--    转成 text 比较是安全的那一侧（uuid→text 永远成立）。
 DROP POLICY IF EXISTS "user_read_own" ON exam_paper_records;
 CREATE POLICY "user_read_own" ON exam_paper_records
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING (auth.uid()::text = user_id);
 
 -- 允许用户插入自己的记录
 DROP POLICY IF EXISTS "user_insert_own" ON exam_paper_records;
 CREATE POLICY "user_insert_own" ON exam_paper_records
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (auth.uid()::text = user_id);

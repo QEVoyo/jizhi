@@ -10,6 +10,10 @@
         <div class="nav-actions">
           <button class="nav-link" @click="scrollTo('features')">功能</button>
           <button class="nav-link" @click="scrollTo('faq')">常见问题</button>
+          <!-- 桌面版下载：拿不到安装包元信息就不显示，不给用户一个点了 404 的入口 -->
+          <a v-if="dl" class="nav-link nav-download" :href="downloadUrl">
+            <i class="fab fa-windows"></i> 下载客户端
+          </a>
           <button class="nav-link" @click="goLogin">登录</button>
           <button class="nav-btn-primary magnet" @click="goRegister">免费注册</button>
         </div>
@@ -33,8 +37,19 @@
             19,000+ 题库 · 全程免费
           </p>
           <div class="hero-actions">
+            <!-- 主 CTA：桌面版下载（.cta-primary 的样式本来就在，只是一直空着没人用） -->
+            <a v-if="dl" class="cta-primary magnet" :href="downloadUrl">
+              <i class="fab fa-windows"></i> 下载 Windows 版
+            </a>
             <button class="cta-ghost explore-btn magnet" @click="scrollTo('features')">了解功能 ↓</button>
           </div>
+
+          <!-- 无签名证书（个人主体申请不到 OV/EV），Windows 必弹「未知发布者」。
+               提前写清楚，比让用户在警告页自己猜强得多。 -->
+          <p v-if="dl" class="hero-dl-note">
+            Windows 10/11 · 约 {{ dl.size_mb }} MB ·
+            安装时若提示「未知发布者」，点「更多信息」→「仍要运行」即可
+          </p>
 
           <!-- 打字机 + 考试倒计时 HUD -->
           <div class="hero-hud-line">
@@ -457,6 +472,7 @@ import { useRouter } from 'vue-router'
 import WaterBackground from '@/components/WaterBackground.vue'
 import Starfield from '@/components/Starfield.vue'
 import { useThemeStore } from '@/stores/theme'
+import { BACKEND_URL } from '@/utils/constants'
 
 const router = useRouter()
 const themeStore = useThemeStore()
@@ -536,7 +552,7 @@ const faqList = [
   { q: '备考计划是怎么生成的？', a: '先做一轮摸底诊断（按考纲维度抽题），再设定目标分数、备考周期和每日学习时长，AI 结合你的答卷生成「基础期 → 强化期 → 冲刺期」三阶段计划，每个任务都带真实题目。' },
   { q: '每日任务是什么？', a: '计划生成后每天自动解锁任务：AI 按当天题目实时生成学习讲解（目标/知识点/方法/易错点），「去练习」带真实题目，做完即更新知识点掌握度。' },
   { q: '真题卷是真的吗？怎么批改？', a: '12 套真题来自教育部等国家部委组织的公开考试（CET-4/6、考研、法考、教资、CPA、计算机二级、公务员行测）。做题模式计时交卷：客观题自动判分、主观题 AI 批改，交卷后 AI 逐题分析错因。' },
-  { q: '怎么登录？', a: '邮箱注册/登录，也可以微信扫码登录；小程序端支持微信登录并绑定网页账号，两端数据互通。' },
+  { q: '怎么登录？', a: '网页端用邮箱或用户名 + 密码登录。小程序端支持微信一键登录，首次使用会自动创建账号；在「设置 → 账号安全」补上邮箱和密码后，同一个账号在网页端和小程序端都能登录，学习数据互通。' },
   { q: '遇到问题找谁？', a: '站内帮助中心有 29 条常见问题；也可以随时在对话里问小基 AI；意见反馈入口在侧边栏底部，我们会认真看每一条。' },
 ]
 
@@ -593,6 +609,25 @@ function goLogin() {
 function goRegister() {
   router.push('/login?tab=register')
 }
+
+// ===== 桌面版下载 =====
+// 安装包由后端 /download 路由提供（backend/static/downloads/，跟着 backend 一起部署）。
+// 拿不到元信息就不显示下载入口 —— 宁可没有，也不给一个点了 404 的按钮。
+const dl = ref(null)
+const downloadUrl = computed(() => `${BACKEND_URL}/download/JIZHI-setup.exe`)
+
+async function loadDownloadInfo() {
+  try {
+    const res = await fetch(`${BACKEND_URL}/download/latest`)
+    if (res.ok) {
+      const data = await res.json()
+      dl.value = data?.available ? data : null
+    }
+  } catch {
+    // 后端没部署或没上传安装包：静默降级，不影响落地页其它部分
+  }
+}
+
 
 // ===== 滚动入场 + 数字滚动 =====
 let revealObserver = null
@@ -731,6 +766,7 @@ function cleanupSciFi() {
 
 onMounted(() => {
   resetAutoPlay()
+  loadDownloadInfo()
 
   revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((e) => {
@@ -764,7 +800,7 @@ onUnmounted(() => {
 <style scoped>
 /* 样式和之前一样，保持不变 */
 .landing-content {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   display: flex;
   flex-direction: column;
   padding: 16px 32px 12px;
@@ -824,6 +860,22 @@ onUnmounted(() => {
 }
 .nav-btn-primary:hover {
   background: color-mix(in srgb, var(--brand) 20%, transparent);
+}
+/* 导航栏的下载入口（<a> 当链接用，要去掉默认下划线） */
+.nav-download {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* hero 下载按钮下方的说明：版本要求 + 未签名提示 */
+.hero-dl-note {
+  margin-top: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  animation: fadeInUp 0.8s ease both 0.6s;
 }
 
 .landing-main {
@@ -917,6 +969,11 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 24px color-mix(in srgb, var(--brand) 35%, transparent);
+  /* 下载按钮是 <a>（比 button + JS 点击更可靠，浏览器/桌面壳都能直接下载） */
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 .cta-primary:hover {
   transform: translateY(-2px);

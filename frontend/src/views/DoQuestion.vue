@@ -533,7 +533,7 @@ async function runUserCode() {
   codeRunning.value = true
   codeRunResult.value = null
   try {
-    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
     const res = await fetch(`${baseUrl}/subject-plan/code/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -550,7 +550,7 @@ async function runUserCode() {
 
 /** 编程题提交：有测试用例 → 沙箱逐点判分；没有 → 仍走 AI 批改 */
 async function submitProgramming() {
-  const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+  const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
   const res = await fetch(`${baseUrl}/subject-plan/code/submit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -700,7 +700,7 @@ async function loadQuestionSets() {
   try {
     const token = authStore.token
     const userId = authStore.user.id
-    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
 
     const res = await fetch(`${baseUrl}/questions/set/list/${userId}`, {
       headers: {
@@ -761,7 +761,10 @@ async function fetchLibVideos(key, subject, fp) {
 
 async function loadLibraryVideos() {
   const q = question.value || {}
-  const subject = q.category || '通用'
+  // 视频库的 subject 用的是 syllabus id（如 ncre2-office），而 q.category 是
+  // 出题 AI 判定的学科名（如「计算机」/「excel」），两者不是同一套命名 ——
+  // 传 category 会让视频库检索恒为 0 条。题目带 syllabus_id 时优先用它。2026-09-27 修。
+  const subject = q.syllabus_id || q.category || '通用'
   const kp = q.normalized_topic || q.topic || ''
   if (!kp) return
   const key = knowledgeKey(subject, kp)
@@ -1079,7 +1082,7 @@ function handleAddToSet() {
 async function handleAddToSetConfirm(setId) {
   addingSetId.value = setId
   try {
-    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
     const res = await fetch(`${baseUrl}/questions/set/${setId}/add/${question.value.id}`, {
       method: 'POST',
       headers: {
@@ -1130,7 +1133,7 @@ onUnmounted(() => {
 
 <style scoped>
 .question-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   display: flex;
   justify-content: center;
   align-items: center;

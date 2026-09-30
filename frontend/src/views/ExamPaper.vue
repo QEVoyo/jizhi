@@ -621,7 +621,7 @@ watch(() => route.query.mode, async (newMode) => {
 <style scoped>
 /* ===== 页面容器 ===== */
 .ep-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   position: relative;
   color: var(--text-primary);
   font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;

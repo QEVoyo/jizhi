@@ -191,12 +191,12 @@ onMounted(loadAnnouncements)
   justify-content: space-between;
   margin-bottom: 18px;
 }
-.page-title { font-size: 20px; font-weight: 600; color: #e0e0e0; margin: 0; }
+.page-title { font-size: 20px; font-weight: 600; color: var(--text-primary); margin: 0; }
 
 .table-wrap {
   background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   border-radius: 14px;
   overflow: hidden;
   min-height: 200px;
@@ -208,20 +208,20 @@ onMounted(loadAnnouncements)
   padding: 12px 16px;
   font-size: 11px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
   text-transform: uppercase;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 .data-table td {
   padding: 12px 16px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.65);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 2%, transparent);
 }
 
-.title-cell { color: #e0e0e0; font-weight: 500; }
-.content-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255, 255, 255, 0.4); }
-.date-cell { font-size: 12px; color: rgba(255, 255, 255, 0.3); white-space: nowrap; }
+.title-cell { color: var(--text-primary); font-weight: 500; }
+.content-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.date-cell { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .action-btns { display: flex; gap: 4px; }
 
 /* 缩略图 */
@@ -231,11 +231,11 @@ onMounted(loadAnnouncements)
   object-fit: cover;
   border-radius: 4px;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
   transition: transform 0.2s;
 }
 .thumb-img:hover { transform: scale(2.5); z-index: 10; position: relative; }
-.no-img { color: rgba(255, 255, 255, 0.15); }
+.no-img { color: var(--text-muted); }
 
 .status-tag {
   display: inline-block;
@@ -248,7 +248,7 @@ onMounted(loadAnnouncements)
 }
 .status-tag.active { background: rgba(103, 194, 58, 0.12); color: #67c23a; }
 
-.empty { padding: 60px 20px; text-align: center; color: rgba(255, 255, 255, 0.2); font-size: 14px; }
+.empty { padding: 60px 20px; text-align: center; color: var(--text-muted); font-size: 14px; }
 
 /* 图片放大 */
 .image-overlay {
@@ -284,17 +284,17 @@ onMounted(loadAnnouncements)
 .close-btn:hover { background: color-mix(in srgb, var(--surface, #ffffff) 20%, transparent); transform: scale(1.1); }
 
 /* Dialog */
-:deep(.admin-dialog) { background: #111827 !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; border-radius: 16px !important; }
-:deep(.admin-dialog .el-dialog__header) { border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding: 18px 24px; }
-:deep(.admin-dialog .el-dialog__title) { color: #e0e0e0 !important; }
+:deep(.admin-dialog) { background: var(--card-bg) !important; border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent) !important; border-radius: 16px !important; }
+:deep(.admin-dialog .el-dialog__header) { border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent); padding: 18px 24px; }
+:deep(.admin-dialog .el-dialog__title) { color: var(--text-primary) !important; }
 :deep(.admin-dialog .el-dialog__body) { padding: 24px; }
-:deep(.admin-dialog .el-dialog__close) { color: rgba(255, 255, 255, 0.4) !important; }
-:deep(.el-form-item__label) { color: rgba(255, 255, 255, 0.5) !important; }
+:deep(.admin-dialog .el-dialog__close) { color: var(--text-muted) !important; }
+:deep(.el-form-item__label) { color: var(--text-secondary) !important; }
 :deep(.el-input__wrapper), :deep(.el-textarea__inner) {
   background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent) !important;
   border-radius: 10px !important;
   box-shadow: none !important;
 }
-:deep(.el-input__inner), :deep(.el-textarea__inner) { color: #e0e0e0 !important; }
+:deep(.el-input__inner), :deep(.el-textarea__inner) { color: var(--text-primary) !important; }
 </style>

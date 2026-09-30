@@ -370,7 +370,7 @@ function goQA() {
 
 <style scoped>
 .api-center-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   padding: 30px 20px;
   }
 

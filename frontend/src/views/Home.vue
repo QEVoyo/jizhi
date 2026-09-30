@@ -14,6 +14,6 @@ import XiaojiCall from '@/components/XiaojiCall.vue'
 <style scoped>
 .home-page {
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - var(--jz-top, 0px));
 }
 </style>

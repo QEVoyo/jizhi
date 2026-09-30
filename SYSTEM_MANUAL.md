@@ -1,6 +1,6 @@
 # 基智学习助手 (Jizhi Learn) — 系统说明书
 
-> **文档版本** `2.0` · **最后更新** 2026-08-02
+> **文档版本** `2.2` · **最后更新** 2026-09-29
 >
 > **维护者** QEVoyo · **许可证** 未指定
 >
@@ -37,9 +37,10 @@
      - 5.1.4 [每日任务与做题流程](#514-每日任务与做题流程)
      - 5.1.5 [知识点掌握度算法](#515-知识点掌握度算法)
      - 5.1.6 [错题本机制](#516-错题本机制)
+     - 5.1.7 [真题套卷系统](#517-真题套卷系统exampaper)
    - 5.2 [AI 对话系统](#52-ai-对话系统)
-     - 5.2.1 [主对话系统 — 多智能体学习助手](#521-主对话系统chatarea--多智能体学习助手)
-     - 5.2.2 [小吉语音助手 — 人格化 AI 伴侣](#522-小吉语音助手xiaojiocal--人格化-ai-伴侣)
+     - 5.2.1 [主对话系统 — 多智能体学习助手](#521-主对话系统chatarea-多智能体学习助手)
+     - 5.2.2 [小基语音助手 — 人格化 AI 伴侣](#522-小基语音助手xiaojicall-人格化-ai-伴侣)
      - 5.2.3 [SSE 流式响应处理流水线](#523-sse-流式响应处理流水线)
      - 5.2.4 [个性化 System Prompt 构建流水线](#524-个性化-system-prompt-构建流水线)
      - 5.2.5 [多模态集成（Vision）](#525-多模态集成vision)
@@ -89,23 +90,23 @@
      - 5.9.5 [学情报告（工具版）](#595-学情报告工具版)
      - 5.9.6 [API 端点汇总](#596-api-端点汇总)
      - 5.9.7 [通用 Upsert 模式](#597-通用-upsert-模式)
-   - 5.10 [API 中心](#510-api-中心)
-     - 5.10.1 [架构设计](#5101-架构设计)
-     - 5.10.2 [6 个可配置 AI 功能详细说明](#5102-6-个可配置-ai-功能详细说明)
-     - 5.10.3 [平台路由与降级策略](#5103-平台路由与降级策略)
-     - 5.10.4 [凭证安全模型](#5104-凭证安全模型)
-     - 5.10.5 [UI 交互细节](#5105-ui-交互细节)
-     - 5.10.6 [数据库设计](#5106-数据库设计)
-     - 5.10.7 [后端 API 端点](#5107-后端-api-端点)
-     - 5.10.8 [当前实现状态与规划](#5108-当前实现状态与规划)
-   - 5.11 [微信登录与绑定](#511-微信登录与绑定)
-     - 5.11.1 [扫码登录流程](#5111-扫码登录流程)
-     - 5.11.2 [账号绑定](#5112-账号绑定)
+   - 5.10 [API 模型中心](#510-api-模型中心预览形式)
+     - 5.10.1 [页面结构与预览形式](#5101-页面结构与预览形式)
+     - 5.10.2 [模型清单](#5102-模型清单)
+     - 5.10.3 [自配 Key（演示）](#5103-自配-key演示)
+     - 5.10.4 [后期规划：用户自带 Key](#5104-后期规划用户自带-key)
+     - 5.10.7 [实现状态与规划](#5107-实现状态与规划)
+   - 5.11 [账号体系与登录](#511-账号体系与登录)
+     - 5.11.0 [为什么去掉「扫码登录 + 账号绑定」](#5110-为什么去掉扫码登录--账号绑定2026-09-28)
+     - 5.11.1 [小程序登录（当前实现）](#5111-小程序登录当前实现)
+     - 5.11.2 [不用「账号合并」的补法](#5112--这里有个洞以及不用账号合并的补法)
+     - 5.11.2b [向后兼容](#5112b-向后兼容当时特意确认过)
+     - 5.11.2c [已删除的端点（历史）](#5112c-已删除的端点历史勿再引用)
      - 5.11.3 [自签 JWT 双模认证](#5113-自签-jwt-双模认证auth_middlewarepy)
      - 5.11.4 [小程序登录](#5114-小程序登录)
      - 5.11.5 [环境配置](#5115-环境配置)
-     - 5.11.6 [状态管理与并发控制](#5116-状态管理与并发控制)
-     - 5.11.7 [错误处理矩阵](#5117-错误处理矩阵)
+     - 5.11.6 [状态管理与并发控制](#5116-登录态管理与并发控制当前实现)
+     - 5.11.7 [错误处理矩阵](#5117-错误处理矩阵当前实现)
      - 5.11.8 [安全加固](#5118-安全加固)
      - 5.11.9 [小程序登录差异](#5119-小程序登录差异)
    - 5.12 [管理后台](#512-管理后台)
@@ -116,13 +117,43 @@
      - 5.12.5 [题库批量导入流水线](#5125-题库批量导入流水线)
      - 5.12.6 [审计日志](#5126-审计日志admin_audit_logs)
      - 5.12.7 [管理员 API 完整参考](#5127-管理员-api-完整参考admin-前缀)
+   - 5.13 [统一设置中心](#513-统一设置中心settings)
+     - 5.13.1 [十大模块](#5131-十大模块)
+     - 5.13.2 [个人中心去重](#5132-个人中心去重profile-信息展示页)
+   - 5.14 [智能体中心](#514-智能体中心)
+     - 5.14.1 [数据设计与触点清单](#5141-数据设计与触点清单)
+     - 5.14.2 [聚合路由](#5142-聚合路由)
+     - 5.14.3 [磨合规则引擎](#5143-磨合规则引擎)
+     - 5.14.4 [前端页面](#5144-前端页面)
+   - 5.15 [词条本](#515-词条本)
+     - 5.15.1 [词条生命周期](#5151-词条生命周期)
+     - 5.15.2 [数据设计](#5152-数据设计)
+     - 5.15.3 [后端 API](#5153-后端-api)
+     - 5.15.4 [前端交互](#5154-前端交互)
+   - 5.16 [视频库](#516-视频库2026-09-04-新建)
+     - 5.16.1 [生成引擎与分镜脚本](#5161-生成引擎与分镜脚本)
+     - 5.16.2 [广场·详情·互动](#5162-广场详情互动)
+     - 5.16.3 [播放器与视觉语言](#5163-播放器与视觉语言)
+     - 5.16.4 [数据表与后台](#5164-数据表与后台)
+   - 5.17 [自定义快捷键](#517-自定义快捷键2026-09-28-新增)
+     - 5.17.1 [目录结构](#5171-目录结构)
+     - 5.17.2 [为什么要有「分发器」这一层](#5172-为什么要有分发器这一层)
+     - 5.17.3 [存储：本地缓存 + 账号权威](#5173-存储本地缓存--账号权威)
+     - 5.17.4 [一个不存在过的动作](#5174-一个不存在过的动作)
+   - 5.18 [异步任务队列（Redis + arq）](#518-异步任务队列redis--arq2026-09-28-新增)
+     - 5.18.1 [为什么需要](#5181-为什么需要)
+     - 5.18.2 [一个重要取舍：不是所有 create_task 都该迁](#5182-一个重要取舍不是所有-create_task-都该迁)
+     - 5.18.3 [落地与约束](#5183-落地与约束)
+     - 5.18.4 [考试批量分析没有迁](#5184--考试批量分析没有迁理由是它还不满足前提)
 6. [后端 API 参考](#6-后端-api-参考)
    - 6.1 [学科计划 API](#61-学科计划-api)
    - 6.2 [认证 API](#62-认证-api)
    - 6.3 [管理后台 API](#63-管理后台-api)
    - 6.4 [对话 API](#64-对话-api)
-   - 6.5 [小吉语音助手 API](#65-小吉语音助手-api)
-   - 6.6 [通用响应规范与错误码](#66-通用响应规范与错误码)
+   - 6.5 [小基语音助手 API](#65-小基语音助手-api)
+   - 6.6 [智能体中心 API](#66-智能体中心-api)
+   - 6.7 [词条本 API](#67-词条本-api)
+   - 6.8 [通用响应规范与错误码](#68-通用响应规范与错误码)
 7. [前端页面说明](#7-前端页面说明)
    - 7.1 [完整路由表](#71-完整路由表)
    - 7.2 [路由守卫逻辑](#72-路由守卫逻辑)
@@ -137,7 +168,7 @@
    - 9.1 [认证架构](#91-认证架构)
    - 9.2 [JWT 双模验证流程](#92-jwt-双模验证流程)
    - 9.3 [三级角色鉴权](#93-三级角色鉴权)
-   - 9.4 [微信 OAuth 接入](#94-微信-oauth-接入)
+   - 9.4 [微信 OAuth 接入（已移除）](#94-微信-oauth-接入2026-09-28-已整节移除)
    - 9.5 [速率限制与安全措施](#95-速率限制与安全措施)
 10. [AI 集成](#10-ai-集成)
     - 10.1 [LLM 客户端](#101-llm-客户端)
@@ -163,16 +194,36 @@
     - 14.2 [动画与过渡规范](#142-动画与过渡规范)
     - 14.3 [组件设计原则](#143-组件设计原则)
     - 14.4 [响应式与可访问性](#144-响应式与可访问性)
+    - 14.5 [⚠️ 导出与截图的现代颜色适配](#145--导出与截图的现代颜色适配)
 15. [开发与运维](#15-开发与运维)
     - 15.1 [开发工作流](#151-开发工作流)
     - 15.2 [Git 分支策略](#152-git-分支策略)
     - 15.3 [故障排查指南](#153-故障排查指南)
 16. [已知问题与解决方案](#16-已知问题与解决方案)
-17. [附录](#17-附录)
-    - 17.1 [环境变量完整参考](#171-环境变量完整参考)
-    - 17.2 [考纲配置规范](#172-考纲配置规范)
-    - 17.3 [题目 JSON Schema](#173-题目-json-schema)
-    - 17.4 [术语表](#174-术语表)
+17. [微信小程序端](#17-微信小程序端)
+    - 17.1 [端定位与技术栈](#171-端定位与技术栈)
+    - 17.2 [导航形态](#172-导航形态与网页端对齐无底部-tabbar)
+    - 17.3 [双主题系统](#173-双主题系统浅色--深色)
+    - 17.4 [分类色板与页面色调](#174-分类色板与页面色调)
+    - 17.5 [包体积与启动优化](#175-包体积与启动优化)
+    - 17.6 [隐私接口与合规](#176-隐私接口与合规)
+    - 17.7 [与网页端的有意差异](#177-与网页端的有意差异)
+    - 17.8 [全量 token 化](#178-全量-token-化已完成)
+    - 17.9 [已知未验证项](#179-已知未验证项截至-2026-09-18)
+18. [桌面版（Tauri 壳）](#18-桌面版tauri-壳)
+    - 18.1 [定位与技术栈](#181-定位与技术栈)
+    - 18.2 [双窗口模型](#182-双窗口模型)
+    - 18.3 [桌宠](#183-桌宠)
+    - 18.4 [配置桥：为什么需要它](#184-配置桥为什么需要它)
+    - 18.5 [ACL：Tauri v2 权限的两个坑](#185-acltauri-v2-权限的两个坑)
+    - 18.6 [开发配置：tauri.dev.conf.json 是死文件](#186--开发配置tauridevconfjson-是死文件)
+    - 18.7 [打包与发布](#187-打包与发布)
+    - 18.8 [已知未验证项](#188-已知未验证项)
+19. [附录](#19-附录)
+    - 19.1 [环境变量完整参考](#191-环境变量完整参考)
+    - 19.2 [考纲配置规范](#192-考纲配置规范)
+    - 19.3 [题目 JSON Schema](#193-题目-json-schema)
+    - 19.4 [术语表](#194-术语表)
 
 ---
 
@@ -203,7 +254,7 @@
 | **掌握度追踪** | EWMA 聚合算法，逐题更新知识点掌握分数 | `user_kp_mastery` 表 | ✅ 完善 |
 | **错题本** | 跨考纲错题收集，随机取题练习，批量查询优化 | Supabase in() 聚合 | ✅ 完善 |
 | **代码判题** | 编程题本地沙箱执行 + 测试点评分（AC/WA/TLE/RE） | 本地 subprocess + MinGW | ✅ 完善 |
-| **认证系统** | 邮箱验证码 + 微信扫码 + 小程序登录，三重覆盖 | Supabase Auth + 自签 JWT | ✅ 完善 |
+| **认证系统** | 邮箱密码 + 邮箱验证码 + 小程序微信一键登录（自动建号） | Supabase Auth + 自签 JWT | ✅ 完善 |
 | **管理后台** | 6 大管理模块 >20 个端点，三级角色 + 审计日志 | FastAPI + Supabase RLS | ✅ 完善 |
 | **UI 设计** | 科幻毛玻璃风格 + 粒子网格背景 + 响应式 | Vue 3 + Pure CSS | ✅ 完善 |
 
@@ -231,7 +282,7 @@
                                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          FastAPI 后端 (Python 3.10+)                         │
-│                        Uvicorn :8000 (dev) / :80 (wechat)                    │
+│                        Uvicorn :8000 (dev) / :80 (prod)                      │
 │                                                                             │
 │  ┌──────────────────────────────────────────────────────────────────────┐  │
 │  │                         中间件层 (Middleware)                         │  │
@@ -254,7 +305,7 @@
 │  ┌──────────────────────┐   ┌────────────────────┐   ┌─────────────────┐   │
 │  │  local_question_bank  │   │   services/         │   │   agents/       │   │
 │  │  17 JSON → dict 内存  │   │   supabase.py       │   │   llm_client.py │   │
-│  │  query / random /     │   │   REST API 封装     │   │   DeepSeek v3   │   │
+│  │  query / random /     │   │   REST API 封装     │   │  DeepSeek V4.1  │   │
 │  │  add / delete / save  │   │   统一 headers/错误 │   │   60s timeout   │   │
 │  └──────────────────────┘   └────────────────────┘   └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -264,7 +315,7 @@
 ┌──────────────────┐  ┌──────────────────────┐  ┌────────────────────────────┐
 │ backend/data/*.json│  │ Supabase (PostgreSQL) │  │    DeepSeek API            │
 │ 17 题库 + 1 配置 │  │  • 用户认证 (Auth)    │  │    api.deepseek.com         │
-│ ~21MB JSON 文件  │  │  • 关系数据 (REST)    │  │    model: deepseek-chat     │
+│ ~21MB JSON 文件  │  │  • 关系数据 (REST)    │  │    model: deepseek-flash    │
 │ 内存 dict + index │  │  • 文件存储 (Storage)  │  │    max_tokens: 8192         │
 │ 启动时全量加载    │  │  • RLS 行级安全       │  │    timeout: 55s             │
 └──────────────────┘  └──────────────────────┘  └────────────────────────────┘
@@ -278,15 +329,16 @@
 | **Web 框架** | FastAPI 0.x + Uvicorn | 异步 ASGI，自动 OpenAPI 文档 |
 | **前端框架** | Vue 3 (Composition API) + Vite 5 | `<script setup>` 语法，HMR |
 | **状态管理** | Pinia 2.x | 5 个 Store (auth/theme/session/tools) |
-| **路由** | Vue Router 4.x | History 模式，35+ 路由 |
+| **路由** | Vue Router 4.x | History 模式，45+ 路由 |
 | **HTTP 客户端** | Axios (前端) / httpx (后端) | 拦截器：401 → 自动登出 |
 | **数据库** | Supabase (PostgreSQL 15) | REST API 风格交互，非直连 SQL |
 | **认证** | PyJWT 2.x (HS256) + Supabase Auth | 双模融合验证 |
-| **AI** | DeepSeek v3 (OpenAI SDK) | `deepseek-chat`, 8K tokens |
-| **代码沙箱** | `subprocess.run()` + MinGW GCC/G++ | 本地编译执行 |
-| **二维码** | qrcode 7.x + Pillow | 微信扫码登录 |
+| **3D / 可视化** | Three.js r185 + ECharts 6 | 维度宇宙的 3D 场景；详情面板图表。已开 ACES tone mapping + antialias |
+| **AI** | DeepSeek V4.1 Flash (OpenAI SDK) | `deepseek-flash`, 8K tokens，思考模式默认关；文本与识图同一模型 |
+| **代码沙箱** | `subprocess.run()` + MinGW GCC/G++ + **仓库内置 OpenJDK 17** | 本地编译执行；Java 走 `backend/utils/jdk/`，不依赖系统安装 |
+| **二维码** | ~~qrcode 7.x + Pillow~~ **2026-09-28 起不再需要** | 原用于微信扫码登录（该功能已移除） |
 | **邮箱** | SMTP (QQ 邮箱) | 验证码发送 |
-| **语音** | 科大讯飞 API | TTS + ASR (小吉语音助手) |
+| **语音** | 千问 TTS + 科大讯飞 ASR | 08-25 起 TTS 收编千问，讯飞只留 ASR |
 
 ### 2.3 关键设计决策
 
@@ -380,7 +432,7 @@ JWT_EXPIRE_HOURS=720           # 30 天
 
 # ===== 网络地址 =====
 FRONTEND_URL=http://localhost:5173
-BACKEND_EXTERNAL_URL=http://192.168.1.100:80    # 微信 OAuth 回调地址（需标准端口）
+BACKEND_EXTERNAL_URL=http://192.168.1.100:80    # 后端外网地址（原用于微信 OAuth 回调；该功能已移除）
 
 # ===== 火山引擎 / 豆包 (可选) =====
 VOLC_ACCESS_KEY=...
@@ -445,6 +497,18 @@ npm run dev
 
 步骤 5: backend/sql/grant_permissions.sql
         └── GRANT service_role 权限
+
+步骤 6: backend/sql/exam_paper_records.sql
+        └── 真题答卷记录表（交卷成绩 + 逐题结果 + AI 错因分析缓存）
+
+步骤 7: backend/sql/migrate_plan_columns.sql
+        └── subject_plans 补 syllabus_id 列 + plan_daily_tasks 补列
+
+步骤 8: backend/sql/migrate_daily_learning.sql
+        └── 计划三阶段 phase/讲解缓存 learning_content/难度/每日时长列
+
+步骤 9: backend/sql/xiaoji_rls_policies.sql
+        └── xiaoji_messages / xiaoji_config 表 RLS 放行策略（小基上下文记忆必需）
 ```
 
 ### 3.5 开发环境启动
@@ -466,7 +530,7 @@ cd project1/frontend
 npm run dev
 # → http://localhost:5173
 
-# 微信扫码登录需要后端监听 80 端口，改用：
+# 需要后端监听 80 端口时（原微信扫码登录用；该功能 2026-09-28 已移除）改用：
 uvicorn main:app --reload --host 0.0.0.0 --port 80
 ```
 
@@ -544,14 +608,15 @@ project1/
 │   │   ├── generator.py              # AI 内容生成代理
 │   │   └── planner.py               # AI 学习规划代理
 │   │
-│   ├── routers/                      # 路由层 (15 个模块)
+│   ├── routers/                      # 路由层 (16 个模块)
 │   │   ├── subject_plan.py           # ★ 核心路由 (1245行, 19 端点)
 │   │   ├── auth.py                   # 认证路由 (976行, 18 端点)
 │   │   ├── admin.py                  # 管理后台路由 (1110行, 22 端点)
 │   │   ├── career.py                 # 生涯规划模块
-│   │   ├── chat.py                   # AI 对话 (含意图识别/流式)
+│   │   ├── chat.py                   # AI 对话 (按 intent 路由 / 流式)
 │   │   ├── community/                # 社区模块 (子路由)
 │   │   ├── evaluation.py             # 评估模块
+│   │   ├── exam_papers.py            # 真题套卷路由 (列表/双模式/交卷/答卷生成计划)
 │   │   ├── feedback.py               # 用户反馈
 │   │   ├── learning_plan.py          # 学习计划 (旧版, 已基本被 subject_plan 取代)
 │   │   ├── profile_card.py           # 个人画像 (维度宇宙星图)
@@ -559,7 +624,7 @@ project1/
 │   │   ├── questions.py              # 题目管理 (旧版, Supabase 题目)
 │   │   ├── tools.py                  # 工具集
 │   │   ├── video.py                  # 视频模块
-│   │   └── xiaoji.py                # 小吉 AI 语音助手
+│   │   └── xiaoji.py                # 小基 AI 语音助手
 │   │
 │   ├── utils/                        # 工具层
 │   │   ├── auth_middleware.py         # JWT 双模认证中间件
@@ -585,7 +650,8 @@ project1/
 │   │   ├── mandarin_questions.json, teacher_cert_questions.json
 │   │   ├── public_service_questions.json, judicial_questions.json
 │   │   ├── cpa_questions.json
-│   │   └── algorithm_ds_questions.json
+│   │   ├── algorithm_ds_questions.json
+│   │   └── exam_papers/              # 12 套真题卷 JSON（卷面分区+评分标准+解析）
 │   │
 │   ├── scripts/                      # 运维脚本
 │   │   ├── seed_all_banks.py         # ★ 批量题库生成 (263行)
@@ -599,7 +665,11 @@ project1/
 │   │   ├── admin_tables.sql          # 管理员 5 表 + profiles 扩展
 │   │   ├── add_wechat_columns.sql    # profiles 加微信字段
 │   │   ├── add_announcement_image.sql# 公告加图片字段
-│   │   └── grant_permissions.sql     # Supabase 权限
+│   │   ├── grant_permissions.sql     # Supabase 权限
+│   │   ├── exam_paper_records.sql    # 真题答卷记录表
+│   │   ├── migrate_plan_columns.sql  # subject_plans/daily_tasks 补列
+│   │   ├── migrate_daily_learning.sql# 阶段/讲解缓存/难度/时长列
+│   │   └── xiaoji_rls_policies.sql   # 小基消息/配置表 RLS 放行策略
 │   │
 │   └── tests/                        # 测试 (待完善)
 │
@@ -618,7 +688,7 @@ project1/
         ├── main.js                   # 入口 (Pinia + Router 挂载)
         │
         ├── router/
-        │   └── index.js              # ★ 路由注册 (35+ 路由 + 守卫)
+        │   └── index.js              # ★ 路由注册 (45+ 路由 + 守卫)
         │
         ├── stores/                   # Pinia 状态
         │   ├── auth.js               # ★ 认证 (登录/注册/微信/JWT)
@@ -638,24 +708,35 @@ project1/
         │   ├── questions.js          # 题目 API
         │   ├── tools.js, video.js    # 工具/视频 API
         │   ├── upload.js             # 文件上传 API
-        │   ├── xiaoji.js             # 小吉 API
-        │   └── index.js              # API 聚合导出
+        │   └── xiaoji.js             # 小基 API
         │
         ├── utils/                    # 前端工具
         │   ├── request.js            # ★ Axios 实例 (401 拦截 → 登出)
         │   ├── questionLabels.js     # ★ 题型标签 (11 种类型 + 分类映射)
-        │   ├── constants.js          # 常量 (后端地址/背景图/BG_MAP)
-        │   └── storage.js            # localStorage 封装
+        │   ├── constants.js          # 常量 (后端地址/题型/段位；BG_MAP 已随背景图体系移除)
+        │   ├── storage.js            # localStorage 封装
+        │   ├── procedural.js         # 程序化生成基础件：3D 值噪声 / fBm / 脊状噪声 / 色彩转换 / 画布
+        │   ├── planetTexture.js      # 九颗行星的程序化地表（6 生成器 × 9 配方）+ 云层 + 光环
+        │   ├── blackHole.js          # 中央黑洞（事件视界 + 光子环 + 吸积盘）+ 星尘粒子系统
+        │   ├── appearanceCode.js     # 外观码：主题配置的编解码与分享
+        │   ├── pageMeta.js           # 页面元信息（标题/图标/分类）
+        │   ├── mockAgents.js         # 智能体中心的演示数据
+        │   ├── videoLib.js           # 视频库数据访问
+        │   ├── videoRender.js        # 视频渲染管线
+        │   └── videoExport.js        # 视频导出
         │
         ├── views/                    # 页面组件
         │   ├── SyllabusHub.vue       # ★ 考纲列表 (搜索/筛选/收藏)
         │   ├── SyllabusDetail.vue    # ★ 考纲详情 (5 Tab 总控台, 55K)
         │   ├── SubjectPractice.vue   # ★ 做题页 (编程 OJ 分栏, 43K)
-        │   ├── Login.vue             # 登录页 (三栏 Tab + 微信扫码, 21K)
+        │   ├── ExamPaper.vue         # 真题套卷 (做题/解析双模式 + 交卷出分)
+        │   ├── Settings.vue          # 统一设置中心 (8 大模块)
+        │   ├── XiaojiSearch.vue      # 小基搜索页 (实时模糊+历史+定位高亮)
+        │   ├── Login.vue             # 登录页 (三栏 Tab；扫码面板已移除, 21K)
         │   ├── Landing.vue           # 落地页
         │   ├── Home.vue              # 首页
-        │   ├── Profile.vue           # 个人中心 (含微信绑定卡片, 24K)
-        │   ├── ProfileCard.vue       # 个人画像 (学习星图, 37K)
+        │   ├── Profile.vue           # 个人中心 (信息展示页: 账号/学习画像/跳设置)
+                │   ├── ProfileCard.vue       # 个人画像「维度宇宙」：程序化星球 + 中央黑洞 + 详情面板
         │   ├── EvaluationCenter.vue  # 评估中心 (3 竖排卡片, 5.6K)
         │   ├── EvaluationReport.vue  # 评估报告
         │   ├── EvaluationTable.vue   # 评估表
@@ -689,17 +770,15 @@ project1/
             ├── MessageCenter.vue     # 消息中心 (含公告 Tab, 21K)
             ├── ChatArea.vue          # AI 对话区
             ├── CareerSidebar.vue     # 生涯模块侧边栏
-            ├── XiaojiCall.vue        # 小吉 AI 语音通话
-            ├── XiaojiSettings.vue    # 小吉设置
+            ├── XiaojiCall.vue        # 小基 AI 语音通话
+            ├── XiaojiSettings.vue    # 小基设置
             ├── LoadingSpinner.vue    # 加载动画
             ├── GenerateForm.vue      # 题目生成表单
             ├── GenerationHistory.vue # 生成历史
             ├── MistakeBook.vue       # 错题本组件
             ├── QuestionSets.vue      # 题目集管理
-            ├── Workbench.vue         # 工作台
             ├── BubbleBackground.vue  # 气泡背景
             ├── WaterBackground.vue   # 水纹背景
-            ├── ResourceSidebar.vue   # 资源侧边栏
             └── community/            # 社区组件 (8 个)
 ```
 
@@ -709,7 +788,7 @@ project1/
 |------|------|------|
 | `local_question_bank.py` | 启动时加载 17 JSON → dict 内存；提供 query/random/get_by_ids/add/delete/save；支持跨考纲搜索 | 322 |
 | `subject_plan.py` | 核心业务路由：考纲/题库/诊断/计划/每日任务/做题/掌握度/错题/代码判题 | 1,245 |
-| `auth.py` | 邮箱验证码注册/登录 + 微信扫码 OAuth + 小程序登录 + 个人资料 CRUD | 976 |
+| `auth.py` | 邮箱验证码注册/登录 + 小程序微信一键登录（自动建号）+ 补邮箱密码 + 个人资料 CRUD | 976 |
 | `admin.py` | 仪表盘/用户管理/内容审核/题库 CRUD/公告/日志/系统设置 | 1,110 |
 | `code_runner.py` | Python subprocess + MinGW 编译器查找 + C/C++/Java 编译执行 + 测试判断 | 334 |
 | `supabase.py` | Supabase REST API 服务层：统一 headers/URL 拼接/CRUD 兼容接口 | 165 |
@@ -725,17 +804,30 @@ project1/
 | `Sidebar.vue` | 3 列 App 图标网格 + 工具面板 + 对话面板；毛玻璃 + 淡彩流光背景 | 1,159 |
 | `SyllabusDetail.vue` | 5 Tab 总控台：概览/题库/每日/知识/错题；题目状态颜色条；诊断按钮；删除计划 | 1,356 |
 | `SubjectPractice.vue` | 做题引擎：11 种题型渲染；编程题 OJ 左右分栏；倒计时；语言选择持久化 | 1,052 |
-| `Login.vue` | 三栏 Tab（用户/管理员/注册）；微信扫码面板 + 轮询机制 | 529 |
+| `Login.vue` | 三栏 Tab（用户/管理员/注册）。**微信扫码面板 2026-09-28 已移除** | 529 |
 | `QAPage.vue` | 7 分类 29 FAQ；搜索过滤；跳转按钮 | 921 |
 | `request.js` | Axios 实例：baseURL + 60s timeout + Bearer token 注入 + 401 → 自动登出 | 46 |
 | `questionLabels.js` | 11 种题型中文标签；从 syllabus.dimensions 动态构建 category→name 映射；题型判断工具 | 122 |
-| `auth.js` (store) | 登录/注册/微信扫码/微信绑定/轮询/偏好更新/首次引导判断 | 222 |
+| `auth.js` (store) | 登录/注册/账号状态/补邮箱密码/偏好更新/首次引导判断 | 222 |
+| `ExamPaper.vue` | 真题套卷：做题模式（计时+分区导航+交卷出分）/ 解析模式（历史答案+正确率+AI 错因分析） | 🆕 |
+| `Settings.vue` | 统一设置中心：8 模块（个人信息/学习偏好/外观/隐私/通知/账号安全/AI 与 API/关于） | 969 |
+| `XiaojiSearch.vue` | 小基搜索页：防抖 350ms 实时模糊搜索 + 抖音风搜索历史 + 跳回定位高亮 | 🆕 |
+| `Profile.vue` | 个人中心（信息展示页）：账号信息只读 + 学习画像 + 退出登录 + 跳设置 | 重写 |
+| `procedural.js` | 程序化生成基础件：3D 值噪声 / fBm / 脊状噪声 / HSL 色彩转换 / ImageData 画布。行星与黑洞共用一份 | 🆕 |
+| `planetTexture.js` | 九颗行星的程序化地表（terran/gas/ice/rock/lava/ocean 六生成器 × 9 配方）+ 云层贴图 + 光环贴图。球面方向采 3D 噪声，无接缝无极点挤压 | 🆕 |
+| `blackHole.js` | 中央黑洞三部件（事件视界 / 光子环 billboard / 吸积盘）+ `createStardust()` 星尘粒子系统 | 🆕 |
+| `ProfileCard.vue` | 维度宇宙主页面：3D 黑洞星系 + 九维详情面板（ECharts）+ 进出场转场 | 重写 |
 
 ---
 
 ## 5. 核心业务模块
 
-### 5.1.1 业务流程全景
+### 5.1 学科计划系统
+
+> 考纲驱动的备考主线：选考纲 → 摸底诊断 → 生成三阶段计划 → 每日任务 → 真题冲刺。
+> 数据落 `subject_plans` / `plan_daily_tasks` / `question_records` / `user_kp_mastery`。
+
+#### 5.1.1 业务流程全景
 
 ```
 用户旅程（完整闭环）
@@ -822,8 +914,8 @@ project1/
     }
   ],
 
-  "exam_papers": [                        // 真题套卷 (灰色占位，待实现)
-    { "name": "2024年6月真题", "count": 0, "grey": true }
+  "exam_papers": [                        // 真题套卷 (12 套真题，见 5.1.7)
+    { "name": "2024年6月真题", "file": "cet4_2024_06.json", "available_score": 568 }
   ]
 }
 ```
@@ -987,7 +1079,26 @@ else:
 
 ---
 
+### 5.1.7 真题套卷系统（ExamPaper）
 
+**数据**：`backend/data/exam_papers/` 12 套真题 JSON（卷面分区 sections + 评分标准 grading_rubric + 中文解析 + ai_analysis_hint）。CET-4/6 跳过听力（缺音频）、二级 Office 仅选择题、二级 Python/C 与行测为精选卷；雅思/托福因版权保护未收录（规划 AI 仿真卷另标）。
+
+**双模式**（`/subject-plan/:syllabusId/exam/:paperId`）：
+- **做题模式**：计时器 + 分区导航 + 交卷弹窗（总分 + 分区得分）
+- **解析模式**：做过 → 你的答案/正确率/解析/AI 批改反馈/AI 错因分析；没做过 → 标准答案 + 提示"先做题才能获得 AI 个性化批改"
+
+**交卷链路**：客观题自动判 + 主观题 AI 批改（按 grading_rubric）→ 错题后台异步批量 AI 分析（每批 5 题，输出错因/正确思路/学习建议）→ 缓存到 `exam_paper_records.question_results`，解析模式秒开不重复烧 AI。
+
+**备考计划双通道**（考纲详情「生成备考计划」弹窗）：
+```
+通道一：摸底生成 — 诊断答题 → AI 评估 → 生成计划
+通道二：答卷生成 — 已完成真题卷 → AI 分析错题 → 生成计划（未完成卷灰色禁用）
+```
+答卷通道 AI 只能从考纲真实维度/题型列表选题 → 任务带 category+question_type+question_count 可被 bank_query 查到真实题目；三阶段设计（基础期易/强化期中/冲刺期综合）+ fallback 兜底。
+
+**每日学习闭环**：每日任务卡片 → 📖 学习讲解（AI 按本日题目实时生成，首次后缓存 learning_content）/ ✏️ 去练习（带真实题目）/ 🎬 知识点讲解视频（自营视频库，2026-09-04 上线，见 5.16）。阶段标签：基础绿/强化橙/冲刺红。
+
+**API**（`backend/routers/exam_papers.py`）：`GET /syllabi/{id}/exam-papers`、`GET /exam-papers/{paper_id}?mode=`、`POST /exam-papers/{paper_id}/submit`、`POST /exam-papers/{paper_id}/generate-plan`。
 
 ### 5.2 AI 对话系统
 
@@ -998,16 +1109,16 @@ else:
 
 位于首页 `/home`。用户发送消息后，系统自动进行**意图识别**，将请求路由到对应的专业 Agent。
 
-**意图识别双轨策略**：
+**意图识别（关键词单轨）**：
 
 ```
-优先级 1: AI 分类 → POST /chat/detect-intent (temperature=0.1)
-           → 返回 plan | generate | evaluate | chat
-优先级 2: 前端关键词降级 → 匹配"规划/计划/安排"→plan
-                         → 匹配"生成/出题/题目"→generate
-                         → 匹配"评估/评价/批改"→evaluate
-                         → 默认 → chat
+前端关键词匹配 → 匹配"规划/计划/安排"→plan
+               → 匹配"生成/出题/题目"→generate
+               → 匹配"评估/评价/批改"→evaluate
+               → 默认 → chat
 ```
+
+> 原「双轨策略」的优先级 1（`POST /chat/detect-intent` AI 分类）已于 2026-09-11 **连同端点整体删除**（全站零引用）。现在只剩关键词这一条路径，没有再往模型层兜底。
 
 **四 Agent 路由**：
 
@@ -1021,7 +1132,7 @@ else:
 **流式响应流水线**：
 
 ```
-1. 用户输入 → detectIntent (AI/keyword) → 确定 intent
+1. 用户输入 → 前端关键词匹配 → 确定 intent
 2. 显示 "📋 Calling Plan Agent" 动画 (1 秒)
 3. POST /chat/send { messages, intent, user_id, temperature }
    → 后端路由到对应 Agent → StreamingResponse (text/event-stream)
@@ -1053,17 +1164,16 @@ else:
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/chat/detect-intent` | POST | AI 意图分类（temperature=0.1） |
 | `/chat/send` | POST | 流式对话主端点，按意图路由到对应 Agent |
 | `/chat/title` | POST | 从首轮对话生成标题（≤20 字） |
 | `/chat/summary` | POST | 从 AI 回复提取摘要标签（≤15 字） |
 | `/chat/log` | POST | 保存摘要到 Supabase learning_logs |
-| `/chat/vision` | POST | 多模态图片理解（火山引擎豆包，流式 SSE 解析） |
+| `/chat/vision` | POST | 多模态图片理解（DeepSeek V4.1 Flash 原生多模态，09-10 切换，流式 SSE 解析） |
 | `/chat/advice` | POST | 从 prompt 生成学习建议（非流式） |
 
-#### 5.2.2 小吉语音助手（XiaojiCall）—— 人格化 AI 伴侣
+#### 5.2.2 小基语音助手（XiaojiCall）—— 人格化 AI 伴侣
 
-位于 `/xiaoji/call`，独立的全屏沉浸式体验。小吉拥有角色形象、语音输出、丰富交互反馈。
+位于 `/xiaoji/call`，独立的全屏沉浸式体验。小基拥有角色形象、语音输出、丰富交互反馈。
 
 **5 种动画状态（useXiaojiAvatar composable）**：
 
@@ -1089,11 +1199,13 @@ else:
 | 功能 | 实现 | 说明 |
 |------|------|------|
 | 文字聊天 | `POST /community/xiaoji/chat` | 火山引擎豆包，temperature=0.8，最近 10 条消息为上下文 |
-| 图片理解 | `POST /community/xiaoji/vision` | 豆包 Vision 多模态 |
+| 图片理解 | `POST /community/xiaoji/vision` | 千问 qwen3-vl-flash（08-25 收编阿里云） |
 | 语音合成 | 浏览器 `SpeechSynthesis` API | 中文 (zh-CN)，可开关 |
 | 语音输入 | 浏览器 `SpeechRecognition` API | 中文识别 → 自动发送 |
 | 题目评估 | `POST /community/xiaoji/evaluate-question` | 4 步 Agent 流水线 |
 | 题集评估 | `POST /community/xiaoji/evaluate-set` | 综合评估含难度匹配/薄弱分析/学习建议 |
+| 上下文记忆 | `xiaoji_messages` 表 | 每轮对话存库，回复前拼入最近 10 条上下文 |
+| 历史搜索 | `GET /community/xiaoji/messages?search=` | 独立搜索页，ilike 模糊匹配 |
 
 **题目评估 Agent 流水线**（评估时动画展示）：
 
@@ -1109,6 +1221,20 @@ else:
 - 文字消息 / 图片消息（点击放大）/ 题目卡片（标题+题型+难度+选项预览）
 - 题集卡片（名称+题数+展开详情）/ 评估结果（📊 小基评价 + 格式化分析）
 
+**聊天记录**（2026-08-17 新增）：
+- 进入页面自动定位到最新消息（先渲染再滚动，瞬时跳转避免平滑滚动动画）
+- 跨天消息插入日期分隔线（今天 / 昨天 / M月D日 周几 / 跨年带年份），每条消息右侧显示 HH:MM
+- 清空记录按钮 → `DELETE /xiaoji/messages/{user_id}`
+
+**搜索页（`/xiaoji/search`，2026-08-17 新增）**：
+- 顶部 🔍 按钮进入独立搜索页，输入框自动聚焦
+- 防抖 350ms 实时模糊搜索，结果 = 头像 + 我/小基标签 + 时间 + 内容摘要；序号机制丢弃过期结果防竞态
+- 输入为空时展示抖音风搜索历史（localStorage 去重最近优先 10 条，可清空；回车/点标签/点结果才写入历史）
+- 点击结果 → `/xiaoji/call?highlight={msg_id}` → 聊天页滚动定位居中 + 黄色高亮闪烁 2.4s
+- 后端模糊匹配语法为 PostgREST `ilike.*关键词*`（`*` 是通配符；写裸 `%` 会 500）
+
+**记忆链路**：`xiaoji_messages` 表 + `xiaoji_rls_policies.sql` RLS 放行策略（后端统一匿名 key 访问，身份校验在应用层）；未配策略时写入 401、读取空 → 表现为"没有记忆"。
+
 **设置页（XiaojiSettings）**：
 
 | 设置项 | 可选值 |
@@ -1121,7 +1247,7 @@ else:
 | 主动问候 | 开关 |
 | 语音播报 | 开关 |
 
-**后端文件**：`backend/routers/community/xiaoji.py`（~300 行），独立于主 Chat 系统。
+**后端文件**：`backend/routers/community/xiaoji.py`（~480 行，含消息搜索），独立于主 Chat 系统；顶层 `routers/xiaoji.py` 为兼容层（清空记录等端点仍被前端使用）。
 
 #### 5.2.3 SSE 流式响应处理流水线
 
@@ -1223,7 +1349,6 @@ def doubao_stream_generator(stream):
 | AI 响应超时 (55s) | `httpx.ReadTimeout` | 返回错误提示"AI 响应超时，请重试" → 前端显示重试按钮 |
 | 流中断（网络波动） | `reader.read()` 异常 | 保留已接收内容 + "[回复中断]" 标记 → 前端显示"继续"按钮 |
 | JSON 解析失败 | JSONDecodeError | 降级为纯文本展示（不做结构化解析） |
-| 意图识别失败 | `detect-intent` 异常 | 降级为 `intent=chat`，不阻塞对话流程 |
 | 用户画像获取失败 | `get_user_profile()` 异常 | 使用默认画像（`learning_stage="未知"` 等），不影响对话 |
 
 #### 5.2.4 个性化 System Prompt 构建流水线
@@ -1292,7 +1417,7 @@ get_user_profile(user_id) 聚合流程
 
 #### 5.2.5 多模态集成（Vision）
 
-`POST /chat/vision` 支持图片理解，当前实现使用**火山引擎豆包 Vision API**：
+`POST /chat/vision` 支持图片理解，当前实现使用 **DeepSeek V4.1 Flash 原生多模态**（`deepseek-flash`，2026-09-10 由 `deepseek-v4-flash-vision-exp` 实验版切换而来——V4.1 Flash 原生支持图文混合输入，**文本与识图共用同一个模型**，复用 `DEEPSEEK_API_KEY`，图片按 Token 计费单张最多 384 tokens）：
 
 ```
 图片理解流程：
@@ -1631,7 +1756,7 @@ levelProgress = min(100, currentProgress / currentNeeded × 100)%
 
 | Tab | 功能 |
 |-----|------|
-| 好友列表 | 小吉 AI 置顶（特殊蓝卡 → 点击跳 `/xiaoji/call`）+ 真实好友（头像/昵称/账号/在线绿点 → 聊天/删除） |
+| 好友列表 | 小基 AI 置顶（特殊蓝卡 → 点击跳 `/xiaoji/call`）+ 真实好友（头像/昵称/账号/在线绿点 → 聊天/删除） |
 | 好友请求 | 待处理请求列表（头像/昵称/时间 → 接受/拒绝），角标实时更新 |
 | 搜索用户 | 按账号搜索 → 结果标注状态（已是好友 / 已发送请求 / 添加好友） |
 
@@ -1653,7 +1778,7 @@ levelProgress = min(100, currentProgress / currentNeeded × 100)%
 
 **语音输入**：浏览器 `SpeechRecognition` API（zh-CN）→ 识别结果自动填入并发送。
 
-**小吉模式**：与小吉对话时切换 API → `POST /community/xiaoji/chat`（火山引擎豆包）→ TTS 朗读回复。
+**小基模式**：与小基对话时切换 API → `POST /community/xiaoji/chat`（火山引擎豆包）→ TTS 朗读回复。
 
 #### 5.4.4 好友排行（Rank）
 
@@ -1699,7 +1824,7 @@ community/ 包结构
   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐
   │ posts.py │ │friends.py│ │messages  │ │xiaoji.py     │
   │          │ │          │ │.py       │ │              │
-  │ 动态广场  │ │ 好友系统  │ │ 私聊     │ │ 小吉助手     │
+  │ 动态广场  │ │ 好友系统  │ │ 私聊     │ │ 小基助手     │
   │ 点赞收藏  │ │ 请求排行  │ │ 题集分享  │ │ 评估流水线   │
   │ 评论举报  │ │ 在线状态  │ │ 语音消息  │ │ TTS/ASR     │
   └──────────┘ └──────────┘ └──────────┘ └──────────────┘
@@ -1718,7 +1843,7 @@ community/ 包结构
 | `posts.py` | 动态 CRUD + 点赞/收藏/评论 + 批量查询优化 | ~10 |
 | `friends.py` | 好友关系/请求/搜索/排行 | ~7 |
 | `messages.py` | 私聊/题集分享(接受/拒绝)/举报(含邮件通知)/收藏/资料卡 | ~12 |
-| `xiaoji.py` | 小吉聊天/视觉/TTS/ASR/题目评估/题集评估/流式评估 | ~13 |
+| `xiaoji.py` | 小基聊天/视觉/TTS/ASR/题目评估/题集评估/流式评估 | ~13 |
 | `notifications.py` | 消息中心/角标/通知设置/每日生成（见 5.8） | ~10 |
 | `models.py` | Pydantic schema 定义 | — |
 
@@ -1889,40 +2014,49 @@ POST /questions/generate 全链路
  后端 questions.py
  ┌──────────────────────────────────────────────────────────┐
  │                                                          │
- │ 1. 构建 AI Prompt（模板注入）                              │
- │    prompt = f"""                                         │
- │    你是一位专业的出题老师。请生成一道{category}题目：        │
- │    - 题型: {question_type_label}                         │
- │    - 知识点: {topic}                                     │
- │    - 难度: {difficulty_score}/10                         │
- │    - 额外要求: {extra_notes}                             │
+ │ 1. 按「题型轴 × 学科轴」拼 prompt                          │
+ │    ┌── 题型轴 QTYPE_SPECS（7 种题型各自一份）               │
+ │    │     任务说明 + 答案写法 + 输出字段表 + 禁止项           │
+ │    │     只有选择题带 options；判断题答案是「正确/错误」、    │
+ │    │     计算题是数值或表达式、编程题是完整可跑程序           │
+ │    ├── 学科轴 SUBJECT_DISCIPLINE（11 个学科各自的用词/      │
+ │    │     例子/禁止项）                                     │
+ │    └── 角度池 ANGLES_COMMON / ANGLES_CS（按学科选池）       │
  │                                                          │
- │    返回 JSON: {{                                         │
- │      "title": "...",                                     │
- │      "question_type": "{question_type}",                 │
- │      "options": {{"A": "...", "B": "...", ...}},        │
- │      "answer": "A",                                      │
- │      "explanation": "...",                               │
- │      "hint": "..."                                       │
- │    }}                                                    │
- │    """                                                   │
+ │    ⚠ 2026-09-11 之前是**所有题型共用一套固定模板**（下面这段   │
+ │    就是被删掉的旧写法）。后果实测过：判断题和计算题的答案    │
+ │    双双变成选项字母 "A"——因为 hardcode 的 options 被硬塞给了 │
+ │    根本不该有选项的题型。                                   │
+ │      旧:  "options": {{"A": "...", "B": "...", ...}},     │
+ │           "answer": "A",        ← 判断题也这么返回         │
+ │    现在: 输出字段完全由题型决定，编程题沿用题库已有的标准      │
+ │          schema（题库 19,338 题就是它生成的）               │
  │                                                          │
- │ 2. call_llm(prompt, temperature=0.9)  ← 高温度增加多样性   │
+ │ 2. call_llm(prompt, temperature=0.9, schema=该题型 schema) │
  │                                                          │
- │ 3. extract_json_from_response(ai_resp)                   │
- │    ├─ 找第一个 { 和最后一个 }                              │
- │    ├─ json.loads()                                       │
- │    └─ JSONDecodeError → 返回错误提示                       │
+ │ 3. 按 schema 校验并提取 JSON（不合法则带错误重试）           │
  │                                                          │
  │ 4. 敏感词过滤                                             │
  │    check_content_safety(title + content + answer)         │
  │    → 不通过: HTTP 400 + "生成内容包含敏感信息"              │
  │                                                          │
+ │ 4.5 编程题质检闸 ★（只对编程题）                            │
+ │    「改提示词」解决不了「模型自己算错数」——实测 17 条用例里   │
+ │    只有 13 条跟它自己的参考答案对得上（76%）。               │
+ │    所以生成后**真跑一遍参考答案**：                          │
+ │      ├─ 全部用例通过      → 放行                           │
+ │      ├─ 与参考解不一致    → 带上实跑证据让模型修（≤2 轮）     │
+ │      │                     ⚠ 修复调用必须带 schema，否则模型  │
+ │      │                       只能自己编格式，每轮都白修       │
+ │      └─ 2 轮后仍不过      → HTTP 502 如实报错，**不落库**     │
+ │    效果：落库题用例通过率 76% → 100%（15/15）；生成耗时 6s→9s │
+ │                                                          │
  │ 5. 写入 Supabase                                         │
  │    POST /rest/v1/questions {                             │
  │      user_id, title, question_type, difficulty_score,    │
  │      category, topic, options, answer, explanation,      │
- │      hint, source: "generated", parent_id: null          │
+ │      hint, source: "generated", parent_id: null,         │
+ │      starter_code, test_cases    ← 09-11 起补齐（原先整体丢弃）│
  │    }                                                     │
  │                                                          │
  │ 6. 写入生成历史                                           │
@@ -1955,8 +2089,9 @@ def extract_json_from_response(response: str) -> dict:
     try:
         return json.loads(json_str)
     except json.JSONDecodeError:
-        # 记录失败详情但不做更多修复（与题库批量生成不同，单题生成失败直接报错)
-        raise ValueError(f"JSON 解析失败")
+        # 单题生成按题型 schema 校验，不合法就带错误信息让模型重试，
+        # 不做题库批量生成那种多层剥离容错
+        raise ValueError("JSON 解析失败")
 ```
 
 **与批量题库生成的区别**：
@@ -1966,7 +2101,7 @@ def extract_json_from_response(response: str) -> dict:
 | 触发方式 | 用户手动，UI 交互 | 脚本执行，命令行触发 |
 | 生成量 | 1 题/次 | 按批次 (BATCH_SIZE=6)，可达数千题 |
 | Temperature | 0.9（高多样性） | 0.7（平衡质量和多样性） |
-| JSON 容错 | 简单提取（失败直接报错） | 多层容错链（括号计数+回退+剥离+类型过滤） |
+| JSON 容错 | 按题型 schema 校验，不合法带错误重试 | 多层容错链（括号计数+回退+剥离+类型过滤） |
 | 存储位置 | Supabase `questions` 表 | 本地 JSON 文件 (`data/*.json`) |
 | 去重 | 无（用户手动生成不检查重复） | UUID + ID 去重 |
 
@@ -2156,31 +2291,57 @@ POST /learning-plan/create {user_id, name, stage, ..., tasks[]}
 ### 5.7 个人画像（维度宇宙）
 
 
-位于 `/profile-card`，平台最具视觉冲击力的页面。使用 **Three.js 3D 太阳系** 呈现 9 维学习画像。数据源与评估表共用 `GET /evaluation/profile-data`。
+位于 `/profile-card`，平台最具视觉冲击力的页面——一个**黑洞星系**：正中是黑洞，九颗程序化行星各有轨道，数据源与评估表共用 `GET /evaluation/profile-data`。
+
+> 2026-09-12 星图化重做、2026-09-15 程序化星球 + 中央天体改黑洞。下面描述的是这两轮之后的现状。
 
 #### 5.7.1 3D 场景架构
 
-**深空背景**：5000 远景星 + 3000 填充星 + 2000 银河带星 + 300 近景亮星 + 2 条尘埃带 + 星云光斑
+**深空背景**：远层 18000 颗微星（范围 ±1600，让机位能落在星空内部——从外面看会看到立方体轮廓，从里面看只有满天星、没有边界）+ 填充星 + 近景亮星 + 尘埃带 + 星云光斑。
+`sizeAttenuation` 全部关闭，否则远处的星会缩到亚像素等于消失。
 
-**中央太阳**：四层着色器（核心 + 内冕 + 外冕 + 远辉）
+**中央黑洞**（`utils/blackHole.js`）：三个部件
+- **事件视界**：纯黑球。`MeshBasicMaterial` 不受光照，贴上去就是全黑，把背后星空彻底吃掉
+- **光子环 + 透镜弧**：一张朝向镜头的程序化贴图（billboard）。真做引力透镜要单独一整套后处理，而招牌观感——视界边缘一圈细亮环、外加吸积盘远侧的光被弯折到视界上下各成一道弧——一张贴图就能拿到，且镜头转到任何角度都成立
+- **吸积盘**：赤道面上的环，缓慢自转（0.0022/帧）。内缘白热、向外幂律冷却，叠角向条纹做湍流
 
-**9 颗行星**：各有轨道环（Three.js RingGeometry）+ 标签精灵（CanvasTexture）+ 周期性自转/公转
+配色跟随用户「外观色」：视界按物理就该是黑的，主题色落在吸积盘与光子环上。中心那盏点光源保留（黑洞不发光，但吸积盘极亮，行星仍该被中心照亮）。
 
-**交互**：OrbitControls（拖动旋转/滚轮缩放）→ Raycaster 悬停检测（行星放大+光晕）→ 点击 → Tween.js 摄像机飞入动画 → 展开详情面板
+**9 颗行星**（`utils/planetTexture.js`）：**全部地表都是运行时程序化生成的**，不依赖任何图片资源。
+- 六个生成器 × 九套配方，按维度主题分配：`terran`（大陆+海洋+极冠）/ `gas`（纬向条纹+大红斑）/ `ice`（冰板块+裂纹）/ `rock`（fBm 地形+16 个陨坑）/ `lava`（冷壳+发光熔岩缝）/ `ocean`（全球皆水+域扭曲洋流）
+- 关键做法：**不按 (u,v) 平面采噪声**，而是先把每个纹素换算成它在球面上的真实单位方向，再拿这个方向采 3D 噪声——噪声本身就定义在球面上，等距圆柱投影的**左右接缝与两极挤压**自然都不存在
+- 每颗另有独立云层球（转得比地表快，0.016 vs 0.010 → 有视差）+ 径向分带光环，部分指标星带环
+
+**星图坐标系**：同心刻度环 + 12 条辐射线构成极坐标网格，让"几个球在飘"变成"一张星图"。
+
+**侧栏维度清单**：九维各带真实数值与数据状态（标「N / 9 有数据」），点它和点星球是同一条路径。
+
+**右上角坐标面板**：常驻显示当前（悬停或默认第一颗）行星的轨道半径 R / 相位角 θ / 轨道倾角 i / 离面高度 y，实时跳动。
+
+**交互**：OrbitControls（拖动旋转/滚轮缩放）→ Raycaster 悬停检测 → 点击 → 摄像机飞入动画 → 展开详情面板。
+**退出宇宙靠点中央黑洞**（2026-09-12 移除了顶栏返回键；底栏有「点中央黑洞退出」提示——黑洞比原来的亮恒星暗得多，不加提示不好找）。
+**维度深链** `/profile-card?dim=knowledge` 可直达某个维度，可分享、刷新保持。
+
+**转场**：
+- **进场**：从虚空推进（起点距离 1100，落在星空内部），**对数插值**——线性插值时视张角按 1/d 变化，前 80% 时间几乎没动静、最后 15% 猛扑进来，观感就成了硬切而不是靠近
+- **出场**：九颗行星依次螺旋坠入黑洞（内圈先落，角速度随半径暴涨）→ 星尘从远处旋转着涌来 → 直接切主页。全程在 3D 里完成，**不盖 DOM 遮罩**
+  - 两个关键项：角速度必须随半径暴涨（少了它行星只是沿半径笔直滑向中心，像掉下去而不是被卷进去）；缩放跟着**半径**而不是时间走（行星半径与视界相当，不在贴近时收掉的话是行星盖住黑洞，而不是黑洞吃掉行星）
 
 #### 5.7.2 九维详情
 
 | 行星 | 名称 | 图表类型 | 数据来源 | 颜色 | 轨道半径 | 速度 |
 |------|------|---------|---------|------|---------|------|
-| 1 | 知识星系 | ECharts 力导向图 | `knowledge_base.list` → 节点大小=10+score×0.25, 颜色=绿(≥80)/黄(≥60)/橘(≥40)/红(<40) | #409eff | 2.8 | 0.15 |
-| 2 | 能力雷达 | ECharts 雷达图 | `ability_radar` — 6 项能力指标（概念理解/计算/逻辑/记忆/应用/速度） | #8b5cf6 | 3.6 | 0.12 |
+| 1 | 知识星系 | **极坐标星爆图** | `knowledge_base.list` → 每个知识点一根射线，**长度与颜色表掌握度**，取最高 18 个 | #409eff | 2.8 | 0.15 |
+| 2 | 能力雷达 | ECharts 雷达图（**轴数 < 3 时自动降级为横向渐变条**） | `ability_radar` — 5 项能力指标（概念理解/计算能力/逻辑推理/记忆能力/应用实践） | #8b5cf6 | 3.6 | 0.12 |
 | 3 | 学习节奏 | ECharts 日历热力图 | `learning_rhythm.calendar[]` — 90 天活跃度 + 连续天数/最长连续/总活跃天数 | #10b981 | 4.4 | 0.10 |
-| 4 | 认知偏好 | ECharts 横向柱状图 | `cognitive_style.distribution` — 各题型分布 | #f59e0b | 5.2 | 0.09 |
-| 5 | 易错地图 | ECharts 矩形树图 | `mistake_map.list[]` — 错题知识点面积分布，绿(少)→红(多) | #ef4444 | 6.0 | 0.08 |
-| 6 | 成长轨迹 | ECharts 折线图 | `growth_trajectory.points[]` — 掌握度从首次到最近 | #06b6d4 | 6.8 | 0.07 |
+| 4 | 认知偏好 | ECharts 横向柱状图 | `cognitive_preference.types` — 各题型分布 | #f59e0b | 5.2 | 0.09 |
+| 5 | 易错地图 | ECharts 矩形树图 | `mistake_map.list[]` — **色相表攻克率、明度表错题量**（只按攻克率上色的话，攻克率低的账号会糊成一堵一模一样的红墙） | #ef4444 | 6.0 | 0.08 |
+| 6 | 成长轨迹 | ECharts 折线图（发光折线 + 渐变面积 + 均值参考线） | `growth_trajectory.points[]` — 掌握度从首次到最近 | #06b6d4 | 6.8 | 0.07 |
 | 7 | 学习人格 | CSS 动画卡片 | `personality` — 类型(梯度微光字体) + 标签 + 描述文案 + 浮动 emoji | #ec4899 | 7.6 | 0.06 |
 | 8 | 兴趣星云 | Three.js CSS3DRenderer 球面 | `interest_field.list[]` — 黄金角分布标签球 | #f97316 | 8.4 | 0.05 |
-| 9 | AI 洞见 | 打字机动画 | `ai_summary` — LLM 生成的 50 字总结，逐字出现 + 闪烁光标 | #a78bfa | 9.2 | 0.04 |
+| 9 | AI 洞见 | 洞察卡 | `ai_summary` + `ai_actions` — **一条非显而易见的洞察 + 2~3 条可执行行动**（每条锚定真实知识点或数字）。LLM 挂了用规则从真实数据兜底 | #a78bfa | 9.2 | 0.04 |
+
+**统一视觉语言**：每个维度一张 `dim-card` 容器（渐变面 + 描边 + 内高光 + 投影，图表不再裸浮在面板上）+ 一行**真实数据的 KPI 摘要**（绿=好、琥珀=弱）；所有图表共用 `TIP` / `AXIS_LABEL` / `SPLIT_LINE` 三个常量，并统一带 tooltip——没有 tooltip 时知识/能力/认知/成长四个图根本读不出数值。
 
 #### 5.7.3 后端数据聚合（evaluation.py）
 
@@ -2188,15 +2349,22 @@ POST /learning-plan/create {user_id, name, stage, ..., tasks[]}
 
 | 数据域 | 来源表 | 聚合方式 |
 |--------|--------|---------|
-| knowledge_base | `questions` | 按 `normalized_topic` 分组取 avg(mastery_score) |
-| ability_radar | `questions` | 按 topic 关键词映射 6 个能力类目 → 取均值 |
-| learning_rhythm | `activities` | 90 天日历热力图 + streak 计算 |
-| cognitive_style | `generation_history` | 题型分布统计 → 标签（视觉型/文字型/综合型） |
-| mistake_map | `questions` | `mistake_status=learning` 按 topic 计数 |
-| growth_trajectory | `questions` | 按时序排列 mastery_score |
+| knowledge_base | `questions` | 按 `normalized_topic` 分组取 avg(mastery_score)，**只统计已作答的题** |
+| ability_radar | `questions` | **关键词优先 + 题型兜底**（`TYPE_TO_ABILITY`）映射到 5 个能力类目 |
+| learning_rhythm | **`user_actions`** | 近 90 天日历 + current/max streak + 活跃时段分布 |
+| cognitive_preference | `generation_history` | 题型分布统计 → 标签（视觉型/文字型/综合型） |
+| mistake_map | `questions` | `is_mistake` 按 topic 计数 + 攻克率 |
+| growth_trajectory | `questions` | 按日期聚合 mastery_score，取最近 30 个点 |
 | personality | 综合推导 | 学习阶段 + 风格 + 强弱项 → 类型标签 + 描述 |
 | interest_field | `generation_history` | topic 频率排名 TOP12 |
-| ai_summary | LLM 生成 | 火山引擎豆包 → 50 字总结 |
+| ai_summary / ai_actions | LLM 生成 | 一条洞察 + 2~3 条可执行行动；失败时用规则从真实数据兜底 |
+
+**两个容易踩的坑（2026-09-11 修）**：
+
+1. **`mastery_score = 0` 不是真分数**。生成题默认值就是 0，用户 200 道生成题里 161 道从没作答过；把它们一起算平均会把知识星系的平均掌握度拉到 ~0。过滤条件是 `mastery_score > 0 **或** is_mistake=True`——后半句兜住「答了但全错」的题。实测过滤后平均掌握度 **0 → 87**。
+2. **能力维度不能只靠知识点关键词硬匹配**。「集合」「微积分」「三角函数」这类真实知识点一个关键词都命中不了，维度会整片落空。改成关键词优先 + 题型兜底，保证每道练过的题都计入某个维度。
+
+> **前端契约**：2026-09-11 前前后端字段名对不上——前端读 `cognitive_preference` / `mistake_map` / `growth_trajectory`，后端给的是 `cognitive_style` / `mistake_pattern`，第三个压根没算过，导致三块整块不显示。现在后端**两套名字都返回**（老名字给其它消费方，末尾「前端契约」块给 `ProfileCard.vue`）。改字段名时两边都要看。
 
 ---
 
@@ -2281,7 +2449,7 @@ def create_notification(user_id, notif_type, title, content, source_id=None, ...
 ### 5.9 工具箱
 
 
-侧边栏"工具"区 4 个图标 + `Workbench.vue` 下拉面板。所有工具数据存储在 Supabase 独立表中，每个用户一行，核心数据以 JSONB 列存储。API 前缀 `/tools`（`backend/routers/tools.py`, 339 行）。
+侧边栏"工具"区图标点击 → 侧边栏内滑出工具面板（面板逻辑内置于 `Sidebar.vue`；原独立组件 `Workbench.vue` 已于 2026-08-17 死代码清理时删除）。所有工具数据存储在 Supabase 独立表中，每个用户一行，核心数据以 JSONB 列存储。API 前缀 `/tools`（`backend/routers/tools.py`, 339 行）。
 
 #### 5.9.0 整体架构
 
@@ -2289,7 +2457,7 @@ def create_notification(user_id, notif_type, title, content, source_id=None, ...
 工具箱数据架构
 ═══════════════════════════════════════════════════════
 
-  前端 Workbench.vue                     后端 tools.py          Supabase
+  前端 Sidebar.vue 工具面板              后端 tools.py          Supabase
   ┌───────────────────┐    ┌──────────────────────────┐    ┌──────────┐
   │                   │    │                          │    │          │
   │ 打卡面板           │───→│ GET/POST /tools/checkin   │───→│ checkins │
@@ -2493,7 +2661,7 @@ idle ──[开始]──→ running ──[暂停]──→ paused ──[继�
 | 学情报告查看 | `查看学情报告` | 进入 EvaluationReport 页面 |
 | 对话摘要 | `/chat/summary` 返回的标签 | AI 对话完成后（仅 generate 意图） |
 
-**前端展示逻辑**（`Workbench.vue`）：
+**前端展示逻辑**（`Sidebar.vue` 工具面板）：
 ```javascript
 // 1. 按日期分组
 const grouped = logs.reduce((acc, log) => {
@@ -2623,66 +2791,46 @@ async def upsert_tool_data(table: str, user_id: str,
 ---
 
 
-### 5.10 API 中心
+### 5.10 API 模型中心（预览形式）
 
 
-位于 `/api-center`，用户可在此配置自己的第三方 AI 服务凭证，使用个人 API 额度而非平台共享额度。设计目标是**降低平台运营成本 + 让高级用户自由选择模型**。
+位于 `/api-center`，以**模型画廊 + 示例预览**的形式展示平台 AI 能力背后的各模型。当前所有 AI 调用统一走后端 `.env` 中的平台官方 Key，页面上的自配 Key 仅为演示预留；**后期规划切换为「用户自带 Key 优先、平台 Key 兜底」**。
 
-#### 5.10.1 架构设计
+#### 5.10.1 页面结构与预览形式
 
-```
-API 中心凭证管理架构
-═══════════════════════════════════════════════════════════════
+**页面结构**：返回按钮 → 页头 → 概览条（已接入平台 x/6 · 文本主力 · 视觉模型 · 语音/视频）→ 模型画廊（6 张卡片）→ 底部提示（语音输入走浏览器内置能力 + Q&A 指南链接）。
 
-  前端 (Vue)                        后端 (FastAPI)                   第三方服务
-  ┌──────────────────┐    ┌──────────────────────────┐    ┌──────────────────┐
-  │ ApiCenter.vue    │    │ 凭证存储：Supabase        │    │                  │
-  │                  │    │ user_api_keys 表           │    │  火山引擎 ARK     │
-  │ ● 6 功能卡片     │    │ ┌──────────────────────┐  │    │  (豆包/DeepSeek)  │
-  │ ● 平台选择器     │    │ │ user_id (PK)          │  │    │                  │
-  │ ● 凭证输入(掩码) │    │ │ chat_provider         │──┼───→│  POST /api/v3/    │
-  │ ● 一键验证       │    │ │ chat_api_key (加密)   │  │    │  chat/completions │
-  │ ● 状态徽章       │    │ │ vision_provider       │  │    └──────────────────┘
-  │                  │    │ │ generate_provider     │  │
-  │  localStorage    │    │ │ evaluate_provider     │  │    ┌──────────────────┐
-  │ (前端缓存)       │    │ │ video_provider        │  │    │  DeepSeek API     │
-  └──────────────────┘    │ │ voice_provider        │──┼───→│  chat/completions │
-                          │ └──────────────────────┘  │    └──────────────────┘
-                          └──────────────────────────┘
-```
+**卡片结构**：徽章 + 名称 + 状态标（官方已接入 / 可自配 Key）+ 模型 ID + 能力标签 + 简介 + 预览区；点击卡片展开详情（官方模型显示接入说明，可自配模型显示 Key 表单）。
 
-**凭证生命周期**：
-```
-1. 用户输入凭证 → 前端 AES 加密 → POST /api-center/keys/save
-2. 后端解密 → 写入 Supabase user_api_keys (RLS: 只能读写自己的行)
-3. 使用时 → 后端从 user_api_keys 读取 → 构建对应平台的 API 调用
-4. 验证: POST /api-center/keys/verify → 发起测试请求 → 返回成功/失败
-5. 删除: DELETE → 清空对应字段
-6. 前端 localStorage 缓存最近使用的 provider 选择（不存明文 key）
-```
+**预览形式（2026-08-23 改版，替代原纯文字块预览）**：
 
-#### 5.10.2 6 个可配置 AI 功能详细说明
+| 类型 | 卡片 | 表现 |
+|------|------|------|
+| 对话气泡 | DeepSeek V4.1 Flash / 智谱 GLM | 「我」提问气泡 + 小基头像回答气泡（`xiaoji_idle.png`）；展开卡片时打字机逐字重播，打字中头像切换 `xiaoji_speaking.png` + 闪烁光标 |
+| 识图 | DeepSeek V4.1 Flash（原生多模态） | 左侧「示例题目截图」纸质 mockup（斜置仿拍照）+ 右侧小基解析气泡 |
+| 语音 | 讯飞星火 | 播放按钮 → `POST /xiaoji/tts` 真实讯飞合成，base64 mp3 本地播放（取回后缓存复用）；播放中均衡器动画 + 实际时长 |
+| 状态 | 豆包 | 主链路 / 待命备用状态行 |
+| 视频 | 腾讯云数字人 | 16:9 占位帧（渐变 + 播放按钮），点击提示占位中 |
 
-| 功能 | 可选平台 | 配置字段 | 使用场景 | 请求路由 |
-|------|---------|---------|----------|----------|
-| **AI 对话** | 火山引擎(豆包) / DeepSeek / 智谱 GLM | API Key + Endpoint ID（仅豆包） | ChatArea 主对话、学习建议生成 | `/chat/send` → 查 user_api_keys → 选用户配置的 provider |
-| **图片理解** | 火山引擎(豆包 Vision) | API Key + Endpoint ID | 图片题目识别、公式 OCR、多模态问答 | `/chat/vision` → VolcClient.vision_stream() |
-| **题目生成** | DeepSeek / 智谱 GLM | API Key | ResourceLib GenerateForm、批量出题 | `/questions/generate` → call_llm(t=0.9) |
-| **学习评估** | DeepSeek | API Key | 评估表综合评分、AI 学情分析 | `/evaluation/*` → call_llm(t=0.3) |
-| **视频推荐** | 腾讯云 VOD | SecretId + SecretKey + Region | 学习视频搜索与推荐 | — (待实现) |
-| **视频通话** | 科大讯飞 RTC | APPID + API Key + API Secret | 小吉实时语音通话 | — (待实现) |
+#### 5.10.2 模型清单
 
-**各平台端点映射**：
+| 卡片 | 厂商 | 模型 / 接口 | 接入方式 | 预览形式 | 用途 |
+|------|------|------------|---------|---------|------|
+| DeepSeek V4.1 Flash | DeepSeek | deepseek-flash（文本·思考默认关） | ✅ 官方 | 对话气泡+打字动画 | 全站文本主力：对话/规划/出题/批改/小基 |
+| DeepSeek 识图 | DeepSeek | deepseek-flash（原生多模态，与文本同模型） | ✅ 官方 | 截图 mockup+解析气泡 | 图片理解/拍题识别/小基识图 |
+| 豆包（火山方舟） | 火山引擎 | Ark endpoint 接入 | ✅ 官方 | 状态行 | 对话备用通道 |
+| 讯飞星火 | 科大讯飞 | ASR / TTS 接口 | ✅ 官方 | 可播放真实合成语音 | 小基语音对话 |
+| 腾讯云数字人 | 腾讯云 | 数字人视频生成 | ⬜ 可自配 Key | 视频占位帧 | 每日任务视频推送（占位中） |
+| 智谱 GLM | 智谱 AI | GLM 系列 | ⬜ 可自配 Key | 对话气泡+打字动画 | 出题备用通道 |
 
-| 平台 | API Base URL | 模型参数 | 鉴权方式 |
-|------|-------------|---------|---------|
-| DeepSeek | `https://api.deepseek.com` | `deepseek-chat` | `Authorization: Bearer <key>` |
-| 火山引擎豆包 | `https://ark.cn-beijing.volces.com/api/v3` | Endpoint ID (如 `ep-xxx`) | `Authorization: Bearer <key>` |
-| 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | `Authorization: Bearer <key>` |
-| 腾讯云 VOD | `vod.tencentcloudapi.com` | — | TC3-HMAC-SHA256 签名 |
-| 科大讯飞 RTC | `rtc-api.xfyun.cn` | — | API Key + API Secret 签名 |
+#### 5.10.3 自配 Key（演示）
 
-#### 5.10.3 平台路由与降级策略
+腾讯云数字人、智谱 GLM 两张卡展开后可填写自己的凭证（SecretId/SecretKey、API Key），保存到浏览器 `localStorage`（key: `apicenter-keys`）。**目前仅作演示**：实际 AI 调用仍走后端 `.env` 官方 Key，页面注明「留作备用通道」；后期接入后端存储后，此表单直接对接用户 Key 保存接口。
+
+#### 5.10.4 后期规划：用户自带 Key
+
+**定位**：当前全部 AI 调用使用平台官方 Key。后期允许用户在模型卡上配置自己的 Key——**用户个人 Key 优先、平台 Key 兜底**（未配置或调用失败时自动回落平台 Key）。
+
 
 ```
 POST /chat/send 时的 Provider 路由决策树：
@@ -2711,7 +2859,7 @@ POST /chat/send 时的 Provider 路由决策树：
 
 **降级优先级**：用户个人 key > 平台共享 key > 返回错误提示
 
-#### 5.10.4 凭证安全模型
+**凭证安全模型**：
 
 ```
 存储安全（Supabase RLS）：
@@ -2738,57 +2886,7 @@ POST /chat/send 时的 Provider 路由决策树：
 - 或应用层 AES-256-GCM 加密后再写入
 ```
 
-#### 5.10.5 UI 交互细节
-
-**ApiCenter.vue 页面结构**：
-```
-┌──────────────────────────────────────────────────────┐
-│ API 中心                                     [帮助 ?]│
-├──────────────────────────────────────────────────────┤
-│                                                      │
-│  ┌─ AI 对话 ────────────────────────────────── 🟢 ─┐ │
-│  │  选择大模型平台进行对话，支持多平台切换            │ │
-│  │  平台: [DeepSeek ▼]     状态: 已配置 ✅          │ │
-│  │  API Key: [••••••••••••••••]  [👁]              │ │
-│  │  Endpoint ID: [ep-202501xxxxxxxx]  (仅豆包)     │ │
-│  │  获取 Key: platform.deepseek.com →              │ │
-│  │  [🔄 验证连接]  [💾 保存]                        │ │
-│  └──────────────────────────────────────────────────┘ │
-│                                                      │
-│  ┌─ 图片理解 ──────────────────────────────── ⬜ ─┐ │
-│  │  ... (同上模式，仅支持火山引擎豆包)               │ │
-│  └──────────────────────────────────────────────────┘ │
-│                                                      │
-│  ┌─ 题目生成 ──────────────────────────────── ⬜ ─┐ │
-│  │  ... (DeepSeek / 智谱 GLM)                       │ │
-│  └──────────────────────────────────────────────────┘ │
-│                                                      │
-│  ┌─ 学习评估 ──────────────────────────────── ⬜ ─┐ │
-│  │  ... (仅 DeepSeek)                               │ │
-│  └──────────────────────────────────────────────────┘ │
-│                                                      │
-│  ┌─ 视频推荐 ─────────────────────── 🚧 开发中 ─┐ │
-│  └──────────────────────────────────────────────────┘ │
-│                                                      │
-│  ┌─ 视频通话 ─────────────────────── 🚧 开发中 ─┐ │
-│  └──────────────────────────────────────────────────┘ │
-│                                                      │
-│  💡 提示：语音输入使用浏览器内置功能，无需配置        │
-│  📖 各平台 Key 获取指南 → /qa                        │
-└──────────────────────────────────────────────────────┘
-```
-
-**验证流程**：
-```
-点击「验证连接」
-  → POST /api-center/keys/verify { function_type, provider, api_key, endpoint_id? }
-  → 后端发起测试请求（1 条简单 prompt，timeout=10s）
-  → 成功: HTTP 200 + { valid: true, model: "deepseek-chat", latency_ms: 342 }
-  → 失败: { valid: false, error: "401 Unauthorized - API Key 无效" }
-  → 网络错误: { valid: false, error: "连接超时，请检查网络" }
-```
-
-#### 5.10.6 数据库设计
+**规划中的数据库设计（user_api_keys）**：
 
 ```sql
 CREATE TABLE IF NOT EXISTS user_api_keys (
@@ -2821,7 +2919,7 @@ CREATE TABLE IF NOT EXISTS user_api_keys (
 );
 ```
 
-#### 5.10.7 后端 API 端点
+**规划中的后端 API 端点**：
 
 | 方法 | 端点 | 说明 | 认证 |
 |------|------|------|------|
@@ -2838,59 +2936,87 @@ def mask_key(key: str) -> str:
     return key[:4] + "****" + key[-4:]  # sk-1***x1y2
 ```
 
-#### 5.10.8 当前实现状态与规划
+#### 5.10.7 实现状态与规划
 
-| 功能 | 前端 | 后端 | 状态 |
-|------|------|------|------|
-| AI 对话 | ✅ 界面完整 | 🟡 provider 路由待完善 | 可用 |
-| 图片理解 | ✅ 界面完整 | 🟡 仅支持豆包 Vision | 可用 |
-| 题目生成 | ✅ 界面完整 | 🟡 当前仅用平台 key | 可用 |
-| 学习评估 | ✅ 界面完整 | 🟡 当前仅用平台 key | 可用 |
-| 视频推荐 | 🚧 界面占位 | ❌ 未开始 | 规划中 |
-| 视频通话 | 🚧 界面占位 | ❌ 未开始 | 规划中 |
-| 凭证存储 | ✅ localStorage | 🟡 user_api_keys 表已建 | 待对接 |
-| 凭证验证 | ✅ 验证按钮 | 🟡 测试请求待实现 | 待对接 |
+| 项 | 现状 | 后期 |
+|------|------|------|
+| AI 调用 | 全部走平台 `.env` 官方 Key | 用户配置后走个人 Key，未配置/失败自动回落平台 Key |
+| 页面形式 | 模型画廊 + 示例预览（2026-08-23 改版） | 保持预览形式，自配卡接入真实保存/验证 |
+| 凭证存储 | localStorage（仅演示） | Supabase `user_api_keys` + RLS + 掩码回显 |
+| 语音预览 | 真实讯飞合成（缓存复用） | 沿用 |
+| 视频推送 | 占位中 | 腾讯云数字人上线后启用 |
 
 ---
+### 5.11 账号体系与登录
 
 
-### 5.11 微信登录与绑定
+> **⚠️ 2026-09-28 账号模型重构 —— 本节前半部分是历史，已废弃。**
+> 旧的「网页扫码登录 + 登录后绑定微信」整条链路**已删除**，原因见下。
 
+#### 5.11.0 为什么去掉「扫码登录 + 账号绑定」（2026-09-28）
 
-采用**公众号测试号 OAuth 2.0** 方案（免费、个人可用），避免微信开放平台"网站应用"的企业资质要求（300 元/年）。
+用户的原话是「个人开发，不是企业，不能直接绑微信」。查下来**对一半**：
 
-#### 5.11.1 扫码登录流程
+| 能力 | 个人主体能不能做 |
+|---|---|
+| 小程序 `wx.login` 一键登录 | ✅ **能做**，不需要企业资质 |
+| 网页 / APP 的微信登录（开放平台） | ❌ 要企业主体 + 300 元/年认证 |
+| 公众号网页授权 | ❌ 个人订阅号没有这个接口权限 |
+| UnionID 打通小程序 ↔ 网页 | ❌ 必须企业 |
 
-```
-网页点击「微信扫码登录」
-  ├─ 后端 GET /auth/wechat/qrcode
-  │   └→ 生成 qrcode (base64 PNG) + poll_token
-  ├─ 前端展示二维码 + 每 2 秒轮询 GET /auth/wechat/poll/{token}
-  │   └→ { ready: false } ... 直到有结果
-  │
-  └─ 用户手机微信扫码
-      └→ 公众号授权页 → 确认
-          └→ 微信浏览器回调 GET /auth/wechat/callback?code=xxx&state=xxx
-              ├─ state → 查 _state_map → 获取 poll_token + mode(login/bind)
-              ├─ code → POST api.weixin.qq.com/sns/oauth2/access_token
-              │   └→ openid + nickname + headimgurl
-              │
-              ├─ mode=login:
-              │   查 profiles.wechat_openid = openid
-              │   └→ 找到: 签发 JWT → _poll_results = {access_token, user}
-              │   └→ 未找到: _poll_results = {bound: false}
-              │
-              └─ mode=bind (已登录):
-                  写入 profiles.wechat_openid → _poll_results = {bound: true}
-```
+**受限的只有网页/APP 那条**，而网页端当时是用**公众号测试号**兜的 ——
+那是开发调试工具，不该上生产（`auth.py` 的注释里自己写着「请前往
+mp.weixin.qq.com/debug 获取测试号」）。
 
-**前端处理**：
-- `{ ready: true, access_token, user }` → 登录成功，跳转 `/home`
-- `{ ready: true, bound: false }` → Toast "请先登录后在个人中心绑定微信"
+于是定下：
 
-#### 5.11.2 账号绑定
+- **小程序两条登录路径**：① 微信一键登录（**首次由后端直接建号**）② 邮箱/用户名 + 密码
+- **不再做「绑定」**：原来的「微信登录 → need_bind → 绑定网页账号或注册」整条删掉
+- **公众号测试号扫码整条删除**（后端删 4 个端点，路由 **22 → 18**）
+- **扫码登录推迟到 Flutter App 出来之后**（用户明确：扫码那一端只做手机应用）
 
-个人中心「🔗 微信绑定」卡片 → `GET /auth/wechat/bind-qrcode`（需 Bearer token）→ 扫码 → openid 写入 `profiles.wechat_openid`
+#### 5.11.1 小程序登录（当前实现）
+
+| 端点 | 行为 |
+|---|---|
+| `POST /auth/wx-login` | 用 code 换 openid；**查不到就当场建号**（原来是返回 `need_bind`）。Admin API 建 auth 用户 + 写 profile |
+| `POST /auth/set-credentials` | 补真实邮箱 + 密码，复用邮箱验证码。**只对占位邮箱账号开放** |
+| `GET /auth/account-status` | 让客户端知道该显示「修改密码」还是「设置邮箱和密码」 |
+
+**建号那条路做了三层防护**（这个项目在「静默失败」上吃的亏太多了）：
+
+1. profile 写失败 → **回滚删掉刚建的 auth 用户**（不回滚的话，每次重试漏一个孤儿账号）
+2. **回读校验 openid 真的落库** —— 它是这个账号唯一的找回凭据，
+   INSERT 失败会报错但值被改写不会，**只有回读能发现**
+3. 缺 `SUPABASE_SERVICE_ROLE_KEY` 直接 500，**不静默降级**
+
+#### 5.11.2 ⚠️ 这里有个洞，以及不用「账号合并」的补法
+
+微信建的号**没有邮箱密码** → 用户在网页/桌面/手机端**够不着它**，会导致学习数据分裂。
+
+补法**不是**账号合并（那要迁移 `user_id`，是数据工程），而是**给账号补一把钥匙**：
+微信建号后，在设置页可以补真实邮箱 + 密码。补完同一个账号到处都能登。
+
+数据模型因此定为：**占位邮箱 `wx_{openid}@miniapp.local`**
+（`.local` 是 RFC 6762 保留 TLD，永远不可投递）。
+
+**设置页的「账号安全」按账号状态二选一** —— 这不是设计偏好，是**必须的**：
+原来的「修改密码」表单第一步要输**当前密码**，而微信建号的用户根本不知道那个随机密码，
+照原样加个入口就是把用户送进一个必然失败的表单。
+
+#### 5.11.2b 向后兼容（当时特意确认过）
+
+老版本小程序（已提审那个包）拿到 `need_bind: false` + `access_token` 会**直接登录成功**。
+所以**不会出现「用户更新前完全登不进去」**。
+
+#### 5.11.2c 已删除的端点（历史，勿再引用）
+
+`GET /auth/wechat/qrcode`、`GET /auth/wechat/bind-qrcode`、`GET /auth/wechat/callback`、
+`GET /auth/wechat/poll/{token}` —— 以及只服务于它们的 `_cleanup_expired` /
+`_find_wechat_user` / `_bind_wechat_to_user`。网页端同步删掉 `Login.vue` 的扫码段、
+`Settings.vue` 的「绑定微信」段、`api/auth.js` 与 `stores/auth.js` 里对应的 7 个函数。
+
+> ⚠️ `/auth/wx-bind` 端点**还留着**（客户端已无调用）—— 删不删尚未决定。
 
 #### 5.11.3 自签 JWT 双模认证（auth_middleware.py）
 
@@ -2928,126 +3054,31 @@ BACKEND_EXTERNAL_URL=http://192.168.10.104 # 手机能访问的地址（无端�
 
 微信要求回调域名不含端口号 → 后端需监听 80 端口。测试号获取：https://mp.weixin.qq.com/debug/cgi-bin/sandbox?t=sandbox/login
 
-#### 5.11.6 状态管理与并发控制
-
-**服务端状态存储**（内存字典，非数据库）：
-
-```python
-# backend/routers/auth.py 中的内存状态
-_state_map: dict[str, dict] = {}       # state → {poll_token, mode, created_at}
-_poll_results: dict[str, dict] = {}    # poll_token → {ready, access_token?, user?, bound?}
-_poll_tokens: dict[str, str] = {}      # state → poll_token (反向索引)
-```
-
-**状态生命周期**：
-
-```
-State (180s TTL)              Poll Token (180s TTL)          Poll Result (300s TTL)
-┌─────────────────┐          ┌─────────────────┐          ┌─────────────────┐
-│ state: "abc123" │          │ token: "xyz789" │          │ ready: false    │
-│ poll_token:     │──────────→│ state: "abc123" │          │   ...等待中...   │
-│   "xyz789"      │          │ mode: "login"   │          │   ↓              │
-│ mode: "login"   │          │ created_at: ... │          │ ready: true     │
-│ created_at: ... │          └─────────────────┘          │ access_token: ..│
-└─────────────────┘                                       │ user: {...}     │
-                                                          └─────────────────┘
-
-清理策略:
-  - 每次生成新 state/poll_token 前，遍历所有条目删除过期项
-  - 过期判断: now - created_at > TTL
-  - 防止内存泄漏: 最多保留 1000 条，超出时清理最旧 200 条
-```
-
-**并发场景处理**：
+#### 5.11.6 登录态管理与并发控制（当前实现）
 
 | 场景 | 处理方式 |
 |------|---------|
-| 同一用户多设备同时扫码 | 每次扫码生成新 `state` + 新 `poll_token`；旧 `state` 过期自动失效 |
-| 轮询超时 (5分钟无扫码) | 返回 `{ ready: false, expired: true }`；前端停止轮询，显示"二维码已过期" |
-| 微信重放回调 (重复 code) | `code` 只能兑换一次 `access_token`；第二次请求微信 API 返回 40163 (code been used) |
-| 回调到达但轮询已停止 | `_poll_results` 保留 300s，用户刷新页面可重新获取结果 |
+| 小程序重复点登录 | 前端按钮 loading；后端按 openid 唯一 —— 已存在直接返回该账号 JWT，**不会重复建号** |
+| 建号中途失败 | profile 写失败 → **回滚删掉刚建的 auth 用户**（不回滚的话每次重试漏一个孤儿账号） |
+| openid 被静默改写 | **回读校验** —— INSERT 失败会报错，但值被改写不会，**只有回读能发现** |
+| 缺 `SUPABASE_SERVICE_ROLE_KEY` | 直接 500，**不静默降级**（否则拼出 `Bearer None`，比报错更难查） |
+| 补邮箱密码中途失败 | **验证码不能被消耗**（已有测试守住这条重试安全性） |
+| 同一账号多端同时登录 | 无冲突：JWT 无状态，各端各自持有 |
 
-#### 5.11.7 错误处理矩阵
+#### 5.11.7 错误处理矩阵（当前实现）
 
-```
-扫码登录全链路异常处理
-═══════════════════════════════════════════════════════════
+| 环节 | 错误 | 前端行为 | 恢复方式 |
+|---|---|---|---|
+| 小程序 `wx.login` | code 换 openid 失败 | Toast「微信登录失败」 | 重试 |
+| 建号（首次登录） | profile 写失败 | 后端已回滚并返回 500 | 重试（**不会留下孤儿账号**） |
+| 建号 | 缺 service key | 后端 500 + 日志 | **运维问题**，用户重试无用 |
+| 补邮箱密码 | 邮箱已被占用 | Toast 明确提示 | 换一个邮箱 |
+| 补邮箱密码 | 验证码错误 / 过期 | Toast | 重新发码 |
+| 补邮箱密码 | 中途失败 | **验证码不消耗** | 直接重试 |
+| 补邮箱密码 | 对非占位邮箱账号调用 | 后端拒绝 | 该账号应走「修改密码」而非「设置邮箱和密码」 |
 
-  环节            错误                          前端行为                    恢复方式
-  ─────────────  ──────────────────────────    ────────────────────────    ──────────
-  生成二维码     微信API不通/网络问题           显示错误提示 + "重试"按钮     点击重试
-                (GET /auth/wechat/qrcode)     
-  
-  轮询扫码       5分钟未扫码                   二维码过期蒙层               点击刷新重新获取
-                (poll 返回 expired=true)       + "刷新二维码"按钮           新二维码
-  
-  用户扫码后     已扫码但未绑定账号             Toast提示                    跳转登录页
-  回调返回       (callback → openid查不到)     "请先登录后绑定微信"          先邮箱注册再绑定
-  
-  用户扫码后     微信API code换token失败        后端捕获异常                 前端收到错误
-  回调返回       (code过期/已使用/网络错误)     _poll_results不更新           提示"授权失败请重新扫码"
-  
-  用户扫码后     Supabase写入失败              后端捕获异常                  openid已获取但
-  绑定写入       (网络/RLS)                    _poll_results仍标记成功       profiles未更新
-                                              日志记录错误供排查             → 异步补偿重试
-  
-  签发JWT       JWT库异常                     后端捕获异常                 前端收到错误
-                (极罕见，密钥配置错误)          _poll_results不更新          提示"登录失败"
-```
-
-**前端轮询有限状态机**：
-
-```javascript
-// Login.vue 中的轮询逻辑
-const POLL_INTERVAL = 2000   // 2秒
-const POLL_TIMEOUT = 300000  // 5分钟
-let pollTimer = null
-let elapsedTime = 0
-
-async function startPolling(pollToken) {
-  elapsedTime = 0
-  pollTimer = setInterval(async () => {
-    elapsedTime += POLL_INTERVAL
-    
-    // 超时检查
-    if (elapsedTime >= POLL_TIMEOUT) {
-      stopPolling()
-      state.qrcodeExpired = true  // → 显示过期蒙层
-      return
-    }
-    
-    const res = await fetch(`/auth/wechat/poll/${pollToken}`)
-    const data = await res.json()
-    
-    if (!data.ready) return  // ← 继续轮询
-    
-    // 结果处理
-    stopPolling()
-    if (data.access_token) {
-      // 登录成功
-      authStore.setToken(data.access_token)
-      authStore.setUser(data.user)
-      router.push('/home')
-    } else if (data.bound === false) {
-      // 未绑定 → 提示用户先登录
-      ElMessage.warning('请先登录后在个人中心绑定微信')
-      state.showBindTip = true
-    } else if (data.bound === true) {
-      // 绑定成功
-      ElMessage.success('微信绑定成功')
-      state.wechatBound = true
-      fetchUserProfile()  // 刷新个人信息
-    }
-  }, POLL_INTERVAL)
-}
-
-function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
-```
+> **已删除的轮询有限状态机**：原 `Login.vue` 里还有一套 2 秒轮询 / 5 分钟超时 /
+> `{ready, bound, access_token}` 分支的 FSM，**随扫码登录一起删掉了**，本节不再保留。
 
 #### 5.11.8 安全加固
 
@@ -3428,6 +3459,307 @@ GET /admin/logs?action=ban_user&page=1&page_size=20
 ---
 
 
+### 5.13 统一设置中心（Settings）
+
+位于 `/settings`（2026-08-06 新增，2026-08-17 配合个人中心去重完善，2026-09-28 整合小基设置与快捷键）。将原本散落在 6 处的设置项统一收拢：侧边栏（主题/状态）、个人中心（昵称/密码）、引导页（学习偏好）、**小基设置**（2026-09-28 内嵌进来，原 `/xiaoji/settings` 改为重定向）、**快捷键**（2026-09-28 新增）、通知设置（原只有后端 API 无前端 UI）。
+
+**全站只有这一处设置**：首页右上角的齿轮也指向 `/settings` —— 原来它指向 `/xiaoji/settings`，和左侧轮盘里的「设置」是两个页面，同一个东西两处维护。
+
+#### 5.13.1 十大模块
+
+| 模块 | 内容 | 数据来源 |
+|------|------|---------|
+| 个人信息 | 昵称 / 简介 / 头像上传 | `PUT /auth/update-nickname`、`/update-bio`、`POST /auth/upload-avatar/{id}` |
+| 学习偏好 | 7 项下拉（阶段/年级/专业/目标/难度/讲解方式/每日时长） | `PUT /auth/update-learning-info` |
+| 外观 | 主题定制四轴（2026-09-03 后无浅/深/跟随系统开关，明暗由**背景色亮度自动派生**）：**背景色 / 组件色(毛玻璃) / 主题色 / 字体色**（各带预设 + 高级 rgb 选色）；**预设一套**方案一键换四轴；**默认方案 = 深空蓝四轴**（新用户首次进入 + 恢复默认）；**实时预览小界面 + 适配度提醒**（5 组 WCAG 对比度加权百分比 + 逐项建议 + 自动调整字体色）；组件色经 `var(--surface)` 收编全站 500+ 白描层；**仅落地页跟随系统明暗、不可改**；**外观码**（2026-09-04）：四轴打包成可分享码（`JZ1-bg-surface-brand-字体档-校验`，官方套装为 `JZ1-space` 超短别名，校验防抄错）+/theme?code= 免登录直达预览一键应用 | themeStore（localStorage 缓存，`GET/PUT /auth/theme` 账号同步） |
+| 隐私 | 在线 / 隐身 | `PUT /auth/status` |
+| 通知设置 | 8 开关 + 每日推荐/总结时间 | `GET/PUT /community/notification-settings` |
+| 账号安全 | 修改密码。**微信绑定已删（2026-09-28）** —— 公众号测试号扫码整条移除，改由「微信建号 + 补邮箱密码」承担（见 5.11.2） | `PUT /auth/update-password`、`POST /auth/set-credentials` |
+| 快捷键 | 25 个动作可改键；录制态 + 冲突提示；**跟随账号**（`user_shortcuts` 表） | `GET /auth/shortcuts/{user_id}`、`PUT /auth/shortcuts`（见 5.17） |
+| 桌宠 | 显示开关 / 轮盘项开关 / 小基大小（滑杆）/ 开机自启。**仅桌面壳里出现**（网页版整块隐藏） | 壳的 `set_pet_visible` / `set_pet_prefs`、`plugin:autostart`（见 18.3） |
+| AI 与 API | 跳转小基设置 + API 管理中心（链接卡） | `/xiaoji/settings`、`/api-center` |
+| 关于 | 当前版本（读 `package.json` 的 version 字段；桌面壳里另有壳自己的版本号，问壳要）+ ICP 备案号（2026-09-02 新增，链工信部备案查询）+ 使用指引/帮助中心/开源文档入口（2026-08-24 新增） | 前端本地 + 壳的 `app_version` |
+
+#### 5.13.2 个人中心去重（Profile 信息展示页）
+
+2026-08-17 重构：`Profile.vue` 重写为信息展示页 —— 头像 + 昵称/账号/邮箱只读展示、学习画像展示卡（含「重新填写偏好问卷」入口）、退出登录、「编辑资料与设置」按钮跳 `/settings`。所有编辑操作（头像/昵称/简介/密码/微信绑定）只保留设置中心一个入口，避免双入口维护与状态不一致。
+
+### 5.14 智能体中心
+
+位于 `/agent-center`（2026-08-22 硬编码预览版，2026-08-23 后端全量落地）。5 个核心智能体（对话 / 规划 / 生成 / 评估 / 小基）散落在 ~20 个触点，本模块把这些触点的行为数据聚合为「使用情况 + 效果指标」，并提供参数调节与**自动磨合**——不做模型微调，做参数自适应：行为数据（正确率/完成率/👍👎）→ 规则引擎自动微调 agent 参数 → 下次调用实时拼装生效。
+
+数据原则：**每个数字要么解释学习效果、要么导向动作**；统计只是调整效果的证据。
+
+#### 5.14.1 数据设计与触点清单
+
+**原则：能用现有表就不建新表**。调用计数统一走 `user_actions`（action_type + metadata.touchpoint），效果指标统一走业务表（`plan_daily_tasks` / `question_records` / `exam_paper_records` / `generation_history` / `questions` / `question_sets` / `learning_logs` / `xiaoji_messages` / `user_kp_mastery` / `diagnosis_results` / `subject_plans` / `profile_card_settings` / `vocab_lookups` / `word_mastery`）。真正新建只有 2 张表 + 2 个补列（`backend/sql/agent_center_tables.sql`，可重复执行）：
+
+| 对象 | 说明 |
+|------|------|
+| `agent_prefs` | 智能体参数持久化：UNIQUE(user_id, agent_key, param_key)，`param_value` JSONB，`auto_managed` 自动托管开关（开启后磨合规则接管、前端控件禁用） |
+| `agent_tuning_log` | 磨合记录：old/new value + reason + source(auto/manual)，趋势图 markLine 数据源 |
+| `xiaoji_messages.kind` | 补列：chat / vision / evaluate 触点区分 |
+| `subject_plans.source` | 补列：diagnosis / exam_paper / chat 计划来源区分 |
+
+**19 个触点清单**（12 个现成可计数、4 个补埋点、2 个词条触点随词条本走、0 个为计数建新表）：
+
+| 智能体 | 触点 |
+|--------|------|
+| 对话 chat | 答疑对话（user_actions.chat）、词义讲解（vocab_lookups·chat_ask）、规划/生成/评估分流（use_*_agent）、日志摘要（learning_logs） |
+| 规划 plan | 聊天里问规划（use_plan_agent）、诊断生成计划（diagnosis_results）、答卷生成计划（subject_plans.source=exam_paper）、每日学习讲解（learning_content 非空） |
+| 生成 generate | 聊天里出题（use_generate_agent）、资源库生成 / 掌握度定向生成（generate_question + touchpoint）、题集创建（create_set） |
+| 评估 evaluate | 聊天里问评估（use_evaluate_agent）、做题提交批改（question_records.ai_feedback 非空）、真题交卷分析（exam_paper_records）、画像 AI 总结（profile_card_settings） |
+| 小基 xiaoji | 小基聊天 / 识图 / 评价题目题集（xiaoji_messages.kind）、词条抓取（vocab_lookups·xiaoji_vision）、**快捷提问分流**（use_*_agent·touchpoint=xiaoji_quick_ask/xiaoji_gen_card，2026-09-02 补） |
+
+#### 5.14.2 聚合路由
+
+`backend/routers/agent_center.py`，挂载 `/agent-center`，全部需登录 + `verify_user_match`：
+
+| 端点 | 说明 |
+|------|------|
+| `GET /agent-center/overview?user_id=&days=` | 总览：KPI 六格（总调用/活跃智能体/计划完成率/生成题量/批改题量/词条抓取）+ 协作闭环 5 步（问题入口→计划→练习批改→错题定向→掌握度）+ 小基陪伴线 + **协同增益 5 对**跨表对照（陪伴日 vs 非陪伴日、有讲解 vs 无讲解、首答 vs 批改后重做等）+ 路由转化 + 动态结论文案 |
+| `GET /agent-center/agents/{key}` | 单智能体详情：30 天趋势序列 + 4 统计格 + 触点计数表 + 2 个特点面板（每个 agent 不同，如对话 Agent 的意图路由分布、规划 Agent 的三阶段完成率） |
+| `GET/PUT /agent-center/agents/{key}/prefs` | 参数读写（agent_prefs） |
+| `GET/POST /agent-center/agents/{key}/tuning` | 磨合记录读写（agent_tuning_log） |
+| `POST /agent-center/tuning/run` | 立即执行磨合规则评估（详情页「立即评估」按钮） |
+
+**性能**：单请求要拉 15 张表 → **单连接 + asyncio.gather 并发拉取**（串行要 10s+），跨表联合全部在 Python 侧完成（PostgREST 只做单表过滤）；任何查询失败优雅降级返回 `[]`，分析接口不因单表故障整体报错。
+
+#### 5.14.3 磨合规则引擎
+
+`backend/agents/tuning.py`，6 条规则与详情页参数卡「磨合规则」文案一一对应：
+
+| 规则 | 触发条件 | 动作 |
+|------|---------|------|
+| 规划·每日任务量 | 计划完成率 <50% / >85% | 任务量 -2（下限 1）/ +1（上限 10） |
+| 规划·阶段节奏 | 完成率 <40% / 近 14 天 >80% | 降一档 / 升一档（舒缓→适中→紧凑） |
+| 生成·出题难度 | 题集收录率 <60% / >85% | 难度 -2 / +1 |
+| 生成·错题针对性 | 错题本 ≥10 题且未开启 | 开启 |
+| 评估·错因颗粒度 | 重做正确率 <70% | 加细到知识点级别 |
+| 小基·关心频率 | 连续 3 天没学习 | 主动关心 +1 档 |
+
+保护机制：用户关闭「自动托管」的参数不碰；同一参数自动调整有 7-14 天冷却期；没有学习记录的新用户不打扰；单条规则失败不影响其余。
+
+触发方式：① 详情页「立即评估」按钮（`POST /tuning/run`）；② **后台每日任务**——main.py lifespan 启动 asyncio 循环，每 24h 对近 14 天活跃用户逐个评估（用户间限速 1s），应用关闭时 cancel。
+
+#### 5.14.4 前端页面
+
+- `views/AgentCenter.vue`：KPI 行（范围筛选 7/30/90 天联动）+ 协作闭环 + 协同增益 + 路由转化 + 5 张智能体卡（效果指标 + 触点明细 + 可行动建议）→ 点击进详情
+- `views/AgentDetail.vue`：Hero + 4 统计格 + 近 30 天趋势图（ECharts 平滑折线 + 渐变面积 + 十字准线 tooltip + 图表/表格双视图，**磨合记录 markLine 竖虚线标注**形成「调整点 vs 指标变化」证据链）+ 触点明细表 + 可行动建议横幅（「一键应用」直接落库 prefs）+ **参数调节**（分段选择/滑块/开关三类控件，每参数独立「自动托管」开关，开启后控件禁用并显示磨合规则与上次调整记录）+ 磨合时间线 + 重置出厂/保存/立即评估
+- `api/agentCenter.js`：七个 API 封装；`utils/mockAgents.js` 保留作为字段级映射注释（已全部替换为真实数据）
+
+#### 5.14.5 小基页队长制：呼叫对象下拉 + 队员真实分流（2026-09-02 全套改造）
+
+**定位（08-27 定方向，09-02 落地）**：小基是队长（常驻陪聊调度），专业队员以自己身份在小基世界干活；「对话 Agent」**并入队长**（小基 = 通用对话能力），智能体中心保留其数据卡片。
+
+**交互（用户拍板）**：输入区**工具行**内「呼叫」下拉框选角色（与上传图片/语音等按键同一行）——**小基 5 种模式**：小基（队长）/ 生成 Agent / 规划 Agent / 评估 Agent / 自定义出题（动作不是身份：选中即弹表单并回退上一选择）。选择 localStorage 记忆；**顶部导航**状态（小基名字下方）由「在线」**改为当前角色身份**（按所选队员配色：队长 · 陪聊 / 生成 Agent · 出题…）；输入框 placeholder 按角色切换。
+
+**真实分流（后端按 agent_key 分道，`routers/community/xiaoji.py`）**：
+
+| 呼叫对象 | 真实行为 |
+|---------|---------|
+| 小基（队长） | 原陪伴聊天通道（人设/语气/上下文不变） |
+| 生成 Agent | `POST /community/xiaoji/agent-generate`：用户说了知识点→指定出题；口头禅/留空→**自动选题**（60 天掌握度薄弱→错题主题→综合）→ 复用 `/questions/generate` 真实生成落库 → 题目卡回聊 + 「🎯 选题依据」；薄弱定向自动降「简单」档 |
+| 规划 Agent | chat-stream 带 `agent_key=plan`：规划师人设 + **服务端注入真实数据**（学科计划数 / 30 天任务完成率 / 近 7 天逐日 / 自定义计划进度），回复带「查看我的学习计划」行动条 |
+| 评估 Agent | chat-stream 带 `agent_key=evaluate`：裁判人设 + 真实数据（30 天做题量/正确率/近 7 天对错/薄弱 TOP5/已掌握/真题卷数），回复带「查看评估报告」行动条 |
+| 自定义出题 | 弹窗卡片：新增**学科锚定下拉**（通用自动判定，堵住「不指定科目默认偏 Python」）；沿用真实生成管线逐道出题卡 |
+
+**署名持久化**：assistant 消息落库 `agent` 字段（`backend/sql/fix_xiaoji_agent_column.sql` 补列，幂等），历史消息/刷新后徽章不丢；库表未执行时降级普通保存不阻塞聊天。智能体中心小基卡新增「快捷提问分流」触点（action_touch 组合计数）。
+
+### 5.15 词条本
+
+位于 `/wordbook`（2026-08-23 新增）。把「查词 → 抓取 → 熟练度 → 复习 → 定向出题」串成闭环：用户在对话里问词义、用小基识图拍题时自动收集生词，词条卡打分累积熟练度，薄弱词可复习、可一键生成练习题。
+
+#### 5.15.1 词条生命周期
+
+```
+对话问词义 / 小基识图提词（ChatArea detectVocabCards 三模式提取）
+  → 渲染词条卡（GET /vocab/entries/{word}，无则 AI 生成全局缓存）
+  → 自动记录触点（POST /vocab/lookups，chat_ask / xiaoji_vision）
+  → 「认识/不认识」打分（POST /vocab/mastery，EWMA 平滑）
+  → 词条本（GET /vocab/wordbook，统计 + 筛选 + 列表）
+  → 复习模式（薄弱词逐卡过关） / 薄弱词定向出题（POST /vocab/practice-set
+     → questions + generation_history → 资源库「生成历史」练习）
+```
+
+#### 5.15.2 数据设计
+
+`backend/sql/vocab_tables.sql`（可重复执行）：
+
+| 表 | 说明 |
+|----|------|
+| `vocab_entries` | **词条本体全局共享**：word 唯一，AI 生成一次全员复用（phonetic/meaning/example/tags/source） |
+| `vocab_lookups` | 抓取/讲解记录（user + word + touchpoint：chat_ask 对话问词义 / xiaoji_vision 识图提词），兼作智能体中心触点计数源 |
+| `word_mastery` | 熟练度（UNIQUE(user_id, word)，EWMA 平滑，与知识点掌握度同构） |
+
+熟练度算法：`新分 = 旧分 × 0.7 + 目标 × 0.3`（认识 → 100，不认识 → 20），初始即目标值；≥80 已掌握、<60 薄弱。
+
+#### 5.15.3 后端 API
+
+`backend/routers/vocab.py`，路径内嵌 `/vocab` 前缀，全部需登录：
+
+| 端点 | 说明 |
+|------|------|
+| `GET /vocab/entries/{word}` | 查词条；不存在 → call_llm(t=0.4) 生成（system prompt 限定只输出 JSON + 容错正则提取）→ 缓存入库；插入失败也返回内存条目 |
+| `POST /vocab/lookups` | 记录触点（去重、小写、单次 ≤20 词） |
+| `POST /vocab/mastery` | 认识/不认识打分 → EWMA 更新 + 计数 |
+| `GET /vocab/stats?user_id=` | 词条本统计：总数 / 已掌握 / 薄弱 / 平均熟练度 |
+| `GET /vocab/wordbook?user_id=&filter=` | 词条本列表（熟练度升序薄弱在前；filter: all/weak/mastered；释义 `in()` 批量补全前 100 条，避免 N+1） |
+| `POST /vocab/practice-set` | 薄弱词定向出题：call_llm(t=0.8) 每词一道单选题（含中文解析）→ 写入 questions（source=generated）+ generation_history → 资源库练习 |
+
+#### 5.15.4 前端交互
+
+- `components/ChatArea.vue` 词条提取 `detectVocabCards` 三模式：① 问词义（"abandon 是什么意思"）② 整句就是一个单词 ③ 识图模式从 AI 回复提取英文生词（stopwords 过滤，≤5 个）；回复下方渲染词条卡
+- `components/VocabCard.vue`：词 + 音标 + 释义 + 例句 + 「认识 ✓ / 不认识 ✗」打分（实时显示熟练度）；挂载自动记录 lookups；触点可复用（chat_ask / xiaoji_vision / wordbook）
+- `views/Wordbook.vue`：4 统计格 → 筛选（全部/薄弱/已掌握）→ 列表（词 + 释义 + 音标 + 熟练度条 + 对/总次数）→ **复习模式**（薄弱词逐卡过关，进度 N/M）→ **薄弱词出题**（生成后跳资源库）
+- 入口：侧边栏「词条本」（蓝绿渐变图标），路由 `/wordbook`
+- 说明：`xiaoji_vision` 触点当前实际来自**主对话区带图消息**（ChatArea 识图模式提词），小基页（XiaojiCall）尚未接入词条卡；复习模式打分不重复记 lookups
+
+### 5.16 视频库（2026-09-04 新建）
+
+**定位**：轮盘一级模块（NAV_ITEMS「视频库」+ `video-library.png` 图标，`/video-square`）。自营「知识点级」模板生成视频库，取代外部视频推荐。视频与题目解耦——检索键 = 知识点（subject + 短哈希），一个知识点其下所有题复用同一条；覆盖资源库生成题与学科计划题库，天然适配多端（小程序复用同一 API 与公共桶音频）。
+
+#### 5.16.1 生成引擎与分镜脚本
+
+- **链路**：qwen-turbo 分镜脚本（DashScope，`settings.QWEN_VIDEO_MODEL`）→ 千问 TTS（小基同款四音色 longan\*，语速 6 档 `VIDEO_TTS_SPEED`，**只用阿里云模型**）→ Supabase Storage 公共桶 `video-lib/{id}/audio.mp3`
+- **分镜脚本 v3**：`title / hook / scenes[{mood, widget, params, narration}] / narration`；构件白名单 point·array·balance·example·phrase；口播 ≥240 字质检 + 失败修补重写一次；mood 四态（lecture 严谨 / story 轻松比喻 / highlight 重点强调 / demo 例题示范）逐镜切换，旁白语气随之变化
+- **队列**：进程内 asyncio worker（lifespan 挂载，`VIDEO_WORKERS` 默认 1）；`(subject, knowledge_key, angle)` 唯一格 + generating 占位幂等；失败自动重试 1 次，failed 旧格 409 自愈复活（先复活后新插，杜绝重复行）
+- **触发**：题目落库 fire-and-forget `ensure_videos`（`questions.py`）；学科计划暖库 CLI `scripts/warm_video_lib.py --per N`（每考纲各取热搜前 N）/ 后台批量生成；`POST /video/lib/ensure|warm`、`GET /video/lib/related`（100 本知识点 / 70 同学科 / 55 全局 + `question_video_links` 快照）
+- **省钱原则**：知识点级去重、按格生产（低 1 / 中 3 / 高 6+ 待热度扩产）、脚本与音轨解耦、命中即复用、失败降级 B 站搜索卡
+
+#### 5.16.2 广场·详情·互动
+
+- `/video-square` 广场：学科 chips（17 考纲）+ 搜索 + 最热/最新/点赞榜；卡片 = 脚本首节内容预览 + 播放键 + 角度/时长/作者/播放点赞
+- `/video/:id` 详情：点赞/收藏（toggle 幂等 + 冗余计数）、评论（软删除、本人可删）、举报（6 理由 → 后台）、分享链接复制、播放上报（use_count + 人日去重 views_count + **热点词库** video_keyword_hits）
+- 我的：生成（学科 + 知识点 + 角度可选，作者 = 本人昵称头像，初始仅自留）、发布审核流（private → pending → public/rejected）、重试、删除；收藏列表
+- 生成主（author）：官方基智（logo 头像角标）；用户生成走昵称头像
+
+#### 5.16.3 播放器与视觉语言
+
+- `VideoLessonPlayer`：16:9 舞台 + 电影黑边/暗角/颗粒 + 镜头缓推；背景池 4 套程序化背景（按视频身份稳定抽取）+ 4 mood 氛围色联动（讲知识冷静蓝 → 比喻暖橙 → 重点脉冲红 → 例题紫）
+- **分镜演出台**（真·演示动画，画面主体 = 图形在演）：array（**带「左指针/右指针」标签的大指针连续滑行**、数字飞出相加、和值 0→N 滚动、判决「太大/太小」、命中绿爆）/ balance（易错对比 + 双印章）/ example（例题演算台：题干 → 步骤推进 → 答案盖章弹入）/ phrase（金句逐字砸入）+ point 批注（限用）
+- 开场 = **钩子屏**（悬念问题，无标题屏）；片尾小结 + 金句；**单行字幕**（10~18 字按标点合并切句、句尾符号不显示、整句上屏）
+- 旧 sections 脚本优雅降级（板书/卡片两模板）
+
+#### 5.16.4 数据表与后台
+
+- 表：`video_library`（含 owner_user_id / publish_status / 四计数）、video_likes、video_favorites、video_comments、video_reports、video_views、video_keyword_hits——RLS 全放行 + 三角色授权
+- SQL 四件套（幂等）：`create_video_library.sql` + `fix_video_library_author.sql` + `fix_video_social.sql` + `fix_video_storage_policy.sql`
+- 后台 `/admin/videos`：概览 7 格（总数/在播/待审核/生成中/失败/总播放/待处理举报）→ 全量视频表（通过/驳回/下架/重试）→ 举报台（驳回 or 下架）→ 批量暖库（考纲 × 每科 N × 角度数）→ 全部写审计日志
+
+### 5.17 自定义快捷键（2026-09-28 新增）
+
+用户要求：「搞一个自定义快捷键，在设置里面搞」+「**应用内生效**」+「**跟随账号**」。
+
+#### 5.17.1 目录结构
+
+```
+frontend/src/shortcuts/
+  registry.js           动作清单（唯一数据源 · 25 个动作）
+  combo.js              组合键规范化 / 解析 / 匹配
+  store.js              绑定状态 + 本地缓存 + 账号同步 + 冲突检测
+  manager.js            分发器（全站唯一 keydown 点）
+  ShortcutsSection.vue  设置页 UI（录制态 + 冲突提示）
+backend/sql/user_shortcuts.sql   表（照 user_theme_settings 先例）
+backend/routers/auth.py          GET/PUT /auth/shortcuts
+```
+
+**新增一个可绑定的动作 = 只在 `registry.js` 加一条**，分发器、设置页列表、冲突检测、恢复默认全部从那里读。
+
+#### 5.17.2 为什么要有「分发器」这一层
+
+键盘事件原来散在三处，**先后取决于监听器注册顺序**：`desktop/index.js` 的浏览器快捷键拦截、`GlobalSearch.vue` 的 Ctrl+K、各组件的 `@keyup.enter`。那是隐式依赖 —— 用户把 Ctrl+R 绑成别的动作时，谁吃掉事件就变得不可预测。
+
+收进一个分发器后，优先级是**写在代码里的常量**：
+
+```
+① 内置屏蔽（internal）—— preventDefault 后什么都不做
+② 输入态保护 —— 焦点在输入框时放行一切无修饰键的按键（否则打字就被吃）
+③ 用户绑定
+④ 默认绑定
+```
+
+> ⚠️ **① 必须排在 ② 之前。** 屏蔽的那几个键里 **F5 / F12 是裸键**（无修饰键），
+> 正好落进 ② 的放行条件；顺序反了，焦点一在输入框里它们就漏网 ——
+> 用户打着字按 F5，页面刷新、草稿没了。
+>
+> 这个 bug 特别容易看着「好像是好的」：同批的 Ctrl+R / Ctrl+P / Ctrl+U / Ctrl+Shift+I
+> 都带修饰键，根本不进 ② 的放行分支，**一直是对的**。实测确认过：
+> 焦点在页面时 6 个全屏蔽，焦点在输入框时**只有 F5 和 F12 漏**。
+
+已拆掉两处旧监听：`desktop/index.js` 的拦截 → 变成 `sys.block*` 内置动作；
+`GlobalSearch.vue` 的 Ctrl+K → 变成 `action.search`，**用户现在能改它了**。
+
+#### 5.17.3 存储：本地缓存 + 账号权威
+
+| 层 | 作用 |
+|---|---|
+| localStorage | 缓存。首屏立刻能响应按键，不用等账号资料回来；未登录时它是唯一来源 |
+| `user_shortcuts` 表 | **权威**。登录后拉取、改动后回写，换电脑也在 |
+
+**合并规则：账号里有的以账号为准，账号里没有的保留本地** ——
+「没登录时改过、然后登录」不会把本地改动吞掉。
+
+表结构用 JSONB 存整个映射（`{"nav.home": "Ctrl+Shift+H", ...}`）：
+快捷键是**变长映射**，没法像主题那样「一个设置一列」。**空串表示主动解绑**
+（与「没有这个键」区分开）。增删动作**不需要动这张表**，注册表里没有的 id 会被忽略。
+
+#### 5.17.4 一个不存在过的动作
+
+第一版按惯例加了 `action.theme`「切换深浅色」。查了才发现：**项目 09-03 就去掉了浅/深开关**，外观改成四轴定制，theme store 里根本没有这个方法。那个动作按了不会有任何反应 —— 已删，并在 `registry.js` 里留了说明。
+
+> 这正是这个项目最忌讳的「看起来有、其实是空的」。
+
+### 5.18 异步任务队列（Redis + arq，2026-09-28 新增）
+
+用户：「**最好先架构好这个消息队列，不然后期麻烦一大堆**」。
+
+#### 5.18.1 为什么需要
+
+`video_gen.py` 原本已有**进程内队列**（`asyncio.Queue` + `_pending` 去重 + worker 循环），设计底子是对的（队列只传标识、状态落在数据库行里）。但有四个洞：
+
+1. **只在进程内** → 重启全丢
+2. **多 worker 不协调** → 起两个 uvicorn = 两套队列，同一格重复跑
+3. **没有统一重试/退避** → 每个模块自己实现一遍
+4. **前端只能轮询，且会提前放弃** → 视频生成实测 **4 分 14 秒**，小程序轮询 5×8s=40s 就放弃 —— 这正是「视频一直加载不出来」的根因之一
+
+而且 `asyncio.create_task` 已经在四处各写各的。
+
+#### 5.18.2 一个重要取舍：不是所有 create_task 都该迁
+
+| 类型 | 例子 | 处理 |
+|---|---|---|
+| **用户等着的长任务** | 视频生成、交卷后批量 AI 分析 | **进队列** |
+| **藏延迟的优化** | 记忆压缩、智能体 grounding 预取 | **留在原地** |
+
+第二类本来就是「顺手做掉、丢了也无所谓」，挪进队列会从「让响应更快」变成「延迟执行的副作用」，反而错。
+
+#### 5.18.3 落地与约束
+
+```
+services/task_queue.py   队列封装 + 任务实现 + 完成通知
+worker.py                常驻 worker 入口（带 Redis 预检）
+config.py                REDIS_URL + TASK_QUEUE_FALLBACK_INLINE
+```
+
+**关键设计：Redis 连不上时默认抛错，不静默降级。** 这个项目在「看起来在跑、其实没跑」上吃的亏太多了。真要退回进程内执行，必须显式打开 `TASK_QUEUE_FALLBACK_INLINE=true`，且日志里会有 ERROR。
+
+**完成通知**：任务跑完写一条进 `notifications` 表（复用 `create_notification`，它做了聚合 upsert 不会刷屏），用户去消息中心看。**不推 SSE/WebSocket**。
+
+#### 5.18.4 ⚠️ 考试批量分析**没有迁**，理由是它还不满足前提
+
+`exam_papers._batch_ai_analyze_wrong` 是模块私有函数、入参是**内存里的列表**，且它在 `_save_paper_record` **之前**触发 —— worker 无从按 ID 重读。要迁得先重构：**先存记录、再按 `record_id` 入队**。
+
+> **排队的前提是「任务能被标识符重新捞起来」**。不满足就别硬塞 ——
+> 硬塞进来只会做出一个跑不通的任务。
+
+**部署依赖**：服务器要装 Redis 并常驻 `python worker.py`，`REDIS_URL` 要进生产 `.env`。
+
+## 6. 后端 API 参考
+
+> 全部端点挂 `https://api.jizhi-learn.com`。生产共 **217 条路由**（`GET /openapi.json` 可查）。
+> 除公开端点外都需要 JWT，身份校验在 FastAPI 层（`verify_user_match`）。
+
 ### 6.1 学科计划 API
 
 全部端点挂载在 `/subject-plan` 下（`backend/routers/subject_plan.py`）。
@@ -3469,7 +3801,9 @@ GET /subject-plan/syllabi?user_id={optional}
       "target_count": 1000,
       "max_score": 710,
       "pass_score": 425,
-      "exam_papers": [...]
+      "exam_papers": [                    // 12 套真题卷元数据（disabled 标注不可练卷面）
+        { "name": "2024年6月真题", "file": "cet4_2024_06.json", "available_score": 568 }
+      ]
     }
     // ... 16 more
   ]
@@ -3706,31 +4040,26 @@ POST /auth/upload-avatar/{user_id}            # 上传头像 (200×200 PNG)
 PUT  /auth/status?user_id=&status=            # 更新在线状态 (online/offline/invisible)
 ```
 
-#### 微信登录
+#### 微信登录 / 账号（2026-09-28 重构后）
 
 ```
-GET  /auth/wechat/qrcode?redirect=/home       # 获取扫码登录二维码 (base64 PNG + poll_token)
-GET  /auth/wechat/bind-qrcode                 # 已登录用户绑定微信 (需 Bearer token)
-GET  /auth/wechat/callback?code=&state=       # 微信 OAuth 回调 (被手机微信浏览器访问)
-GET  /auth/wechat/poll/{poll_token}           # 轮询扫码结果
+POST /auth/wx-login                           # 小程序 code 换 JWT；openid 查不到则**当场建号**
+POST /auth/set-credentials                    # 补真实邮箱 + 密码（只对占位邮箱账号开放）
+GET  /auth/account-status                     # 客户端据此决定显示「修改密码」还是「设置邮箱和密码」
 GET  /auth/wechat/user/{user_id}              # 查询用户 (本地缓存回退)
-POST /auth/wx-login                           # 微信小程序 code 换 JWT
+GET  /auth/shortcuts/{user_id}                # 读快捷键绑定（不返回默认值，默认键在前端注册表）
+PUT  /auth/shortcuts                          # 全量保存快捷键绑定
 ```
 
-**轮询返回值语义**：
-```json
-// 等待中
-{ "ready": false }
+**`/auth/wx-login` 返回值**：已有账号与首次登录**返回同一种形状** ——
+`{ access_token, user, need_bind: false }`。首次登录时后端已静默建号（占位邮箱
+`wx_{openid}@miniapp.local`），所以 `need_bind` 恒为 `false`。
 
-// 登录成功
-{ "ready": true, "access_token": "jwt...", "user": {...} }
-
-// 未绑定 (已扫码但 openid 不在 profiles)
-{ "ready": true, "bound": false }
-
-// 绑定成功
-{ "ready": true, "bound": true, "nickname": "微信昵称" }
-```
+> ⚠️ **已删除的 4 个扫码端点**（历史，勿再引用）：
+> `GET /auth/wechat/qrcode`、`GET /auth/wechat/bind-qrcode`、
+> `GET /auth/wechat/callback`、`GET /auth/wechat/poll/{poll_token}`
+> —— 连同它们的轮询返回值语义（`ready` / `bound`）一起移除。**路由数 22 → 18**。
+> 原因见 5.11.0。
 
 ### 6.3 管理后台 API
 
@@ -3792,24 +4121,66 @@ POST /admin/upload-image                                  # 图片上传 (≤5MB
 前缀 `/chat`（`backend/routers/chat.py`）：
 
 ```
-POST /chat/detect-intent { text }        # 意图识别: plan/generate/evaluate/chat
-POST /chat/stream                        # 流式对话 (SSE)
-POST /chat/generate-title                # AI 生成对话标题
-POST /chat/vision { image_url, question }# 图片识别 (火山引擎豆包 Vision)
+POST /chat/send { messages, intent, user_id }   # 流式对话主端点 (SSE)，按 intent 路由
+POST /chat/title { messages }                    # 从首轮对话生成标题 (≤20 字)
+POST /chat/vision { image_url, question }# 图片识别 (DeepSeek V4.1 Flash)
 ```
 
-### 6.5 小吉语音助手 API
+### 6.5 小基语音助手 API
 
-前缀 `/xiaoji`（`backend/routers/xiaoji.py`）：
+前缀 `/community/xiaoji`（`backend/routers/community/xiaoji.py`，主路由，全部需登录）：
 
 ```
-GET /xiaoji/config/{user_id}             # 获取配置
-PUT /xiaoji/config/{user_id}             # 更新配置 (名称/性格/语音参数)
-POST /xiaoji/tts                         # TTS 文字转语音 (科大讯飞)
-POST /xiaoji/asr                         # ASR 语音转文字 (科大讯飞)
+POST /community/xiaoji/chat                # 文字聊天 (豆包角色模型，最近 10 条上下文)
+POST /community/xiaoji/vision              # 图片理解 (千问 qwen3-vl-flash)
+GET  /community/xiaoji/messages            # 聊天记录 (asc；?search= 模糊搜索 ilike.*kw*)
+GET  /community/xiaoji/config              # 获取配置 (?user_id=)
+PUT  /community/xiaoji/config              # 更新配置 (查→PATCH / 无→INSERT Upsert)
+POST /community/xiaoji/evaluate-question   # 单题 AI 批改
+POST /community/xiaoji/evaluate-set        # 题集 AI 评估
+POST /community/xiaoji/evaluate-question-stream  # 流式批改 (SSE)
+POST /community/xiaoji/tts / asr           # 语音合成/识别 (讯飞)
 ```
 
-### 6.6 通用响应规范与错误码
+前缀 `/xiaoji`（`backend/routers/xiaoji.py`，兼容层；清空记录等端点仍被前端使用）：
+
+```
+GET    /xiaoji/config/{user_id}            # 获取配置
+PUT    /xiaoji/config/{user_id}            # 更新配置
+GET    /xiaoji/messages/{user_id}?search=  # 聊天记录 (desc，支持搜索)
+DELETE /xiaoji/message/{message_id}?user_id=  # 删除单条
+DELETE /xiaoji/messages/{user_id}          # 清空全部 (前端「清空记录」按钮)
+POST   /xiaoji/tts / asr                   # 语音合成/识别
+```
+
+### 6.6 智能体中心 API
+
+前缀 `/agent-center`（`backend/routers/agent_center.py`），全部需登录：
+
+```
+GET    /agent-center/overview?user_id=&days=        # 总览：KPI + 协作闭环 + 协同增益 + 路由转化
+GET    /agent-center/agents/{key}?user_id=&days=    # 单智能体详情（chat/plan/generate/evaluate/xiaoji）
+GET    /agent-center/agents/{key}/prefs?user_id=    # 参数读取（agent_prefs）
+PUT    /agent-center/agents/{key}/prefs?user_id=    # 参数保存（批量 upsert）
+GET    /agent-center/agents/{key}/tuning?user_id=   # 磨合记录（近 100 条，倒序）
+POST   /agent-center/agents/{key}/tuning            # 写入磨合记录（source: manual/auto）
+POST   /agent-center/tuning/run?user_id=            # 立即执行磨合规则评估
+```
+
+### 6.7 词条本 API
+
+前缀 `/vocab`（`backend/routers/vocab.py`），全部需登录：
+
+```
+GET  /vocab/entries/{word}                          # 查词条（无则 AI 生成并全局缓存）
+POST /vocab/lookups { user_id, words, touchpoint }  # 记录触点（chat_ask / xiaoji_vision，≤20 词）
+POST /vocab/mastery { user_id, word, known }        # 认识/不认识打分（EWMA 熟练度）
+GET  /vocab/stats?user_id=                          # 总数 / 已掌握 / 薄弱 / 平均
+GET  /vocab/wordbook?user_id=&filter=               # 词条本列表（all/weak/mastered，薄弱在前）
+POST /vocab/practice-set { user_id, words }         # 薄弱词定向出题（写入 questions + generation_history）
+```
+
+### 6.8 通用响应规范与错误码
 
 | HTTP 状态 | 含义 | 响应体格式 |
 |-----------|------|-----------|
@@ -3835,8 +4206,10 @@ POST /xiaoji/asr                         # ASR 语音转文字 (科大讯飞)
 | `/login` | Login | `{requiresAuth:false}` | 三栏登录/注册 |
 | `/onboarding` | Onboarding | `{requiresAuth:true}` | 新用户引导 |
 | `/home` | Home | `{requiresAuth:true}` | 首页工作台 |
-| `/profile` | Profile | `{requiresAuth:true}` | 个人中心 |
+| `/profile` | Profile | `{requiresAuth:true}` | 个人中心 (信息展示页) |
 | `/resource-lib` | ResourceLib | `{requiresAuth:true}` | 资源库 |
+| `/video-square` | VideoSquare | `{requiresAuth:true}` | 视频库广场（09-04） |
+| `/video/:id` | VideoDetail | `{requiresAuth:true}` | 视频详情（点赞/收藏/评论/举报/分享） |
 | `/evaluation-center` | EvaluationCenter | `{requiresAuth:true}` | 评估中心 |
 | `/evaluation-report` | EvaluationReport | `{requiresAuth:true}` | 评估报告 |
 | `/evaluation-table` | EvaluationTable | `{requiresAuth:true}` | 评估表 |
@@ -3844,23 +4217,37 @@ POST /xiaoji/asr                         # ASR 语音转文字 (科大讯飞)
 | `/career/rank` | CareerRank | `{requiresAuth:true}` | 排行榜 |
 | `/career/tasks` | CareerTasks | `{requiresAuth:true}` | 生涯任务 |
 | `/career/achievements` | CareerAchievements | `{requiresAuth:true}` | 生涯成就 |
-| `/do-question/:taskId` | DoQuestion | `{requiresAuth:true}` | 做题(旧版) |
+| `/do-question/:taskId` | DoQuestion | `{requiresAuth:true}` | 做题(旧版，带任务 id) |
+| `/do-question` | DoQuestion | `{requiresAuth:true}` | 做题(旧版，无任务) |
+| `/set-detail` | SetDetail | `{requiresAuth:true}` | 题集详情 |
+| `/generate-from-mastery` | GenerateFromMastery | `{requiresAuth:true}` | 按掌握度生成计划 |
+| `/animation-demo` | AnimationDemo | （无 meta） | 动画演示页（开发用） |
+| `/vlp-debug` | VlpDebug | `{requiresAuth:false}` | 视频播放器调试页（临时） |
 | `/mastery-board` | MasteryBoard | `{requiresAuth:true}` | 掌握度看板 |
 | `/learning-plan` | LearningPlan | `{requiresAuth:true}` | 学习计划 |
 | `/plan-preview` | PlanPreview | `{requiresAuth:true}` | 计划预览 |
 | `/plan-detail/:id` | PlanDetail | `{requiresAuth:true}` | 计划详情 |
 | `/profile-card` | ProfileCard | `{requiresAuth:true}` | 个人画像星图 |
-| `/qa` | QAPage | `{requiresAuth:true}` | 帮助中心 |
+| `/qa` | QAPage | `{requiresAuth:false}` | 帮助中心（08-22 公开） |
 | `/message` | MessageCenter | `{requiresAuth:true}` | 消息中心 |
-| `/api-center` | ApiCenter | `{requiresAuth:true}` | API 中心 |
-| `/open-source` | OpenSource | `{requiresAuth:true}` | 开源项目 |
+| `/api-center` | ApiCenter | `{requiresAuth:true}` | API 模型中心 |
+| `/agent-center` | AgentCenter | `{requiresAuth:true}` | 智能体中心 |
+| `/agent-center/:agentKey` | AgentDetail | `{requiresAuth:true}` | 智能体详情调节 |
+| `/wordbook` | Wordbook | `{requiresAuth:true}` | 词条本 |
+| `/open-source` | OpenSource | `{requiresAuth:false}` | 开源项目（08-22 公开） |
+| `/guide` | Guide | `{requiresAuth:true}` | 使用指引 |
+| `/theme` | ThemeShare | `{requiresAuth:false}` | 外观码分享直达页（免登录预览 + 一键应用） |
+| `/settings` | Settings | `{requiresAuth:true}` | **统一设置中心（10 模块，含桌宠 / 快捷键）** |
 | `/community` | Community (子路由) | `{requiresAuth:true}` | 社区 (8 子路由) |
-| `/xiaoji/settings` | XiaojiSettings | `{requiresAuth:true}` | 小吉设置 |
-| `/xiaoji/call` | XiaojiCall | `{requiresAuth:true}` | 小吉通话 |
+| ~~`/xiaoji/settings`~~ | → **redirect 到 `/settings`** | —— | 小基设置已内嵌进设置中心（2026-09-28），保留路由只为老书签不断 |
+| ~~`/xiaoji/call`~~ | → **redirect 到 `/home`** | —— | 小基 = 主界面（2026-08-25） |
+| `/xiaoji/voice-call` | XiaojiVoiceCall | `{requiresAuth:true}` | 小基语音通话（独立沉浸页） |
+| `/xiaoji/search` | XiaojiSearch | `{requiresAuth:true}` | 小基搜索页 |
 | **学科计划 (新)** |
 | `/subject-plan` | SyllabusHub | `{requiresAuth:true}` | ★ 考纲列表 |
 | `/subject-plan/:syllabusId` | SyllabusDetail | `{requiresAuth:true}` | ★ 考纲详情 |
 | `/subject-plan/:syllabusId/practice` | SubjectPractice | `{requiresAuth:true}` | ★ 做题页 |
+| `/subject-plan/:syllabusId/exam/:paperId` | ExamPaper | `{requiresAuth:true}` | ★ 真题套卷 |
 | **管理后台** |
 | `/admin` | AdminLayout (子路由) | `{requiresAuth, requiresAdmin}` | 管理后台 |
 
@@ -4213,7 +4600,7 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
 ┌─────────────────────────────────────────────────────────┐
 │                    认证入口                              │
 │                                                         │
-│  来源 A: 邮箱密码登录     来源 B: 微信扫码登录            │
+│  来源 A: 邮箱密码登录     来源 B: 小程序微信一键登录      │
 │  ┌─────────────────┐   ┌──────────────────────┐        │
 │  │ POST /auth/login │   │ GET /auth/wechat/     │        │
 │  │ → Supabase Auth  │   │   qrcode → callback   │        │
@@ -4311,65 +4698,27 @@ async def get_current_super_admin(current_user = Depends(get_current_user)) -> s
     # 同上，但要求 role == "super_admin"
 ```
 
-### 9.4 微信 OAuth 接入
+### 9.4 微信 OAuth 接入（2026-09-28 已整节移除）
 
-```
-配置前提：
-  1. 前往 https://mp.weixin.qq.com/debug/cgi-bin/sandbox?t=sandbox/login
-     扫码获取测试号 appID 和 appsecret
-  2. 在测试号页面配置「授权回调页面域名」为后端外网 IP (不含端口号)
-  3. 确保后端监听标准 HTTP 端口 (80)，微信不允许非标准端口回调
+> **本节作废。** 网页端的「公众号测试号扫码登录」与「登录后绑定微信」两条链路
+> 已于 2026-09-28 全部删除。原因见 5.11.0：测试号是开发调试工具不该上生产，
+> 而个人主体**也做不了**网页/APP 的微信登录（要企业主体 + 300 元/年认证）。
 
-OAuth 流程图:
-  ┌─ 网页端 ────────────────────────────────────────────┐
-  │                                                      │
-  │  GET /auth/wechat/qrcode                              │
-  │  ← 返回 { qrcode: "data:image/png;base64,...",       │
-  │            poll_token: "xxx" }                        │
-  │                                                      │
-  │  显示二维码                                           │
-  │  开始轮询: GET /auth/wechat/poll/{token} (每2秒)      │
-  │  ← { ready: false }  ... 直到结果                     │
-  │                                                      │
-  └──────────────────────────────────────────────────────┘
-                          │
-         用户用手机微信扫二维码
-                          │
-                          ▼
-  ┌─ 微信服务器 ─────────────────────────────────────────┐
-  │                                                      │
-  │  微信浏览器访问:                                      │
-  │  https://open.weixin.qq.com/connect/oauth2/authorize  │
-  │    ?appid=...&redirect_uri=                           │
-  │     {BACKEND_EXTERNAL_URL}/auth/wechat/callback       │
-  │    &scope=snsapi_userinfo&state={state}               │
-  │                                                      │
-  │  用户点击授权                                         │
-  │                                                      │
-  │  重定向到: GET /auth/wechat/callback?code=&state=     │
-  │                                                      │
-  └──────────────────────────────────────────────────────┘
-                          │
-                          ▼
-  ┌─ 后端 callback ──────────────────────────────────────┐
-  │                                                      │
-  │  1. state → 查 _state_map → 获取 poll_token + mode   │
-  │  2. code → POST api.weixin.qq.com/sns/oauth2/        │
-  │           access_token → openid + nickname + avatar  │
-  │                                                      │
-  │  3. if mode == "bind":                               │
-  │       写 openid → profiles (已登录用户的绑定)         │
-  │       _poll_results[poll_token] = { bound: true }    │
-  │                                                      │
-  │  4. if mode == "login":                              │
-  │       查 profiles.wechat_openid = openid             │
-  │       → 找到: 签发 JWT, _poll_results[poll_token]    │
-  │               = { access_token, user }                │
-  │       → 未找到: _poll_results[poll_token]            │
-  │               = { bound: false }                     │
-  │                                                      │
-  └──────────────────────────────────────────────────────┘
-```
+**当前各端的登录方式**：
+
+| 端 | 登录方式 |
+|---|---|
+| 网页 / 桌面 | 邮箱 + 密码、邮箱验证码 |
+| 微信小程序 | `wx.login()` → `POST /auth/wx-login`，**首次自动建号**（占位邮箱 `wx_{openid}@miniapp.local`）；之后可在设置页补真实邮箱 + 密码，把这个账号「打通」到其他端 |
+
+**为小程序仍保留的**：`profiles.wechat_openid` / `wechat_unionid` 两列
+（`backend/sql/add_wechat_columns.sql`）—— 小程序的 openid 仍存在这里，**别删**。
+
+**同时失效的**：`BACKEND_EXTERNAL_URL`（原为微信回调地址，现无消费方）、
+`qrcode` + `Pillow` 依赖、后端监听 80 端口的要求。
+
+**扫码登录没有取消，只是推迟**：用户明确——扫码那一端**只做 Flutter 手机应用**，
+等它出来再做，小程序不掺和。
 
 ### 9.5 速率限制与安全措施
 
@@ -4401,7 +4750,7 @@ def call_llm(messages, temperature=0.7, use_cache=True) -> str:
         timeout=60.0          # ← 客户端级别超时
     )
     response = client.chat.completions.create(
-        model="deepseek-chat",
+        model=get_model(),          # deepseek-flash（V4.1 Flash）
         messages=messages,
         temperature=temperature,
         stream=False,
@@ -4435,21 +4784,32 @@ AI_JUDGE_TYPES = {
     "programming", "calculation", "analysis"
 }
 
-# 批改 Prompt 模板
+# 批改 Prompt：按题型给「批改重点 + 专属结构化字段」（EVAL_SPECS）
+# 2026-09-11 之前是所有题型共用一段 detailed_analysis 自由文本，
+# 模型返回什么全看运气，前端也没法按题型展示。
 prompt = f"""批改以下{type_label}题：
 题目: {stem}
 参考答案: {ref}
 学生答案: {user_answer}
 
-输出 JSON：
+输出 JSON（字段随题型而定）：
 {{"score": 0-100, "is_pass": true/false,
   "feedback": "简短批改意见（50字内）",
-  "highlights": ["亮点", "改进点"]}}
+  ...该题型的专属字段}}
 """
 
 # 使用 low temperature 保证一致性
 fb = call_llm([...], temperature=0.3)  # ← 0.3: 减少随机性，评分更稳定
 ```
+
+**各题型的专属结构化字段**：
+
+| 题型 | 专属字段 | 说明 |
+|------|---------|------|
+| 选择题 | `option_analysis` | A/B/C/D **逐项**对错与理由 |
+| 计算题 | `steps` | 分步对错，能定位到哪一步错的 |
+| 简答题 | `key_points` | 得分点逐个命中情况 |
+| 编程题 | —— | **有测试用例时已由沙箱判分，明确要求 AI 不要推翻判分结果** |
 
 **JSON 容错**：
 ```python
@@ -4530,8 +4890,10 @@ if not plan_data:
 ```
 POST /subject-plan/code/submit
   │
-  ├── 1. 从本地题库获取题目 (bank_get_by_ids)
+  ├── 1. 取题：本地题库优先 (bank_get_by_ids)
+  │     → 找不到则**回落到 Supabase `questions` 表**（AI 生成的题走这条）
   │     → content.test_cases[] 或 content 文本中的 ---TEST_CASES--- 块
+  │     题型闸接受 `programming` 与 `coding` 两种写法
   │
   ├── 2a. 有测试用例 → 沙箱执行模式
   │     │
@@ -4544,7 +4906,9 @@ POST /subject-plan/code/submit
   │     │       │   gcc/g++ src.c -o exe → ./exe < stdin
   │     │       │
   │     │       ├─ Java → _run_compiled_local()
-  │     │       │   javac Main.java → java Main < stdin
+  │     │       │   javac -encoding UTF-8 Main.java → java Main < stdin
+  │     │       │   （-encoding 不能省：源码按 UTF-8 落盘而 javac 跟随平台
+  │     │       │    编码，中文 Windows 是 GBK，含中文的代码必然编译失败）
   │     │       │
   │     │       └─ 无编译器 → 回退 AI 批改
   │     │
@@ -4591,10 +4955,21 @@ def _find_compiler(names: list[str]) -> str | None:
 ```powershell
 # MinGW GCC/G++ (C/C++ 判题)
 winget install WinLibs.MinGW-w64
-
-# OpenJDK (Java 判题)
-winget install Microsoft.OpenJDK.17
 ```
+
+**Java（JDK 17）——不要用 winget 装。**
+
+2026-09-11 实测：`winget install Microsoft.OpenJDK.17` 在**非交互会话里是"假成功"**——
+MSI 请求管理员提权但 UAC 弹不出来，安装器根本没执行（MSI 日志没生成、注册表/磁盘/`winget list`
+三处查无此物），winget 却回报"已成功安装"。
+
+实际方案是**免管理员的 zip 解压到仓库内预留路径**：
+
+```
+backend/utils/jdk/          # OpenJDK 17.0.20.1 LTS，已进 .gitignore
+```
+
+`code_runner.py` 通过 `_JDK_BIN = _UTILS_DIR / "jdk" / "bin"` 直接找它，无需装到系统、无需配 PATH。
 
 ### 11.3 测试点评分系统
 
@@ -4914,6 +5289,52 @@ body {
 - 编程题 OJ 分栏在窄屏幕 (<900px) 可堆叠为上下布局
 - 所有文本颜色满足 WCAG AA 标准 (对比度 ≥4.5:1)
 
+### 14.5 ⚠️ 导出与截图的现代颜色适配
+
+**这是一条硬约定，改导出相关代码前必读。**（2026-09-27 排查「导出失败」时定位）
+
+#### 根因
+
+项目里 `color-mix()` 用了 **1124 处、74 个文件**。而图片/PDF 导出走的是 `html2canvas@1.4.1` —— 一个 2022 年的库，它的颜色解析器：
+
+```js
+// node_modules/html2canvas/dist/html2canvas.js:1837
+var SUPPORTED_COLOR_FUNCTIONS = { hsl, hsla, rgb, rgba };   // ← 只有这四个
+// :1726
+throw new Error("Attempting to parse an unsupported color function \"" + value.name + "\"");
+```
+
+**Chrome 在 computed value 阶段就把 `color-mix()` 算掉了**，序列化成：
+
+```
+color(srgb 0.62549 0.809804 1)      ← 函数名是 "color"，不在表里 → 直接 throw
+```
+
+实测四种位置**全都是这个形式**：`color` / `backgroundColor` / `borderColor`、连渐变里的色标。
+
+#### 修法：把已算好的颜色降级，不加依赖
+
+**关键洞察：混色数学不用重算** —— 浏览器已经算完了，只需把 `color(srgb r g b / a)`
+转成 `rgba(R,G,B,A)` 写成 inline style（inline 优先级最高，会带进 html2canvas 的 clone）。
+
+`frontend/src/utils/exportColor.js`：`normalizeModernColors(el)` + `withNormalizedColors(el, fn)`。
+
+**这和项目已有约定是一致的**：`stores/theme.js` 的 `withAlpha()` 注释写着
+「ECharts canvas 不认 CSS var()/color-mix —— 品牌色半透明需 JS 解析成 rgba」。
+同一次主题改版里 **ECharts 适配了、html2canvas 漏了**。所以补共用 util 比引新库更贴既有架构。
+
+#### 实现上的一个坑
+
+第一版是**边读 computed style 边写 inline style**，交替进行会「写一次 → 下次读强制重排」，
+资料卡有几百个节点，会明显卡。必须**两趟**：先全读收集、再全写。各只触发一次布局。
+
+#### 连带修掉的静默失败
+
+`EvaluationReport.vue` / `EvaluationTable.vue` 有一字不差的
+`if (!reportContentRef.value) return`，而 `pdfExporting` 在 return **之后**才置位。
+导出根节点只存在于 `v-else` 分支 → **报告加载中点击什么都不会发生**（没 toast、没 loading、没报错）。
+这是与「导出失败」**不同的症状**，容易被当成另一个 bug 去查。已改为明确提示。
+
 ---
 
 ## 15. 开发与运维
@@ -4962,7 +5383,7 @@ main ──── 主分支 (当前工作分支)
 | 题库查询返回空 | JSON 文件不存在或格式错误 | 查看启动日志 `[题库]` 前缀；检查 `data/*.json` 文件存在且为有效 JSON |
 | AI 批改一直失败 | DeepSeek API Key 无效 / 超时 | `curl -H "Authorization: Bearer $KEY" https://api.deepseek.com/v1/models` |
 | 代码判题 AC/WA 异常 | 编译器未安装或版本不对 | `GET /subject-plan/code/languages` 检查返回的 available 字段 |
-| 微信扫码无法回调 | 端口非80 / 域名不匹配 | 确保 `BACKEND_EXTERNAL_URL` 无端口号；检查测试号后台回调域名配置 |
+| ~~微信扫码无法回调~~ | 该功能 2026-09-28 已整条移除 | 保留此行仅作历史 |
 | 前端 401 不断跳转登录 | localStorage token 过期 | 清除 Application → Local Storage → 重新登录 |
 | npm run dev 报错 | node_modules 不完整 | `rm -rf node_modules && npm install` |
 | 邮件验证码收不到 | QQ 邮箱 SMTP 授权码问题 | QQ邮箱 → 设置 → 账户 → POP3/SMTP → 开启并获取授权码 |
@@ -4985,14 +5406,442 @@ main ──── 主分支 (当前工作分支)
 | 29 | Supabase 暂停全站 401 | 所有端点强依赖 `get_current_user` | 读操作免认证，user_id 可选 | subject_plan.py |
 | 31 | Piston 公共 API 关闭 | GFW 屏蔽 + Piston 2026-02 停服 | winget MinGW 本地编译 | code_runner.py |
 | 32 | AI 生成的 JSON 大量解析失败 | 截断、嵌套、尾逗号、markdown 包裹 | 括号计数 + 回退 + 剥离 + 类型过滤 | seed_all_banks.py |
-| 34 | 无微信扫码登录 | 小程序有但网页版没有 | 公众号测试号 OAuth + 扫码轮询 | auth.py |
-| 35 | 微信登录不安全（扫码即创建用户） | 自动创建用户有冒用风险 | 区分 login/bind 模式，login 必须已绑定 | auth.py |
+| 34 | 无微信扫码登录 | 小程序有但网页版没有 | 公众号测试号 OAuth + 扫码轮询 ⚠️ **2026-09-28 整套移除**（测试号是开发工具不该上生产；个人主体也做不了网页微信登录） | auth.py |
+| 35 | 微信登录不安全（扫码即创建用户） | 自动创建用户有冒用风险 | 区分 login/bind 模式，login 必须已绑定 ⚠️ **2026-09-28 反向改回**：小程序端改为「微信一键登录**直接建号** + 之后可补邮箱密码」，不再有 bind 模式（见 5.11） | auth.py |
 
 ---
 
-## 17. 附录
+## 17. 微信小程序端
 
-### 17.1 环境变量完整参考
+> 代码位于 **`D:\jizhi-miniapp`**，独立于本仓库，**不受版本控制**（改动前请手工备份）。
+> 复用本仓库的同一套 FastAPI 后端，无独立服务端。
+
+### 17.1 端定位与技术栈
+
+| 项 | 值 |
+|---|---|
+| 框架 | uni-app 3（`3.0.0-5010520260709002`）+ Vue 3.4 组合式 API |
+| 编译目标 | 微信小程序（`mp-weixin`），appid `wx6db1f1a6e3f3969c` |
+| 状态管理 | Pinia（`stores/auth.js`、`stores/theme.js`） |
+| 后端地址 | `utils/constants.js` 按 `NODE_ENV` 切换：dev → `localhost:8000`，build → `https://api.jizhi-learn.com` |
+| 规模 | 42 个页面 / 全部 `<script setup>` |
+
+**页面写法约定**：42 个页面无例外全部使用 `<script setup>`，模板根节点为单个 `<view>`。
+
+### 17.2 导航形态（与网页端对齐，无底部 TabBar）
+
+网页端的应用外壳不是多 Tab 站点，而是**小基主界面 + 18 项弧形轮盘**（`Home.vue` 仅 19 行，整个是 `<XiaojiCall/>`）。小程序按同一形态实现：
+
+- 底部 5 Tab **已撤**（`CustomTabBar.vue` 已删除）
+- 小基首页承载 **18 项功能宫格**，另设**全局搜索页** `pages/search/index`（对齐网页端 Ctrl+K）
+- 每个一级页面顶栏都有 🔍 入口
+- `uni.switchTab` 在项目中已不存在
+
+**跳转规则（`utils/constants.js`）**：
+
+| 场景 | API | 原因 |
+|---|---|---|
+| 一级模块平级切换 | `goTop(url)` → `redirectTo` | 替换当前页，栈深度恒为 2，**原生导航栏会画返回箭头** |
+| 回首页 | `goTop()` 内部走 `reLaunch` | 首页是根，不该有返回 |
+| 二级页面 | `navigateTo` | 保留返回 |
+| 自定义导航栏页面的返回 | `goBackHome()` | 能退就退，退不了回首页 |
+
+> ⚠️ **踩过的坑**：曾用 `uni.reLaunch` 做一级模块切换，结果 `reLaunch` 清空页面栈、栈里只剩自己，**微信原生导航栏认为「没地方可回」就连返回箭头都不画**，那些页面进去出不来。改用 `redirectTo` 解决。
+> `学科计划` / `我的` / `小基` / `搜索` / `登录` 五页是 `navigationStyle: custom`（无原生栏），需自绘左上角返回。
+
+### 17.3 双主题系统（浅色 / 深色）
+
+**刻意不同于网页端的四轴主题**（背景/组件/主题/字体 + 外观码分享 + 适配度打分）。小程序只做两档，理由：四轴的复杂度在小程序上收益极低。
+
+| 项 | 实现 |
+|---|---|
+| 模式 | `'system'`（默认，跟随系统）/ `'light'` / `'dark'` |
+| 持久化 | `uni.setStorageSync('jizhi-theme-mode')` |
+| 系统监听 | `uni.onThemeChange`，需 `manifest.json` 开 `"darkmode": true`（否则读不到系统主题） |
+| 入口 | 设置页「外观」分区，分段控件 |
+| token 定义 | `App.vue` 全局 `<style>`，两套值挂 `.t-dark` / `.t-light` |
+| 挂载 | 页面根节点 `:class="themeStore.rootClass()"` |
+
+**token 清单（约 25 个）**：背景 4 / 表面 3 / 描边 2 / 弹窗与遮罩 2 / 吸底栏 1 / 文字 4 / 品牌 5 / 语义 6。
+
+**原生导航栏联动**：`uni.setNavigationBarColor` 只作用于**当前页**。用户改完主题返回其他页面时，那些页面的原生栏仍停在旧色，顶部出现割裂边。解法是 `main.js` 里一个全局混入：
+
+```js
+app.mixin({ onShow() { useThemeStore(pinia).syncChrome() } })
+```
+
+比在 42 个页面各写一遍 `onShow` 可靠。
+
+> ⚠️ `page` 元素拿不到主题类（它没有 class），`App.vue` 里 `page { background-color: var(--bg) }` 只能是深色默认值。浅色下真正露出的底色由两处兜住：根 view 的 `min-height:100vh` + 自带背景，以及运行时 `uni.setBackgroundColor`（管回弹区）。
+
+### 17.4 分类色板与页面色调
+
+**配色分工（重要）**：
+
+- **语义色**（`--success` / `--warning` / `--danger` 及 `-soft`）**只表状态**——对错、警告、分数档位
+- **分类色**（`--c-<hue>` / `--c-<hue>-soft`）**只表归属**——模块、学科、分类、分组
+
+两者严格分开，不可混用。
+
+**9 个色相**：`red` `orange` `amber` `green` `teal` `cyan` `blue` `violet` `pink`
+
+**页面色调 `--tone`**：`stores/theme.js` 按**路由前缀**推导（`ROUTE_TONE` 表），根节点挂 `tone-xxx` 类，页面内标题统一引用 `var(--tone)`。于是每个模块自动带自己的色，不必逐页写死。认不出路由时回落品牌色。
+
+| 模块 | 色调 | 模块 | 色调 |
+|---|---|---|---|
+| 小基 / 个人画像 / 登录 | violet | 学程 / 时间胶囊 | amber |
+| 个人中心 / 学科计划 / API | blue | 社区 / 计时器 / 工具箱 | orange |
+| 设置 / Q&A | teal | 评估中心 / 智能体中心 | pink |
+| 资源库 / 消息中心 / 搜索 | cyan | 词条本 / 打卡 | green |
+| 视频库（未接入） | red | | |
+
+> ⚠️ **两个必须遵守的顺序约束**：
+> 1. `.tone-*` 规则必须排在 `.t-dark` / `.t-light` **之后**——两者特异性相同，靠源码顺序决胜。写在前面会被 `--tone` 的兜底值覆盖，色调永远出不来。
+> 2. `rootClass()` 是**函数不是 computed**——路由是页面级状态，computed 会被 Pinia store 单例缓存，第二个页面拿到的还是第一个页面的色调。
+
+### 17.5 包体积与启动优化
+
+微信主包**硬限制 2 MB**，开发者工具建议线 1.5 MB。
+
+| 项 | 改前 | 改后 |
+|---|---|---|
+| 主包精确体积 | **2.32 MB（超硬限制，无法上传）** | **0.99 MB** |
+| `static/` | 1724 KB | 366 KB |
+| 页面数 | 42 | 42 |
+
+**做法**：
+
+1. **图片转 WebP + 缩放**（省 1358 KB）
+   - 5 张 xiaoji 形象图：415–426px → 360px，`216 KB/张 → 17 KB/张`
+   - 26 个图标：200×200 → 128×128，`630 KB → 254 KB`
+   - 图标实际显示仅 `46rpx`（3x 屏需 69px），原图大了 3 倍
+   - **用 WebP 而非 JPEG**：xiaoji 有 20–25% 全透明像素（角色抠图），JPEG 不支持透明会出白框
+2. **按需注入**（`manifest.json` → `mp-weixin.lazyCodeLoading: "requiredComponents"`）
+   - 本项目**无任何自定义组件**（`components/` 为空，无 `usingComponents` 声明），开启零风险
+   - 收益主要在**页面**：42 个页面之前启动时全部注入执行，开启后只注入当前页
+
+### 17.6 隐私接口与合规
+
+**实际使用的隐私接口（仅 2 类）**：
+
+| 接口 | 微信隐私类别 | 用在哪 |
+|---|---|---|
+| `chooseMedia` ×3、`chooseImage` ×1 | **选中的照片或视频信息** | 小基识图、发动态配图、私聊发图、OCR 拍照识别 |
+| `setClipboardData` ×1 | **剪切板** | 评估表「复制诊断结果」 |
+
+**不涉及**：位置、麦克风/录音（TTS 是**播放**，走 `InnerAudioContext`，非隐私接口）、用户信息（登录走 `uni.login` 拿 code，非 `getUserProfile`）、手机号、通讯录、蓝牙、微信运动。
+
+**上线前必须在微信公众平台配置**：「设置 → 服务内容声明 → 用户隐私保护指引」勾选上表两类。**不勾的后果**：用户首次用到时不弹授权框，接口直接失败——识图、发图、复制诊断全部不可用。此项仅在后台配置，代码改不了。
+
+> ⚠️ `manifest.json` 里的 `permission.scope.userLocation`（"用于展示学习打卡地理位置"）是**早期残留**，代码中零调用。提审时可能被审核员质疑。
+> 将来真要做定位，**必须同时在 `requiredPrivateInfos` 里加 `"getLocation"`**——2022 年后微信要求如此，光写 `permission.desc` 不够，调用会直接失败。
+
+### 17.7 与网页端的有意差异
+
+用户定调原则：**「能上的就上，上不了的就不上，不要低质量」**。以下为**刻意不做**，非遗漏：
+
+| 模块 | 为什么不上 |
+|---|---|
+| **视频库** | 网页端**没有 mp4**——库里是 mp3 音轨 + JSON 分镜脚本，播放靠前端 canvas 实时绘制。小程序 `<video>` 无源可放；重写播放器约 2000 行。真要上得**后端加 mp4 合成产线** |
+| 个人画像 3D 维度宇宙 | three.js + CSS3DRenderer 需要 DOM。已改 **2D 九维版**，信息量一条没少 |
+| 全双工语音通话 | 小程序录音无 AEC，外放会把 AI 的声音录回去，抢话逻辑必自激 |
+| B站 iframe / PDF 导出 / 本地视频抽帧 | 域名白名单 / 无对应能力 / canvas 不接受 video 元素 |
+
+### 17.8 全量 token 化（已完成）
+
+42 个页面的硬编码色值已全部迁到 CSS 变量：
+
+```
+984 处硬编码 hex  →  1346 处 var()
+残留 28 处为有意保留（品牌渐变配白字、模型厂商品牌色等内容色）
+```
+
+> ⚠️ **迁移时的两个硬约束**（将来再加色值务必遵守）：
+> 1. **颜色替换只能作用于 `<style>` 块**。项目里有 93 处颜色是 **JS 数据**，且 `hexToRgba()` 会解析 hex 字符串——盲替会直接打断它们。
+> 2. **深色 rgba 是单独的坑**：`rgba(15,23,42,0.92)` 这类既不是 `#0f172a` 也不是白色叠加，初次迁移整类漏掉，导致浅色模式下 7 处吸底栏/弹窗仍是黑块。现由 `--bar` / `--sheet` 承载。
+
+### 17.9 已知未验证项（截至 2026-09-18）
+
+**小程序从未真机 / 开发者工具实测过**，只跑通了编译。以下全部待验证：
+
+| 项 | 状态 |
+|---|---|
+| 双主题实际观感、浅色配色定稿 | 对比度已算过（文字四档 ≥3:1、9 个分类色全部达标），但**观感未经肉眼确认** |
+| WebP 兼容性 | 微信 `<image>` 支持 webp（iOS 需基础库 2.9.0+），**未实测** |
+| `darkmode: true` 副作用 | 开启后微信会给原生组件套深色样式，已加运行时覆盖 |
+| 按需注入后页面表现 | 无自定义组件、风险极低，但官方要求修改后必须确认表现正常 |
+| 隐私接口授权弹窗 | 依赖后台配置，配好后需真机验一次识图与复制 |
+| 后端接口实际返回 | 接口层已核对（95 个端点全部存在、零方法不匹配），但**带登录态的返回内容未验** |
+
+**下一步应该是实跑，而不是继续加功能。**
+
+### 17.10 2026-09-23 视觉大轮（43 页放大 + 上色）
+
+用户：「适当的放大一些东西，然后多彩一些，**要按照两种背景色分配不同的多彩**」+「视觉上要让用户感觉这个小程序有意思」。范围选的是**全项目 43 个页面一起**。
+
+#### 先派审计摸底数，结论出乎意料
+
+> **九色分类色板基本是死代码** —— `var(--c-*)` 全项目**只有 2 处活的引用**；
+> `--tone-soft` **0 消费者**，而它正是用来做彩色底托的；
+> `--tone` 有 32 处，**每一处都只是标题的文字颜色**。
+
+量化底数：135 处 ≤56rpx（28px）的尺寸声明散在 34 个文件；五个「尺寸源头」（8rpx 进度条轨道 15 文件、72rpx 控件框 18 文件、80rpx 14 文件…）；`<style>` 里 108 处颜色字面量；**147 处颜色写在 `<script>` 里**（24 个文件，通过 `:style` 注入，**结构上不跟主题**）。
+
+#### 尺寸：36 个文件 / 117 条规则
+
+| 模式 | 变化 |
+|---|---|
+| 进度条轨道 | 8rpx (4px) → **14rpx (7px)** |
+| 控件 / 头像框 | 72rpx → **88rpx** |
+| 主按钮 / 列表头像 | 80rpx → **96rpx** |
+| 状态圆点 | 14rpx → **20rpx** |
+| 小色块 / 编号圆 | 34→44、44→56、52→64、56→68、60→72 |
+
+**头像类必须宽、高、圆角三个值一起改** —— 只改 height 会变成椭圆。这条写进脚本判断里了。
+
+#### 浅色主题的真 bug（15 处，已修）
+
+| bug | 症状 |
+|---|---|
+| 分类色写死成深色值 | 浅色下**色相错 + alpha 只有 0.10（该 0.18）** |
+| 同一按钮两个红 | 底 `#f56c6c`（Element-UI 红）、字 `#f87171`（深色 `--danger`） |
+| 深色 brand 当描边 | 白卡上几乎看不见 |
+| 深色遮罩 | 浅色下比该有的暗一倍 |
+| 选中态用错靛蓝 | 6 个文件，每个选中描边都是错的 |
+
+#### 一条规则点亮 29 个页面
+
+```css
+.sec-title, .page-title, .block-title, .section-title, .action-title, .group-title {
+  background: var(--tone-soft);
+  border-left: 8rpx solid var(--tone);
+  border-radius: 0 12rpx 12rpx 0;
+  padding: 6rpx 18rpx;
+}
+```
+
+只加背景和左右内边距，**不动 `display` 与字号**，避免打乱各页排版。
+
+#### 根背景（43 页共用）
+
+原来只有 **2 个同色（品牌靛蓝）光晕**，所以整页是「空」的。新增三档彩色氛围光，**深浅两套是两组不同的值**：
+
+```
+深色：rgba(167,139,250,.11)  rgba(56,189,248,.075)  rgba(244,114,182,.075)
+浅色：rgba(124,58,237,.075)  rgba(2,132,199,.055)   rgba(219,39,119,.05)
+```
+
+**浅色必须压得更低** —— 白底会把颜色冲淡，给高了就糊成一片脏色。
+
+#### emoji → uni-icons
+
+26 个 WebP 图标混了四种风格（3D 渲染插画 / 扁平单色），不适合当 UI 小图标。改用 `uni-icons`。
+
+**⚠️ 先验证字体会不会加载**：微信的 `loadFontFace` **不认本地文件路径**，必须 base64 或 https 白名单域名。如果 uni-icons 从 CDN 取字体，小程序里会整片豆腐块——比 emoji 更糟。
+**先只加一个图标构建，查产物**：`uni-icons.wxss` → `url(data:font/ttf;base64,...)` —— **base64 内联**，不依赖网络、不需要配域名白名单。161 个图标，整个 wxss 54 KB。
+
+#### 胶囊避让：全项目只留一处
+
+根因不只是位置：页面用 `env(safe-area-inset-top)` 定位顶栏，而**这个值在安卓上常常是 0**，顶栏会整体顶进状态栏和胶囊里。
+
+全项目 **18 个页面自绘顶栏**，但只有**自定义导航栏**的会被胶囊压到（5 个页面）。胶囊几何计算本来散在 4 处 —— **这个 bug 就是这么来的：首页有留白、搜索页漏了**。收进 `utils/constants.js` 的 `getNavMetrics()`，4 个页面统一成一行 style。
+
+> **同一个算式出现第二次时就该抽出来。**
+
+#### ⚠️ 本轮未验证
+
+**所有改动只验证到「编译通过」** —— 没有进过微信开发者工具，没有真机实测。从「个人中心重做」到「117 条尺寸规则 + 29 页上色」，**全部没有肉眼确认过**。验证清单见 17.9。
+
+---
+
+## 18. 桌面版（Tauri 壳）
+
+> **2026-09-27 立项，09-28 加桌宠，09-29 补齐轮盘与设置。**
+> 产物在 `_devtools/jizhi-desktop/` —— 刻意放在 `project1` 仓库**之外**，
+> 不会被提交、也不会被部署脚本带上。
+
+### 18.1 定位与技术栈
+
+| | |
+|---|---|
+| 框架 | Tauri **v2**（Rust 壳 + 系统 WebView2） |
+| 安装包 | **1.4 MB**（对比 Electron 同功能约 150 MB —— 国内下载体验差距是决定性的） |
+| 与网页端的关系 | **不是重写**，是壳。主窗口直接加载线上站点 |
+| 与小程序的关系 | 无。桌面版是「网页端 + 桌面能力」，不是第四套 UI |
+
+**为什么是「加载线上站点」而不是本地打包前端**：
+
+- 零 CORS 问题（来源即站点自身）
+- 网站一更新，客户端就是最新的，**不需要做前端更新机制**
+- 代价：**桌面版依赖网页端已部署**。前端没上线，桌面版跟着一起停摆
+  —— 这条在打包流程里是硬约束，见 18.7
+
+### 18.2 双窗口模型
+
+| | `main` | `pet`（桌宠） |
+|---|---|---|
+| 内容 | 远程站点 `https://www.jizhi-learn.com` | 壳内本地 `ui/pet.html` |
+| 尺寸 | 1600×1000（**设计宽度**，见下） | 220×220（基准，可被设置页缩放） |
+| 装饰 | `decorations: false` —— 无边框，窗口按钮由**网页端**画 | 无边框、透明、`alwaysOnTop`、`skipTaskbar` |
+| 焦点 | 常规 | `focus: false` —— 不抢焦点，不打断你正在做的事 |
+
+**设计宽度 1600 不是随手定的**。项目里有一条居中补偿规则
+`@media (max-width:1500px) { .call-main { padding-left:420px } }`，
+`padding-left: P` 会把内容中心推到 `视口中心 + P/2`（实测 1440 宽时右偏 210px）。
+桌面版用 Tauri 的**浏览器缩放**把视口钉在 1600，那条媒体查询永不触发，小基才是真居中。
+
+⚠️ **不能用 CSS `zoom` 代替**：`zoom` 不放大布局视口，`100vh` 仍按真实视口算
+（内容画不满窗口、底部露底色），且媒体查询照样按真实宽度触发 —— 等于没缩放。
+
+### 18.3 桌宠
+
+桌宠是**桌面级**的：独立透明置顶窗口，关掉主程序也还在（这是用户明确选的形态）。
+
+#### 交互：悬停轮盘（2026-09-29 定稿）
+
+| 手势 | 行为 |
+|---|---|
+| 鼠标移入小基 | 轮盘展开，窗口从 220 长到 340（**中心不动**） |
+| 滚轮上下 | 转着选，**循环**（到底绕回开头） |
+| 左键单击 | 确认选中项；有下级的进第二层，**内层同一套操作** |
+| 右键 / Esc | 退回上一层；已在第一层则整体收起 |
+| 按住拖动 | 换位置 |
+| 鼠标移开 | 收起轮盘 |
+
+**第一层四项**（可在设置页逐项开关）：`🎙 语音` · `🎨 换个样子` · `⏱ 专注计时` · `👋 先躲起来`。
+
+**两种特殊的层**：
+
+- `kind: 'look'` —— **滚动即预览**。滚到哪一项小基当场变脸，不必确认；
+  确认才固定，退回则还原成进来之前那张脸。
+- `kind: 'dial'` —— **转盘**。不是固定几个选项，滚动连续调时长（5–90 分钟，另有「停止」档），
+  当前值固定在正上方，滚动时整圈数字一起变 —— 看着像表盘在转。
+
+#### 两个必须记住的实现约束
+
+**① 无焦点的窗口照样收得到滚轮。** 已实测：鼠标悬停在桌宠上滚动，
+窗口 `hasFocus=false` 也能收到；鼠标移开再滚，一次都收不到。
+所以**不需要在移入时 `setFocus()`** —— 那会在用户打字时把焦点夺走。
+（依赖 Windows 的「悬停时滚动非活动窗口」+ WebView2 支持。）
+
+**② 展开与收起必须用同一个锚点。** 展开用 `center`、收起用默认的右下角，
+300 多像素的差会让小基整个平移一下。表现就是用户报的「松开鼠标它自己挪了一点点」。
+
+#### 「先躲起来」不能关
+
+它是**收起桌宠的唯一入口**（没有托盘图标、没有别的恢复路径）。
+设置页里刻意**不给它开关**（`pinned: true`）—— 关掉它 = 桌宠再也收不起来。
+
+#### 专注计时
+
+到点小基换「开心」脸并冒一句话。计时中脚下显示 `⏱ 24:31`。
+选择的时长走转盘层，第二层。
+
+### 18.4 配置桥：为什么需要它
+
+**桌宠窗口与主窗口是两个不同的 origin**（一个是本地 `pet.html`，一个是远程站点）。
+同源策略下，桌宠**读不到主窗口的 localStorage** —— 拿不到登录 token、
+不知道后端地址、也不知道用户在设置页选了什么。
+
+所以由主窗口把这三样**推给壳**（只存内存、不落盘，它是令牌），桌宠再问壳要：
+
+| 通道 | 内容 | 为什么不能写死 |
+|---|---|---|
+| `set_pet_token` | 登录 JWT | 退出登录时推空串 |
+| `set_pet_api_base` | 后端地址 | 开发是 `localhost:8000`、生产是 `api.jizhi-learn.com`，写死在 html 里必有一边是错的 |
+| `set_pet_prefs` | 设置页里的偏好（轮盘项开关、尺寸） | 见下 |
+
+**偏好走的是「改动即广播」，不是轮询。** `set_pet_prefs` 存下之后会
+`emit("pet-prefs")`，桌宠监听后立刻重渲染。
+
+> 这条是踩坑换来的：第一版桌宠是轮询取配置的，而且轮询被写成
+> `if (!cfg.token) await loadCfg()` —— 语义变成「只有还没拿到才去要」，
+> token 一到就**再也不回读**。结果设置页改了开关，桌宠毫无反应。
+> 事件驱动之后是即时的，轮询只留作兜底。
+
+### 18.5 ACL：Tauri v2 权限的两个坑
+
+`src-tauri/permissions/app-commands.toml` 声明允许的命令。**这个文件是必须的**：
+
+1. **Tauri v2 默认拒绝所有插件命令**，不显式授权则自绘标题栏的按钮**静默失效**
+   —— 点了毫无反应、无任何报错。
+2. **壳自定义的 `#[tauri::command]` 不会自动获得许可。** 本地页面调用一般没事，
+   但本项目主窗口加载的是**远程站点**，远程内容受 ACL 管辖。没声明的命令会被拒，报错是
+   `<命令名> not allowed. plugin not found`。
+   **「plugin not found」极具误导性** —— 它让人以为插件没装，实际是「这个命令不在许可名单里」。
+
+另需 `capabilities/default.json` 里的 `remote.urls` 声明远程源，
+否则权限只对本地页面生效——**等于没配**。
+
+#### Rust 侧命令清单
+
+| 命令 | 用途 |
+|---|---|
+| `save_file` | 原生「另存为」（导出 PDF/图片走它，不走浏览器下载栏） |
+| `open_external` | 外链交给系统浏览器（只放行 http/https，防命令注入） |
+| `app_version` | 壳的版本号（网页端无从知道壳的版本，只能问壳） |
+| `show_main_window` | 拉主窗口到前台。**当前无调用方**（用户定：桌宠不打开主窗口） |
+| `set_pet_visible` / `is_pet_visible` | 桌宠显隐 |
+| `set_pet_token` / `set_pet_api_base` / `set_pet_prefs` | 配置桥（18.4） |
+| `get_pet_config` | 桌宠一次性取回 token + 后端地址 + 偏好（少一轮 IPC） |
+| `set_pet_size` | 改窗口尺寸，带 `anchor`：`center`（轮盘，中心不动）/ 默认右下角（语音面板） |
+
+### 18.6 ⚠️ 开发配置：`tauri.dev.conf.json` 是**死文件**
+
+**Tauri v2 只认这五个平台配置名**：
+`tauri.{linux,windows,macos,android,ios}.conf.json`。
+**没有 `.dev.` 这一档。**
+
+本项目曾把 dev 用的地址写进 `tauri.dev.conf.json`，
+**它从来没被读过** —— 于是 `tauri dev` 里主窗口一直加载的是**线上站**
+（base 配置里的生产地址），表现为「本地改了半天看不到变化」。
+更糟的是它**静默**：没有任何报错，只是行为和你预期的不一样。
+
+**正确做法是 CLI 的 `--config`**（`package.json`）：
+
+```json
+"dev": "tauri dev --config src-tauri/tauri.dev.conf.json"
+```
+
+**不能改名成 `tauri.windows.conf.json`** —— 那个名字在 `tauri build` 时也会生效，
+会把**生产安装包**指到 `localhost:5173`，装出来的客户端直接白屏。
+
+> **验收信号**（改完必须看这三个，缺一不可）：
+> ① Vite 上出现 **ESTABLISHED 连接**；② 落地页消失；③ 右上角出现窗口控制按钮。
+
+### 18.7 打包与发布
+
+```bash
+cd _devtools/jizhi-desktop
+npm run dev     # 开发：主窗口加载 localhost:5173
+npm run build   # 产出 src-tauri/target/release/bundle/nsis/JIZHI_x.y.z_x64-setup.exe
+```
+
+**⚠️ 顺序是硬约束：先部署网页前端，再打安装包。**
+
+桌面版加载的是线上站。前端没上线就打安装包，用户装到的是**旧前端 + 新壳**：
+
+- 没有窗口控制按钮 → **无边框窗口既拖不动也关不掉**
+- 没有落地页跳过 → 装了客户端还看一遍营销页
+- 没有桌宠开关 → 设置了也打不开
+
+（用户拿到的是一个必须用任务管理器杀的窗口。这条在 09-27 和 09-28 各记过一次。）
+
+### 18.8 已知未验证项
+
+| 项 | 状态 |
+|---|---|
+| 桌宠的行为验证 | 09-29 实测了：轮盘展开/收起、中心不动、贴边夹取、滚轮选择、换表情实时预览、缩放联动。**语音面板（按住说话 → TTS）未实测** |
+| 语音输入 | 用浏览器自带 `SpeechRecognition`（WebView2），**不是**服务端 ASR（服务器缺 `websocket-client`，`/xiaoji/asr` 一直 500） |
+| 开机自启 | 用 `tauri-plugin-autostart`，开关状态**问壳要**（注册表 Run 项才是真相）。**未实际重启验证过** |
+| 打包安装包 | 现存安装包是 **09-27** 的，**不含桌宠**（桌宠 09-28 才做）。要重打 |
+| 真机验收 | 只在本机跑过 |
+
+---
+
+## 19. 附录
+
+### 19.1 环境变量完整参考
 
 | 变量 | 必需 | 默认值 | 说明 |
 |------|------|--------|------|
@@ -5014,7 +5863,7 @@ main ──── 主分支 (当前工作分支)
 | `JWT_ALGORITHM` | ❌ | `HS256` | JWT 算法 |
 | `JWT_EXPIRE_HOURS` | ❌ | `720` | JWT 过期时间（30天） |
 | `FRONTEND_URL` | ❌ | `http://localhost:5173` | 前端地址 |
-| `BACKEND_EXTERNAL_URL` | ❌ | `http://localhost:8000` | 后端外网地址（微信 OAuth 回调用） |
+| `BACKEND_EXTERNAL_URL` | ❌ | `http://localhost:8000` | 后端外网地址。**当前无消费方**（原用于微信 OAuth 回调，该功能已移除） |
 | `VOLC_ACCESS_KEY` | ❌ | — | 火山引擎 AK |
 | `VOLC_SECRET_KEY` | ❌ | — | 火山引擎 SK |
 | `ARK_API_KEY` | ❌ | — | 豆包 API Key |
@@ -5025,7 +5874,7 @@ main ──── 主分支 (当前工作分支)
 | `REDIS_PORT` | ❌ | `6379` | Redis 端口 |
 | `REDIS_PASSWORD` | ❌ | — | Redis 密码 |
 
-### 17.2 考纲配置规范
+### 19.2 考纲配置规范
 
 新增一个考纲的完整步骤：
 
@@ -5034,7 +5883,7 @@ main ──── 主分支 (当前工作分支)
 3. **运行生成脚本** `python scripts/seed_all_banks.py {id}` 生成初始题目
 4. **前端无需改动** — 考纲列表、详情、做题页均从 `syllabi.json` 动态渲染
 
-### 17.3 题目 JSON Schema
+### 19.3 题目 JSON Schema
 
 ```json
 {
@@ -5084,7 +5933,7 @@ main ──── 主分支 (当前工作分支)
 }
 ```
 
-### 17.4 术语表
+### 19.4 术语表
 
 | 术语 | 英文 | 说明 |
 |------|------|------|
@@ -5101,4 +5950,4 @@ main ──── 主分支 (当前工作分支)
 
 ---
 
-> **文档结束** · 基智学习助手 (Jizhi Learn) · v2.0 · 2026-08-02
+> **文档结束** · 基智学习助手 (Jizhi Learn) · v2.2 · 2026-09-29

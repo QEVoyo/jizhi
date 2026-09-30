@@ -1,0 +1,92 @@
+/**
+ * 桌面版样式覆盖 —— 让操作手感变成「应用」而不是「网页」。
+ *
+ * 全部规则都挂在 html.jz-desktop 下，而该类只在桌面版运行时由
+ * desktop/index.js 的 suppressWebBehaviors() 添加。网页版永远拿不到这个类，
+ * 因此下面每一条对网页版都是死代码。
+ *
+ * 历史说明：早先版本这里有一大坨「100vh 补偿」规则（把 40+ 处 min-height:100vh
+ * 改成 calc(100vh - 36px)），因为当时顶部占了 36px 标题栏。改成悬浮按钮后
+ * 内容重新铺满视口，100vh 又是对的，那些补丁全部删除 —— 少了一层脆弱的外挂。
+ */
+
+/* ===== 让小基顶栏给六个固定键让位 =====
+   六键是 position:fixed 浮在右上角（top:10px right:20px，与小基顶栏 .call-nav 的
+   padding 对齐）。把 .nav-actions 往左推，视觉上就接成一整排：
+   原来那 5 个键 + 这 6 个。
+
+   宽度账：6 × 40(按钮) + 5 × 4(gap) + 2 × 4(分隔线外边距) + 1(分隔线) = 269
+   取 280 留点余量，避免窄窗口下贴太紧。
+   除以 --jz-scale 是因为顶栏在缩放后的页面里，而按钮是恒定物理尺寸。 */
+html.jz-desktop .nav-actions {
+  padding-right: calc(280px / var(--jz-scale, 1));
+}
+
+/* ===== 不再是「网页」的三件套：不可选中、不是文本光标、不能拖图 ===== */
+
+/* 1) 默认不可选中文本。网页里满屏都能拉蓝，应用里不该这样。
+      输入类元素放行 —— 不能打字就没法用了。 */
+html.jz-desktop,
+html.jz-desktop body {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+html.jz-desktop input,
+html.jz-desktop textarea,
+html.jz-desktop select,
+html.jz-desktop [contenteditable="true"],
+html.jz-desktop .jz-selectable {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: auto;
+}
+
+/* 需要让用户复制的内容（题目、代码、报错信息）挂 .jz-selectable 即可 */
+
+/* 2) 图片/链接不能拖 —— 网页里会拖出一个半透明幽灵图，非常出戏 */
+html.jz-desktop img,
+html.jz-desktop a {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+/* 3) 滚动条：网页版是常驻的粗条，应用版收细、悬停才明显 */
+html.jz-desktop ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+html.jz-desktop ::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+html.jz-desktop *:hover::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, .45);
+  background-clip: content-box;
+}
+html.jz-desktop ::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, .7);
+  background-clip: content-box;
+}
+
+/* 4) 干掉「网页被选中」时的蓝色高亮块 */
+html.jz-desktop ::selection {
+  background: color-mix(in srgb, var(--brand, #409EFF) 28%, transparent);
+}
+
+/* ===== 应用化细节 ===== */
+
+/* 应用里不该出现的浏览器默认焦点框（保留键盘可达性：用 :focus-visible） */
+html.jz-desktop :focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* 平滑字体渲染，和网页版的观感拉开一点 */
+html.jz-desktop body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}

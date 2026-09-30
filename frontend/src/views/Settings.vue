@@ -21,9 +21,26 @@
       <h1>⚙ 设置</h1>
     </div>
 
-    <div class="settings-container">
+    <!-- 内部滚动容器：让滚动发生在【应用内】，而不是让 html 滚。
+         原来是 min-height:100vh 靠窗口滚动，那条滚动条属于窗口、贴在窗口最外缘，
+         看起来和应用是两截；AppLayout 的页面（学程/社区/首页）都是这个结构。 -->
+    <div class="settings-scroll">
+    <div class="settings-layout">
+      <!-- 左侧导航：9 个区块纯上下滚太长，给个锚点栏 + 滚动高亮 -->
+      <aside class="settings-nav">
+        <button
+          v-for="sec in visibleNavSections" :key="sec.id"
+          class="sn-item" :class="{ active: activeSection === sec.id }"
+          @click="scrollToSection(sec.id)"
+        >
+          <span class="sn-icon">{{ sec.icon }}</span>
+          <span class="sn-label">{{ sec.label }}</span>
+        </button>
+      </aside>
+
+      <div class="settings-container">
       <!-- ====== 1. 个人信息 ====== -->
-      <div class="settings-card">
+      <div id="sec-profile" class="settings-card">
         <div class="card-header">
           <span class="card-icon">👤</span>
           <span class="card-title">个人信息</span>
@@ -62,7 +79,7 @@
       </div>
 
       <!-- ====== 2. 学习偏好 ====== -->
-      <div class="settings-card">
+      <div id="sec-prefs" class="settings-card">
         <div class="card-header">
           <span class="card-icon">🎯</span>
           <span class="card-title">学习偏好</span>
@@ -127,7 +144,7 @@
       </div>
 
       <!-- ====== 3. 外观 ====== -->
-      <div class="settings-card">
+      <div id="sec-appearance" class="settings-card">
         <div class="card-header">
           <span class="card-icon">🎨</span>
           <span class="card-title">外观</span>
@@ -318,8 +335,103 @@
         </template>
       </el-dialog>
 
+      <!-- ====== 桌宠（仅桌面端）====== -->
+      <div v-if="isDesktop" id="sec-pet" class="settings-card">
+        <div class="card-header">
+          <span class="card-icon">🐾</span>
+          <span class="card-title">桌宠</span>
+          <span class="card-hint">浮在桌面上的小基</span>
+        </div>
+        <div class="card-body">
+          <!-- 总开关 -->
+          <div class="pet-row">
+            <div class="pet-info">
+              <span class="pet-label">显示桌宠</span>
+              <span class="pet-desc">
+                在桌面上常驻一只小基。<b>它不会打开主窗口</b> ——
+                聊天、通话、计时都在它自己那一小块里完成。
+              </span>
+            </div>
+            <el-switch v-model="petOn" :loading="petBusy" @change="onTogglePet" />
+          </div>
+
+          <!-- 怎么操作它 -->
+          <div class="pet-sub">
+            <span class="pet-sublabel">怎么操作它</span>
+          </div>
+          <div class="pet-keys">
+            <div v-for="g in PET_GESTURES" :key="g.how" class="pet-key">
+              <kbd>{{ g.how }}</kbd>
+              <span>{{ g.what }}</span>
+            </div>
+          </div>
+
+          <!-- 轮盘内容 -->
+          <div class="pet-sub">
+            <span class="pet-sublabel">轮盘里显示什么</span>
+            <span class="pet-subhint">关掉的不会出现在轮盘上；至少要留一项</span>
+          </div>
+          <div class="pet-items">
+            <label
+              v-for="it in PET_WHEEL_ITEMS"
+              :key="it.id"
+              class="pet-item"
+              :class="{ 'is-off': !petPrefs.wheel[it.id] }"
+            >
+              <el-switch
+                v-model="petPrefs.wheel[it.id]"
+                size="small"
+                :disabled="it.pinned || (wheelOnCount <= 1 && petPrefs.wheel[it.id])"
+                @change="onPetPrefChange"
+              />
+              <span class="pet-item-icon">{{ it.icon }}</span>
+              <span class="pet-item-text">
+                <span class="pet-item-label">
+                  {{ it.label }}
+                  <span v-if="it.pinned" class="pet-item-lock">收起桌宠的唯一入口，不能关</span>
+                </span>
+                <span class="pet-item-desc">{{ it.desc }}</span>
+              </span>
+            </label>
+          </div>
+
+          <!-- 小基多大 -->
+          <div class="pet-sub">
+            <span class="pet-sublabel">小基多大</span>
+            <span class="pet-subhint">拖完松手就生效，不用重启</span>
+          </div>
+          <div class="pet-scale">
+            <span class="pet-scale-end">小</span>
+            <el-slider
+              v-model="petPrefs.petScale"
+              :min="PET_SCALE_MIN"
+              :max="PET_SCALE_MAX"
+              :step="PET_SCALE_STEP"
+              :format-tooltip="(v) => Math.round(v * 100) + '%'"
+              @change="onPetScale"
+            />
+            <span class="pet-scale-end">大</span>
+          </div>
+
+          <!-- 开机自启 -->
+          <div class="pet-row pet-row-gap">
+            <div class="pet-info">
+              <span class="pet-label">开机自动启动</span>
+              <span class="pet-desc">
+                开机后基智自己起来，桌宠就在桌面上等着，不用手动开。
+              </span>
+            </div>
+            <el-switch
+              v-model="autostartOn"
+              :loading="autostartBusy"
+              @change="onToggleAutostart"
+            />
+          </div>
+        </div>
+      </div>
+
       <!-- ====== 4. 隐私 ====== -->
-      <div class="settings-card">
+      <div id="sec-privacy" class="settings-card">
         <div class="card-header">
           <span class="card-icon">🔒</span>
           <span class="card-title">隐私</span>
@@ -342,7 +454,7 @@
       </div>
 
       <!-- ====== 5. 通知设置 ====== -->
-      <div class="settings-card">
+      <div id="sec-notify" class="settings-card">
         <div class="card-header">
           <span class="card-icon">🔔</span>
           <span class="card-title">通知设置</span>
@@ -373,8 +485,20 @@
         </div>
       </div>
 
+      <!-- ====== 快捷键 ====== -->
+      <div id="sec-shortcuts" class="settings-card">
+        <div class="card-header">
+          <span class="card-icon">⌨️</span>
+          <span class="card-title">快捷键</span>
+          <span class="card-hint">应用内生效，跟随账号</span>
+        </div>
+        <div class="card-body">
+          <ShortcutsSection />
+        </div>
+      </div>
+
       <!-- ====== 6. 账号安全 ====== -->
-      <div class="settings-card">
+      <div id="sec-security" class="settings-card">
         <div class="card-header">
           <span class="card-icon">🔐</span>
           <span class="card-title">账号安全</span>
@@ -394,42 +518,20 @@
           </div>
 
           <div class="divider"></div>
-
-          <!-- 微信绑定 -->
-          <div class="field">
-            <label class="field-label">微信绑定</label>
-            <div v-if="user?.wechat_openid" class="wechat-bound">
-              <i class="fab fa-weixin" style="color:#07c160;font-size:20px"></i>
-              <span>已绑定微信</span>
-            </div>
-            <template v-else>
-              <button v-if="!wechat.qrcode" class="glass-btn wechat-btn" :disabled="wechat.loading" @click="startWechatBind">
-                <i class="fab fa-weixin"></i> {{ wechat.loading ? '获取中...' : '绑定微信' }}
-              </button>
-              <div v-if="wechat.qrcode" class="wechat-panel">
-                <img :src="wechat.qrcode" class="wechat-qr" alt="微信扫码" />
-                <p class="wechat-tip">{{ wechat.status }}</p>
-                <button class="glass-btn small" @click="cancelWechatBind">取消</button>
-              </div>
-            </template>
-          </div>
         </div>
       </div>
 
       <!-- ====== 7. AI 与 API ====== -->
-      <div class="settings-card">
+      <div id="sec-ai" class="settings-card">
         <div class="card-header">
           <img src="/images/xiaoji/xiaoji_idle.png" alt="小基" class="xiaoji-section-icon" />
           <span class="card-title">AI 与 API</span>
         </div>
         <div class="card-body">
+          <!-- 小基的设置直接嵌在这里（原来是一张跳 /xiaoji/settings 的链接卡）。
+               用户要的是「设置融合为一个」—— 全站只此一处设置，不该点进去还有一层。 -->
+          <XiaojiSettings embedded />
           <div class="link-grid">
-            <router-link to="/xiaoji/settings" class="link-card">
-              <img src="/images/xiaoji/xiaoji_idle.png" alt="小基" class="link-icon-img" />
-              <span class="link-label">小基 AI 设置</span>
-              <span class="link-desc">AI 助手名称、语音、性格</span>
-              <svg class="link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-            </router-link>
             <router-link to="/api-center" class="link-card">
               <span class="link-icon">🔑</span>
               <span class="link-label">API 管理中心</span>
@@ -441,7 +543,7 @@
       </div>
 
       <!-- ====== 8. 关于 ====== -->
-      <div class="settings-card">
+      <div id="sec-about" class="settings-card">
         <div class="card-header">
           <span class="card-icon">ℹ️</span>
           <span class="card-title">关于</span>
@@ -451,6 +553,16 @@
           <div class="about-version">
             <span class="about-label">当前版本</span>
             <span class="about-ver">v{{ appVersion }} <em class="about-tag">Beta</em></span>
+          </div>
+          <!-- 只在桌面壳里出现：网页版无从知道壳的版本，得问壳（见 desktop/index.js） -->
+          <div v-if="desktopVersion" class="about-version">
+            <span class="about-label">桌面版</span>
+            <span class="about-ver">
+              v{{ desktopVersion }}
+              <button class="about-check-btn" :disabled="checkingUpdate" @click="manualCheckUpdate">
+                {{ checkingUpdate ? '检查中…' : '检查更新' }}
+              </button>
+            </span>
           </div>
           <div class="about-version">
             <span class="about-label">ICP 备案</span>
@@ -481,6 +593,8 @@
 
       <!-- 底部间距 -->
       <div style="height:40px"></div>
+      </div>
+    </div>
     </div>
   </div>
 </template>
@@ -491,9 +605,14 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore, BRAND_PRESETS, BG_PRESETS, SURFACE_PRESETS, FONT_SCHEMES, THEME_SETS, luminance, resolveText, computeFit } from '@/stores/theme'
 import { encodeAppearance, decodeAppearance, appearanceLink } from '@/utils/appearanceCode'
 import ThemePreviewWindow from '@/components/ThemePreviewWindow.vue'
+import XiaojiSettings from '@/components/XiaojiSettings.vue'
+import ShortcutsSection from '@/shortcuts/ShortcutsSection.vue'
 import { setUser } from '@/utils/storage'
 import { updateNickname, updateBio, uploadAvatar, updateUserTheme } from '@/api/auth'
 import { getNotificationSettings, updateNotificationSettings } from '@/api/community'
+import { isDesktop, getAppVersion, checkUpdate, openExternal, setPetVisible, petEnabledLocally, PET_WHEEL_ITEMS, PET_SCALE_MIN, PET_SCALE_MAX, PET_SCALE_STEP, petPrefsLocally, savePetPrefs, isAutostartEnabled, setAutostart } from '@/desktop'
+import { BACKEND_URL } from '@/utils/constants'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { recordAction } from '@/api/career'
 import pkg from '../../package.json'
 
@@ -501,6 +620,160 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 
 const appVersion = pkg.version
+
+// ===== 桌面版版本与更新 =====
+// 只在壳里才有值；浏览器里恒为空，那一行不渲染。
+// ===== 桌宠（仅桌面端）=====
+const petOn = ref(false)
+const petBusy = ref(false)
+
+/** 操作方法一览。**这里就是唯一的说明书** —— 交互改了就改这张表。 */
+const PET_GESTURES = [
+  { how: '鼠标移到小基上', what: '轮盘展开' },
+  { how: '滚轮上下', what: '转着选（到底会绕回开头）' },
+  { how: '左键单击', what: '确认选中的那一项' },
+  { how: '右键 / Esc', what: '退回上一层' },
+  { how: '按住拖动', what: '把小基挪到别处' },
+  { how: '鼠标移开', what: '收起轮盘' },
+]
+
+/**
+ * 轮盘项开关。存本地 localStorage，同时推给桌面壳转交桌宠
+ * （桌宠是独立 origin，读不到这边的存储）。
+ */
+const petPrefs = reactive(petPrefsLocally())
+// pinned 的项（「先躲起来」）不计入 —— 它永远是开的，不参与"至少留一项"的判断
+const wheelOnCount = computed(
+  () => PET_WHEEL_ITEMS.filter((i) => !i.pinned && petPrefs.wheel[i.id]).length,
+)
+
+async function onPetPrefChange() {
+  const saved = await savePetPrefs(petPrefs)
+  Object.assign(petPrefs, saved)
+}
+
+/** 换尺寸：存 + 推，壳会广播，桌宠立刻缩放 */
+async function onPetScale() {
+  const saved = await savePetPrefs(petPrefs)
+  Object.assign(petPrefs, saved)
+}
+
+// ===== 开机自启 =====
+// 状态**问壳要**，不存本地 —— 注册表里的 Run 项才是真相，
+// 存一份本地副本只会出现「开关显示开着、实际没设上」。
+const autostartOn = ref(false)
+const autostartBusy = ref(false)
+
+async function onToggleAutostart(val) {
+  autostartBusy.value = true
+  try {
+    const res = await setAutostart(val)
+    if (!res.ok) {
+      // 切不过去就把开关拨回去 —— 和桌宠开关同一个道理
+      autostartOn.value = !val
+      ElMessage.warning(`设置开机自启失败：${res.error}`)
+    } else {
+      ElMessage.success(val ? '已开启，下次开机基智会自己起来' : '已关闭开机自启')
+    }
+  } finally {
+    autostartBusy.value = false
+  }
+}
+
+async function onTogglePet(val) {
+  petBusy.value = true
+  try {
+    const res = await setPetVisible(val)
+    if (!res.ok) {
+      // 切不过去就把开关拨回去 —— 留着一个和实际状态不符的开关比报错更糟
+      petOn.value = !val
+      // 把后端/壳给的原始原因显示出来，方便定位
+      ElMessage.warning(`桌宠切换失败：${res.error}`)
+    } else {
+      ElMessage.success(val ? '桌宠已出现，拖动它换个位置吧' : '桌宠已隐藏')
+    }
+  } finally {
+    petBusy.value = false
+  }
+}
+
+// ===== 左侧导航 =====
+const navSections = [
+  { id: 'sec-profile', label: '个人信息', icon: '👤' },
+  { id: 'sec-prefs', label: '学习偏好', icon: '🎯' },
+  { id: 'sec-appearance', label: '外观', icon: '🎨' },
+  { id: 'sec-pet', label: '桌宠', icon: '🐾', desktopOnly: true },
+  { id: 'sec-privacy', label: '隐私', icon: '🔒' },
+  { id: 'sec-notify', label: '通知设置', icon: '🔔' },
+  { id: 'sec-shortcuts', label: '快捷键', icon: '⌨️' },
+  { id: 'sec-security', label: '账号安全', icon: '🛡️' },
+  { id: 'sec-ai', label: 'AI 与 API', icon: '🤖' },
+  { id: 'sec-about', label: '关于', icon: 'ℹ️' },
+]
+// 桌宠项只在桌面壳里出现（网页端没有这个概念）
+const visibleNavSections = computed(() =>
+  navSections.filter((s) => !s.desktopOnly || isDesktop))
+
+const activeSection = ref('sec-profile')
+let sectionObserver = null
+
+function scrollToSection(id) {
+  const el = document.getElementById(id)
+  if (!el) return
+  // 用 scrollIntoView + 卡片的 scroll-margin-top，别自己算偏移 ——
+  // 顶栏高度、缩放（桌面壳会整体缩放）都会让手算的偏移对不上。
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+/**
+ * 滚动高亮：观察一条**靠近视口顶部的窄带**，落在带内的区块即为当前区块。
+ *
+ * 不用「谁可见谁高亮」——那样长区块会一直高亮，短区块一闪而过。
+ * 窄带（顶部 12%~25%）更接近人的直觉：视线所在的那一节。
+ */
+function setupScrollSpy() {
+  if (typeof IntersectionObserver === 'undefined') return
+  sectionObserver = new IntersectionObserver(
+    (entries) => {
+      const hit = entries.filter((e) => e.isIntersecting)
+      if (!hit.length) return
+      // 取最靠上的那个，避免同时命中时来回跳
+      hit.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+      activeSection.value = hit[0].target.id
+    },
+    { rootMargin: '-12% 0px -75% 0px', threshold: 0 }
+  )
+  navSections.forEach((s) => {
+    const el = document.getElementById(s.id)
+    if (el) sectionObserver.observe(el)
+  })
+}
+
+const desktopVersion = ref('')
+const checkingUpdate = ref(false)
+
+async function manualCheckUpdate() {
+  if (checkingUpdate.value) return
+  checkingUpdate.value = true
+  try {
+    const r = await checkUpdate()
+    if (!r) {
+      ElMessage.warning('暂时无法检查更新，请稍后再试')
+    } else if (r.hasUpdate) {
+      // 桌面壳不能自己静默替换安装包（非自动更新），交给系统浏览器下载
+      await ElMessageBox.confirm(
+        `新版本 v${r.latest} 已发布（当前 v${r.current}）${r.sizeMb ? `，约 ${r.sizeMb} MB` : ''}。
+将打开浏览器下载安装包。`,
+        '发现新版本',
+        { confirmButtonText: '去下载', cancelButtonText: '稍后', type: 'info' }
+      ).then(() => openExternal(`${BACKEND_URL}${r.url}`)).catch(() => {})
+    } else {
+      ElMessage.success(`已是最新版本（v${r.current}）`)
+    }
+  } finally {
+    checkingUpdate.value = false
+  }
+}
 
 const user = computed(() => authStore.user)
 const userStatus = ref(authStore.user?.status || 'online')
@@ -815,7 +1088,7 @@ async function changePassword() {
   if (pw.new1 !== pw.new2) { toast('两次密码不一致', 'error'); return }
   changingPw.value = true
   try {
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/auth/update-password?user_id=${authStore.user.id}`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/auth/update-password?user_id=${authStore.user.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authStore.token}` },
       body: JSON.stringify({ old_password: pw.old, new_password: pw.new1 })
@@ -830,51 +1103,6 @@ async function changePassword() {
     }
   } catch { toast('修改失败，请检查网络', 'error') }
   finally { changingPw.value = false }
-}
-
-// ===== 微信绑定 =====
-const wechat = reactive({ qrcode: '', status: '', loading: false })
-let wechatTimer = null
-
-async function startWechatBind() {
-  wechat.loading = true
-  const result = await authStore.bindWechat()
-  wechat.loading = false
-  if (result.success) {
-    wechat.qrcode = result.qrcode
-    wechat.status = '请用微信扫描二维码'
-    let attempts = 0
-    wechatTimer = setInterval(async () => {
-      attempts++
-      if (attempts > 150) {
-        clearInterval(wechatTimer); wechatTimer = null
-        wechat.status = '已过期，请重新获取'
-        setTimeout(() => { wechat.qrcode = '' }, 2000)
-        return
-      }
-      const pr = await authStore.bindWechatPoll(result.pollToken)
-      if (pr.success) {
-        clearInterval(wechatTimer); wechatTimer = null
-        wechat.status = '绑定成功！'
-        if (authStore.user) authStore.user.wechat_openid = 'bound'
-        toast('微信绑定成功！')
-        recordAction(authStore.user.id, 'bind_wechat')
-        setTimeout(() => { wechat.qrcode = '' }, 1500)
-      } else if (pr.message) {
-        clearInterval(wechatTimer); wechatTimer = null
-        wechat.status = pr.message
-        setTimeout(() => { wechat.qrcode = '' }, 2000)
-      }
-    }, 2000)
-  } else {
-    toast(result.message || '获取绑定二维码失败', 'error')
-  }
-}
-
-function cancelWechatBind() {
-  if (wechatTimer) { clearInterval(wechatTimer); wechatTimer = null }
-  wechat.qrcode = ''
-  wechat.status = ''
 }
 
 // ===== 通知设置 =====
@@ -929,7 +1157,17 @@ function saveNotifSettings() {
 }
 
 // ===== 初始化 =====
-onMounted(() => {
+onMounted(async () => {
+  setupScrollSpy()
+  if (isDesktop) {
+    petOn.value = petEnabledLocally()
+    // 自启状态问壳要 —— 注册表里的 Run 项才是真相，本地缓存不算数
+    autostartOn.value = (await isAutostartEnabled()) ?? false
+  }
+
+  // 桌面壳里才有值；网页版 getAppVersion 直接返回 null
+  if (isDesktop) desktopVersion.value = (await getAppVersion()) || ''
+
   const u = authStore.user
   if (u) {
     form.nickname = u.nickname || ''
@@ -947,23 +1185,50 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (wechatTimer) clearInterval(wechatTimer)
+  sectionObserver?.disconnect()
+
   if (notifSaveTimer) clearTimeout(notifSaveTimer)
 })
 </script>
 
 <style scoped>
 .settings-page {
-  min-height: 100vh;
-  padding: 20px 28px;
-  }
+  /* 这个项目有两种滚动写法：AppLayout 的页面（学程/社区/首页）是
+     「外层 100vh + overflow hidden、内层自己滚」；其余页面是「窗口滚」。
+     这里改成前者 —— 窗口滚的滚动条属于 html，贴在窗口最外缘，
+     在无边框的桌面壳里看起来和应用是两截。 */
+  height: calc(100vh - var(--jz-top, 0px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
+.settings-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 28px;
+}
+
+/* 顶栏固定：滚下去「返回主界面」也一直在左上角。
+   之前它是普通流内元素，一滚就没了，用户想返回得先滚回顶部。
+   用 sticky 而不是 fixed —— fixed 会脱离文档流，得手写占位高度，
+   页面 padding 一变就错位；sticky 自动占位。 */
 .settings-topbar {
+  /* 顶栏在滚动容器【之外】，所以它天然就是固定的 ——
+     不需要 sticky，也就没有「滚下去顶栏盖住内容」那类问题。 */
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 20px;
-  margin-bottom: 24px;
+  padding: 18px 28px 14px;
+  position: relative;
 }
+/* 滚上去时底部给一条淡分割线，避免内容从它下面「穿过去」显得糊 */
+.settings-topbar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: var(--border-color); opacity: .6;
+}
+
 .settings-topbar h1 {
   font-size: 24px;
   font-weight: 700;
@@ -971,12 +1236,68 @@ onUnmounted(() => {
   margin: 0;
 }
 
-.settings-container {
-  max-width: 760px;
+/* ====== 两栏：左导航 + 右内容 ====== */
+/* 9 个区块纯上下滚太长，左侧给锚点栏。宽度上限从 760 提到 1080 是为了
+   容下导航（176）+ 间隙（24）+ 内容（760），右边内容宽度没变、阅读宽度不受影响。 */
+.settings-layout {
+  display: flex;
+  gap: 24px;
+  max-width: 1080px;
   margin: 0 auto;
+  align-items: flex-start;
+}
+
+.settings-nav {
+  position: sticky;
+  top: 20px;   /* 顶栏在滚动容器之外，这里不用再让位 */
+  width: 176px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sn-item {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%; padding: 9px 12px;
+  border: none; border-radius: 10px; cursor: pointer;
+  background: transparent; color: var(--text-secondary);
+  font-size: 13.5px; text-align: left;
+  transition: background .15s ease, color .15s ease;
+}
+.sn-item:hover { background: color-mix(in srgb, var(--surface, #fff) 6%, transparent); }
+.sn-item.active {
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand);
+  font-weight: 600;
+}
+.sn-icon { font-size: 14px; line-height: 1; }
+.sn-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.settings-container {
+  /* 变成 flex 子项后不再自己居中，宽度交给父级的 flex 分配 */
+  flex: 1;
+  min-width: 0;
+  max-width: 760px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* 顶栏与两栏左对齐（原来是 760 居中，会错位）。
+   ⚠️ 这里不能再写 margin —— 上面 sticky 那段已经用负外边距做了满宽背景，
+   再叠加会把顶栏挤窄。左对齐靠下面这层内边距与 .settings-layout 同宽。 */
+.settings-topbar > * { position: relative; }
+
+/* 点导航滚过来时，区块别贴着视口顶 —— 留一点呼吸，
+   也顺带避开了桌面壳顶部那条可拖拽/悬浮按钮的窄带 */
+.settings-card { scroll-margin-top: 20px; }
+
+/* 窄屏：导航挤不下就藏起来，内容回到单栏 —— 总比压成两行字好 */
+@media (max-width: 900px) {
+  .settings-nav { display: none; }
+  .settings-layout { max-width: 760px; }
+  .settings-container { max-width: none; }
 }
 
 /* ====== 卡片 ====== */
@@ -1463,6 +1784,69 @@ select.glass-input { cursor: pointer; appearance: none; }
   color: var(--text-primary);
   font-family: 'Consolas', 'Menlo', monospace;
 }
+.pet-row { display: flex; align-items: flex-start; gap: 16px; }
+.pet-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pet-label { font-size: 14px; color: var(--text-primary); }
+.pet-desc { font-size: 12px; color: var(--text-muted); line-height: 1.7; }
+.pet-desc b { color: var(--text-secondary); font-weight: 600; }
+
+/* ── 桌宠：小标题 ── */
+.pet-sub { display: flex; align-items: baseline; gap: 10px; margin: 20px 0 10px; flex-wrap: wrap; }
+.pet-sublabel { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.pet-subhint { font-size: 12px; color: var(--text-muted); }
+
+/* ── 桌宠：操作对照表 ── */
+.pet-keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px 22px; }
+.pet-key { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-secondary); }
+.pet-key kbd {
+  flex: none; min-width: 118px; text-align: center;
+  font: 600 11.5px/1.5 inherit;
+  padding: 3px 9px; border-radius: 7px;
+  color: var(--text-primary);
+  /* 用 color-mix 而不是写死的灰：这个项目有浅/深两套底，写死必有一边是错的 */
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+}
+
+/* ── 桌宠：轮盘项开关 ── */
+.pet-items { display: flex; flex-direction: column; gap: 2px; }
+.pet-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 12px; border-radius: 10px; cursor: pointer;
+  transition: background .15s ease, opacity .15s ease;
+}
+.pet-item:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
+.pet-item.is-off { opacity: .5; }
+.pet-item-icon { font-size: 17px; line-height: 1; flex: none; }
+.pet-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pet-item-label { font-size: 13px; color: var(--text-primary); }
+.pet-item-desc { font-size: 11.5px; color: var(--text-muted); line-height: 1.55; }
+
+/* ── 桌宠：尺寸滑杆 ── */
+.pet-scale { display: flex; align-items: center; gap: 14px; padding: 0 4px; max-width: 460px; }
+.pet-scale .el-slider { flex: 1; }
+.pet-scale-end { font-size: 12px; color: var(--text-muted); flex: none; }
+
+/* pinned 的项在标签后面跟一句解释 —— 不然用户会以为开关坏了 */
+.pet-item-lock {
+  margin-left: 8px; padding: 1px 7px; border-radius: 6px;
+  font-size: 10.5px; font-weight: 400;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+/* 自启开关那行要和上面的内容拉开距离 */
+.pet-row-gap { margin-top: 20px; }
+
+.about-check-btn {
+  margin-left: 10px; padding: 2px 10px; font-size: 12px; cursor: pointer;
+  border-radius: 10px; border: 1px solid var(--border-color);
+  background: transparent; color: var(--text-secondary);
+  transition: all .15s ease;
+}
+.about-check-btn:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
+.about-check-btn:disabled { opacity: .5; cursor: default; }
+
 .about-tag {
   font-style: normal;
   font-size: 11px;
@@ -1481,21 +1865,6 @@ select.glass-input { cursor: pointer; appearance: none; }
 
 /* ====== 分隔线 ====== */
 .divider { height: 1px; background: color-mix(in srgb, var(--surface, #ffffff) 5%, transparent); margin: 18px 0; }
-
-/* ====== 微信 ====== */
-.wechat-bound { display: flex; align-items: center; gap: 10px; padding: 10px 0; font-size: 15px; color: var(--text-primary); }
-.wechat-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: linear-gradient(135deg, #07c160, #06ad56) !important;
-  color: #fff !important; border: none !important;
-}
-.wechat-btn:hover { box-shadow: 0 4px 16px rgba(7,193,96,0.3); }
-.wechat-panel {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 16px; background: #fff; border-radius: 14px; border: 2px solid #07c160;
-}
-.wechat-qr { width: 180px; height: 180px; border-radius: 8px; }
-.wechat-tip { font-size: 14px; color: #333; margin: 0; font-weight: 500; }
 
 /* ====== AI 链接 ====== */
 .link-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }

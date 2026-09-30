@@ -300,10 +300,24 @@ async def get_user_stats(user_id: str, current_user: str = Depends(get_current_u
 async def update_user_stats(data: dict, current_user: str = Depends(get_current_user)):
     user_id = data.get("user_id")
     verify_user_match(user_id, current_user)
-    points_change = data.get("points_change", 0)
-    level_points_change = data.get("level_points_change", 0)
-    source = data.get("source", "unknown")
+    return await _apply_user_stats(
+        user_id,
+        data.get("points_change", 0),
+        data.get("level_points_change", 0),
+        data.get("source", "unknown"),
+    )
 
+
+async def _apply_user_stats(user_id: str, points_change: int, level_points_change: int, source: str):
+    """积分与段位/等级写入的核心逻辑。
+
+    ⚠️ 不带 Depends、不自行鉴权 —— **调用方必须先 verify_user_match**。
+
+    单独拆出来的原因：本文件的 claim_achievement / claim_task / claim_bonus 要复用这段逻辑，
+    而直接 await 那个路由函数会让 current_user 落到 Depends 默认值上变成 Depends 对象，
+    verify_user_match 一比对必然失败 → 三个领取接口全部 403
+    「无权操作其他用户的数据」。2026-09-27 修。
+    """
     headers = get_supabase_headers()
 
     async with httpx.AsyncClient() as client:
@@ -406,12 +420,9 @@ async def claim_achievement(req: ClaimAchievementRequest, current_user: str = De
         if insert_res.status_code not in [200, 201]:
             return {"success": False, "message": "领取失败", "detail": insert_res.text}
 
-        update_result = await update_user_stats({
-            "user_id": req.user_id,
-            "points_change": reward,
-            "level_points_change": 0,
-            "source": f"achievement_{req.achievement_id}"
-        })
+        update_result = await _apply_user_stats(
+            req.user_id, reward, 0, f"achievement_{req.achievement_id}"
+        )
 
         return {
             "success": True,
@@ -445,7 +456,7 @@ async def claim_task(req: ClaimTaskRequest, current_user: str = Depends(get_curr
     headers = get_supabase_headers()
 
     # 1. 获取任务进度数据
-    progress_data = await get_task_progress(req.user_id)
+    progress_data = await _compute_task_progress(req.user_id)
     if isinstance(progress_data, dict) and "error" in progress_data:
         return {"success": False, "message": progress_data["error"]}
 
@@ -497,12 +508,9 @@ async def claim_task(req: ClaimTaskRequest, current_user: str = Depends(get_curr
             logger.info(f"⚠️ 插入领取记录失败: {claim_res.text}")
 
     # 4. 更新积分：reward → 段位积分，value → 等级积分
-    update_result = await update_user_stats({
-        "user_id": req.user_id,
-        "points_change": reward,
-        "level_points_change": value,
-        "source": f"task_{req.task_type}_{req.task_id}"
-    })
+    update_result = await _apply_user_stats(
+        req.user_id, reward, value, f"task_{req.task_type}_{req.task_id}"
+    )
 
     return {
         "success": True,
@@ -536,12 +544,7 @@ async def claim_bonus(data: dict, current_user: str = Depends(get_current_user))
         claim_url = f"{settings.SUPABASE_URL}/rest/v1/user_task_claims"
         await client.post(claim_url, headers=headers, json=claim_data)
 
-    update_result = await update_user_stats({
-        "user_id": user_id,
-        "points_change": 20,
-        "level_points_change": 30,
-        "source": "daily_bonus"
-    })
+    update_result = await _apply_user_stats(user_id, 20, 30, "daily_bonus")
 
     return {
         "success": True,
@@ -596,6 +599,15 @@ ACHIEVEMENT_DEFS = [
 @router.get("/task-progress/{user_id}")
 async def get_task_progress(user_id: str, current_user: str = Depends(get_current_user)):
     verify_user_match(user_id, current_user)
+    return await _compute_task_progress(user_id)
+
+
+async def _compute_task_progress(user_id: str):
+    """任务进度计算的核心逻辑（供 claim_task 复用）。
+
+    ⚠️ 不带 Depends、不自行鉴权 —— **调用方必须先 verify_user_match**。
+    同 _apply_user_stats：直接 await 路由函数会让 current_user 变成 Depends 对象 → 必然 403。
+    """
     logger.info(f"🔍 ===== 开始获取任务进度 =====")
     logger.info(f"🔍 user_id: {user_id}")
 

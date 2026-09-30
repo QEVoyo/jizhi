@@ -260,7 +260,7 @@ async function generateTasks() {
   const timeoutId = setTimeout(() => controller.abort(), 90000)
   try {
     const totalDays = dayCount.value
-    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/learning-plan/generate-tasks`, {
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/learning-plan/generate-tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authStore.token}` },
       body: JSON.stringify({
@@ -461,7 +461,7 @@ onMounted(() => { loadProfile(); loadFromRoute() })
 </script>
 
 <style scoped>
-.pp-page { min-height: 100vh; display: flex; justify-content: center; padding: 28px 20px; }
+.pp-page { min-height: calc(100vh - var(--jz-top, 0px)); display: flex; justify-content: center; padding: 28px 20px; }
 
 .pp-container {
   max-width: 880px; width: 100%; padding: 24px 30px;

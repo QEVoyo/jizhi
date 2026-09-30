@@ -2,7 +2,8 @@
   <div class="login-page">
     <BubbleBackground />
     <div class="login-container">
-      <div class="login-back" @click="$router.push('/')">
+      <!-- 桌面版没有落地页可回（守卫会把 / 弹回本页），这个按钮会是死的 -->
+      <div v-if="!isDesktop" class="login-back" @click="$router.push('/')">
         <i class="fas fa-arrow-left"></i> 返回首页
       </div>
 
@@ -154,33 +155,6 @@
           <div v-if="registerError" class="error-msg">{{ registerError }}</div>
         </el-tab-pane>
       </el-tabs>
-
-      <!-- ===== 微信扫码登录 ===== -->
-      <div class="wechat-login-section">
-        <div class="divider"><span>或</span></div>
-
-        <!-- 未发起扫码时：显示按钮 -->
-        <button
-          v-if="!wechatQrcode"
-          class="wechat-login-btn"
-          :loading="wechatLoading"
-          @click="handleWechatLogin"
-        >
-          <i class="fab fa-weixin"></i>
-          {{ wechatLoading ? '加载中...' : '微信扫码登录' }}
-        </button>
-
-        <!-- 扫码中：显示二维码 -->
-        <div v-if="wechatQrcode" class="wechat-qrcode-panel">
-          <img :src="wechatQrcode" alt="微信扫码登录" class="wechat-qrcode-img" />
-          <p class="wechat-qrcode-tip">{{ pollStatus }}</p>
-          <button class="wechat-cancel-btn" @click="cancelWechatLogin">取消</button>
-        </div>
-
-        <p v-if="!wechatQrcode" class="wechat-hint">
-          需先前往 mp.weixin.qq.com/debug 获取测试号 appid/secret
-        </p>
-      </div>
     </div>
   </div>
 </template>
@@ -193,6 +167,7 @@ import { useSessionStore } from '@/stores/session'
 import { ElMessage } from 'element-plus'
 import BubbleBackground from '@/components/BubbleBackground.vue'
 import { recordAction } from '@/api/career'
+import { isDesktop } from '@/desktop'
 
 const router = useRouter()
 const route = useRoute()
@@ -203,11 +178,6 @@ const activeTab = ref(route.query.tab === 'register' ? 'register' : 'user')
 const userLoading = ref(false)
 const adminLoading = ref(false)
 const registerLoading = ref(false)
-const wechatLoading = ref(false)
-const wechatQrcode = ref('')       // 二维码 base64
-const pollStatus = ref('')         // 扫码状态提示
-let pollTimer = null               // 轮询定时器
-let pollToken = ''                 // 当前轮询 token
 const userError = ref('')
 const adminError = ref('')
 const registerError = ref('')
@@ -247,7 +217,7 @@ async function handleSendCode() {
 
   sendingCode.value = true
   try {
-    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
     const res = await fetch(`${baseUrl}/auth/send-code?email=${encodeURIComponent(email)}`, { method: 'POST' })
     const data = await res.json()
     if (data.success) {
@@ -364,87 +334,18 @@ async function handleRegister() {
   }
 }
 
-// ===== 微信扫码登录 =====
-async function handleWechatLogin() {
-  wechatLoading.value = true
-  const redirect = (route.query.redirect) || '/home'
-
-  const result = await authStore.wechatLogin(redirect)
-  wechatLoading.value = false
-
-  if (!result.success) {
-    userError.value = result.message || '微信登录配置未就绪'
-    return
-  }
-
-  // 显示二维码
-  wechatQrcode.value = result.qrcode
-  pollToken = result.pollToken
-  pollStatus.value = '请用微信扫描二维码'
-
-  // 开始轮询（每 2 秒一次，最多 5 分钟）
-  let attempts = 0
-  pollTimer = setInterval(async () => {
-    attempts++
-    if (attempts > 150) {
-      // 5 分钟超时
-      clearInterval(pollTimer)
-      pollTimer = null
-      pollStatus.value = '二维码已过期，请重新获取'
-      setTimeout(() => { wechatQrcode.value = '' }, 2000)
-      return
-    }
-
-    const pollResult = await authStore.wechatPollLogin(pollToken)
-    if (pollResult.success) {
-      clearInterval(pollTimer)
-      pollTimer = null
-      pollStatus.value = '登录成功！'
-      sessionStore.createSession('新对话')
-      try { await recordAction(pollResult.user?.id, 'login') } catch (e) {}
-      ElMessage.success('微信登录成功！')
-      router.replace(redirect)
-    } else if (pollResult.notBound) {
-      // 微信未绑定账号
-      clearInterval(pollTimer)
-      pollTimer = null
-      wechatQrcode.value = ''
-      ElMessage.warning('该微信未绑定账号，请先用账号密码登录，然后在个人中心绑定微信')
-    } else if (pollResult.message) {
-      clearInterval(pollTimer)
-      pollTimer = null
-      pollStatus.value = pollResult.message
-      setTimeout(() => { wechatQrcode.value = '' }, 2000)
-    }
-  }, 2000)
-}
-
-function cancelWechatLogin() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-  wechatQrcode.value = ''
-  pollToken = ''
-  pollStatus.value = ''
-}
-
 // 组件卸载时清除定时器
 onUnmounted(() => {
   if (countdownTimer) {
     clearInterval(countdownTimer)
     countdownTimer = null
   }
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
 })
 </script>
 
 <style scoped>
 .login-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -666,117 +567,5 @@ onUnmounted(() => {
 [data-theme="dark"] :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
   background: var(--brand) !important;
   border-color: var(--brand) !important;
-}
-
-/* ===== 微信扫码登录 ===== */
-.wechat-login-section {
-  margin-top: 20px;
-  text-align: center;
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 16px;
-  color: var(--text-muted);
-  font-size: 12px;
-  opacity: 0.5;
-}
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--text-muted);
-  opacity: 0.2;
-}
-
-.wechat-login-btn {
-  width: 100%;
-  padding: 13px 0;
-  border: none;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #07c160, #06ad56);
-  color: #fff;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-.wechat-login-btn i {
-  font-size: 20px;
-}
-.wechat-login-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(7, 193, 96, 0.35);
-}
-.wechat-login-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(7, 193, 96, 0.25);
-}
-.wechat-login-btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-  transition: left 0.5s;
-}
-.wechat-login-btn:hover::after {
-  left: 100%;
-}
-
-/* ── 二维码面板 ── */
-.wechat-qrcode-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 20px;
-  background: #fff;
-  border-radius: 16px;
-  border: 2px solid #07c160;
-}
-.wechat-qrcode-img {
-  width: 200px;
-  height: 200px;
-  border-radius: 8px;
-  display: block;
-}
-.wechat-qrcode-tip {
-  font-size: 14px;
-  color: #333;
-  margin: 0;
-  font-weight: 500;
-}
-.wechat-cancel-btn {
-  padding: 6px 24px;
-  border: 1px solid #ddd;
-  border-radius: 20px;
-  background: #fff;
-  color: #999;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.wechat-cancel-btn:hover {
-  border-color: #f56c6c;
-  color: #f56c6c;
-}
-
-.wechat-hint {
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--text-muted);
-  opacity: 0.5;
 }
 </style>

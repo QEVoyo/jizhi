@@ -39,6 +39,40 @@ except Exception as e:
     logger.warning(f"考纲配置加载失败: {e}")
 
 
+def dimensions_with_counts(s: dict) -> list:
+    """维度列表，题量计数**从题库实时算**，不读 syllabi.json 里的静态值。
+
+    为什么改：那个静态 `count` 字段只在 CET-4 上填过，而且早就过期了 ——
+    文件里写「词汇 98」，题库里实际 243；其余 **16 个考纲全是 0**。
+    前端照着画出来的维度条，要么是错的、要么整片空白。
+
+    更糟的是 `grey` 也是手填的：CET-6 的「写作」写 `count: 0` 却没标 grey，
+    于是界面上显示「0 题」，而题库里实际有 152 题 —— 这属于骗用户。
+
+    现在两样都从题库派生：`count` 实时数、`grey = (count == 0)`。
+    和 `question_count` 走同一个路子，题库涨了计数自动跟着走，不会再过期。
+    """
+    dims = s.get("dimensions") or []
+    if not dims:
+        return []
+
+    # 没有题库的考纲，维度计数只能是 0，也不必去查
+    if not s.get("question_bank"):
+        return [{**d, "count": 0, "grey": True} for d in dims]
+
+    sid = s.get("id", "")
+    out = []
+    for d in dims:
+        cat = (d.get("category") or "").strip()
+        try:
+            _, total = bank_query(syllabus_id=sid, category=cat or None, limit=1)
+        except Exception as e:
+            logger.warning(f"统计维度题量失败 {sid}/{cat}: {e}")
+            total = 0
+        out.append({**d, "count": total, "grey": total == 0})
+    return out
+
+
 # ===================== Pydantic 模型 =====================
 class DiagnosisAnswer(BaseModel):
     question_id: str
@@ -234,7 +268,7 @@ async def list_syllabi(user_id: str = Query("")):
             "question_count": bank_count(s["id"]) if s.get("question_bank") else 0,
             "question_types": s.get("question_types", []),
             "question_types_enabled": s.get("question_types_enabled", s.get("question_types", [])),
-            "dimensions": s.get("dimensions", []),
+            "dimensions": dimensions_with_counts(s),
             "languages": s.get("languages", ["python"]),
             "target_count": s.get("target_count"),
             "max_score": s.get("max_score"),
@@ -292,7 +326,7 @@ async def get_syllabus_detail(
             "description": s["description"],
             "intro": s.get("intro", s.get("description", "")),
             "suitable_for": s.get("suitable_for", ""),
-            "dimensions": s.get("dimensions", []),
+            "dimensions": dimensions_with_counts(s),
             "question_types": s.get("question_types", []),
             "question_types_enabled": s.get("question_types_enabled", s.get("question_types", [])),
             "has_question_bank": bool(s.get("question_bank")),
@@ -375,7 +409,7 @@ async def start_diagnosis(syllabus_id: str):
     return {
         "questions": questions,
         "total": len(questions),
-        "dimensions": s.get("dimensions", []),
+        "dimensions": dimensions_with_counts(s),
     }
 
 

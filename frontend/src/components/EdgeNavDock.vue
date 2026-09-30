@@ -401,7 +401,7 @@ async function submitFeedback() {
   }
   feedbackSubmitting.value = true
   try {
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/feedback/submit`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/feedback/submit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -857,7 +857,9 @@ function iconPath(name) { return iconBase + name }
 <style>
 /* ===== 反馈弹窗外层（teleport 到 body，需全局选择器） ===== */
 .feedback-dialog-wrapper {
-  --el-dialog-bg-color: transparent;
+  /* 原为 transparent —— Element Plus 用它做弹窗背景色，直接导致整个弹窗全透明。
+     改回 EP 默认值，弹窗配色即与应用里其它弹窗一致。 */
+  --el-dialog-bg-color: var(--el-bg-color);
 }
 .feedback-dialog-wrapper .el-overlay {
   background: transparent !important;

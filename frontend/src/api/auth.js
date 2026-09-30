@@ -57,27 +57,6 @@ export function getUserInfo() {
   return Promise.resolve({ success: true, user: null })
 }
 
-// ===== 微信扫码登录（公众号测试号）=====
-
-// 获取登录二维码 + 轮询 token
-export function getWechatQrcode(redirect = '/home') {
-  return request.get('/auth/wechat/qrcode', { params: { redirect } })
-    .then(res => res.data)
-}
-
-// 轮询：检查用户是否已扫码授权
-export function wechatPoll(pollToken) {
-  return request.get(`/auth/wechat/poll/${pollToken}`)
-    .then(res => res.data)
-}
-
-// ===== 微信绑定（已登录用户在个人中心绑微信）=====
-
-// 获取绑定微信的二维码
-export function getWechatBindQrcode() {
-  return request.get('/auth/wechat/bind-qrcode')
-    .then(res => res.data)
-}
 // ===== 账号主题定制（2026-09-02：品牌色 + 字体方案，跨设备同步） =====
 export function getUserTheme(userId) {
   return request.get(`/auth/theme/${userId}`).then(res => res.data).catch(() => null)

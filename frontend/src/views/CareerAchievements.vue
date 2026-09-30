@@ -674,7 +674,7 @@ async function claimAchievement(ach, event) {
     const endX = barRect ? barRect.left + barRect.width - 30 : window.innerWidth - 100
     const endY = barRect ? barRect.top + barRect.height / 2 : 60
 
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'}/career/achievement/claim`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/career/achievement/claim`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

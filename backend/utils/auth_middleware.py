@@ -8,6 +8,7 @@
 """
 from fastapi import Header, HTTPException
 from config import settings
+from utils.sanctions import assert_not_banned
 import httpx
 import jwt
 
@@ -32,6 +33,9 @@ async def get_current_user(authorization: str = Header(None)) -> str:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
         user_id = payload.get("sub") or payload.get("user_id")
         if user_id:
+            # 封禁校验必须在**每一个**认证出口上，否则被封的人只要持旧 token
+            # 就照样能用（自签 JWT 是本地验证的，不查库根本发现不了）。
+            await assert_not_banned(user_id)
             return user_id
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token 已过期，请重新登录")
@@ -61,6 +65,7 @@ async def get_current_user(authorization: str = Header(None)) -> str:
             user_id = user_data.get("id")
             if not user_id:
                 raise HTTPException(status_code=401, detail="无法获取用户信息")
+            await assert_not_banned(user_id)
             return user_id
         except Exception:
             raise HTTPException(status_code=401, detail="Token 解析失败")

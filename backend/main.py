@@ -20,6 +20,7 @@ from routers import admin
 from routers import admin_video
 from routers import agent_center
 from routers import vocab
+from routers import download
 from agents.tuning import start_background_tuning
 from services.video_gen import start_video_worker
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -49,6 +50,11 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:5174",  # 加上 5174 以防你用了其他端口
         "http://localhost:8000",
+        # 桌面版（Tauri）的本地页面源。桌宠窗口加载的是壳内的本地 html，
+        # 它要直接调后端 API 就必须在这里放行 —— 否则被浏览器 CORS 拦掉。
+        # Windows/Linux 是 http://tauri.localhost，macOS 是 tauri://localhost。
+        "http://tauri.localhost",
+        "tauri://localhost",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -76,6 +82,7 @@ app.include_router(admin.router)
 app.include_router(admin_video.router)
 app.include_router(agent_center.router, prefix="/agent-center")
 app.include_router(vocab.router)
+app.include_router(download.router)
 
 @app.get("/")
 def root():

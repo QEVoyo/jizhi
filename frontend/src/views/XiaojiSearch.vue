@@ -197,7 +197,7 @@ onUnmounted(() => {
 .search-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: calc(100vh - var(--jz-top, 0px));
   background: var(--bg-color);
   color: var(--text-primary);
   overflow: hidden;

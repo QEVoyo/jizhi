@@ -150,6 +150,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { ElMessage } from 'element-plus'
 import html2canvas from 'html2canvas'
+import { withNormalizedColors } from '@/utils/exportColor'
+import { isDesktop, saveDataUrlNative } from '@/desktop'
 import jsPDF from 'jspdf'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
@@ -186,7 +188,7 @@ async function loadData() {
   loading.value = true
   try {
     const uid = authStore.user.id
-    const base = import.meta.env.VITE_BACKEND_URL || 'https://api.jizhi-learn.com'
+    const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
     const headers = { Authorization: `Bearer ${authStore.token}` }
     const [ovRes, anRes] = await Promise.all([
       fetch(`${base}/evaluation/overview?user_id=${uid}`, { headers }).then(r => r.json()),
@@ -344,18 +346,22 @@ function goBack() {
 }
 
 async function exportPDF() {
-  if (!reportContentRef.value) return
+  if (!reportContentRef.value) {
+    // 同 EvaluationReport.vue：加载中点击原来会静默无反应。2026-09-27 修。
+    ElMessage.warning('报告还在加载，请稍候再试')
+    return
+  }
   pdfExporting.value = true
   try {
     const isLight = document.documentElement.getAttribute('data-theme') === 'light'
-    const canvas = await html2canvas(reportContentRef.value, {
+    const canvas = await withNormalizedColors(reportContentRef.value, () => html2canvas(reportContentRef.value, {
       scale: 2,
       useCORS: true,
       backgroundColor: isLight ? '#f4f6fb' : '#0b1220',
       logging: false,
       windowHeight: reportContentRef.value.scrollHeight,
       height: reportContentRef.value.scrollHeight,
-    })
+    }))
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF('p', 'mm', 'a4')
     const pdfWidth = pdf.internal.pageSize.getWidth()
@@ -385,8 +391,15 @@ async function exportPDF() {
       position += sliceHeight
     }
 
-    pdf.save(`评估表_${new Date().toISOString().slice(0, 10)}.pdf`)
-    ElMessage.success('导出成功')
+    const pdfName = `评估表_${new Date().toISOString().slice(0, 10)}.pdf`
+    if (isDesktop) {
+      // 桌面版：弹原生「另存为」，用户自己选路径
+      const ok = await saveDataUrlNative(pdf.output('dataurlstring'), pdfName)
+      ok ? ElMessage.success('已保存') : ElMessage.info('已取消保存')
+    } else {
+      pdf.save(pdfName)
+      ElMessage.success('导出成功')
+    }
   } catch (error) {
     console.error('导出失败:', error)
     ElMessage.error('导出失败')
@@ -402,7 +415,7 @@ onMounted(() => {
 
 <style scoped>
 .evaluation-table-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   display: flex;
   justify-content: center;
   align-items: flex-start;

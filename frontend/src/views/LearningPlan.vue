@@ -331,7 +331,7 @@ onMounted(() => {
 
 <style scoped>
 .learning-plan-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
   display: flex;
   justify-content: center;
   align-items: flex-start;

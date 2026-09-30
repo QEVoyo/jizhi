@@ -66,6 +66,16 @@ def has_bank(syllabus_id: str) -> bool:
     return syllabus_id in _banks
 
 
+def all_banks() -> dict[str, dict]:
+    """全部题库 {syllabus_id: bank}。
+
+    供「不知道自己属于哪个考纲」的场景跨库匹配用 —— 目前是 video.py 的视频练题：
+    视频行存的 subject 可能是 syllabus id / syllabus 中文名 / 出题 AI 判定的 category，
+    get_bank() 只认 syllabus id，传中文名会拿到 None。
+    """
+    return _banks
+
+
 def count(syllabus_id: Optional[str] = None) -> int:
     """题目总数。传入 syllabus_id 则只统计该考纲"""
     if syllabus_id:

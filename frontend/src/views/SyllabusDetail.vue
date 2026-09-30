@@ -917,7 +917,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.sd-page { min-height: 100vh; position: relative; padding: 32px 24px 80px; background: linear-gradient(135deg, color-mix(in srgb, var(--bg-color) 93%, #000000) 0%, var(--bg-color) 40%, color-mix(in srgb, var(--bg-color) 95%, #000000) 100%); color: var(--text-primary); }
+.sd-page { min-height: calc(100vh - var(--jz-top, 0px)); position: relative; padding: 32px 24px 80px; background: linear-gradient(135deg, color-mix(in srgb, var(--bg-color) 93%, #000000) 0%, var(--bg-color) 40%, color-mix(in srgb, var(--bg-color) 95%, #000000) 100%); color: var(--text-primary); }
 .sd-bg { position: fixed; inset: 0; background: radial-gradient(ellipse 60% 50% at 50% -10%, color-mix(in srgb, var(--brand) 6%, transparent) 0%, transparent 70%), radial-gradient(ellipse 40% 60% at 80% 80%, rgba(139,92,246,.04) 0%, transparent 70%); pointer-events: none; }
 .sd-container { width: 100%; max-width: 960px; margin: 0 auto; position: relative; z-index: 1; }
 .glass-panel { background: color-mix(in srgb, var(--surface, #ffffff) 2.5%, transparent); border: 1px solid var(--line-soft); backdrop-filter: blur(20px); border-radius: 16px; transition: all .3s; }

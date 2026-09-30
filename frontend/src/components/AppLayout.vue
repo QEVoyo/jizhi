@@ -40,16 +40,16 @@ function toggleSidebar() {
 <style scoped>
 .app-layout {
   display: flex;
-  min-height: 100vh;
-  height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
   overflow: hidden;
 }
 
 /* ===== 侧边栏 — 毛玻璃 ===== */
 .sidebar {
   width: 260px;
-  min-height: 100vh;
-  height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
   background: linear-gradient(170deg,
     rgba(139,92,246,.15) 0%,
     rgba(108,140,255,.10) 25%,
@@ -123,8 +123,8 @@ function toggleSidebar() {
   flex: 1;
   padding: 20px 28px;
   overflow-y: auto;
-  min-height: 100vh;
-  height: 100vh;
+  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
   transition: padding 0.3s ease, margin-left 0.3s ease;
 }
 .main-content.flush {
