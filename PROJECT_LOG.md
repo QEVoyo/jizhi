@@ -1499,6 +1499,28 @@ super_admin (超级管理员)
 - **后台主题适配**：**142 处 / 10 个文件** —— `#0a0e17`→`var(--bg-color)`、`#e0e0e0`→`var(--text-primary)`、`rgba(255,255,255,α)` 按文字/边框分流、`#409EFF`→`var(--brand)`、`#111827`→`var(--card-bg)`。**保留语义色**（危险/成功/警告不跟品牌色走）
 - **⚠️ grep 会连注释一起命中**：我用 `min-height:100vh` 扫出「32 处要改」，其中一部分是**我自己写在注释里的解释文字**（`Settings.vue` 就是这么被误报的，它 09-28 已修好）。**真正有问题的只有 `Community.vue` 一处**
 
+### 152. 部署仓库全量同步：09-22 ~ 09-30 六轮一次性补齐（2026-09-30）
+- **做法**：先 `diff -rq` 逐目录比对再按清单拷，不凭记忆。后端 **19 个文件**（4 个新增）、前端 `src` 整棵、文档同步
+- **`config.py` 定点补 2 行**（`REDIS_URL` / `TASK_QUEUE_FALLBACK_INLINE`），**不整体覆盖** —— 三处公网特供（`FRONTEND_URL` / `BACKEND_EXTERNAL_URL` / `VOLC_VISION_ENDPOINT_ID`）原样保留
+- **三个保护文件改动前后 md5 逐位相同**：`backend/.env`、`frontend/.env`
+- **dist 在部署仓库内构建**（6.33s，exit 0）：`api.jizhi-learn.com` 22 处 / `localhost:8000` **0 处**；并逐项验证新代码进了产物（`--jz-top` 38 文件、`AdminSettings`、快捷键分发器、`/admin/reports/${e}/resolve`）
+- **`DEPLOY.md` 重写**：旧版停在 08-14，还在教「微信测试号后台改域名」（09-28 已删）和「必须覆盖 `backend/.env`」（服务器换过配置后覆盖会丢）
+- **部署踩坑**：`pip install -r requirements.txt` 漏跑 → `ModuleNotFoundError: No module named 'arq'` → **整站起不来**（`main.py`→`questions.py`→`task_queue.py` 是顶层 import 链）。**必须 `python3.11 -m pip`**，裸 `pip` 可能装到别的解释器
+- **文件**：部署仓库 `Documents/GitHub/jizhi`（提交 `8326b70`，111 个文件）
+
+### 153. 三个「像部署故障」的现象：都不是部署问题（2026-09-30）
+- **实测**：线上 `index.html` / CSS / `constants.js` / 主 JS（1,173,006 B）**与本地构建 md5 逐字节一致**；`/openapi.json` 219 条路径、三个新端点全在
+- **①「落地页没更新」**：前端是新版，但落地页唯一的新东西（下载按钮）是 `v-if="dl"` 条件渲染，而 `/download/latest` 返回 `{"available":false}`（服务器上没有安装包）→ **按钮根本不渲染**
+- **②「桌面版报 local 打不开」**：打开的是 `target/debug/jizhi.exe`（09-29 21:45，用 `--config tauri.dev.conf.json` 编的），加载 `localhost:5173`；而 release 版（09-30 12:42）加载生产站。**两个 exe 长得一样、指向完全不同**
+- **③ 顺带作废**：09-30 上午「安装包别装，加载的是旧前端」这条警告，前端一部署就失效 —— 壳加载的是线上站点，**不内嵌网页，不用重打**
+- **⚠️ 我自己的误报**：`curl -s` 拉线上主 JS 做比对，报「与本地不同」—— 实际是**下载被截断**（904,140 / 1,173,006），`-s` 把 curl 的报错一起静音了。**先确认测量完整，再下结论**
+
+### 154. 前端上线链路：push → Vercel 自动部署（2026-09-30）
+- **发现**：`Server: Vercel` / `X-Vercel-Cache: HIT` / `Age≈22994`（≈15:06，正是 14:58 推送之后）
+- **结论**：**前端改完 push 到 GitHub 就是部署**；`dist` 只在「直接传服务器」这条路上才用得到
+- **副产品**：解释了为什么线上产物与本地构建**逐字节一致** —— 同源码、同锁文件，构建是确定性的
+- **⚠️ 同名陷阱**：两个安装包同名同版本号 `0.1.0`、内容差 190KB（09-27 版 1,439,914 / 09-30 版 1,630,169）。**没有校验和肉眼分不出**。版本号没变 → 已装旧版的机器收不到更新提示
+
 ## 桌面版架构（Tauri 壳，2026-09-29 更新）
 
 > 产物在 `_devtools/jizhi-desktop/` —— **刻意放在 `project1` 仓库之外**，不会被提交或部署。
@@ -1671,3 +1693,57 @@ super_admin (超级管理员)
 `/community/xiaoji/*`（chat-stream / vision / config / messages / evaluate-question）、
 `/xiaoji/daily/{id}`、`/vocab/*`、`/agent-center/*`、`/evaluation/overview`、`/subject-plan/exam-papers/*`、
 `/learning-plan/*`、`/questions/*`、`/community/*`（动态/好友/私聊/通知）、`/tools/*`。
+
+---
+
+# 2026-10-01
+
+> 详细过程见 `logs/2026-10-01.md`。以下是条目索引。
+
+### 155. 桌面版关闭后遗留幽灵进程（2026-10-01）
+- **根因两层**：`winClose()` 走 `close()` 是**销毁**主窗口，而 `pet` 窗口一直存在（`visible:false` 但被真实创建）→ Tauri 的退出条件是「所有窗口都关闭」→ **进程活下来变成无可见窗口的幽灵**；此时点快捷方式，`single-instance` 回调里 `get_webview_window("main")` 返回 `None` → `if let` 整段跳过 → **静默什么都不做**
+- **修**：`on_window_event` 拦主窗口 `CloseRequested` → `prevent_close()` + `app.exit(0)`；单实例回调补 `else` 按 `from_config` 重建窗口（⚠️ **绝不能 `app.exit()`** —— 新进程已退出，老进程再退就没人接盘）
+- **✅ 实测**：关闭后进程完全退出；`%APPDATA%\com.jizhi.desktop\.window-state.json` **第一次被写出**（window-state 只在优雅退出时落盘）
+
+### 156. 外观色设置不落盘 + 启动时被服务端覆盖（2026-10-01）
+- `theme.js` 的 `setBrand/setBg/setSurface/setTextScheme` **只改内存不落盘**；唯一落盘路径是「保存到账号」，且 `cachePersist()` 在 `await` 之后同一 try 里 → 服务器失败则本地也丢
+- 加 **`pending` 标记**：`loadFromAccount` 在本地有未同步改动时**不覆盖**
+- ⚠️ **我自己把主窗口设成了置顶** —— 用 `HWND_TOPMOST(-1)` 提窗（那是「永远置顶」不是「提到前面」）。09-29 那条规矩**只针对桌宠窗口**，两个窗口的规矩是反的。已写 `raise.ps1` 按原 `EXSTYLE` 还原
+
+### 157. 视频库做题：从「必 404」到两池模型（2026-10-01）
+- 「▶ 去练习」跳 `/do-question/{学习任务id}`，DoQuestion 拿它查 `/questions/{id}` **必然 404**，且失败后 `router.back()` **不下落到 sessionStorage 那层** → 从来没能用过
+- 🎯 **题库 id 会重名**：18,711 题里 **497 个 id 横跨多库**（`f47ac10b-…` 在 10 个库里）。实测拿「Excel 操作」的 id 查回 CET-6 英译汉 → 新增 `find_question_unique`（**有歧义就返回查不到，绝不猜**）
+- 检索从 `sha1` 精确比对改成**分层打分**（120/100/80/60 + 同考纲 15）
+- **两池模型**：题库真题 → 学科计划；AI 生成题 → 资源库 + 自定义计划。`by-ids` 三层回落打通
+
+### 158. 🚨 视频永远生成不出来 —— 三个连环根因（2026-10-01）
+1. **worker 进程从来没起过**（Redis 在跑、`arq:queue` 积压 2 个任务没人做）
+2. **arq 注册名对不上**：`functions = [task_video_generate]` 注册成 `"task_video_generate"`，入队用 `"video.generate"` → 每个任务 `function not found` **被静默丢弃**。而启动日志打印的是 `TASKS` 的键，**看着一切正常**
+3. **worker 没启动 `video_gen` 的进程内循环**：`ensure_videos` 只是往进程内 Queue 丢个 spec 就返回，那个循环只由 FastAPI 的 lifespan 启动
+- **修**：`func(..., name="video.generate")` + `startup` 里 `start_video_worker()` + 注册名对不上**直接拒绝启动**
+- **✅ 实测**：入队 → **37 秒就绪**（53.2 秒的视频）。顺带修了 `knowledge_name` 被丢成空串、TTS 六条失败路径只 `return None`、`/lib/related` 只返回 ready（失败与生成中在前端长得一样）
+
+### 159. 答题记录在静默丢数据（两重外键）（2026-10-01）
+- `question_records.plan_id` **NOT NULL** 且 FK 到 `subject_plans` → 「无计划练习」写 `null` **必然 400**，而那段 `httpx` **没检查状态码**
+- 🎯 更严重：`question_id` FK 指向只有 **110 行**的 `cet4_questions` → **cet4 只有 10% 的题能写记录，其余 16 个考纲全 0**。`question_records` 表**总共只有 7 行**就是铁证
+- **修**：`sql/fix_records_nullable_plan.sql`（放开两处 `plan_id` + 去掉两个外键 + 补索引）；写入加状态码检查（失败抛 502，不再静默）
+
+### 160. 自定义计划大改造 · 阶段 0~5（2026-10-01）
+- 难度**真正生效**（`req.difficulty` 在 prompt 里出现 **0 次**）；学习内容改成摘要 + **按需生成详细正文**（实测 **2401 字 / 4 小节**，缓存后 0.58s）
+- 题目落库 `questions` + 任务存 `question_id`；**题型归一**（「判断题」原来映射到枚举外的 `judge`）
+- 新增 `PUT /learning-plan/task/answer`：**最佳率**（`best_correct` 只从 false 变 true，重做做错**不回退**）
+- 视频接视频库；播放器加 `seekable`（计划里**禁拖** —— 「播完=学完」才成立）
+
+### 161. 学程大更新：消重复 + 补埋点 + 扩任务（2026-10-01）
+- **任务清单写了两遍**：模块级常量（零引用，死代码）+ 函数内联（真正在跑）。AST 机器比对确认是同一份，常量只是缺 `action/target/requires`。补全常量 → 删内联 → **抓基线逐字节比对**（行为零变化），1041 → 938 行
+- **7 个老 action 早就断了**（6~8 月）：`add_to_set` / `use_timer` / `conquer_mistake` / `view_report` / `chat` / `use_plan_agent` / `use_evaluate_agent`。根因是**埋的名字变了**（发 `xiaoji_tool` 而任务要具体 action）
+- **补 13 个埋点**（视频库/学科计划/社区/词条本 + 上述 7 个），脚本对账 **24 种需要的 action 零缺失**
+- **扩任务**：播种 17→**24** · 施肥 36→**47** · 发芽 21→**36** · 丰收（拾贝）**25 未动**
+- 💡 关键决定：**没新造 `practice_question`** —— 现有任务已有「做 N 道题」挂在 `complete_question` 上而它从没埋过点，**复用之后那批老任务一起活了**
+- 排版：grid 的 `1fr` 默认 `min-width:auto` **不会缩到内容以下** → 长任务名撑爆 → 价值列与进度条重叠。改 `minmax(0,1fr)` + 省略号 + 容器 1000→1180
+
+### 162. 全站滚动 + 右键菜单 + 过渡兜底（2026-10-01）
+- **滚动**：27 个文件的页面根 `min-height: calc(100vh - --jz-top)` → `height: …; overflow-y: auto`。滚动条不再穿过右上角按钮区
+- **右键菜单**（桌面版）：原来被无条件屏蔽。做成**按落点变内容**的分组菜单，并加扩展点 `desktop/ctxMenu.js`（页面项排最上面）
+- **过渡兜底**：`App.vue` 在路由切换后检查 `enter-from` 类是否卡住（rAF 被节流时永不回收 → 整页 opacity:0）
+- `VideoDetail` 补 `else` 分支（两个 `v-if` 都不成立时什么都不渲染 = 空白）

@@ -389,6 +389,14 @@
           </div>
           <template v-else-if="todayTasks.length">
             <div class="day-badge">Day {{ dayNumber }}</div>
+            <!-- 今日完成度（2026-10-01）：原来只有一句「Day N」，看不出今天做完没有。
+                 数字直接来自 question_records 里**今天**产生的记录数（后端算好的），
+                 不是拿「计划题数 - 剩余」推的 —— 那在题库凑不满时会凭空多出完成度。 -->
+            <div v-if="todayTotal" class="day-done">
+              <span class="dd-bar"><i :style="{ width: dayPct + '%' }"></i></span>
+              <span class="dd-text">今日 {{ todayDone }} / {{ todayTotal }} 题</span>
+              <span v-if="todayDone >= todayTotal" class="dd-ok">✅ 今天完成了</span>
+            </div>
             <div v-if="plan.daily_time_hint" class="day-time-hint">⏱ {{ plan.daily_time_hint }}</div>
             <div class="task-list">
               <div v-for="t in todayTasks" :key="t.id" class="task-card glass-panel" :class="{ 'lc-open': expandedTask === t.id }">
@@ -459,15 +467,63 @@
                 <!-- 操作区：做题 + 视频 -->
                 <div class="task-actions">
                   <button class="btn-primary small" @click="goPractice(t)">✏️ 去练习</button>
-                  <button class="btn-video disabled" disabled title="视频推送即将上线">
-                    🎬 视频推送
-                    <span class="video-soon">即将上线</span>
-                  </button>
+                  <!-- 视频推送（2026-10-01 接上）：**有就播、没有就生成**。
+                       原来这里是写死的 disabled +「即将上线」。 -->
+                  <button class="btn-video" @click="openTaskVideo(t)">🎬 视频推送</button>
                 </div>
               </div>
             </div>
           </template>
           <div v-else class="tab-empty">暂无今日任务，明天再来！</div>
+
+          <!-- 视频推送弹窗（2026-10-01）：有就播，没有就一键生成。
+               内容和做题页那套一致 —— 只认 match_score ≥ 90 的真命中，
+               70 同学科 / 55 全局热门是推荐不是答案，不显示。 -->
+          <el-dialog v-model="videoDlgOpen" width="720px" destroy-on-close
+                     :title="'🎬 ' + (videoTask ? taskKp(videoTask) : '') + ' 讲解'">
+            <div v-if="videoLoading" class="vd-loading">正在视频库里找…</div>
+
+            <template v-else-if="videoHits.length">
+              <button v-for="v in videoHits" :key="v.id" class="vd-item" @click="playTaskVideo(v)">
+                <span class="vd-name">{{ v.title || v.knowledge_name }}</span>
+                <span class="vd-meta">
+                  <template v-if="ANGLE_LABELS[v.angle]">{{ ANGLE_LABELS[v.angle] }} · </template>
+                  {{ Math.round(v.audio_duration || 90) }}s
+                </span>
+                <span class="vd-go">▶ 播放</span>
+              </button>
+            </template>
+
+            <template v-else>
+              <div class="vd-empty">
+                <!-- 「已经在生成中」要说出来 —— 否则点完按钮界面纹丝不动，
+                     用户以为坏了（ensure 幂等，已在生成时它什么都不做） -->
+                <p v-if="videoGenerating">
+                  🎬 讲解正在生成中… 已等 {{ videoElapsed }} 秒
+                  <span class="vd-eta">（实测 25~48 秒，平均 33 秒）</span>
+                </p>
+                <!-- 失败必须说出来 —— 否则和「还在生成」长得一模一样，用户会一直等 -->
+                <p v-else-if="videoFailed" class="vd-failed">
+                  ⚠️ 这条讲解没能生成出来
+                  <span v-if="videoError" class="vd-err">{{ videoError }}</span>
+                </p>
+                <p v-else>视频库里还没有「{{ videoTask ? taskKp(videoTask) : '' }}」的讲解</p>
+                <button class="vd-gen" :disabled="videoGenerating" @click="ensureTaskVideo">
+                  {{ videoGenerating ? '生成中…' : (videoFailed ? '↻ 重新生成' : '✦ 生成知识点视频') }}
+                </button>
+              </div>
+              <p v-if="videoTriggered || videoGenerating" class="vd-sub">
+                已排入生成队列，生成好会自动出现（这个弹窗在自动等）
+              </p>
+            </template>
+          </el-dialog>
+
+          <!-- 播放器：学科计划里的视频**禁拖进度**（和自定义计划一致） -->
+          <el-dialog v-model="playingOpen" width="880px" destroy-on-close
+                     :title="playingVideo ? (playingVideo.title || playingVideo.knowledge_name) : ''">
+            <VideoLessonPlayer v-if="playingVideo" :video="playingVideo" :seekable="false" />
+            <p class="vd-note">这段视频不能拖动进度条 —— 从头看完才算学过。</p>
+          </el-dialog>
         </div>
 
         <!-- ===== 4. 知识点 Tab ==== -->
@@ -505,12 +561,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getSyllabusDetail, startDiagnosis, submitDiagnosis, getTodayTasks, getQuestions, getMastery, getMistakes, getQuestionStats, deletePlan, getQuestionStates, listExamPapers, submitExamPlan } from '@/api/subjectPlan'
 import { useAuthStore } from '@/stores/auth'
 import request from '@/utils/request'
 import { typeLabel, buildCategoryMap, isChoiceType, isMultiChoice, isLongTextType, longTextPlaceholder } from '@/utils/questionLabels'
+import { getVideoRelated, ensureVideoLib, getVideoStatus } from '@/api/video'
+import { knowledgeKey, ANGLE_LABELS } from '@/utils/videoLib'
+import VideoLessonPlayer from '@/components/VideoLessonPlayer.vue'
+import { ElMessage } from 'element-plus'
+import { recordAction } from '@/api/career'
 
 const route = useRoute()
 const router = useRouter()
@@ -571,6 +632,171 @@ const scoreColor = computed(() => {
 // 任务
 const todayTasks = ref([])
 const dayNumber = ref(1)
+
+// ===== 任务的「视频推送」（2026-10-01）=====
+// 这个按钮原来是写死的 `disabled` +「即将上线」。现在：**有就播、没有就生成**。
+//
+// 知识点取的顺序：任务下第一道题的 `kp_name` → 任务的 `category` → 任务标题。
+// 题库题自带 `kp_name`（如「定语从句」），那才是能对上视频库的粒度；
+// `category` 是考纲里的维度（如 vocabulary），太粗。
+const videoDlgOpen = ref(false)
+const videoTask = ref(null)
+const videoHits = ref([])
+const videoLoading = ref(false)
+const videoTriggered = ref(false)
+// 已经在生成队列里（ensure 是幂等的：已经有了就返回 triggered=false）
+const videoGenerating = ref(false)
+// 生成**失败**了 —— 和「还在生成」必须分开，否则用户会等一个永远不出现的东西
+const videoFailed = ref(false)
+const videoError = ref('')
+const playingVideo = ref(null)
+const playingOpen = computed({
+  get: () => !!playingVideo.value,
+  set: (v) => { if (!v) playingVideo.value = null },
+})
+
+function taskKp(t) {
+  if (!t) return ''
+  const q = (t.questions || [])[0]
+  return (q && (q.kp_name || q.sub_category)) || t.category || t.title || ''
+}
+
+async function openTaskVideo(t) {
+  videoTask.value = t
+  videoDlgOpen.value = true
+  videoHits.value = []
+  videoTriggered.value = false
+  await loadTaskVideos()
+}
+
+async function loadTaskVideos() {
+  const kp = taskKp(videoTask.value)
+  if (!kp) return
+  const subject = syllabusId.value || ''
+  const key = knowledgeKey(subject, kp)
+  videoLoading.value = true
+  try {
+    const res = await getVideoRelated({ knowledge_key: key, subject, limit: 8 })
+    // 只认 ≥90：真属于这个知识点的。70/55 是推荐，拿来冒充就是「一堆无关的东西」
+    videoHits.value = (res?.items || []).filter(i => (i.match_score || 0) >= 90)
+  } catch (e) {
+    console.warn('视频库检索失败:', e)
+    videoHits.value = []
+  } finally {
+    videoLoading.value = false
+  }
+}
+
+/** 没有就生成（保底一条），然后自己轮询等它出来 */
+async function ensureTaskVideo() {
+  const kp = taskKp(videoTask.value)
+  if (!kp) { ElMessage.warning('这个任务没有可识别的知识点'); return }
+  const subject = syllabusId.value || ''
+  const key = knowledgeKey(subject, kp)
+  videoGenerating.value = false
+  videoFailed.value = false
+  videoError.value = ''
+  let r = null
+  try {
+    r = await ensureVideoLib({
+      knowledge_key: key, knowledge_name: kp, subject, goal: 1,
+      user_id: authStore.user?.id || '',
+      source: 'plan', source_ref: String(videoTask.value?.id || ''),
+    })
+    videoTriggered.value = !!r?.triggered
+  } catch (e) {
+    console.error('视频排产失败:', e)
+    ElMessage.error('视频排产失败，稍后再试')
+    return
+  }
+
+  // ⚠️ `triggered === false` **不等于失败** —— ensure 是幂等的，
+  //    这个知识点已经有视频（ready）或已经在生成时，它什么都不做、返回 false。
+  //    原来这里只在 triggered 为真时才提示，其余情况界面纹丝不动，
+  //    用户看到的就是「点了没反应」—— 和视频到底有没有生成完全是两回事。
+  const vids = r?.videos || []
+  videoGenerating.value = vids.some(v => v.status === 'generating')
+  if (vids.some(v => v.status === 'ready')) {
+    // 已经有现成的了 —— 立刻回读一次，让它出现在列表里
+    await loadTaskVideos()
+    if (videoHits.value.length) {
+      videoGenerating.value = false
+      return
+    }
+  }
+  startElapsed()
+  pollTaskVideo(key, subject)
+}
+
+let taskPollTimer = null
+let taskElapsedTimer = null
+const videoElapsed = ref(0)
+
+/** 已等秒数 —— 生成实测 25~48 秒（平均 33），给个倒计时的感觉，别让人干等一个不动的字 */
+function startElapsed() {
+  videoElapsed.value = 0
+  clearInterval(taskElapsedTimer)
+  taskElapsedTimer = setInterval(() => { videoElapsed.value++ }, 1000)
+}
+function stopElapsed() {
+  clearInterval(taskElapsedTimer)
+  taskElapsedTimer = null
+}
+
+function pollTaskVideo(key, subject, tries = 0) {
+  clearTimeout(taskPollTimer)
+  if (tries >= 40) {
+    // 轮询用尽还没出来 —— **不能让界面永远停在「生成中」**（那是原来那个 bug）
+    videoGenerating.value = false
+    videoFailed.value = true
+    if (!videoError.value) videoError.value = '生成超时（已等约 2 分钟），可以重试一次'
+    stopElapsed()
+    return
+  }
+  // ⚠️ 间隔从 8s 收到 3s（2026-10-01）：实测单条视频 25~48 秒就绪，
+  //    8 秒一跳意味着最多白等 8 秒才看见它出来 —— 用户体感就是「生成好久」。
+  taskPollTimer = setTimeout(async () => {
+    try {
+      const res = await getVideoRelated({ knowledge_key: key, subject, limit: 8 })
+      videoHits.value = (res?.items || []).filter(i => (i.match_score || 0) >= 90)
+    } catch { /* 下次还会查 */ }
+    if (videoHits.value.length) {
+      videoGenerating.value = false
+      stopElapsed()
+      return
+    }
+
+    // ⚠️ 没出来，不代表「还在生成」—— 也可能是**已经失败**了。
+    //    `related` 只返回 ready 的视频，两种情况在它眼里一模一样。
+    //    实测：视频 17:45:11 就 failed 了，界面还在「生成中…」，
+    //    用户干等一分多钟等一个永远不会出现的东西。
+    try {
+      const st = await getVideoStatus(key)
+      if (st && st.failed > 0 && st.generating === 0 && st.ready === 0) {
+        videoGenerating.value = false
+        videoFailed.value = true
+        videoError.value = st.error || ''
+        stopElapsed()
+        return
+      }
+    } catch { /* 查不到状态就继续轮询，别因此中断 */ }
+
+    pollTaskVideo(key, subject, tries + 1)
+  }, 3000)
+}
+
+function playTaskVideo(v) { playingVideo.value = v }
+
+// 离开页面时把两个计时器停掉（轮询 + 秒表）
+onUnmounted(() => {
+  clearTimeout(taskPollTimer)
+  clearInterval(taskElapsedTimer)
+})
+// 今日完成度（后端按 question_records 当天记录数算的，见 get_today_tasks）
+const todayTotal = ref(0)
+const todayDone = ref(0)
+const dayPct = computed(() =>
+  todayTotal.value ? Math.min(100, Math.round(todayDone.value / todayTotal.value * 100)) : 0)
 
 // 题库
 const bankQuestions = ref([]); const bankPage = ref(1); const bankTotal = ref(0)
@@ -677,9 +903,16 @@ async function loadTabData(key) {
   try {
     const pid = plan.value?.id; if (!pid) return
     const uid = authStore.user?.id || ''
-    if (key === 'tasks') { const r = await getTodayTasks(pid, uid); todayTasks.value = r.tasks || []; dayNumber.value = r.day_number || 1 }
-    else if (key === 'mastery') { const r = await getMastery(pid, uid); masteryList.value = r.mastery || [] }
-    else if (key === 'mistakes') { const r = await getMistakes(pid, uid); mistakeList.value = r.mistakes || [] }
+    if (key === 'tasks') {
+      const r = await getTodayTasks(pid, uid)
+      todayTasks.value = r.tasks || []
+      dayNumber.value = r.day_number || 1
+      todayTotal.value = r.today_total || 0
+      todayDone.value = r.today_done || 0
+    }
+    // 学程埋点（2026-10-01）：看掌握度 / 错题本 —— 两个 Tab 都算「看学情数据」
+    else if (key === 'mastery') { const r = await getMastery(pid, uid); masteryList.value = r.mastery || []; recordAction(uid, 'view_mastery') }
+    else if (key === 'mistakes') { const r = await getMistakes(pid, uid); mistakeList.value = r.mistakes || []; recordAction(uid, 'view_mastery') }
   } catch (e) { console.error(e) } finally { loadingTab.value = false }
 }
 
@@ -733,6 +966,10 @@ async function doSubmitDiagnosis() {
         if (res2.already_exists) { alert('重建失败，请稍后再试') }
       }
     }
+    // 学程埋点（2026-10-01）：完成摸底诊断。
+    // 放在这里而不是各分支里 —— 不管有没有 already_exists、用户是否选择重建，
+    // 「做了一次诊断」这件事都发生了。
+    recordAction(authStore.user.id, 'diagnosis_done')
     await loadSyllabus(); showDiagnosis.value = false; activeTab.value = 'tasks'
     if (plan.value) { loadTabData('tasks'); loadQuestionStates() }
   } catch (e) { submitError.value = '提交失败: ' + (e.response?.data?.detail || e.message) } finally { submitting.value = false }
@@ -917,7 +1154,8 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.sd-page { min-height: calc(100vh - var(--jz-top, 0px)); position: relative; padding: 32px 24px 80px; background: linear-gradient(135deg, color-mix(in srgb, var(--bg-color) 93%, #000000) 0%, var(--bg-color) 40%, color-mix(in srgb, var(--bg-color) 95%, #000000) 100%); color: var(--text-primary); }
+.sd-page { height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto; position: relative; padding: 32px 24px 80px; background: linear-gradient(135deg, color-mix(in srgb, var(--bg-color) 93%, #000000) 0%, var(--bg-color) 40%, color-mix(in srgb, var(--bg-color) 95%, #000000) 100%); color: var(--text-primary); }
 .sd-bg { position: fixed; inset: 0; background: radial-gradient(ellipse 60% 50% at 50% -10%, color-mix(in srgb, var(--brand) 6%, transparent) 0%, transparent 70%), radial-gradient(ellipse 40% 60% at 80% 80%, rgba(139,92,246,.04) 0%, transparent 70%); pointer-events: none; }
 .sd-container { width: 100%; max-width: 960px; margin: 0 auto; position: relative; z-index: 1; }
 .glass-panel { background: color-mix(in srgb, var(--surface, #ffffff) 2.5%, transparent); border: 1px solid var(--line-soft); backdrop-filter: blur(20px); border-radius: 16px; transition: all .3s; }
@@ -1027,6 +1265,15 @@ onMounted(async () => {
 .plan-paper-loading, .plan-paper-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 14px 0; }
 .plan-paper-list { display: flex; flex-direction: column; gap: 6px; }
 .plan-paper-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line-soft); background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); cursor: pointer; font-family: inherit; text-align: left; transition: all .2s; }
+/* 今日完成度（2026-10-01） */
+.day-done { display: flex; align-items: center; gap: 10px; margin: 8px 0 14px; flex-wrap: wrap; }
+.dd-bar { flex: 0 0 160px; height: 6px; border-radius: 3px; overflow: hidden;
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent); }
+.dd-bar i { display: block; height: 100%; border-radius: 3px; background: var(--brand);
+  transition: width .35s ease; }
+.dd-text { font-size: 12.5px; color: var(--text-secondary); }
+.dd-ok { font-size: 12px; color: #10b981; font-weight: 600; }
+
 .plan-paper-item.done { border-color: rgba(16,185,129,.25); background: rgba(16,185,129,.05); }
 .plan-paper-item.done:hover { border-color: rgba(16,185,129,.45); transform: translateY(-1px); }
 .plan-paper-item:disabled { cursor: not-allowed; opacity: .45; }
@@ -1164,7 +1411,33 @@ onMounted(async () => {
 
 /* 任务操作区 */
 .task-actions { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
-.btn-video { padding: 8px 16px; border-radius: 8px; border: 1px dashed var(--line); background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); color: var(--text-muted); font-size: 12px; font-family: inherit; cursor: not-allowed; display: flex; align-items: center; gap: 6px; }
+/* 视频推送（2026-10-01 接上）：从「即将上线」的禁用态改成可点 —— 有就播、没有就生成 */
+.btn-video { padding: 8px 16px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--brand) 26%, transparent); background: color-mix(in srgb, var(--brand) 8%, transparent); color: var(--brand-bright); font-size: 12px; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background-color .2s ease; }
+.btn-video:hover { background: color-mix(in srgb, var(--brand) 16%, transparent); }
+
+/* 视频推送弹窗 */
+.vd-loading { padding: 26px 0; text-align: center; color: var(--text-muted); font-size: 13px; }
+.vd-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px;
+  margin-bottom: 8px; border-radius: 10px; text-align: left; font-family: inherit; font-size: 13.5px;
+  color: var(--text-primary); cursor: pointer;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  border: 1px solid var(--line-soft); transition: border-color .2s ease, transform .2s ease; }
+.vd-item:hover { border-color: var(--brand); transform: translateX(3px); }
+.vd-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vd-meta { font-size: 11.5px; color: var(--text-muted); }
+.vd-go { font-size: 12px; font-weight: 700; color: var(--brand-bright); }
+.vd-empty { text-align: center; padding: 22px 0; color: var(--text-muted); font-size: 13.5px; }
+.vd-empty p { margin: 0 0 14px; }
+.vd-gen { padding: 7px 20px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  font-family: inherit; color: var(--brand-bright); cursor: pointer;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 28%, transparent); }
+.vd-sub { margin: 10px 0 0; text-align: center; font-size: 12px; color: var(--brand-bright); }
+.vd-eta { font-size: 11.5px; opacity: .7; }
+.vd-failed { color: #e6a23c; }
+.vd-err { display: block; margin-top: 8px; font-size: 11.5px; color: var(--text-muted);
+  max-width: 520px; margin-left: auto; margin-right: auto; word-break: break-all; }
+.vd-note { margin: 12px 0 0; font-size: 12px; color: var(--text-muted); text-align: center; }
 .video-soon { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); color: var(--text-muted); }
 
 /* 知识点卡片 */

@@ -152,12 +152,40 @@ def get_by_ids(syllabus_id: str, ids: list[str]) -> list[dict]:
 
 # ---- 全局跨考纲查询（管理员用） ----
 def find_question_global(question_id: str) -> tuple[Optional[str], Optional[dict]]:
-    """在所有题库中查找题目，返回 (syllabus_id, question) 或 (None, None)"""
+    """在所有题库中查找题目，返回 (syllabus_id, question) 或 (None, None)
+
+    ⚠️ **题库之间 id 是会重名的** —— 返回的是「第一个命中的库」，不保证是
+    你想要的那道题。只在**你确定这个 id 不属于某个具体考纲**时用它；
+    要按 id 取题请优先用 `get_by_ids(syllabus_id, ...)` 或 `find_question_unique`。
+    """
     for sid, bank in _banks.items():
         q = bank["index"].get(question_id)
         if q:
             return sid, q
     return None, None
+
+
+def find_question_unique(question_id: str) -> tuple[Optional[str], Optional[dict]]:
+    """跨库找题，但**只在 id 唯一时才返回**。
+
+    ⚠️ 这个函数存在的唯一理由：实测 18,711 道题里有 **497 个 id 横跨多个库**
+    （`f47ac10b-58cc-4372-a567-0e02b2c3d479` 一个 id 同时存在于 10 个考纲库）。
+    这种 id 上 `find_question_global` 会稳定地返回**另一门学科的题** ——
+    2026-10-01 实测：拿一个「Excel 操作」视频的题目 id 去查，回来的是
+    CET-6 的英译汉。
+
+    有歧义时返回 (None, None)，让调用方走需要 syllabus_id 的那条路，
+    或者干脆判定「查不到」—— **宁可查不到，也不能判错题**。
+    """
+    hit_sid: Optional[str] = None
+    hit_q: Optional[dict] = None
+    for sid, bank in _banks.items():
+        q = bank["index"].get(question_id)
+        if q:
+            if hit_q is not None:
+                return None, None   # 撞名 → 交给调用方别的路径
+            hit_sid, hit_q = sid, q
+    return hit_sid, hit_q
 
 
 _syllabus_names_cache: dict = {}

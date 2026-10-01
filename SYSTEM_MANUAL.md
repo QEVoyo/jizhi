@@ -1592,7 +1592,14 @@ levelProgress = min(100, currentProgress / currentNeeded × 100)%
 
 所有任务进度由 `user_actions` 表动态计算（每次操作 → `POST /career/actions/record`）。
 
-**播种任务（新手）**：17 个一次性任务，覆盖首次使用各功能。例如：
+> ⚠️ **2026-10-01 大更新**：任务总数 播种 17→**24** · 施肥 36→**47** · 发芽 21→**36**（丰收/拾贝 25 个未动）。
+> 同时补齐了 **13 个 action 埋点** —— 在此之前视频库、学科计划、社区、词条本**一个 action 都没埋**，
+> 而 `add_to_set` / `use_timer` / `conquer_mistake` / `view_report` / `chat` /
+> `use_plan_agent` / `use_evaluate_agent` 这 7 个**早在 6~8 月就断了**
+> （根因是埋点发的是 `xiaoji_tool`，而任务判定要的是具体 action）。
+> **判定逻辑与数据结构完全没变**，只是任务变多、埋点补全。
+
+**播种任务（新手）**：24 个一次性任务，覆盖首次使用各功能。例如：
 
 | 任务 | action | reward | value |
 |------|--------|--------|-------|
@@ -1608,7 +1615,16 @@ levelProgress = min(100, currentProgress / currentNeeded × 100)%
 
 进度：二进制（100% 或 0%），记录过即 100%。领取后永久标记"已领取"。
 
-**施肥任务（每日）**：池 36 个，每日随机展示 5 个。例如：
+**施肥任务（每日）**：池 47 个。
+
+> ⚠️ **2026-10-01 实测更正**：本节原写「每日随机展示 5 个」—— **代码里没有这回事**。
+> `get_task_progress` 是 `for task in DAILY_TASKS:` 直接遍历，接口实测返回**全部 47 条**。
+> 「换一批（日限 1 次）」同样没有实现。
+> 这是个**产品缺口**：47 条全铺出来，用户根本看不完。
+> 要做「池 + 每日抽 5」的话，在后端取 `daily_results` 时抽样即可（`seed` 用当天日期，
+> 保证同一天内刷新不变），前端不用改。
+
+例如：
 
 | 任务 | target | reward | value |
 |------|--------|--------|-------|
@@ -1627,7 +1643,11 @@ levelProgress = min(100, currentProgress / currentNeeded × 100)%
 - 可换一批（日限 1 次），从池中排除当前 5 个后重新随机
 - **全部 5 个完成奖励**：+20 段位分 +30 等级分（`POST /career/bonus/claim`）
 
-**发芽任务（长期）**：21 个阶梯式累计任务，设 `requires` 前置链：
+**发芽任务（长期）**：36 个阶梯式累计任务，设 `requires` 前置链：
+
+> ⚠️ `requires` 存的是**任务名字符串**（不是 id）—— 新加任务时前置必须写全名，
+> 写错会导致永久「未解锁」且不报错。2026-10-01 加任务时用脚本验过一遍
+> 「所有 `requires` 都能对上现有任务名」。
 
 | 任务 | 前置 | reward | value |
 |------|------|--------|-------|
@@ -1644,6 +1664,10 @@ levelProgress = min(100, currentProgress / currentNeeded × 100)%
 | 累计生成 200 题 | generate_50 | 200 | 8 |
 
 进度 = `min(100%, total_count / target × 100%)`。未解锁前置任务时显示"🔒 需先完成 XXX"。
+
+> ⚠️ **上面几张示例表的 reward/value 与代码有出入**（例如本表写「累计答 500 题 reward 200」，
+> 代码是 300）。**以 `routers/career.py` 的三个常量为准** —— 本节只作结构示意。
+> 2026-10-01 已按说明书补齐了「累计答 500/1000 题」两档（代码原先最大只到 200）。
 
 #### 5.3.3 领取动画流水线
 
@@ -1714,6 +1738,26 @@ levelProgress = min(100, currentProgress / currentNeeded × 100)%
 | `/actions/record` | POST | 记录操作 `{action_type, metadata}` |
 | `/actions/{user_id}` | GET | 获取操作历史 |
 | `/actions/stats/{user_id}` | GET | 操作统计（总计各类型/今日各类型/首次标记） |
+
+#### 5.3.6 ⚠️ 加任务之前必读：action 埋点
+
+**任务与成就的进度，全部来自 `user_actions.action_type`。** 一个 action 只要**没有任何
+地方 `recordAction` 记它**，挂在它上面的任务就**永远是 0 进度** ——
+而界面看起来只是「还没完成」，**不报错、不告警**。
+
+2026-10-01 实测发现的两种情况：
+
+| 情况 | 例子 |
+|---|---|
+| **新功能从没埋过点** | 视频库 / 学科计划 / 社区 / 词条本 —— 一个 action 都没有 |
+| **埋的名字变了**（更隐蔽） | 计时器发的是 `xiaoji_tool`（Agent 触点用），而任务判定要 `use_timer` → 断于 2026-07-11 |
+
+> 💡 **同一个功能有两套诉求时会发两条**：工具面板就是
+> `recordAction(uid, 'checkin')` + `recordAction(uid, 'xiaoji_tool', {tool:'checkin'})` ——
+> 前者给任务系统，后者给 Agent 触点统计。**加新的工具/入口时要照抄这个双发。**
+
+**加任务前先跑一遍对账**：把常量里用到的 action 与前端实发的 action 比一遍
+（脚本在 `_probe_20261001/audit_actions.py`），**零缺失再加**。
 
 **侧边栏集成**：`CareerSidebar` 每 30 秒轮询 `getSidebarBadges()` 获取待领取任务数和待领取成就数，显示为红色角标。
 

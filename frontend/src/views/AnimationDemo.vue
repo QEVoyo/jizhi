@@ -326,7 +326,8 @@ onUnmounted(() => {
 
 <style scoped>
 .demo-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   background: #0a0a18;
   display: flex;
   flex-direction: column;

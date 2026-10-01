@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { recordAction } from '@/api/career'
 
 // ============================================================
 // 词条系统 — 词条查询（AI 生成缓存）、抓取记录、熟练度、词条本、定向出题
@@ -11,7 +12,13 @@ export function getVocabEntry(word) {
 
 // 记录词条抓取/讲解触点（chat_ask / xiaoji_vision）
 export function postVocabLookups(userId, words, touchpoint) {
-  return request.post('/vocab/lookups', { user_id: userId, words, touchpoint }).then(res => res.data)
+  return request.post('/vocab/lookups', { user_id: userId, words, touchpoint }).then(res => {
+    // 学程埋点（2026-10-01）：查了词条。埋在这一处 —— 词条查询有三个入口
+    // （聊天点词 / 识图提词 / 词条本搜索），散着写必然漏。
+    const n = Array.isArray(words) ? words.length : 0
+    if (userId && n > 0) recordAction(userId, 'wordbook_lookup')
+    return res.data
+  })
 }
 
 // 词条卡「认识/不认识」打分（EWMA 熟练度）

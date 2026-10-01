@@ -354,7 +354,8 @@ onUnmounted(() => {
   padding: 20px 28px;
   max-width: 760px;
   margin: 0 auto;
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
 }
 
 /* ===== 顶部 ===== */

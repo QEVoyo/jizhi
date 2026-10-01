@@ -138,6 +138,14 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    // 自定义计划的「学习内容」完整正文页（2026-10-01）——
+    // 计划详情里只露前两行，点进来才是详细教学
+    path: '/plan-lesson/:taskId',
+    name: 'PlanLesson',
+    component: () => import('@/views/PlanLesson.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/animation-demo',
     name: 'AnimationDemo',
     component: () => import('@/views/AnimationDemo.vue')

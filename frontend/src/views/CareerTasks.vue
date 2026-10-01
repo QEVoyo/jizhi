@@ -993,7 +993,9 @@ onUnmounted(() => {
 <style scoped>
 .tasks-content {
   padding: 8px 4px;
-  max-width: 1000px;
+  /* 1000 → 1180（2026-10-01）：任务名变长后六列挤不开，
+     价值那几列跟进度条重叠。加宽 + 上面那个 minmax(0,1fr) 一起解决。 */
+  max-width: 1180px;
   margin: 0 auto;
 }
 
@@ -1074,7 +1076,12 @@ h1 { font-size: 28px; color: var(--text-primary); }
 }
 .task-row {
   display: grid;
-  grid-template-columns: 50px 1fr 60px 70px 1fr 100px;
+  /* ⚠️ 必须写 minmax(0, 1fr) 而不是 1fr（2026-10-01）：
+     grid 的 1fr 默认 min-width:auto —— **不会缩到内容宽度以下**。
+     任务名一长（新加的「累计生成 10 个知识点视频」这类），名字列的
+     min-content 就把整行撑爆，于是价值那几列跟进度条**重叠**。
+     minmax(0,…) 才允许它缩，配合下面的省略号。 */
+  grid-template-columns: 50px minmax(0, 1fr) 60px 70px minmax(0, 1fr) 100px;
   gap: 8px;
   align-items: center;
   padding: 6px 8px;
@@ -1084,7 +1091,14 @@ h1 { font-size: 28px; color: var(--text-primary); }
 .task-row.header { font-weight: 600; color: var(--text-muted); font-size: 12px; }
 .task-row:hover { background: rgba(128,128,128,0.04); }
 .status-icon { display: flex; justify-content: center; }
-.task-name { color: var(--text-primary); }
+/* 任务名太长时省略，而不是把整行撑爆（配合 minmax(0,1fr)） */
+.task-name {
+  color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .task-name.locked { color: var(--text-muted); opacity: 0.5; }
 .task-reward { color: var(--text-secondary); }
 .star { font-size: 12px; letter-spacing: 1px; }
@@ -1129,7 +1143,12 @@ h1 { font-size: 28px; color: var(--text-primary); }
 
 .bonus-row {
   display: grid;
-  grid-template-columns: 50px 1fr 60px 70px 1fr 100px;
+  /* ⚠️ 必须写 minmax(0, 1fr) 而不是 1fr（2026-10-01）：
+     grid 的 1fr 默认 min-width:auto —— **不会缩到内容宽度以下**。
+     任务名一长（新加的「累计生成 10 个知识点视频」这类），名字列的
+     min-content 就把整行撑爆，于是价值那几列跟进度条**重叠**。
+     minmax(0,…) 才允许它缩，配合下面的省略号。 */
+  grid-template-columns: 50px minmax(0, 1fr) 60px 70px minmax(0, 1fr) 100px;
   gap: 8px;
   align-items: center;
   padding: 10px 8px;
@@ -1298,12 +1317,12 @@ h1 { font-size: 28px; color: var(--text-primary); }
 
 @media (max-width: 768px) {
   .task-row {
-    grid-template-columns: 40px 1fr 50px 50px 1fr 80px;
+    grid-template-columns: 40px minmax(0, 1fr) 50px 50px minmax(0, 1fr) 80px;
     font-size: 12px;
     gap: 4px;
   }
   .bonus-row {
-    grid-template-columns: 40px 1fr 50px 50px 1fr 80px;
+    grid-template-columns: 40px minmax(0, 1fr) 50px 50px minmax(0, 1fr) 80px;
     font-size: 12px;
   }
   .score-bar {

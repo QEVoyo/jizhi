@@ -795,6 +795,9 @@ async def generate_question_core(user_id, category, topic, question_type, diffic
                     "video.generate",
                     subject=subject,
                     knowledge_key=nk,
+                    # ⚠️ 必须带上名字 —— 不带的话 worker 那边只能传空串，
+                    #    生成出来的视频行 knowledge_name 为空，前端显示成「没名字」。
+                    knowledge_name=kp_name,
                 )
         except Exception as e:
             logger.error(f"❌ 视频排产入队失败（出题不受影响）: {e}")

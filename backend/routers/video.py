@@ -1,4 +1,5 @@
 import httpx
+import json
 from fastapi import APIRouter, Query, Response, HTTPException
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -8,6 +9,8 @@ import random
 from logging_config import logger
 
 from services import video_gen
+from services.supabase import get_supabase_headers
+from config import settings
 import local_question_bank
 
 router = APIRouter(prefix="/video", tags=["视频"])
@@ -146,7 +149,13 @@ async def cache_stats():
 # ==================== 自建视频库（2026-09-04 定稿：知识点级模板生成） ====================
 
 class LibEnsureReq(BaseModel):
-    """确保知识点有视频：缺口自动排产，返回现有视频列表（ready + 生成中）"""
+    """确保知识点有视频：缺口自动排产，返回现有视频列表（ready + 生成中）
+
+    `goal` 默认 1 = **保底一条**：不管检索到多少，至少让这个知识点有一条视频。
+
+    2026-10-01 新增 `user_id` / `source` / `source_ref`：
+    带了就顺带把这次涉及的视频记进「推送」表（用户视频库里多出来的那个分类）。
+    """
     knowledge_key: str
     knowledge_name: str
     subject: str = ""
@@ -154,6 +163,54 @@ class LibEnsureReq(BaseModel):
     goal: int = 1
     author_name: str = "官方基智"   # 生成主
     author_avatar: str = "/logo.png"
+    # ---- 推送（可选）----
+    user_id: str = ""
+    source: str = ""        # resource / plan / practice
+    source_ref: str = ""    # 触发的题目或任务 id（倒查用）
+
+
+async def record_video_pushes(user_id: str, videos: List[dict],
+                              source: str = "", source_ref: str = "") -> int:
+    """把这次涉及的视频记进「推送」表。返回新记了几条。
+
+    ⚠️ 为什么是**关联表**而不是给视频加个 owner：视频是全站共享的，
+       一个知识点只有一条（`(subject, knowledge_key, angle)` 唯一格）。
+       猜「谁触发的归谁」在别人复用时必然错乱 —— B 需要同一个知识点时
+       ensure 直接复用 A 那条，B 的推送列表里就什么都不会有。
+
+    幂等：同一个人同一条视频只记一次（唯一键 + ignore-duplicates），
+    重复触发生视频不会把推送列表刷屏。
+    """
+    if not user_id or not videos:
+        return 0
+    seen, rows = set(), []
+    for v in videos:
+        vid = v.get("id")
+        if not vid or vid in seen:
+            continue
+        seen.add(vid)
+        rows.append({
+            "user_id": user_id, "video_id": vid,
+            "source": source or "practice", "source_ref": source_ref or None,
+        })
+    if not rows:
+        return 0
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.post(
+                f"{settings.SUPABASE_URL}/rest/v1/user_video_pushes",
+                headers={**get_supabase_headers(),
+                         "Prefer": "resolution=ignore-duplicates,return=representation"},
+                json=rows)
+        if r.status_code >= 300:
+            # 推送记不上不影响视频本身能用，但要说出来别静默
+            logger.warning(f"推送记录写入失败 [{r.status_code}]: {r.text[:200]}")
+            return 0
+        data = r.json()
+        return len(data) if isinstance(data, list) else 0
+    except Exception as e:
+        logger.warning(f"推送记录异常: {e}")
+        return 0
 
 
 class LibWarmReq(BaseModel):
@@ -170,7 +227,52 @@ async def lib_ensure(req: LibEnsureReq):
         subject=req.subject, stage=req.stage, goal=req.goal,
         author_name=req.author_name, author_avatar=req.author_avatar,
     )
+    # 带了 user_id 就顺带推送到他的视频库 —— 视频库新增的「推送」分类读的就是这张表。
+    # 推送**不阻塞** ensure 本身：记失败也只打日志，视频照样能用。
+    if req.user_id:
+        pushed = await record_video_pushes(
+            req.user_id, res.get("videos") or [], req.source, req.source_ref)
+        if pushed:
+            res["pushed"] = pushed
     return res
+
+
+@router.get("/lib/status")
+async def lib_status(knowledge_key: str = Query(...)):
+    """按知识点查视频的**生成状态**（含 failed 与失败原因）。
+
+    ⚠️ 为什么需要它（2026-10-01）：`/lib/related` **只返回 ready 的视频**，
+    所以「正在生成」和「已经生成失败」在前端看起来完全一样 ——
+    用户会一直等一个永远不会出现的视频（实测等了一分多钟，
+    而那条视频其实早就 failed 了）。
+
+    按知识点哈希匹配（跨 subject 命名），和 related 的 90 档同一口径。
+    """
+    kp_hash = knowledge_key.split(":", 1)[-1]
+    if not kp_hash:
+        return {"ready": 0, "generating": 0, "failed": 0, "total": 0, "error": None}
+    url = (f"{settings.SUPABASE_URL}/rest/v1/video_library"
+           f"?knowledge_key=like.*{kp_hash}"
+           f"&select=id,status,error,knowledge_name")
+    rows = []
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.get(url, headers=get_supabase_headers())
+        if r.status_code < 300:
+            rows = r.json() or []
+        else:
+            logger.warning(f"视频状态查询失败 [{r.status_code}]: {r.text[:150]}")
+    except Exception as e:
+        logger.warning(f"视频状态查询异常: {e}")
+    failed = [x for x in rows if x.get("status") == "failed"]
+    return {
+        "ready": sum(1 for x in rows if x.get("status") == "ready"),
+        "generating": sum(1 for x in rows if x.get("status") == "generating"),
+        "failed": len(failed),
+        "total": len(rows),
+        # 带上失败原因 —— 前端能直接告诉用户「为什么没出来」
+        "error": (failed[0].get("error") if failed else None),
+    }
 
 
 @router.get("/lib/related")
@@ -211,11 +313,42 @@ async def lib_warm(req: LibWarmReq):
     return {"success": True, **res}
 
 
+def _q_stem_text(q: dict) -> str:
+    """把题干的三种存法（stem / content.stem / content 是纯字符串）拉平成一段文字。
+
+    题库题的题干在 `content.stem`（`SubjectPractice` 就是从那儿读的），
+    但扁平化过的题也可能直接挂在 `stem` 上。模糊匹配两者都要能命中。
+    """
+    raw = q.get("stem")
+    if not raw:
+        c = q.get("content")
+        raw = c.get("stem") if isinstance(c, dict) else (c if isinstance(c, str) else None)
+    if isinstance(raw, (list, dict)):
+        raw = json.dumps(raw, ensure_ascii=False)
+    return str(raw or q.get("title") or "")
+
+
 @router.get("/lib/{video_id}/questions")
-async def video_questions(video_id: str, limit: int = Query(12, ge=1, le=30)):
-    """做题按钮（2026-09-05 用户定调）：
-    视频知识点在学科计划题库里的推荐题目（本地内存零成本）；
-    查不到 → 前端走 AI 生成降级，最终都落做题界面。"""
+async def video_questions(video_id: str, limit: int = Query(12, ge=1, le=60)):
+    """做题按钮：按**相关度**从学科计划题库检索本知识点的题。
+
+    2026-10-01 重做。原来只按 `sha1(kp_id)` 精确比对 —— 知识点名差一个字
+    就一道题都搜不到（这正是「视频做题列表经常是空的」的根因）。
+    现在分层打分：
+
+        120  sha1 精确命中（原逻辑，最准，保留）
+        100  知识点名全等
+         80  知识点名互相包含
+         60  题干 / 标题里出现了该知识点
+        +15  同考纲加成（subject 对得上）
+
+    ⚠️ 加成取 15 而不是更大的值，是为了让「跨库精确」(100) 仍然压得住
+    「本库模糊」(80+15=95) —— 精确永远优先，同库只在同档里取胜。
+
+    返回按分数降序，每条带 `syllabus_id` / `syllabus_name` ——
+    前端要靠它跳做题页（做题页路由是 /subject-plan/{syllabus_id}/practice）。
+    另外返回 `total` = 命中总数，前端用它决定要不要出「查看更多」。
+    """
     resp = await video_gen.db.select(
         "video_library", select="subject,knowledge_key,knowledge_name",
         eq={"id": video_id}, use_service_role=True)
@@ -225,40 +358,52 @@ async def video_questions(video_id: str, limit: int = Query(12, ge=1, le=30)):
     row = rows[0]
     subject = row.get("subject") or ""
     kk = row.get("knowledge_key") or ""
-    items: List[dict] = []
+    target = (row.get("knowledge_name") or "").strip()
+    t_low = target.lower()
+    # knowledge_key 的形式是 f"{subject}:{sha1(知识点)[:12]}"。
+    # ⚠️ 视频行的 subject 历史上有三套命名（syllabus id / syllabus 中文名 /
+    # 出题 AI 判定的 category），而 get_bank() 只认 syllabus id ——
+    # 传中文名直接返回 None。所以不再按库分先后，改成给同库加权重。
+    kp_hash = kk.split(":", 1)[1] if ":" in kk else kk
+
+    names = local_question_bank.syllabus_names()
+    scored: List[tuple] = []
     try:
-        # knowledge_key 的形式是 f"{subject}:{sha1(知识点)[:12]}"。
-        # ⚠️ 视频行的 subject 历史上有三套命名（syllabus id / syllabus 中文名 /
-        # 出题 AI 判定的 category），而 get_bank() 只认 syllabus id ——
-        # 传中文名直接返回 None，题目就恒为 0 条（实测 32 条视频里 12 条属于此类）。
-        # 所以这里：先按 subject 找本库，找不到再跨库扫，且只比对「知识点哈希」部分，
-        # 前缀不参与比较。哈希是知识点名的 sha1，与学科无关，跨库才匹配得上。
-        # 本库优先，避免同名知识点被别的学科抢走。2026-09-27 修。
-        kp_hash = kk.split(":", 1)[1] if ":" in kk else kk
-
-        banks = []
-        own = local_question_bank.get_bank(subject)
-        if own:
-            banks.append(own)
         for sid, bank in local_question_bank.all_banks().items():
-            if sid != subject:
-                banks.append(bank)
-
-        for bank in banks:
             for q in (bank or {}).get("questions") or []:
-                kp_id = q.get("kp_id") or q.get("sub_category")
-                if not kp_id:
+                s = 0
+                kp_id = str(q.get("kp_id") or q.get("sub_category") or "")
+                if kp_id and video_gen.make_knowledge_key("x", kp_id).split(":", 1)[-1] == kp_hash:
+                    s = 120
+                elif t_low:
+                    name = (q.get("kp_name") or "").strip().lower()
+                    if name:
+                        if name == t_low:
+                            s = 100
+                        elif t_low in name or name in t_low:
+                            s = 80
+                    if not s and t_low in _q_stem_text(q).lower():
+                        s = 60
+                if not s:
                     continue
-                q_hash = video_gen.make_knowledge_key("x", str(kp_id)).split(":", 1)[-1]
-                if q_hash == kp_hash:
-                    items.append(q)
-                    if len(items) >= limit:
-                        break
-            if len(items) >= limit:
-                break
+                if subject and sid == subject:
+                    s += 15
+                scored.append((s, sid, q))
+        # 分数降序；同分保持题库原顺序（stable sort）
+        scored.sort(key=lambda x: -x[0])
     except Exception as e:
         logger.info(f"⚠️ 视频练题查找失败: {e}")
-    return {"subject": subject, "knowledge_name": row.get("knowledge_name"), "items": items}
+
+    items = [
+        {**q, "syllabus_id": sid, "syllabus_name": names.get(sid, sid), "match_score": s}
+        for s, sid, q in scored[:limit]
+    ]
+    return {
+        "subject": subject,
+        "knowledge_name": row.get("knowledge_name"),
+        "total": len(scored),
+        "items": items,
+    }
 
 
 @router.post("/lib/{video_id}/play")

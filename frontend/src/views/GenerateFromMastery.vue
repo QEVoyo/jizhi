@@ -268,7 +268,8 @@ onUnmounted(() => {
 
 <style scoped>
 .generate-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   padding: 20px;
 }
 

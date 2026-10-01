@@ -150,7 +150,8 @@ onMounted(loadData)
 
 <style scoped>
 .set-detail-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   padding: 20px;
   background: var(--bg-color);
 }

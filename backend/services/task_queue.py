@@ -31,7 +31,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Optional
 
-from arq import create_pool
+from arq import create_pool, func
 from arq.connections import ArqRedis, RedisSettings, create_pool as _arq_create_pool
 
 from config import settings
@@ -135,6 +135,7 @@ async def task_video_generate(
     *,
     subject: str = "",
     knowledge_key: str = "",
+    knowledge_name: str = "",     # ⚠️ 必须带上，否则生成出来的视频没有名字
     angle: str = "concept",
     notify_user: str = "",
 ) -> dict:
@@ -142,7 +143,10 @@ async def task_video_generate(
     from services import video_gen
 
     try:
-        await video_gen.ensure_videos(knowledge_key, "", subject=subject)
+        # ⚠️ `knowledge_name` 以前写死成空串 —— 于是队列这条路上生成的视频
+        #    行里 knowledge_name 是空的，做题页/视频库显示出来是「没名字」。
+        #    它由 `questions.py` 出题时入队传入（那边有 normalized_topic）。
+        await video_gen.ensure_videos(knowledge_key, knowledge_name or "", subject=subject)
         if notify_user:
             await notify_task_done(
                 notify_user,
@@ -224,7 +228,45 @@ async def notify_task_done(
 
 async def startup(ctx: dict) -> None:
     logger.info(f"🔧 任务 worker 启动，Redis={settings.REDIS_URL}")
-    logger.info(f"   已注册任务：{list(TASKS)}")
+    # ⚠️ 这里报的必须是 **arq 实际注册的名字**，不是 TASKS 的键。
+    #    原来报的是 `list(TASKS)`（= "video.generate"），看着一切正常 ——
+    #    而 arq 那边注册的其实是函数的 `__name__`。两边一旦对不上，
+    #    每个任务都被 `function not found` **静静丢掉**，这条日志却毫无异样。
+    #    2026-10-01：就是因为它，本地积压 2 个任务没人执行，查了半天。
+    names = [getattr(f, "name", None) or getattr(f, "__name__", str(f))
+             for f in WorkerSettings.functions]
+    logger.info(f"   arq 实际注册名：{names}")
+    # ⚠️⚠️ **必须把 video_gen 的进程内生成循环也起起来**（2026-10-01 实测修）。
+    #
+    # video_gen 是**两层队列**，少一层都不工作：
+    #   ① arq / Redis          —— 跨进程，负责「把这个知识点排上」
+    #   ② video_gen 进程内 Queue —— **真正跑生成的地方**
+    #
+    # `ensure_videos()` 只是往 ② 里丢一个 spec 就返回（所以 arq 任务看起来「秒完」）。
+    # ② 的循环由 FastAPI 的 lifespan 启动 —— 那是 **API 进程**里的。
+    # worker 进程以前没起它，于是：arq 任务跑完 → spec 躺在一个没人消费的队列里
+    # → 视频行永远停在 `generating`，而 **worker 日志从启动起一个字都不长**。
+    #
+    # 症状和上面那个「注册名对不上」一模一样（视频不出来、没有报错），
+    # 但是**另一个 bug**。两个都修完，链才真的通。
+    try:
+        from services import video_gen
+        video_gen.start_video_worker()
+        logger.info(f"   ✅ video_gen 进程内生成循环已启动（{settings.VIDEO_WORKERS} 个）")
+    except Exception as e:
+        raise RuntimeError(f"❌ 启动 video_gen 生成循环失败，worker 起来也不会生成视频: {e}")
+
+    missing = [k for k in TASKS if k not in names]
+    if missing:
+        # **直接拒绝启动**，不是打条日志了事。
+        # 一个「起来了但每个任务都丢掉」的 worker，比一个起不来的 worker 危险得多：
+        # 前者会让问题伪装成「视频生成慢」，后者你当场就知道。
+        raise RuntimeError(
+            f"❌ 这些任务名没有对应的 arq 函数，入队后会被直接丢弃：{missing}\n"
+            f"   实际注册名：{names}\n"
+            f"   修法：WorkerSettings.functions 里用 func(..., name=\"<任务名>\") 显式注册\n"
+            f"   （arq 默认按 coroutine.__name__ 注册，不会用 TASKS 里的键）"
+        )
 
 
 async def shutdown(ctx: dict) -> None:
@@ -232,7 +274,19 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [task_video_generate]
+    # ⚠️⚠️ **必须显式给 `name=`**（2026-10-01 实测修）。
+    #
+    # arq 注册函数时取的是 `func(coroutine, name=None)` 里的
+    # `name = name or coroutine.__name__` —— 直接写 `functions = [task_video_generate]`
+    # 会把函数注册成 **"task_video_generate"**，而入队用的是 `TASKS` 里的
+    # **"video.generate"**。两边对不上 → worker 每收到一个任务就
+    # `function 'video.generate' not found` 然后**把任务丢掉**。
+    #
+    # 症状极具欺骗性：worker 启动日志里明明写着「已注册任务：['video.generate']」
+    # （那是 TASKS 的键，不是 arq 的注册名），Redis 里也看到任务被取走了，
+    # 于是「视频一直不出来」查不到任何报错 —— 而本地实测时队列里真的
+    # 积压着 2 个任务、一个都没执行。
+    functions = [func(task_video_generate, name="video.generate")]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = redis_settings()

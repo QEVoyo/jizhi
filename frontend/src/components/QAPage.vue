@@ -219,7 +219,7 @@ const faqs = ref([
     '',
     '📖 学习讲解 — 点击后 AI 按本日题目实时生成讲解（学习目标/核心知识点/解题方法/常见错误），生成一次后缓存，二次打开秒现',
     '✏️ 去练习 — 带真实题目跳做题页，逐题提交（11 种题型全支持）',
-    '🎬 视频推送 — 即将上线（占位）',
+    '🎬 视频推送 — 该知识点在自营视频库里**有就直接播**；没有就给一个「生成知识点视频」按钮，排产后自动等它出现（2026-10-01 上线）',
     '',
     '第二天自动解锁新任务，题目不会与已做/已分配题目重复',
   ], expanded: false, actions: [
@@ -659,7 +659,8 @@ async function submitAsk() {
 </script>
 
 <style scoped>
-.qa-page { min-height: calc(100vh - var(--jz-top, 0px)); display: flex; justify-content: center; padding: 30px 20px; background: transparent; }
+.qa-page { height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto; display: flex; justify-content: center; padding: 30px 20px; background: transparent; }
 .qa-container { max-width: 820px; width: 100%; padding: 28px 36px; border-radius: 18px; background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 8px 32px rgba(0,0,0,.06); height: fit-content; max-height: 90vh; overflow-y: auto; }
 .qa-container::-webkit-scrollbar { width: 4px; }
 .qa-container::-webkit-scrollbar-thumb { background: rgba(128,128,128,.2); border-radius: 2px; }

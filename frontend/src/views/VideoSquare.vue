@@ -26,6 +26,8 @@
           <span :class="{ on: tab === 'square' }" @click="switchTab('square')">推荐</span>
           <span :class="{ on: tab === 'fav' }" @click="switchTab('fav')">我的收藏</span>
           <span :class="{ on: tab === 'mine' }" @click="switchTab('mine')">我的视频</span>
+          <!-- 推送：我生成题目 / 建计划时，按知识点顺带触发出来的讲解（2026-10-01） -->
+          <span :class="{ on: tab === 'push' }" @click="switchTab('push')">推送</span>
         </span>
       </div>
     </div>
@@ -54,7 +56,7 @@
           </div>
         </div>
       </template>
-      <div v-for="v in items" :key="v.id" class="vs-card" @click="open(v)">
+      <div v-for="v in items" :key="v.id" class="vs-card" :data-video-id="v.id" @click="open(v)">
         <div class="vs-poster">
           <VideoPoster :video="v" />
           <div v-if="!v.script" class="vs-poster-body"><div class="vs-poster-t">{{ v.title || v.knowledge_name }}</div></div>
@@ -99,7 +101,7 @@
           </div>
         </div>
       </template>
-      <div v-for="v in favItems" :key="v.id" class="vs-card" @click="open(v)">
+      <div v-for="v in favItems" :key="v.id" class="vs-card" :data-video-id="v.id" @click="open(v)">
         <div class="vs-poster" :class="'tpl-' + (v.template_key || 'chalkboard')">
           <div v-if="v.script && v.script.sections && v.script.sections.length" class="vs-poster-body">
             <div class="vs-poster-t">{{ v.script.sections[0].heading }}</div>
@@ -124,7 +126,7 @@
     </div>
 
     <!-- 我的视频 -->
-    <div v-else class="vs-grid">
+    <div v-else-if="tab === 'mine'" class="vs-grid">
       <template v-if="myLoading">
         <div v-for="i in 4" :key="'msk' + i" class="vs-card vs-sk">
           <div class="vs-poster sk"></div>
@@ -139,7 +141,7 @@
         <div class="vs-name">生成我的讲解视频</div>
         <div class="vs-meta">选学科 + 知识点，模板引擎帮你讲</div>
       </button>
-      <div v-for="v in myItems" :key="v.id" class="vs-card" :class="{ dim: v.status !== 'ready' }" @click="myCardClick(v)">
+      <div v-for="v in myItems" :key="v.id" class="vs-card" :data-video-id="v.id" :class="{ dim: v.status !== 'ready' }" @click="myCardClick(v)">
         <div class="vs-poster" :class="'tpl-' + (v.template_key || 'chalkboard')">
           <div v-if="v.status === 'generating'" class="vs-poster-body">
             <div class="vs-poster-t">讲解师正在写讲稿…</div>
@@ -166,6 +168,47 @@
         </div>
       </div>
       <div v-if="!myLoading && !myItems.length" class="vs-empty">还没有自己的视频，点左上「生成我的讲解视频」试试</div>
+    </div>
+
+    <!-- 「推送」分类（2026-10-01）：我生成题目 / 建计划时，按知识点顺带触发出来的讲解。
+         和「我的视频」是两回事 —— 那个是我主动点的。
+         ⚠️ 视频本身是全站共享的（一个知识点只有一条），所以这里记的是
+         「这条和我有关」，不是「这条归我」。 -->
+    <div v-else class="vs-grid">
+      <template v-if="pushLoading">
+        <div v-for="i in 4" :key="'psk' + i" class="vs-card vs-sk">
+          <div class="vs-poster sk"></div>
+          <div class="vs-info">
+            <div class="sk sk-line w70"></div>
+            <div class="vs-meta"><div class="sk sk-line w45"></div></div>
+          </div>
+        </div>
+      </template>
+      <div v-for="v in pushItems" :key="v.id" class="vs-card" @click="open(v)">
+        <div class="vs-poster">
+          <VideoPoster :video="v" />
+          <div v-if="!v.script" class="vs-poster-body"><div class="vs-poster-t">{{ v.title || v.knowledge_name }}</div></div>
+          <span class="vs-play">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+          <span class="vs-angle">{{ ANGLE_LABELS[v.angle] || '讲解' }}</span>
+          <span class="vs-dur">{{ Math.round(v.audio_duration || 90) }}s</span>
+        </div>
+        <div class="vs-info">
+          <div class="vs-name">{{ v.title || v.knowledge_name }}</div>
+          <div class="vs-meta">
+            <span class="vs-author">{{ pushSourceLabel(v.push_source) }}</span>
+            <span class="vs-stats">
+              <i class="svg">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              </i>{{ fmt(v.views_count) }}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div v-if="!pushLoading && !pushItems.length" class="vs-empty">
+        还没有推送 —— 生成题目或做学习计划时，相关知识点的讲解会自动出现在这里
+      </div>
     </div>
 
     <!-- 生成弹窗 -->
@@ -200,8 +243,11 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getVideoSquare, getVideoSubjects, getMyVideos, getMyFavoriteVideos,
          generateMyVideo, publishMyVideo, retryMyVideo, deleteMyVideo } from '@/api/videoSocial'
+import { getMyPushes } from '@/api/video'
 import { ANGLE_LABELS } from '@/utils/videoLib'
 import VideoPoster from '@/components/VideoPoster.vue'
+import { isDesktop, openExternal } from '@/desktop'
+import { registerCtxMenu, copyText } from '@/desktop/ctxMenu'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -240,6 +286,14 @@ function statusLabel(v) {
   return '仅自己可见'
 }
 
+/** 推送来源的中文说明 —— 让用户知道这条**为什么**出现在他的推送里 */
+function pushSourceLabel(src) {
+  if (src === 'resource') return '来自生成题目'
+  if (src === 'plan') return '来自学习计划'
+  if (src === 'practice') return '来自做题'
+  return '系统推送'
+}
+
 function open(v) { router.push(`/video/${v.id}`) }
 
 function myCardClick(v) {
@@ -253,6 +307,31 @@ function switchTab(t) {
   tab.value = t
   if (t === 'fav') loadFav()
   if (t === 'mine') loadMine()
+  if (t === 'push') loadPushes()
+}
+
+// ===== 「推送」分类（2026-10-01 新增）=====
+// 和「我的视频」分开：
+//   我的视频 = 我主动点「生成我的视频」建的
+//   推送     = 我**生成题目 / 建计划**时，按知识点顺带触发出来的讲解
+//
+// ⚠️ 视频本身是全站共享的（一个知识点只有一条，(subject, knowledge_key, angle) 唯一格），
+//    所以「推送」记的是「这条和我有关」，不是「这条归我」——
+//    数据在后端 user_video_pushes 里，见 sql/user_video_pushes.sql。
+const pushItems = ref([])
+const pushLoading = ref(false)
+
+async function loadPushes() {
+  pushLoading.value = true
+  try {
+    const res = await getMyPushes(authStore.user.id)
+    pushItems.value = res.items || []
+  } catch (e) {
+    console.error('推送列表加载失败:', e)
+    pushItems.value = []
+  } finally {
+    pushLoading.value = false
+  }
 }
 
 async function reload() {
@@ -356,23 +435,70 @@ function onWindowFocus() {
   reloadAll()
 }
 
+// ⚠️ 必须是具名函数才能 removeEventListener（2026-10-01 修）。
+//    原来这里写的是内联箭头函数，onUnmounted 里只摘了 focus、没摘它 ——
+//    于是**每进一次视频库就多留一个僵尸监听器**，它会在组件已销毁后
+//    继续调 reloadAll()，往一个不存在的页面里灌请求和状态。
+function onVisibilityChange() {
+  if (!document.hidden) reloadAll()
+}
+
+// ===== 视频卡片的右键菜单（2026-10-01）=====
+// 扩展点见 desktop/ctxMenu.js。卡片上右键应该**直接摆出这张卡能干什么**，
+// 而不是让人先点进去再找 —— 这就是「贴着内容」和「通用菜单」的区别。
+//
+// ⚠️ 放在 setup 末尾而不是开头：provider 是闭包，引用了上面那些 ref；
+//    虽然它只在实际右键时才求值（那时 ref 早就有了），但写在末尾读起来
+//    不会让人怀疑「这里能用 items 吗」。
+//
+// 只在桌面版注册：网页版右键还给浏览器（菜单组件本身也是 v-if="isDesktop"）。
+if (isDesktop) {
+  registerCtxMenu('.vs-card', (card) => {
+    const id = card.dataset.videoId
+    if (!id) return []
+    const v = items.value.find(x => x.id === id)
+      || favItems.value.find(x => x.id === id)
+      || myItems.value.find(x => x.id === id)
+    if (!v) return []
+    const shareUrl = `${location.origin}/video/${v.id}`
+    const out = []
+    // 生成中/失败的不给「播放」—— 点了也没东西可放
+    if (!v.status || v.status === 'ready') {
+      out.push({ icon: '▶️', label: '播放', run: () => open(v) })
+    }
+    out.push({ icon: '🔗', label: '复制分享链接', run: () => copyText(shareUrl, '分享链接') })
+    out.push({ icon: '🌐', label: '在浏览器中打开', run: () => openExternal(shareUrl) })
+    // 「我的视频」专有：按卡片自己的状态给，不给用不上的项
+    if (v.status === 'ready' && v.publish_status === 'private') {
+      out.push({ icon: '🚀', label: '发布到广场', run: () => publish(v) })
+    }
+    if (v.status === 'failed') {
+      out.push({ icon: '🔄', label: '重试生成', run: () => retry(v) })
+    }
+    if (myItems.value.some(x => x.id === id)) {
+      out.push({ icon: '🗑', label: '删除', run: () => remove(v) })
+    }
+    return out
+  })
+}
+
 onMounted(() => {
   reload()
   loadSubjects()
   window.addEventListener('focus', onWindowFocus)
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) reloadAll()
-  })
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
 onUnmounted(() => {
   clearMyTimer()
   window.removeEventListener('focus', onWindowFocus)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
 
 <style scoped>
-.vs-page { min-height: calc(100vh - var(--jz-top, 0px)); padding: 20px 28px 60px; }
+.vs-page { height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto; padding: 20px 28px 60px; }
 .vs-topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
 .vs-topbar h1 { display: inline-flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; color: var(--text-primary); margin: 0; }
 .title-icon { width: 22px; height: 22px; color: var(--brand-bright); }

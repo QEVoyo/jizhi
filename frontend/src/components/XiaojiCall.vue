@@ -1815,6 +1815,8 @@ function openGenerateCard(text) {
 
 /** 规划卡：先排草稿，确认后落库 */
 async function openPlanCard(text) {
+  // 学程埋点（2026-10-01）：规划 Agent 被用了一次（从 2026-08-27 起断了）
+  recordAction(authStore.user.id, 'use_plan_agent', { touchpoint: 'xiaoji_plan_card' }).catch(() => {})
   const goal = cleanTopicHint(text) || (text || '').replace(/^(帮我|请|麻烦|给我)/, '').trim().slice(0, 20)
   const card = reactive({ goal, days: 30, minutes: 30, loading: false, error: false, draft: null, creating: false })
   messages.value.push({
@@ -1879,6 +1881,9 @@ async function confirmPlanDraft(card) {
 
 /** 评估卡：复用评估中心的深度分析（带 15 分钟缓存） */
 async function openEvaluateCard() {
+  // 学程埋点（2026-10-01）：评估 Agent 被用了一次。
+  // `use_evaluate_agent` 从 2026-07-11 起没人发过 —— 挂在它上面的任务一直是死的。
+  recordAction(authStore.user.id, 'use_evaluate_agent', { touchpoint: 'xiaoji_eval_card' }).catch(() => {})
   const card = reactive({ loading: true, error: false, data: null })
   messages.value.push({
     role: 'assistant', content: '', is_eval_card: true, evalCard: card,
@@ -1915,6 +1920,9 @@ async function sendMessage(opts = {}) {
   inputText.value = ''
   vocabCards.value = []
   liveRoute.value = { intent: 'chat', matched: '', hit: '' }   // 复位识别显示
+  // 学程埋点（2026-10-01）：发了一条消息。
+  // `chat` 从 2026-08-22 起就没人发过 —— 「发送 N 条消息」那组任务（每日/长期各三条）全断。
+  recordAction(authStore.user.id, 'chat').catch(() => {})
 
   const userMsg = {
     role: 'user',

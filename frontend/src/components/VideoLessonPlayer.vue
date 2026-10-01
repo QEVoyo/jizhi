@@ -263,7 +263,8 @@
         <svg v-if="!playing" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
         <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
       </button>
-      <div class="vlp-progress" @click="seek">
+      <!-- :class 只改光标：禁拖时给个「不可点」的视觉，别让人以为坏了 -->
+      <div class="vlp-progress" :class="{ 'no-seek': !seekable }" @click="seek">
         <i :style="{ width: pct + '%' }"></i>
         <span v-for="(s, i) in sections" :key="i" class="vlp-dot"
               :class="{ on: i === secIndex }"
@@ -302,11 +303,21 @@ import { drawFrame } from '@/utils/videoRender'
 import { exportStoryboardVideo, supportsFastExport } from '@/utils/videoExport'
 import { ANGLE_LABELS } from '@/utils/videoLib'
 import { isDesktop, saveBlobNative } from '@/desktop'
+import { useAuthStore } from '@/stores/auth'
+import { recordAction } from '@/api/career'
 
 const props = defineProps({
   video: { type: Object, required: true },   // video_library 行
   autoplay: { type: Boolean, default: true },
+  // ⚠️ 计划里的视频**不许拖进度**（2026-10-01 用户定调）。
+  //    这是「播完 = 学完」这个检测能成立的前提 —— 能拖到底的话，
+  //    「看完」就成了一个动作而不是一件事，完成判定形同虚设。
+  //    视频库里的视频照旧可拖（默认 true）—— 那是浏览，不是学习任务。
+  seekable: { type: Boolean, default: true },
 })
+
+// 播完往外交代一声：计划详情据此把那行「学习视频」任务标成完成
+const emit = defineEmits(['ended'])
 
 const audioEl = ref(null)
 const stageRef = ref(null)
@@ -692,6 +703,16 @@ function onEnded() {
   onPause()
   cur.value = dur.value
   playedOnce.value = true
+  // 往外抛：调用方据此判断「看完了」（计划里用来标任务完成）
+  emit('ended')
+  // 学程埋点（2026-10-01）：**播完**才算「看了一条视频」。
+  // 埋在这里而不是各个调用方 —— 播放器有 4 个使用处，散着写必然漏。
+  // ⚠️ 计划/做题页的播放器是禁拖的（seekable=false），那个 ended 最可信；
+  //    视频库里的可以拖，拖到底也会记一次 —— 见下面的说明。
+  try {
+    const uid = useAuthStore().user?.id
+    if (uid) recordAction(uid, 'watch_video')
+  } catch { /* 埋点失败绝不影响播放 */ }
 }
 
 // ===== 加载管线（2026-09-05 重写）：画面永不被遮挡；
@@ -768,6 +789,8 @@ function replay() {
 }
 
 function seek(e) {
+  // 禁拖模式下进度条只读（计划里的「学习视频」）
+  if (!props.seekable) return
   const a = audioEl.value
   if (!a || !dur.value) return
   const rect = e.currentTarget.getBoundingClientRect()
@@ -1489,6 +1512,11 @@ defineExpose({ stop, start, downloadVideo })
 .vlp-btn:hover { background: rgba(255, 255, 255, .13); border-color: rgba(94, 208, 255, .4); }
 .vlp-btn svg { width: 15px; height: 15px; display: block; }
 .vlp-time { flex: none; font-size: 11px; color: rgba(232, 237, 247, .65); font-variant-numeric: tabular-nums; }
+/* 禁拖模式（计划里的学习视频）：光标改成默认，且不给 hover 反馈 ——
+   点上去没反应时必须让人看出来「这是设计如此」，而不是以为坏了 */
+.vlp-progress.no-seek { cursor: default; }
+.vlp-progress.no-seek:hover { transform: none; }
+
 .vlp-progress {
   position: relative;
   flex: 1;

@@ -49,7 +49,18 @@
         <span>拾贝</span>
         <span v-if="achieveBadge > 0" class="nav-badge">{{ achieveBadge > 99 ? '99+' : achieveBadge }}</span>
       </div>
-      <div class="nav-item back-item" @click="goCareer" :title="isCollapsed ? '返回学程' : ''">
+      <!-- ⚠️ **总览页上这一项没有意义，直接不显示**（2026-10-01）。
+           它跳的是 `/career`，而总览页就是 `/career` —— 点了 `router.push('/career')`
+           原地不动，看着像坏了。
+           更别扭的是：侧边栏**根本没有「总览」这一项**，所以在总览页上，
+           四个导航项一个都不高亮，唯独这个「返回学程」跟当前页有关却点了没反应。
+           它是个「返回」语义的入口，没有可返回的地方时就该消失。 -->
+      <div
+        v-if="currentPage !== 'career'"
+        class="nav-item back-item"
+        @click="goCareer"
+        :title="isCollapsed ? '返回学程' : ''"
+      >
         <i class="fas fa-arrow-left"></i>
         <span>返回学程</span>
       </div>

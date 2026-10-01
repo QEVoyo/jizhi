@@ -182,7 +182,8 @@ const appVersion = pkg.version
 
 <style scoped>
 .os-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   /* 原为写死的深色渐变（rgba(15,23,42) / rgba(17,24,39)），
      导致本页完全脱离「外观色」——自定义主题/切浅色时这里纹丝不动，
      而文字用的是 var(--text-primary)，浅色下会变成深字压深底。

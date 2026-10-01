@@ -370,7 +370,8 @@ function goQA() {
 
 <style scoped>
 .api-center-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   padding: 30px 20px;
   }
 

@@ -345,27 +345,47 @@ function buildTaskList(aiDays, src) {
     currentDate.setDate(currentDate.getDate() + i)
     const dateStr = currentDate.toISOString().slice(0, 10)
 
+    // 学习内容：只存**摘要**（列表里就显示前两行）。
+    // 详细教学正文按需生成 —— 照学科计划 generate-learning 的先例：
+    // 一次把 N 天的正文全生成会撑爆响应（这条链路前端 90 秒超时），
+    // 而且用户多半不会真的逐天看完，提前生成纯属烧钱。
     taskList.push({
       type: '学习内容', topic: d.topic,
-      description: d.content || `${d.topic} 核心讲解`, date: dateStr
+      description: d.summary || d.content || `${d.topic} 核心讲解`,
+      estimated_minutes: d.estimated_minutes || null,
+      date: dateStr
     })
     if (d.questions) {
       d.questions.forEach(q => {
-        let qt = 'choice'
-        if (q.type === '填空题' || q.type === 'fill') qt = 'fill'
-        else if (q.type === '判断题' || q.type === 'judge') qt = 'judge'
+        // ⚠️ 这里**不再自己映射题型**（2026-10-01）。
+        //    原来只映射「填空 / 判断」，其余一律 'choice' —— 而 'judge'
+        //    根本不在做题页的枚举里（见 utils/questionLabels.js），
+        //    「计算题」「翻译题」也被当成单选题渲染。现在原样透传中文名，
+        //    由后端 `_norm_qtype` 一处归一（那边有全量表）。
+        const qt = q.type || '选择题'
         taskList.push({
           type: '做题', topic: d.topic, question_type: qt,
           question_content: q.question || '',
           options: q.options || [], answer: q.answer || '',
-          difficulty_score: q.difficulty_score || 5, date: dateStr
+          difficulty_score: q.difficulty_score || 5,
+          estimated_minutes: q.estimated_minutes || null,
+          date: dateStr
         })
       })
     }
-    taskList.push({
-      type: '学习视频', topic: d.topic,
-      video_query: d.video_query || d.topic,
-      description: `搜索：${d.video_query || d.topic}`, date: dateStr
+    // 学习视频：**一个知识点一条**（2026-10-01 用户定调）。
+    // 内容多的日子会给出多个知识点 → 自然就出多条视频，不用额外开关。
+    // video_query 保留但语义变了：以前是「B站搜索词」，现在是「要检索的知识点名」，
+    // 由视频库按它去找（找不到就触发懒生成）。
+    const kps = (Array.isArray(d.knowledge_points) && d.knowledge_points.length)
+      ? d.knowledge_points
+      : [d.topic]
+    kps.forEach(kp => {
+      taskList.push({
+        type: '学习视频', topic: kp,
+        video_query: kp,
+        description: kp, date: dateStr
+      })
     })
   })
   tasks.value = taskList
@@ -381,6 +401,7 @@ async function confirmPlan() {
       question_type: t.question_type || '', question_content: t.question_content || '',
       options: t.options || [], answer: t.answer || '',
       difficulty_score: t.difficulty_score || 5,
+      estimated_minutes: t.estimated_minutes || null,
       video_query: t.video_query || '', date: t.date || planInfo.value.startDate
     }))
     const result = await createPlan({
@@ -461,7 +482,8 @@ onMounted(() => { loadProfile(); loadFromRoute() })
 </script>
 
 <style scoped>
-.pp-page { min-height: calc(100vh - var(--jz-top, 0px)); display: flex; justify-content: center; padding: 28px 20px; }
+.pp-page { height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto; display: flex; justify-content: center; padding: 28px 20px; }
 
 .pp-container {
   max-width: 880px; width: 100%; padding: 24px 30px;
