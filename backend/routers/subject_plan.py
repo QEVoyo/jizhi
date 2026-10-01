@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 import httpx, json, uuid, random, re
 from pathlib import Path
 from config import settings
-from services.supabase import get_supabase_headers
+from services.supabase import get_supabase_headers, get_supabase_service_headers
 from utils.auth_middleware import get_current_user, verify_user_match
 from agents.llm_client import call_llm
 from logging_config import logger
@@ -19,6 +19,7 @@ from local_question_bank import (
     get_by_ids as bank_get_by_ids,
     has_bank,
     search_global as bank_search,
+    find_question_unique,
     syllabus_names,
     _banks,  # 用于跨考纲查题
 )
@@ -86,8 +87,13 @@ class DiagnosisSubmit(BaseModel):
 
 class AnswerSubmit(BaseModel):
     user_id: str
-    plan_id: str
+    # ⚠️ 可以是空串 = 「无计划的练习」（视频库 / 资源库直接进来做题的人没有学习计划）。
+    #    2026-10-01 之前这里是必填，于是那两条入口压根提交不了。
+    plan_id: str = ""
     question_id: str
+    # 无计划练习时由前端带上（来源卡片上就有）—— 题库之间 id 会重名，
+    # 没有它就是「跨库猜」，猜错就判错题。有了它就能精确定位。
+    syllabus_id: str = ""
     user_answer: Any
     source: str = "daily"
     task_id: Optional[str] = None
@@ -795,7 +801,35 @@ async def get_today_tasks(plan_id: str, user_id: str = Query(...), current_user:
                 used_ids.add(qq["id"])
             task_with_questions.append({**t, "questions": qs})
 
-        return {"tasks": task_with_questions, "day_number": day_number}
+        # ===== 今日完成度（2026-10-01 新增）=====
+        # 任务 Tab 原来只有一句 `Day N` + 任务列表，**看不出今天做完没有**。
+        #
+        # ⚠️ 不能用「question_count - len(qs)」去推「已做几道」：
+        #    `bank_query` 在库存不足时会返回少于 question_count 的道数，
+        #    那个差值会把「没凑齐」算成「已做」，凭空多出完成度。
+        #    所以直接数 `question_records` 里**今天**产生的记录 —— 这是没有歧义的。
+        today_total = sum(int(t.get("question_count") or 0) for t in tasks)
+        today_done = 0
+        try:
+            day_start = datetime.now(timezone.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0).isoformat()
+            rec_url = (
+                f"{settings.SUPABASE_URL}/rest/v1/question_records"
+                f"?plan_id=eq.{plan_id}&user_id=eq.{user_id}"
+                f"&created_at=gte.{day_start}&select=id"
+            )
+            rec_res = await client.get(rec_url, headers=headers)
+            if rec_res.status_code == 200:
+                today_done = len(rec_res.json())
+        except Exception as e:
+            logger.warning(f"统计今日完成度失败: {e}")
+
+        return {
+            "tasks": task_with_questions,
+            "day_number": day_number,
+            "today_total": today_total,
+            "today_done": today_done,
+        }
 
 
 class LearningContentRequest(BaseModel):
@@ -970,21 +1004,176 @@ async def get_question_stats(plan_id: str, user_id: str = Query(...), current_us
 # ====================================================================
 # 8b. 按 ID 列表取题（做题页用）
 # ====================================================================
+def _adapt_generated_question(row: dict) -> dict:
+    """把 Supabase `questions` 表的一行**适配成题库题的形状**。
+
+    ⚠️ 两边字段名不一样，这一步不做的话做题页是空白的：
+
+        题库题       content: {stem, options}   （SubjectPractice 读的就是 content.stem）
+        AI 生成题    title / options / answer / explanation   ← 扁平，没有 content
+
+    AI 生成侧（`questions.py:generate_question_core`）落库时用的就是这套扁平字段，
+    所以这里往回包一层 content，而不是去改落库。
+    """
+    # test_cases 在表里可能是 JSON 字符串（早期落库的形态）——
+    # 不解析的话，下游 `content.get("test_cases")` 拿到的是一串字符，
+    # 编程题会按「逐字符一个测试点」去判，看起来像莫名其妙的全 WA。
+    tcs = row.get("test_cases")
+    if isinstance(tcs, str):
+        try:
+            tcs = json.loads(tcs)
+        except Exception:
+            tcs = []
+    return {
+        "id": row.get("id"),
+        "question_type": row.get("question_type"),
+        "content": {
+            "stem": row.get("title") or "",
+            "options": row.get("options") or [],
+            "test_cases": tcs or [],
+            "starter_code": row.get("starter_code"),
+        },
+        "answer": row.get("answer"),
+        "explanation": row.get("explanation"),
+        "hint": row.get("hint"),
+        "difficulty_score": row.get("difficulty_score"),
+        "kp_name": row.get("normalized_topic") or row.get("topic") or "",
+        "category": row.get("category"),
+        "title": row.get("title"),
+        "source": "generated",
+    }
+
+
+async def _fetch_generated_questions(ids: List[str]) -> List[dict]:
+    """按 id 从 Supabase `questions` 表取 AI 生成题（内存题库里没有的那些）。"""
+    if not ids:
+        return []
+    url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=in.({','.join(ids)})&select=*"
+    # ⚠️ 先 service_role、失败再试 anon。09-30 那轮实测发现这个项目里
+    #    有的表 anon 能读 service_role 不能（社区那批），也有反过来的，
+    #    「哪把钥匙开哪扇门」不能想当然 —— 所以两条都试，并记下是谁成的。
+    for tag, headers in (("service_role", get_supabase_service_headers()),
+                         ("anon", get_supabase_headers())):
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                res = await client.get(url, headers=headers)
+            if res.status_code < 300:
+                rows = res.json()
+                if not isinstance(rows, list):
+                    rows = []
+                return [_adapt_generated_question(r) for r in rows if isinstance(r, dict)]
+            logger.warning(f"⚠️ 生成题回落取题失败（{tag}）: {res.status_code}")
+        except Exception as e:
+            logger.warning(f"⚠️ 生成题回落取题异常（{tag}）: {e}")
+    return []
+
+
 @router.get("/questions/by-ids")
 async def get_questions_by_ids(
     ids: str = Query(...),
-    syllabus_id: str = Query(...),
+    syllabus_id: str = Query(""),
     user_id: str = Query(""),
 ):
-    """批量获取题目详情 — 题库本地存储，无需登录"""
+    """批量获取题目详情 — 题库本地存储，无需登录。
+
+    2026-10-01 起有三层：
+
+    ① `bank_get_by_ids(syllabus_id, ...)` —— 老路径，按考纲取内存题库
+    ② `find_question_global` —— 跨考纲再找一轮。视频/资源库来做题时没有
+       （或不是）对应考纲的 syllabus_id，而**题目 id 全局唯一**，扫一遍全部库就能找到
+    ③ `_fetch_generated_questions` —— 还找不到的（AI 生成题）去 `questions` 表捞
+
+    没有 ②③ 的话，非学科计划入口（视频库、资源库）的题根本进不了新做题页，
+    只能退回 DoQuestion 旧页 —— 这正是「视频库做题没做好」的一部分。
+
+    ⚠️ 注意 `syllabus_id` 的默认值从**必填改成了可选**：老前端传的是空串，
+    以前会直接返回 []（`get_by_ids` 里 `_banks.get("")` 拿不到库）。
+    """
     id_list = [i.strip() for i in ids.split(",") if i.strip()]
-    questions = bank_get_by_ids(syllabus_id, id_list)
+    questions = bank_get_by_ids(syllabus_id, id_list) if syllabus_id else []
+
+    found = {q.get("id") for q in questions}
+    for qid in [i for i in id_list if i not in found]:
+        # ⚠️ 用 find_question_unique 而不是 find_question_global：
+        #    题库之间 id 会重名（497 个 id 横跨多库），有歧义时必须放弃 ——
+        #    否则会把另一门学科的题当成这道题返回给做题页。
+        _sid, q = find_question_unique(qid)
+        if q:
+            questions.append(q)
+            found.add(qid)
+
+    still = [i for i in id_list if i not in found]
+    if still:
+        questions.extend(await _fetch_generated_questions(still))
+
+    # 还原成请求给的顺序（做题页按这个顺序往下走）
+    order = {qid: i for i, qid in enumerate(id_list)}
+    questions.sort(key=lambda q: order.get(q.get("id"), 1 << 30))
     return {"questions": questions}
 
 
 # ====================================================================
 # 8c. 题库模糊搜索（2026-08-25 小基「发送题目」用，内存零延迟）
 # ====================================================================
+@router.get("/questions/stats")
+async def get_questions_global_stats(ids: str = Query(...)):
+    """题目**全局**统计（所有用户）——「这道题难不难」。
+
+    给做题页显示：提交数 / 通过数 / 通过率 / 平均通过时长。
+
+    ⚠️ 别和 `/plans/{id}/question-states` 搞混，那是**按用户**的：
+    用来给题库列表画掌握度色条（红<40 / 黄40-60 / 绿>60）。
+    这个是**所有人的**，回答的是题目的客观难度。
+
+    做题页里那两个 `通过率: --` / `提交: --` 从上线起就是写死的占位，
+    一直没有接口喂它 —— 这里把它接上。
+
+    ⚠️ PostgREST 禁用了聚合函数（PGRST123），没法 group by，
+    只能拉回来在内存里加。所以**加 limit 并如实上报是否截断**，
+    不能让它悄悄少算（`truncated` 字段）。
+    """
+    id_list = [i.strip() for i in (ids or "").split(",") if i.strip()][:60]
+    if not id_list:
+        return {"stats": {}, "truncated": False}
+
+    headers = get_supabase_headers()
+    cap = 5000
+    url = (f"{settings.SUPABASE_URL}/rest/v1/question_records"
+           f"?question_id=in.({','.join(id_list)})"
+           f"&select=question_id,is_correct,time_spent&limit={cap}")
+    stats: dict = {}
+    truncated = False
+    try:
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            res = await client.get(url, headers=headers)
+        rows = res.json() if res.status_code < 300 else []
+        truncated = len(rows) >= cap
+        agg: dict = {}
+        for r in rows:
+            qid = r.get("question_id")
+            if not qid:
+                continue
+            a = agg.setdefault(qid, {"attempts": 0, "passes": 0, "t_sum": 0, "t_n": 0})
+            a["attempts"] += 1
+            if r.get("is_correct"):
+                a["passes"] += 1
+                t = r.get("time_spent") or 0
+                if t > 0:      # 0 = 没记用时（老数据），别拉低平均
+                    a["t_sum"] += t
+                    a["t_n"] += 1
+        for qid, a in agg.items():
+            stats[qid] = {
+                "attempts": a["attempts"],
+                "passes": a["passes"],
+                "rate": int(a["passes"] / a["attempts"] * 100) if a["attempts"] else 0,
+                # None = 还没有带用时的数据，前端显示「--」而不是 0 秒
+                "avg_time": int(a["t_sum"] / a["t_n"]) if a["t_n"] else None,
+            }
+    except Exception as e:
+        logger.warning(f"题目全局统计查询失败: {e}")
+    return {"stats": stats, "truncated": truncated}
+
+
 @router.get("/questions/search")
 async def search_questions(
     q: str = Query(..., min_length=1),
@@ -1010,13 +1199,33 @@ async def submit_answer(plan_id: str, data: AnswerSubmit, current_user: str = De
     now = datetime.now(timezone.utc).isoformat()
 
     # 先获取计划的 syllabus_id，再用精确 ID 查题
-    plan = await _get_plan_by_id(plan_id, data.user_id)
+    # ⚠️ plan_id 可能为空（视频库/资源库直接来做题）。
+    #    以前无条件 `_get_plan_by_id("")` 会拿空 uuid 去查库，
+    #    而且 sid 拿不到就直接 q=None → **答案恒判错、掌握度也不更新**。
+    plan = await _get_plan_by_id(plan_id, data.user_id) if plan_id else None
     sid = plan.get("syllabus_id", "") if plan else ""
 
+    # 找题分四档，一档比一档宽 —— 找不到就老老实实「没题可判」，
+    # **绝不猜**：判错题的破坏力比判不了大得多。
     q = None
     if sid:
         qs = bank_get_by_ids(sid, [data.question_id])
         q = qs[0] if qs else None
+    if not q and data.syllabus_id:
+        # 无计划练习：前端把来源卡片的 syllabus_id 带过来了（最准的一档）
+        qs = bank_get_by_ids(data.syllabus_id, [data.question_id])
+        if qs:
+            q, sid = qs[0], data.syllabus_id
+    if not q:
+        # 跨库兜底 —— 只在 id 唯一时才算数（重名的一律放弃）
+        _sid, _q = find_question_unique(data.question_id)
+        if _q:
+            q, sid = _q, _sid
+    if not q:
+        # AI 生成题不在内存题库里 → 去 Supabase questions 表捞（带形状适配）
+        _gq = await _fetch_generated_questions([data.question_id])
+        if _gq:
+            q = _gq[0]
 
     is_correct = False
     ai_feedback = None
@@ -1058,7 +1267,9 @@ async def submit_answer(plan_id: str, data: AnswerSubmit, current_user: str = De
     # 写入答题记录
     record = {
         "id": str(uuid.uuid4()),
-        "plan_id": plan_id,
+        # ⚠️ 用 `or None` 而不是空串：question_records.plan_id 是 uuid 列，
+        #    传 "" 会被 PostgREST 判成非法 uuid 而整条记录写不进去。
+        "plan_id": plan_id or None,
         "user_id": data.user_id,
         "question_id": data.question_id,
         "user_answer": str(data.user_answer),
@@ -1069,7 +1280,21 @@ async def submit_answer(plan_id: str, data: AnswerSubmit, current_user: str = De
         "created_at": now,
     }
     async with httpx.AsyncClient(timeout=30.0) as client:
-        await client.post(f"{settings.SUPABASE_URL}/rest/v1/question_records", headers=headers, json=record)
+        rec_res = await client.post(
+            f"{settings.SUPABASE_URL}/rest/v1/question_records", headers=headers, json=record)
+
+    # ⚠️ **必须查状态码**（2026-10-01 补）。
+    #    httpx 对 4xx **不抛异常**，所以过去这里写失败是**完全静默**的：
+    #    用户看到判分、看到对错，库里一条记录都没有，掌握度也不动。
+    #    实测的那个 case：无计划练习（视频库/资源库来的）传 plan_id=null，
+    #    而 question_records.plan_id 是 NOT NULL → 必然 400 → 全部静默丢掉。
+    #    迁移见 sql/fix_records_nullable_plan.sql。
+    #
+    #    这里**抛错而不是吞掉**：记录是「这次作答算不算数」的唯一凭据，
+    #    写不进去就不能假装成功 —— 宁可让用户重试。
+    if rec_res.status_code >= 300:
+        logger.error(f"答题记录写入失败 [{rec_res.status_code}]: {rec_res.text[:300]}")
+        raise HTTPException(status_code=502, detail="答题记录保存失败，本次作答未计入，请重试")
 
     # 更新知识点掌握度（聚合：先查再 UPDATE / INSERT）
     if q:
@@ -1077,9 +1302,12 @@ async def submit_answer(plan_id: str, data: AnswerSubmit, current_user: str = De
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 # 查询是否已有该知识点的掌握度记录
+                # 无计划练习（plan_id 为空）时按 `plan_id is null` 找 ——
+                # 视频/资源库来的掌握度单独一桶，不混进任何学习计划。
+                plan_filter = f"plan_id=eq.{plan_id}" if plan_id else "plan_id=is.null"
                 lookup_url = (
                     f"{settings.SUPABASE_URL}/rest/v1/user_kp_mastery"
-                    f"?user_id=eq.{data.user_id}&plan_id=eq.{plan_id}&kp_name=eq.{kp}"
+                    f"?user_id=eq.{data.user_id}&{plan_filter}&kp_name=eq.{kp}"
                     f"&limit=1"
                 )
                 lookup_res = await client.get(lookup_url, headers=headers)
@@ -1097,19 +1325,23 @@ async def submit_answer(plan_id: str, data: AnswerSubmit, current_user: str = De
                         f"{settings.SUPABASE_URL}/rest/v1/user_kp_mastery"
                         f"?id=eq.{row['id']}"
                     )
-                    await client.patch(patch_url, headers=headers, json={
+                    up = await client.patch(patch_url, headers=headers, json={
                         "total_count": total_count,
                         "correct_count": correct_count,
                         "mastery_score": new_score,
                         "last_practiced_at": now,
                         "updated_at": now,
                     })
+                    # 掌握度是**派生数据**：写不进去不该让整次作答失败
+                    # （记录已经落库了），但必须留下痕迹，别静默。
+                    if up.status_code >= 300:
+                        logger.warning(f"掌握度更新失败 [{up.status_code}]: {up.text[:200]}")
                 else:
                     # 首次插入
                     kp_row = {
                         "id": str(uuid.uuid4()),
                         "user_id": data.user_id,
-                        "plan_id": plan_id,
+                        "plan_id": plan_id or None,
                         "kp_name": kp,
                         "kp_id": q.get("kp_id") or kp,
                         "category": q.get("category"),
@@ -1121,11 +1353,13 @@ async def submit_answer(plan_id: str, data: AnswerSubmit, current_user: str = De
                         "created_at": now,
                         "updated_at": now,
                     }
-                    await client.post(
+                    ins = await client.post(
                         f"{settings.SUPABASE_URL}/rest/v1/user_kp_mastery",
                         headers=headers,
                         json=kp_row
                     )
+                    if ins.status_code >= 300:
+                        logger.warning(f"掌握度首次写入失败 [{ins.status_code}]: {ins.text[:200]}")
         except Exception as e:
             logger.warning(f"更新掌握度失败: {e}")
 
@@ -1135,6 +1369,23 @@ async def submit_answer(plan_id: str, data: AnswerSubmit, current_user: str = De
         "correct_answer": q.get("answer") if q and q.get("question_type") not in ("translation", "essay") else None,
         "explanation": q.get("explanation") if q else None,
     }
+
+
+@router.post("/practice/submit")
+async def submit_practice_answer(
+    data: AnswerSubmit, current_user: str = Depends(get_current_user)
+):
+    """**无学习计划**的练习提交 —— 视频库 / 资源库直接进来做题的人用（2026-10-01）。
+
+    为什么不复用 `/plans/{plan_id}/submit`：plan_id 是 URL 里的一个**路径段**，
+    没有计划时前端只能拼出 `/plans//submit`，Starlette 匹配不上那条路由。
+    所以单开一条，实现完全共用（传空 plan_id 即「无计划」）。
+
+    无计划时的落法：答题记录 `question_records.plan_id = null`；
+    掌握度也单独记在 `user_kp_mastery` 里 `plan_id is null` 那一桶 ——
+    **不挂到、也不污染任何学习计划的进度**。
+    """
+    return await submit_answer("", data, current_user)
 
 
 # ====================================================================
@@ -1299,37 +1550,21 @@ class CodeSubmit(BaseModel):
 async def _load_question_for_code(question_id: str, syllabus_id: str = ""):
     """按 id 取题：先本地题库（学科计划题），再 Supabase questions 表（AI 生成题）。
 
-    旧版只查本地题库 —— AI 生成的编程题不在里面，提交必然 404。
+    AI 生成的编程题不在本地题库里，旧版只查题库 → 提交必然 404。
     返回 (题目 dict, 来源标记)，取不到返回 (None, None)。
+
+    2026-10-01：Supabase 那一段与 `by-ids` / `submit_answer` 合并到
+    `_fetch_generated_questions` + `_adapt_generated_question` ——
+    「questions 表长什么样」「用哪把钥匙读」只留一处，
+    不然三处各写一份，改一处忘两处。
     """
     if syllabus_id:
         qs = bank_get_by_ids(syllabus_id, [question_id])
         if qs:
             return qs[0], "bank"
-
-    headers = get_supabase_headers()
-    url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}&select=*"
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            res = await client.get(url, headers=headers)
-        if res.status_code == 200 and res.json():
-            row = res.json()[0]
-            # 生成题把题干存在 title、用例存在 test_cases 列 → 拼成本地题库的 content 形状
-            tcs = row.get("test_cases")
-            if isinstance(tcs, str):
-                try:
-                    tcs = json.loads(tcs)
-                except Exception:
-                    tcs = []
-            return {
-                "id": row.get("id"),
-                "question_type": row.get("question_type"),
-                "answer": row.get("answer"),
-                "starter_code": row.get("starter_code"),
-                "content": {"stem": row.get("title") or "", "test_cases": tcs or []},
-            }, "generated"
-    except Exception as e:
-        logger.info(f"生成题查询失败: {e}")
+    got = await _fetch_generated_questions([question_id])
+    if got:
+        return got[0], "generated"
     return None, None
 
 

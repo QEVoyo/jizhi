@@ -42,6 +42,17 @@ export function submitAnswer(planId, data) {
   return request.post(`/subject-plan/plans/${planId}/submit`, data).then(r => r.data)
 }
 
+/**
+ * 无学习计划的练习提交 —— 视频库 / 资源库直接进来做题时用（2026-10-01）。
+ *
+ * ⚠️ **不能拿空 planId 去调 submitAnswer**：那条路由的 planId 是 URL 里的
+ *    一个路径段，拼出来是 `/subject-plan/plans//submit`，后端根本匹配不上。
+ *    后端为此单开了 `/practice/submit`，实现与有计划那条完全共用。
+ */
+export function submitPractice(data) {
+  return request.post('/subject-plan/practice/submit', data).then(r => r.data)
+}
+
 // ===== 题目作答状态 =====
 export function getQuestionStates(planId, userId) {
   return request.get(`/subject-plan/plans/${planId}/question-states`, { params: { user_id: userId } }).then(r => r.data)

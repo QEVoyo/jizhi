@@ -415,7 +415,8 @@ onMounted(() => {
 
 <style scoped>
 .evaluation-table-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   display: flex;
   justify-content: center;
   align-items: flex-start;

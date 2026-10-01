@@ -26,6 +26,21 @@ export const useNavStore = defineStore('nav', () => {
   function closeSearch() { searchOpen.value = false }
   function toggleSearch() { searchOpen.value = !searchOpen.value }
 
+  // 「带关键词打开全局搜索」（2026-10-01）—— 桌面版右键菜单的「搜索选中文字」用。
+  //
+  // ⚠️ 种子是**一次性**的：GlobalSearch 打开时 take 走并清空。
+  //    不清的话，之后每次 Ctrl+K 都会把上次那个词莫名其妙地填回去。
+  const searchSeed = ref('')
+  function openSearchWith(seed) {
+    searchSeed.value = String(seed || '')
+    searchOpen.value = true
+  }
+  function takeSearchSeed() {
+    const s = searchSeed.value
+    searchSeed.value = ''
+    return s
+  }
+
   // ===== 搜索数据缓存 =====
   const syllabi = ref([])        // 考纲 + 真题卷（一次接口全拿，会话内缓存）
   const syllabiLoaded = ref(false)
@@ -121,6 +136,7 @@ export const useNavStore = defineStore('nav', () => {
 
   return {
     searchOpen, openSearch, closeSearch, toggleSearch,
+    openSearchWith, takeSearchSeed,
     syllabi, loadSyllabi, wordbook, loadWordbook,
     recentPages, recordRecent, removeRecent, clearRecent,
     searchHistory, recordSearch, removeSearch, clearSearch,

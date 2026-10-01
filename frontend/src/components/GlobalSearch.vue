@@ -168,7 +168,9 @@ function close() { navStore.closeSearch() }
 // ===== 打开面板：清空、聚焦、拉数据 =====
 watch(() => navStore.searchOpen, (open) => {
   if (!open) return
-  query.value = ''
+  // 右键菜单的「搜索选中文字」会带一个**一次性**种子词进来；平时它是空串。
+  // 这里 take 而不是 read —— 取走即清，免得之后每次 Ctrl+K 都把它填回来。
+  query.value = navStore.takeSearchSeed()
   activeGroup.value = 0
   activeIdx.value = 0
   pickerOpen.value = false

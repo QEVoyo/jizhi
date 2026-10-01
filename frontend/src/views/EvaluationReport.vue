@@ -301,6 +301,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { recordAction } from '@/api/career'
 import { useThemeStore, hexToRgb } from '@/stores/theme'
 import { ElMessage } from 'element-plus'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
@@ -598,6 +599,12 @@ function onResize() {
 onMounted(() => {
   loadData()
   window.addEventListener('resize', onResize)
+  // 学程埋点（2026-10-01）：看了一次学情报告。
+  // `view_report` 从 2026-07-22 起没人发过 —— 「查看学情报告 N 次」那组任务是死的。
+  try {
+    const uid = useAuthStore().user?.id
+    if (uid) recordAction(uid, 'view_report')
+  } catch { /* 埋点失败不影响看报告 */ }
 })
 onUnmounted(() => {
   window.removeEventListener('resize', onResize)
@@ -608,7 +615,8 @@ onUnmounted(() => {
 
 <style scoped>
 .evaluation-report-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   display: flex;
   justify-content: center;
   align-items: flex-start;

@@ -60,9 +60,14 @@
                 <h4>限制</h4>
                 <p class="lg-constraints">{{ parsedProblem.constraints }}</p>
               </div>
+              <!-- 全局统计（所有人的）：以前这里是写死的 `--` -->
               <div class="lg-section lg-meta-row">
-                <span class="lg-meta-item">通过率: --</span>
-                <span class="lg-meta-item">提交: --</span>
+                <span class="lg-meta-item">
+                  通过率: {{ currentStats ? currentStats.rate + '%' : '--' }}
+                  <template v-if="currentStats">（{{ currentStats.passes }}/{{ currentStats.attempts }}）</template>
+                </span>
+                <span class="lg-meta-item">提交: {{ currentStats ? currentStats.attempts : '--' }}</span>
+                <span class="lg-meta-item">平均通过: {{ currentStats ? fmtDuration(currentStats.avg_time) : '--' }}</span>
               </div>
             </div>
             <!-- 右侧：代码编辑器 -->
@@ -105,6 +110,15 @@
           <span class="q-badge" :class="'bdg-' + question.category">{{ categoryLabel(question.category) }}</span>
           <span class="q-type">{{ typeLabel(question.question_type) }}</span>
           <span class="q-diff">{{ '★'.repeat(question.difficulty || 1) }}</span>
+        </div>
+        <!-- 全局统计（所有人的）—— 非编程题这条路上原来没有这块 -->
+        <div class="q-stats-line">
+          <span>通过率 <b>{{ currentStats ? currentStats.rate + '%' : '--' }}</b>
+            <template v-if="currentStats">（{{ currentStats.passes }}/{{ currentStats.attempts }}）</template>
+          </span>
+          <span>提交 <b>{{ currentStats ? currentStats.attempts : '--' }}</b></span>
+          <span>平均通过 <b>{{ currentStats ? fmtDuration(currentStats.avg_time) : '--' }}</b></span>
+          <span v-if="statsTruncated" class="q-stats-warn" title="样本超过上限，统计的是最近一部分">⚠ 截断</span>
         </div>
         <div class="q-stem">{{ getStem(question) }}</div>
         </template>
@@ -212,10 +226,55 @@
         <div v-if="feedback.ai_feedback?.feedback" class="fb-ai">{{ feedback.ai_feedback.feedback }}</div>
         <div v-if="feedback.correct_answer" class="fb-correct">正确答案：{{ feedback.correct_answer }}</div>
         <div class="fb-nav">
+          <!-- 再做一次：错了、或者想刷高分，都可以原地重来（2026-10-01 用户定调）。
+               学科计划这条线原来做完只能「下一题」，错了没有回头路。 -->
+          <button class="btn-test" @click="retryQuestion">🔄 再做一次</button>
           <button v-if="qIndex < questionIds.length - 1" class="btn-primary" @click="nextQuestion">下一题</button>
-          <button v-else class="btn-primary" @click="$router.back()">完成，返回</button>
+          <!-- 从自定义计划来的回计划详情（return_to），其余沿用原来的返回 -->
+          <button v-else class="btn-primary" @click="finishAndReturn">完成，返回</button>
         </div>
       </div>
+
+      <!-- 知识点讲解视频（2026-10-01 新增）。
+           这一页以前**一个视频都没有** —— 而视频其实早就在库里等着：
+           AI 出的题在出题时就排产了；题库的题（学科计划走的这条）则在这里入场即 ensure。 -->
+      <div v-if="feedback && question && kpName" class="sp-video glass-panel">
+        <div class="spv-head">
+          <span class="spv-title">📺 「{{ kpName }}」知识点讲解</span>
+          <span class="spv-badge">基智自营视频库</span>
+        </div>
+
+        <div v-if="videoLoading" class="spv-tip">正在视频库里找…</div>
+
+        <template v-else-if="videoHits.length">
+          <button v-for="v in shownVideos" :key="v.id" class="spv-item" @click="playingVideo = v">
+            <span class="spv-name">{{ v.title || v.knowledge_name }}</span>
+            <span class="spv-meta">
+              <template v-if="ANGLE_LABELS[v.angle]">{{ ANGLE_LABELS[v.angle] }} · </template>
+              {{ Math.round(v.audio_duration || 90) }}s
+            </span>
+            <span class="spv-go">▶ 播放</span>
+          </button>
+          <!-- 超过 5 条才出「查看更多」 -->
+          <div v-if="videoHits.length > VIDEO_SHOW" class="spv-more" @click="videoExpanded = !videoExpanded">
+            {{ videoExpanded ? '收起' : `查看更多（共 ${videoHits.length} 条）` }}
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="spv-tip">
+            视频库里还没有这个知识点的讲解
+            <button class="spv-gen" @click="loadVideos({ ensure: true })">✦ 生成知识点视频</button>
+          </div>
+          <div v-if="videoTriggered" class="spv-tip sub">已排入生成队列，生成好会自动出现</div>
+        </template>
+      </div>
+
+      <!-- 播放器：计划流程里的视频**禁拖进度**（用户定调「这里不能拉」） -->
+      <el-dialog v-model="playingOpen" width="880px" destroy-on-close :title="kpName || '知识点讲解'">
+        <VideoLessonPlayer v-if="playingVideo" :video="playingVideo" :seekable="false" />
+        <p class="spv-note">这段视频不能拖动进度条 —— 从头看完才算学过。</p>
+      </el-dialog>
 
       <!-- 全部完成 -->
       <div v-if="allDone" class="done-state glass-panel">
@@ -234,7 +293,13 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { submitAnswer as apiSubmit } from '@/api/subjectPlan'
+import { submitAnswer as apiSubmit, submitPractice as apiSubmitPractice } from '@/api/subjectPlan'
+import { recordTaskAnswer } from '@/api/learningPlan'
+import { getVideoRelated, ensureVideoLib } from '@/api/video'
+import { knowledgeKey, ANGLE_LABELS } from '@/utils/videoLib'
+import VideoLessonPlayer from '@/components/VideoLessonPlayer.vue'
+import { ElMessage } from 'element-plus'
+import { recordAction } from '@/api/career'
 import request from '@/utils/request'
 import { typeLabel, buildCategoryMap, isSingleChoice, isMultiChoice, isLongTextType, longTextPlaceholder } from '@/utils/questionLabels'
 
@@ -254,6 +319,162 @@ const runOutput = ref('')
 const questions = ref([])
 const qIndex = ref(0)
 const question = computed(() => questions.value[qIndex.value] || null)
+
+// ===== 题目全局统计（所有人的，2026-10-01）=====
+// 回答「这道题难不难」：提交数 / 通过数 / 通过率 / 平均通过时长。
+// ⚠️ 和后端 `/plans/{id}/question-states` 不是一回事 —— 那个是**按用户**的
+//    （题库列表的掌握度色条）。这个统计的是所有人。
+// 做题页那两个 `通过率: --` / `提交: --` 从上线起就是写死的占位，这里把它接上。
+const qStats = ref({})            // { [questionId]: {attempts, passes, rate, avg_time} }
+const statsTruncated = ref(false)
+const currentStats = computed(() => qStats.value[question.value?.id] || null)
+
+async function loadQuestionStats() {
+  const ids = questionIds.value
+  if (!ids.length) return
+  try {
+    const res = await request.get('/subject-plan/questions/stats', { params: { ids: ids.join(',') } })
+    qStats.value = res.data?.stats || {}
+    statsTruncated.value = !!res.data?.truncated
+  } catch (e) {
+    // 统计拿不到不该影响做题 —— 页面会显示「--」
+    console.warn('题目统计拉取失败:', e)
+  }
+}
+
+/** 秒 → 「1分23秒」/「45秒」 */
+function fmtDuration(sec) {
+  if (sec == null) return '--'
+  const s = Math.max(0, Math.round(sec))
+  return s < 60 ? `${s}秒` : `${Math.floor(s / 60)}分${s % 60}秒`
+}
+
+// ===== 知识点讲解视频（2026-10-01）=====
+// 这一页以前**一个视频都没有** —— 而视频其实早就在库里等着了。
+//
+// 两条来源：
+//   · AI 出的题：出题时 `questions.py` 就已经入队排产了（用户做完题，视频刚好）
+//   · **题库的题（学科计划走的这条）**：没有「出题那一刻」，所以这里**进场就 ensure**
+//     —— 也就是你说的「没有就生成」，靠做题的这几分钟把生成时间填掉。
+//
+// ⚠️ 只认 `match_score >= 90`：那是**真属于这个知识点**的（100 本知识点 /
+//    90 同知识点只是 subject 命名不同）。70 同学科、55 全局热门是**推荐不是答案** ——
+//    拿它们冒充，用户看到的就全是「无关的东西」（自定义计划那边刚踩过）。
+const kpName = computed(() =>
+  question.value?.kp_name || question.value?.normalized_topic
+  || question.value?.topic || question.value?.sub_category || '')
+
+const videoHits = ref([])
+const videoLoading = ref(false)
+const videoTriggered = ref(false)
+const videoExpanded = ref(false)
+const playingVideo = ref(null)
+const playingOpen = computed({
+  get: () => !!playingVideo.value,
+  set: (v) => { if (!v) playingVideo.value = null },
+})
+
+const VIDEO_SHOW = 5
+const shownVideos = computed(() =>
+  videoExpanded.value ? videoHits.value : videoHits.value.slice(0, VIDEO_SHOW))
+
+let videoPollTimer = null
+function pollVideos(key, subject, tries = 0) {
+  clearTimeout(videoPollTimer)
+  // ⚠️ 间隔 8s → 3s，次数 8 → 25（2026-10-01）：
+  //    实测单条视频 25~48 秒就绪，8 秒一跳意味着最多白等 8 秒才看见它出来。
+  //    次数同步提到 25，保证总窗口还在 ~75 秒，没有缩短。
+  if (tries >= 25) return
+  videoPollTimer = setTimeout(async () => {
+    try {
+      const res = await getVideoRelated({ knowledge_key: key, subject, limit: 8 })
+      videoHits.value = (res?.items || []).filter(i => (i.match_score || 0) >= 90)
+    } catch { /* 轮询失败就算了，下次进题还会查 */ }
+    if (!videoHits.value.length) pollVideos(key, subject, tries + 1)
+  }, 3000)
+}
+
+async function loadVideos({ ensure = false } = {}) {
+  const kp = kpName.value
+  if (!kp) { videoHits.value = []; return }
+  const subject = syllabusId || question.value?.syllabus_id
+    || question.value?.category || '通用'
+  const key = knowledgeKey(subject, kp)
+  videoLoading.value = true
+  videoTriggered.value = false
+  try {
+    if (ensure) {
+      const r = await ensureVideoLib({
+        knowledge_key: key, knowledge_name: kp, subject,
+        goal: 1,                                    // 「1 个保底」
+        user_id: authStore.user?.id || '',
+        source: 'practice', source_ref: question.value?.id || '',
+      })
+      videoTriggered.value = !!r?.triggered
+      pollVideos(key, subject)
+    }
+    const res = await getVideoRelated({ knowledge_key: key, subject, limit: 8 })
+    videoHits.value = (res?.items || []).filter(i => (i.match_score || 0) >= 90)
+  } catch (e) {
+    console.warn('视频库检索失败:', e)
+    videoHits.value = []
+  } finally {
+    videoLoading.value = false
+  }
+}
+
+/**
+ * 再做一次（2026-10-01 用户定调）。
+ * 清掉反馈与作答、停在**同一道题**上重新计时 —— 学科计划这条线原来做完
+ * 就只能「下一题」，错了没有回头路。重做会写一条新的 question_records，
+ * 掌握度按 EWMA 自然演进（不像自定义计划那样有 best_correct 的最佳率）。
+ */
+function retryQuestion() {
+  feedback.value = null
+  testResults.value = null
+  passedPoints.value = 0
+  totalPoints.value = 0
+  judgePassed.value = false
+  selectedIndex.value = -1
+  multiSelected.value = []
+  fillAnswer.value = ''
+  clozeAnswers.value = []
+  startTimer()
+  nextTick(() => fillInput.value?.focus())
+}
+
+// ===== 自定义计划回写（2026-10-01）=====
+// 从计划详情进来的会带 `lp_task`（要回写哪一行 learning_tasks）
+// 和 `return_to`（做完回哪一页）。学科计划那条路不带，行为完全不变。
+const lpTaskId = computed(() => route.query.lp_task || '')
+const returnTo = computed(() => route.query.return_to || '')
+
+/**
+ * 把作答结果回写给自定义计划。
+ * 后端按**最佳率**记：`best_correct` 只从 false 变 true，重做做错不回退。
+ */
+async function reportToPlan(isCorrect) {
+  if (!lpTaskId.value) return
+  try {
+    await recordTaskAnswer({
+      user_id: authStore.user.id,
+      task_id: lpTaskId.value,
+      is_correct: !!isCorrect,
+      user_answer: String(fillAnswer.value ?? ''),
+      time_spent: timerSeconds.value,
+    })
+  } catch (e) {
+    // 回写失败要说出来 —— 静默的话用户以为记上了，实际计划里没有
+    console.error('计划作答回写失败:', e)
+    ElMessage.warning('这次作答没记进计划，稍后可以再做一次')
+  }
+}
+
+/** 做完最后一题：回计划详情（如果是从计划来的），否则沿用原来的返回 */
+function finishAndReturn() {
+  if (returnTo.value) { router.push(returnTo.value); return }
+  router.back()
+}
 const selectedIndex = ref(-1)
 const multiSelected = ref([])
 const fillAnswer = ref('')
@@ -450,7 +671,7 @@ async function loadQuestions() {
     const res = await request.get('/subject-plan/questions/by-ids', { params })
     questions.value = res.data?.questions || []
     if (!questions.value.length) { allDone.value = true }
-    else { startTimer() }
+    else { startTimer(); loadQuestionStats() }   // 统计与题目并行拉，不阻塞出题
   } catch (e) { console.error(e) } finally { loading.value = false; nextTick(() => fillInput.value?.focus()) }
 }
 
@@ -489,6 +710,7 @@ async function doSubmit() {
         language: codeLanguage.value,
         code: fillAnswer.value,
         source: 'daily',
+        time_spent: timerSeconds.value,   // 同上：以前也没传
       })
       const d = res.data
       if (d.has_test_cases) {
@@ -500,6 +722,10 @@ async function doSubmit() {
         // 无测试用例 → 显示 AI 批改
         feedback.value = d
       }
+      // 学程埋点：编程题也算「做了一道题」
+      recordAction(authStore.user.id, 'complete_question')
+      // 自定义计划来的：回写这次判题结果
+      await reportToPlan(d.is_correct)
     } catch (e) { console.error(e) }
     finally { submitting.value = false }
     return
@@ -513,14 +739,28 @@ async function doSubmit() {
   else if (qt === 'cloze') { userAnswer = clozeAnswers.value }
 
   try {
-    const res = await apiSubmit(planId, {
+    const payload = {
       user_id: authStore.user.id,
-      plan_id: planId,
+      plan_id: planId || '',
       question_id: question.value.id,
+      // ⚠️ 题库之间题目 id 会重名（497 个 id 横跨多库），不带 syllabus_id
+      //    后端只能跨库猜 —— 猜错就是拿别的学科的题判分。无计划时尤其重要。
+      syllabus_id: syllabusId || '',
       user_answer: userAnswer,
-      source: 'daily',
-    })
+      source: planId ? 'daily' : 'practice',
+      // ⚠️ 必须传：计时器一直在跑（timerSeconds），但**从来没提交过** ——
+      //    于是 question_records.time_spent 恒为 0，题目全局统计里的
+      //    「平均通过时长」永远算不出来。2026-10-01 补。
+      time_spent: timerSeconds.value,
+    }
+    // 无计划（视频库/资源库直接来做题）走 /practice/submit ——
+    // 有计划那条路由的 planId 是路径段，空值会拼出 /plans//submit 匹配不上。
+    const res = planId ? await apiSubmit(planId, payload) : await apiSubmitPractice(payload)
     feedback.value = res
+    // 学程埋点（2026-10-01）：学科计划做了一道题（含计划详情/视频库/资源库进来的）
+    recordAction(authStore.user.id, 'complete_question')
+    // 自定义计划来的：把这次作答回写（最佳率，重做做错不回退）
+    await reportToPlan(res?.is_correct)
   } catch (e) { console.error(e) } finally { submitting.value = false }
 }
 
@@ -551,17 +791,62 @@ async function fetchLanguages() {
   } catch(e) { /* 默认 python */ }
 }
 onMounted(() => { loadQuestions(); fetchLanguages() })
+
+// 换题就重新查视频 —— 题库的题没有「出题那一刻」，所以这里 `ensure: true`
+// （没有就现排产）。生成要几十秒到几分钟，正好被用户做题的时间盖住。
+watch(() => question.value?.id, (id) => {
+  if (id) loadVideos({ ensure: true })
+})
+
+onUnmounted(() => {
+  stopTimer()
+  clearTimeout(videoPollTimer)
+})
 onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
 </script>
 
 <style scoped>
 /* ==================== 基底：深空背景 ==================== */
 .sp-page {
-  min-height: calc(100vh - var(--jz-top, 0px)); position: relative; padding: 32px 24px 80px;
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto; position: relative; padding: 32px 24px 80px;
   background: var(--bg-color);
   color: var(--text-primary); overflow-x: hidden;
 }
 .sp-page.pgm-mode { height: calc(100vh - var(--jz-top, 0px)); padding: 10px 20px 10px; overflow: hidden; display: flex; flex-direction: column; }
+/* 题目全局统计行（所有人的做题数据，不是自己的） */
+.q-stats-line {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin: 6px 0 2px; font-size: 12px; color: var(--text-muted);
+}
+.q-stats-line b { color: var(--text-secondary); font-weight: 700; }
+.q-stats-warn { color: #e6a23c; cursor: help; }
+
+/* ===== 知识点讲解视频（2026-10-01）===== */
+.sp-video { margin-top: 16px; padding: 16px 20px; border-radius: 14px; }
+.spv-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.spv-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.spv-badge { font-size: 10.5px; padding: 2px 8px; border-radius: 999px; color: var(--brand-bright);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent); }
+.spv-tip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12.5px; color: var(--text-muted); }
+.spv-tip.sub { margin-top: 8px; font-size: 11.5px; color: var(--brand-bright); }
+.spv-item { display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 9px 13px; margin-bottom: 7px; border-radius: 10px; text-align: left;
+  font-family: inherit; font-size: 13px; color: var(--text-primary); cursor: pointer;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  border: 1px solid var(--line-soft); transition: border-color .2s ease, transform .2s ease; }
+.spv-item:hover { border-color: var(--brand); transform: translateX(3px); }
+.spv-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spv-meta { font-size: 11.5px; color: var(--text-muted); }
+.spv-go { font-size: 12px; font-weight: 700; color: var(--brand-bright); }
+.spv-more, .spv-gen { padding: 4px 14px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+  font-family: inherit; color: var(--brand-bright); cursor: pointer;
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent); }
+.spv-more { display: block; width: fit-content; margin: 2px auto 0; }
+.spv-note { margin: 12px 0 0; font-size: 12px; color: var(--text-muted); text-align: center; }
 .sp-page.pgm-mode .sp-bg { display: none; }
 .sp-page.pgm-mode .sp-container { flex: 1; min-height: 0; display: flex; flex-direction: column; max-width: none; }
 .sp-page.pgm-mode .sp-topbar { flex-shrink: 0; margin-bottom: 6px; }

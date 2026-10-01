@@ -63,7 +63,7 @@
         <ul class="guide-notes">
           <li>听力、上机操作等无法模拟的卷面标注「不可练习」，分数按可练部分计算</li>
           <li>词条释义与题目讲解由 AI 生成，仅供参考，重要知识点以教材为准</li>
-          <li>视频推送、视频数字人功能正在建设中，即将上线</li>
+          <li>视频推送已上线：任务旁的「🎬 视频推送」有讲解直接播，没有可一键生成；视频数字人仍在建设中</li>
           <li>全站 AI 调用使用平台官方 Key，无需自行配置即可使用</li>
         </ul>
       </section>
@@ -105,7 +105,8 @@ const modules = [
 
 <style scoped>
 .guide-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   padding: 32px 20px 48px;
   display: flex;
   justify-content: center;

@@ -149,6 +149,22 @@ function loadCache() {
 
 const cache = loadCache()
 
+/**
+ * 本地有没有「改了、但还没点保存到账号」的改动。
+ *
+ * ⚠️ 这个标记是必须的，不是保险丝。
+ *
+ * 启动时 `loadFromAccount` 会**用服务端的值覆盖本地**。对「已保存过」的主题
+ * 这是对的 —— 跨设备同步就靠它。但对**试了一半、还没点保存**的改动就是灾难：
+ * 用户在设置页挑了个背景色、关掉应用，再打开就变回去了。
+ *
+ * 而「保存到账号」这个按钮存在本身就意味着流程是「**先本地试，满意了再同步**」
+ * —— 那试的这一半就必须能活过一次重启，否则按钮的语义是反的。
+ *
+ * 存在本地缓存对象里（字段 `pending`），随主题一起落盘。
+ */
+let cachePending = !!cache?.pending
+
 export const useThemeStore = defineStore('theme', () => {
   // 明暗不再由用户选择（2026-09-03 用户拍板：删浅/深/跟随系统）：
   // resolved 深浅由背景色亮度自动派生；落地页期间由 enterLanding 改为跟随系统
@@ -209,30 +225,43 @@ export const useThemeStore = defineStore('theme', () => {
     }
   }
 
+  // ⚠️ 下面五个 setter 都带 `cachePersist(true)` —— 改动**立刻落盘**。
+  //
+  //    原来它们只改内存 + 改 CSS 变量，**一个字节都不存**：只有点
+  //    「保存到账号」才会写 localStorage，而且那次写还在 `await` 之后。
+  //    于是「挑了个颜色、没点保存、关掉应用」= 白挑（2026-10-01 用户报的
+  //    「设置了外观色，打开后又重置了」就是这个）。
+  //
+  //    true = 这是**还没同步到账号**的本地改动，启动时别被服务端的旧值盖掉。
   function setBrand(color) {
     brandColor.value = color
+    cachePersist(true)
     applyTheme()
   }
 
   function setTextScheme(scheme) {
     textScheme.value = scheme
     textOverrides.value = null
+    cachePersist(true)
     applyTheme()
   }
 
   function setTextOverrides(obj) {
     textScheme.value = 'custom'
     textOverrides.value = obj || null
+    cachePersist(true)
     applyTheme()
   }
 
   function setBg(color) {
     bgColor.value = color || DEFAULT_SET.bg
+    cachePersist(true)
     applyTheme()
   }
 
   function setSurface(color) {
     surfaceColor.value = color || DEFAULT_SET.surface
+    cachePersist(true)
     applyTheme()
   }
 
@@ -256,7 +285,7 @@ export const useThemeStore = defineStore('theme', () => {
       textScheme.value = textScheme
       textOverrides.value = textOverrides || null
     }
-    cachePersist()
+    cachePersist(true)   // 导入外观码也是「还没同步到账号」的本地改动
     applyTheme()
   }
 
@@ -282,24 +311,45 @@ export const useThemeStore = defineStore('theme', () => {
     try {
       const t = await getUserTheme(userId)
       if (!t) return   // 接口还没上线/表未建：保持本地值与默认
+      // ⚠️ 本地有还没同步到账号的改动时，**服务端的旧值不能盖掉它**。
+      //    否则「挑个颜色 → 关掉 → 重开」就会被这里悄悄还原成上次保存过的样子。
+      //    标记会在点「保存到账号」成功后由 cachePersist() 清掉，所以不会永久挡住同步。
+      if (cachePending) return
       // 老账号存的 null（曾表示「跟随模式」）统一映射回默认方案四轴
       brandColor.value = t.brand_color || DEFAULT_SET.brand
       textScheme.value = t.text_scheme || DEFAULT_SET.scheme
       textOverrides.value = t.text_overrides || null
       bgColor.value = t.bg_color || DEFAULT_SET.bg
       surfaceColor.value = t.surface_color || DEFAULT_SET.surface
-      cachePersist()
+      cachePersist()   // 服务端值已采纳 → 本地视为「已同步」
       applyTheme()
     } catch {
       // 静默：网络失败继续用本地
     }
   }
 
-  function cachePersist() {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({
-      brand_color: brandColor.value, text_scheme: textScheme.value,
-      text_overrides: textOverrides.value, bg_color: bgColor.value, surface_color: surfaceColor.value,
-    }))
+  /**
+   * 把当前四轴写进 localStorage。
+   *
+   * @param pending 这次写下去的是不是「还没同步到账号」的本地改动。
+   *   默认 false = 已同步（服务端刚存成功，或刚从服务端读回来）。
+   *   五个 setter 与外观码导入传 true。
+   *
+   * ⚠️ 调用时机有讲究：`Settings.vue` 的「保存到账号」是
+   *    `await updateUserTheme(...)` **成功之后**才调这里 —— 失败就保持
+   *    pending=true，本地改动继续留着，下次启动也不会被旧的服务端值覆盖。
+   */
+  function cachePersist(pending = false) {
+    cachePending = !!pending
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        brand_color: brandColor.value, text_scheme: textScheme.value,
+        text_overrides: textOverrides.value, bg_color: bgColor.value, surface_color: surfaceColor.value,
+        pending: cachePending,
+      }))
+    } catch {
+      // 配额满 / 隐私模式：写不进去也别让设置页崩掉，内存里照样生效
+    }
   }
 
   // ===== 落地页专属：跟随系统明暗（2026-09-03 用户拍板：仅落地页跟系统，无任何可改入口）=====

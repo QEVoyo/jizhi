@@ -90,88 +90,150 @@ ACHIEVEMENT_REWARDS = {
 
 # ========== 播种任务（一次性） ==========
 SEED_TASKS = [
-    {"id": "first_login", "name": "第一次登录", "reward": 5, "value": 1},
-    {"id": "first_nickname", "name": "第一次修改昵称", "reward": 10, "value": 2},
-    {"id": "first_avatar", "name": "第一次上传头像", "reward": 15, "value": 2},
-    {"id": "first_bio", "name": "第一次保存简介", "reward": 10, "value": 2},
-    {"id": "first_chat", "name": "第一次发送消息", "reward": 10, "value": 2},
-    {"id": "first_plan_agent", "name": "第一次使用规划Agent", "reward": 15, "value": 2},
-    {"id": "first_generate_agent", "name": "第一次使用生成Agent", "reward": 15, "value": 2},
-    {"id": "first_evaluate_agent", "name": "第一次使用评估Agent", "reward": 15, "value": 2},
-    {"id": "first_checkin", "name": "第一次完成打卡", "reward": 15, "value": 2},
-    {"id": "first_timer", "name": "第一次使用计时器", "reward": 10, "value": 2},
-    {"id": "first_generate_question", "name": "第一次生成题目", "reward": 20, "value": 3},
-    {"id": "first_complete_question", "name": "第一次完成题目", "reward": 20, "value": 3},
-    {"id": "first_create_set", "name": "第一次创建题集", "reward": 20, "value": 3},
-    {"id": "first_add_to_set", "name": "第一次加入题目到题集", "reward": 15, "value": 2},
-    {"id": "first_conquer_mistake", "name": "第一次攻克错题", "reward": 25, "value": 4},
-    {"id": "first_view_report", "name": "第一次查看学情报告", "reward": 10, "value": 2},
-    {"id": "first_view_career", "name": "第一次查看学程总览", "reward": 10, "value": 2},
+    {"id": "first_login", "name": "第一次登录", "action": "login", "reward": 5, "value": 1},
+    {"id": "first_nickname", "name": "第一次修改昵称", "action": "update_nickname", "reward": 10, "value": 2},
+    {"id": "first_avatar", "name": "第一次上传头像", "action": "update_avatar", "reward": 15, "value": 2},
+    {"id": "first_bio", "name": "第一次保存简介", "action": "update_bio", "reward": 10, "value": 2},
+    {"id": "first_chat", "name": "第一次发送消息", "action": "chat", "reward": 10, "value": 2},
+    {"id": "first_plan_agent", "name": "第一次使用规划Agent", "action": "use_plan_agent", "reward": 15, "value": 2},
+    {"id": "first_generate_agent", "name": "第一次使用生成Agent", "action": "use_generate_agent", "reward": 15, "value": 2},
+    {"id": "first_evaluate_agent", "name": "第一次使用评估Agent", "action": "use_evaluate_agent", "reward": 15, "value": 2},
+    {"id": "first_checkin", "name": "第一次完成打卡", "action": "checkin", "reward": 15, "value": 2},
+    {"id": "first_timer", "name": "第一次使用计时器", "action": "use_timer", "reward": 10, "value": 2},
+    {"id": "first_generate_question", "name": "第一次生成题目", "action": "generate_question", "reward": 20, "value": 3},
+    {"id": "first_complete_question", "name": "第一次完成题目", "action": "complete_question", "reward": 20, "value": 3},
+    {"id": "first_create_set", "name": "第一次创建题集", "action": "create_set", "reward": 20, "value": 3},
+    {"id": "first_add_to_set", "name": "第一次加入题目到题集", "action": "add_to_set", "reward": 15, "value": 2},
+    {"id": "first_conquer_mistake", "name": "第一次攻克错题", "action": "conquer_mistake", "reward": 25, "value": 4},
+    {"id": "first_view_report", "name": "第一次查看学情报告", "action": "view_report", "reward": 10, "value": 2},
+    {"id": "first_view_career", "name": "第一次查看学程总览", "action": "view_career", "reward": 10, "value": 2},
+
+    # ===== 2026-10-01 新增：视频库 / 学科计划 =====
+    # 这两块是产品 8~9 月长出来的主线功能，但**一条首次任务都没有** ——
+    # 老的 17 条全是「昵称/头像/Agent/计时器」那批。埋点见 api/video.js
+    # 与 SyllabusDetail.vue / ExamPaper.vue。
+    {"id": "first_watch_video", "name": "第一次看完讲解视频", "action": "watch_video", "reward": 15, "value": 2},
+    {"id": "first_generate_video", "name": "第一次生成知识点视频", "action": "generate_video", "reward": 20, "value": 3},
+    {"id": "first_diagnosis", "name": "第一次完成摸底诊断", "action": "diagnosis_done", "reward": 25, "value": 3},
+    {"id": "first_exam", "name": "第一次交真题卷", "action": "exam_submit", "reward": 30, "value": 4},
+    {"id": "first_mastery", "name": "第一次查看掌握度", "action": "view_mastery", "reward": 10, "value": 2},
+    {"id": "first_community_post", "name": "第一次发布动态", "action": "community_post", "reward": 15, "value": 2},
+    {"id": "first_wordbook", "name": "第一次查词条", "action": "wordbook_lookup", "reward": 10, "value": 2},
 ]
 
 # ========== 施肥任务（每日） ==========
 DAILY_TASKS = [
-    {"name": "发送 5 条消息", "reward": 10, "value": 1},
-    {"name": "发送 10 条消息", "reward": 15, "value": 2},
-    {"name": "发送 20 条消息", "reward": 20, "value": 3},
-    {"name": "使用计时器 1 次", "reward": 10, "value": 1},
-    {"name": "使用计时器 2 次", "reward": 15, "value": 2},
-    {"name": "使用计时器 4 次", "reward": 20, "value": 3},
-    {"name": "生成 2 道题目", "reward": 15, "value": 2},
-    {"name": "生成 3 道题目", "reward": 20, "value": 3},
-    {"name": "生成 5 道题目", "reward": 25, "value": 4},
-    {"name": "做 5 道题", "reward": 25, "value": 3},
-    {"name": "做 8 道题", "reward": 30, "value": 4},
-    {"name": "做 15 道题", "reward": 40, "value": 5},
-    {"name": "攻克 1 道错题", "reward": 20, "value": 3},
-    {"name": "攻克 2 道错题", "reward": 25, "value": 4},
-    {"name": "攻克 5 道错题", "reward": 40, "value": 5},
-    {"name": "创建 1 个题集", "reward": 15, "value": 2},
-    {"name": "创建 2 个题集", "reward": 20, "value": 3},
-    {"name": "创建 3 个题集", "reward": 30, "value": 4},
-    {"name": "加入 1 道题到题集", "reward": 10, "value": 1},
-    {"name": "加入 3 道题到题集", "reward": 20, "value": 2},
-    {"name": "加入 5 道题到题集", "reward": 25, "value": 3},
-    {"name": "完成 1 次打卡", "reward": 10, "value": 1},
-    {"name": "完成 2 次打卡", "reward": 15, "value": 2},
-    {"name": "完成 3 次打卡", "reward": 15, "value": 3},
-    {"name": "查看学情报告 1 次", "reward": 10, "value": 1},
-    {"name": "查看学情报告 2 次", "reward": 15, "value": 2},
-    {"name": "查看学情报告 3 次", "reward": 15, "value": 3},
-    {"name": "使用规划Agent 1 次", "reward": 10, "value": 1},
-    {"name": "使用规划Agent 2 次", "reward": 15, "value": 2},
-    {"name": "使用规划Agent 3 次", "reward": 15, "value": 3},
-    {"name": "使用生成Agent 3 次", "reward": 15, "value": 2},
-    {"name": "使用生成Agent 5 次", "reward": 20, "value": 3},
-    {"name": "使用生成Agent 10 次", "reward": 30, "value": 4},
-    {"name": "使用评估Agent 1 次", "reward": 10, "value": 1},
-    {"name": "使用评估Agent 2 次", "reward": 15, "value": 2},
-    {"name": "使用评估Agent 3 次", "reward": 15, "value": 3},
+    {"name": "发送 5 条消息", "action": "chat", "target": 5, "reward": 10, "value": 1},
+    {"name": "发送 10 条消息", "action": "chat", "target": 10, "reward": 15, "value": 2},
+    {"name": "发送 20 条消息", "action": "chat", "target": 20, "reward": 20, "value": 3},
+    {"name": "使用计时器 1 次", "action": "use_timer", "target": 1, "reward": 10, "value": 1},
+    {"name": "使用计时器 2 次", "action": "use_timer", "target": 2, "reward": 15, "value": 2},
+    {"name": "使用计时器 4 次", "action": "use_timer", "target": 4, "reward": 20, "value": 3},
+    {"name": "生成 2 道题目", "action": "generate_question", "target": 2, "reward": 15, "value": 2},
+    {"name": "生成 3 道题目", "action": "generate_question", "target": 3, "reward": 20, "value": 3},
+    {"name": "生成 5 道题目", "action": "generate_question", "target": 5, "reward": 25, "value": 4},
+    {"name": "做 5 道题", "action": "complete_question", "target": 5, "reward": 25, "value": 3},
+    {"name": "做 8 道题", "action": "complete_question", "target": 8, "reward": 30, "value": 4},
+    {"name": "做 15 道题", "action": "complete_question", "target": 15, "reward": 40, "value": 5},
+    {"name": "攻克 1 道错题", "action": "conquer_mistake", "target": 1, "reward": 20, "value": 3},
+    {"name": "攻克 2 道错题", "action": "conquer_mistake", "target": 2, "reward": 25, "value": 4},
+    {"name": "攻克 5 道错题", "action": "conquer_mistake", "target": 5, "reward": 40, "value": 5},
+    {"name": "创建 1 个题集", "action": "create_set", "target": 1, "reward": 15, "value": 2},
+    {"name": "创建 2 个题集", "action": "create_set", "target": 2, "reward": 20, "value": 3},
+    {"name": "创建 3 个题集", "action": "create_set", "target": 3, "reward": 30, "value": 4},
+    {"name": "加入 1 道题到题集", "action": "add_to_set", "target": 1, "reward": 10, "value": 1},
+    {"name": "加入 3 道题到题集", "action": "add_to_set", "target": 3, "reward": 20, "value": 2},
+    {"name": "加入 5 道题到题集", "action": "add_to_set", "target": 5, "reward": 25, "value": 3},
+    {"name": "完成 1 次打卡", "action": "checkin", "target": 1, "reward": 10, "value": 1},
+    {"name": "完成 2 次打卡", "action": "checkin", "target": 2, "reward": 15, "value": 2},
+    {"name": "完成 3 次打卡", "action": "checkin", "target": 3, "reward": 15, "value": 3},
+    {"name": "查看学情报告 1 次", "action": "view_report", "target": 1, "reward": 10, "value": 1},
+    {"name": "查看学情报告 2 次", "action": "view_report", "target": 2, "reward": 15, "value": 2},
+    {"name": "查看学情报告 3 次", "action": "view_report", "target": 3, "reward": 15, "value": 3},
+    {"name": "使用规划Agent 1 次", "action": "use_plan_agent", "target": 1, "reward": 10, "value": 1},
+    {"name": "使用规划Agent 2 次", "action": "use_plan_agent", "target": 2, "reward": 15, "value": 2},
+    {"name": "使用规划Agent 3 次", "action": "use_plan_agent", "target": 3, "reward": 15, "value": 3},
+    {"name": "使用生成Agent 3 次", "action": "use_generate_agent", "target": 3, "reward": 15, "value": 2},
+    {"name": "使用生成Agent 5 次", "action": "use_generate_agent", "target": 5, "reward": 20, "value": 3},
+    {"name": "使用生成Agent 10 次", "action": "use_generate_agent", "target": 10, "reward": 30, "value": 4},
+    {"name": "使用评估Agent 1 次", "action": "use_evaluate_agent", "target": 1, "reward": 10, "value": 1},
+    {"name": "使用评估Agent 2 次", "action": "use_evaluate_agent", "target": 2, "reward": 15, "value": 2},
+    {"name": "使用评估Agent 3 次", "action": "use_evaluate_agent", "target": 3, "reward": 15, "value": 3},
+
+    # ===== 2026-10-01 新增：视频 / 掌握度 / 真题卷 =====
+    # ⚠️ 这里**没有**再加「做 N 道题」—— 上面已有的那组用的是 `complete_question`，
+    #    而它以前压根没被埋过点（一张空任务）。现在 SubjectPractice 提交时会记，
+    #    那组老任务自己就活了，不需要新造一套。
+    {"name": "看完 1 条讲解视频", "action": "watch_video", "target": 1, "reward": 10, "value": 1},
+    {"name": "看完 3 条讲解视频", "action": "watch_video", "target": 3, "reward": 20, "value": 2},
+    {"name": "看完 5 条讲解视频", "action": "watch_video", "target": 5, "reward": 30, "value": 3},
+    {"name": "生成 1 个知识点视频", "action": "generate_video", "target": 1, "reward": 20, "value": 2},
+    {"name": "查看掌握度 1 次", "action": "view_mastery", "target": 1, "reward": 10, "value": 1},
+    {"name": "查看掌握度 3 次", "action": "view_mastery", "target": 3, "reward": 15, "value": 2},
+    {"name": "交 1 套真题卷", "action": "exam_submit", "target": 1, "reward": 40, "value": 5},
+    {"name": "查词条 3 个", "action": "wordbook_lookup", "target": 3, "reward": 15, "value": 2},
+    {"name": "查词条 10 个", "action": "wordbook_lookup", "target": 10, "reward": 25, "value": 3},
+    {"name": "发布 1 条动态", "action": "community_post", "target": 1, "reward": 20, "value": 2},
+    {"name": "评论 1 次", "action": "community_comment", "target": 1, "reward": 15, "value": 2},
 ]
 
 # ========== 发芽任务（长期） ==========
 LONG_TASKS = [
-    {"name": "累计打卡 3 天", "reward": 20, "value": 2},
-    {"name": "累计打卡 7 天", "reward": 30, "value": 2},
-    {"name": "累计打卡 30 天", "reward": 100, "value": 3},
-    {"name": "累计做 10 道题", "reward": 20, "value": 2},
-    {"name": "累计做 50 道题", "reward": 50, "value": 2},
-    {"name": "累计做 200 道题", "reward": 150, "value": 3},
-    {"name": "累计生成 5 道题", "reward": 15, "value": 2},
-    {"name": "累计生成 20 道题", "reward": 40, "value": 2},
-    {"name": "累计生成 50 道题", "reward": 100, "value": 3},
-    {"name": "累计攻克 5 道错题", "reward": 20, "value": 2},
-    {"name": "累计攻克 20 道错题", "reward": 50, "value": 2},
-    {"name": "累计攻克 50 道错题", "reward": 120, "value": 3},
-    {"name": "累计创建 3 个题集", "reward": 15, "value": 2},
-    {"name": "累计创建 10 个题集", "reward": 40, "value": 2},
-    {"name": "累计创建 30 个题集", "reward": 100, "value": 3},
-    {"name": "累计加入 5 道题到题集", "reward": 10, "value": 1},
-    {"name": "累计加入 20 道题到题集", "reward": 30, "value": 2},
-    {"name": "累计加入 50 道题到题集", "reward": 80, "value": 3},
-    {"name": "累计使用AI对话 10 次", "reward": 15, "value": 2},
-    {"name": "累计使用AI对话 50 次", "reward": 40, "value": 2},
-    {"name": "累计使用AI对话 200 次", "reward": 100, "value": 3},
+    {"name": "累计打卡 3 天", "action": "checkin", "target": 3, "reward": 20, "value": 2, "requires": None},
+    {"name": "累计打卡 7 天", "action": "checkin", "target": 7, "reward": 30, "value": 2, "requires": "累计打卡 3 天"},
+    {"name": "累计打卡 30 天", "action": "checkin", "target": 30, "reward": 100, "value": 3, "requires": "累计打卡 7 天"},
+    {"name": "累计做 10 道题", "action": "complete_question", "target": 10, "reward": 20, "value": 2, "requires": None},
+    {"name": "累计做 50 道题", "action": "complete_question", "target": 50, "reward": 50, "value": 2, "requires": "累计做 10 道题"},
+    {"name": "累计做 200 道题", "action": "complete_question", "target": 200, "reward": 150, "value": 3, "requires": "累计做 50 道题"},
+    {"name": "累计生成 5 道题", "action": "generate_question", "target": 5, "reward": 15, "value": 2, "requires": None},
+    {"name": "累计生成 20 道题", "action": "generate_question", "target": 20, "reward": 40, "value": 2, "requires": "累计生成 5 道题"},
+    {"name": "累计生成 50 道题", "action": "generate_question", "target": 50, "reward": 100, "value": 3, "requires": "累计生成 20 道题"},
+    {"name": "累计攻克 5 道错题", "action": "conquer_mistake", "target": 5, "reward": 20, "value": 2, "requires": None},
+    {"name": "累计攻克 20 道错题", "action": "conquer_mistake", "target": 20, "reward": 50, "value": 2, "requires": "累计攻克 5 道错题"},
+    {"name": "累计攻克 50 道错题", "action": "conquer_mistake", "target": 50, "reward": 120, "value": 3, "requires": "累计攻克 20 道错题"},
+    {"name": "累计创建 3 个题集", "action": "create_set", "target": 3, "reward": 15, "value": 2, "requires": None},
+    {"name": "累计创建 10 个题集", "action": "create_set", "target": 10, "reward": 40, "value": 2, "requires": "累计创建 3 个题集"},
+    {"name": "累计创建 30 个题集", "action": "create_set", "target": 30, "reward": 100, "value": 3, "requires": "累计创建 10 个题集"},
+    {"name": "累计加入 5 道题到题集", "action": "add_to_set", "target": 5, "reward": 10, "value": 1, "requires": None},
+    {"name": "累计加入 20 道题到题集", "action": "add_to_set", "target": 20, "reward": 30, "value": 2, "requires": "累计加入 5 道题到题集"},
+    {"name": "累计加入 50 道题到题集", "action": "add_to_set", "target": 50, "reward": 80, "value": 3, "requires": "累计加入 20 道题到题集"},
+    {"name": "累计使用AI对话 10 次", "action": "chat", "target": 10, "reward": 15, "value": 2, "requires": None},
+    {"name": "累计使用AI对话 50 次", "action": "chat", "target": 50, "reward": 40, "value": 2, "requires": "累计使用AI对话 10 次"},
+    {"name": "累计使用AI对话 200 次", "action": "chat", "target": 200, "reward": 100, "value": 3, "requires": "累计使用AI对话 50 次"},
+
+    # ===== 2026-10-01 新增 =====
+    # `requires` 存的是**任务名字符串**（不是 id）—— 照现有写法，别改。
+    # 视频线
+    {"name": "累计看完 10 条视频", "action": "watch_video", "target": 10, "reward": 25, "value": 3, "requires": None},
+    {"name": "累计看完 50 条视频", "action": "watch_video", "target": 50, "reward": 60, "value": 5,
+     "requires": "累计看完 10 条视频"},
+    {"name": "累计看完 200 条视频", "action": "watch_video", "target": 200, "reward": 150, "value": 7,
+     "requires": "累计看完 50 条视频"},
+    {"name": "累计生成 10 个知识点视频", "action": "generate_video", "target": 10, "reward": 50, "value": 5,
+     "requires": None},
+    # 诊断 / 真题线
+    {"name": "累计完成 3 次诊断", "action": "diagnosis_done", "target": 3, "reward": 40, "value": 4, "requires": None},
+    {"name": "累计交 3 套真题卷", "action": "exam_submit", "target": 3, "reward": 60, "value": 5, "requires": None},
+    {"name": "累计交 10 套真题卷", "action": "exam_submit", "target": 10, "reward": 150, "value": 7,
+     "requires": "累计交 3 套真题卷"},
+    {"name": "累计交 30 套真题卷", "action": "exam_submit", "target": 30, "reward": 350, "value": 9,
+     "requires": "累计交 10 套真题卷"},
+    # 掌握度线
+    {"name": "累计查看掌握度 30 次", "action": "view_mastery", "target": 30, "reward": 40, "value": 4, "requires": None},
+    # 补齐**说明书里写了、代码里没有**的题量阶梯（`complete_question` 现已埋点，能用了）
+    {"name": "累计做 500 道题", "action": "complete_question", "target": 500, "reward": 300, "value": 8,
+     "requires": "累计做 200 道题"},
+    {"name": "累计做 1000 道题", "action": "complete_question", "target": 1000, "reward": 600, "value": 10,
+     "requires": "累计做 500 道题"},
+    # 词条线 / 社区线
+    {"name": "累计查词条 100 个", "action": "wordbook_lookup", "target": 100, "reward": 50, "value": 5,
+     "requires": None},
+    {"name": "累计查词条 500 个", "action": "wordbook_lookup", "target": 500, "reward": 150, "value": 7,
+     "requires": "累计查词条 100 个"},
+    {"name": "累计发布 10 条动态", "action": "community_post", "target": 10, "reward": 40, "value": 4,
+     "requires": None},
+    {"name": "累计发布 50 条动态", "action": "community_post", "target": 50, "reward": 120, "value": 6,
+     "requires": "累计发布 10 条动态"},
 ]
 
 from services.supabase import get_supabase_headers, get_supabase_service_headers
@@ -699,37 +761,11 @@ async def _compute_task_progress(user_id: str):
         # 播种任务
         # ============================================================
         logger.info(f"🔍 开始构建播种任务...")
-        seed_task_defs = [
-            {"id": "first_login", "name": "第一次登录", "action": "login", "reward": 5, "value": 1},
-            {"id": "first_nickname", "name": "第一次修改昵称", "action": "update_nickname", "reward": 10, "value": 2},
-            {"id": "first_avatar", "name": "第一次上传头像", "action": "update_avatar", "reward": 15, "value": 2},
-            {"id": "first_bio", "name": "第一次保存简介", "action": "update_bio", "reward": 10, "value": 2},
-            {"id": "first_chat", "name": "第一次发送消息", "action": "chat", "reward": 10, "value": 2},
-            {"id": "first_plan_agent", "name": "第一次使用规划Agent", "action": "use_plan_agent", "reward": 15,
-             "value": 2},
-            {"id": "first_generate_agent", "name": "第一次使用生成Agent", "action": "use_generate_agent", "reward": 15,
-             "value": 2},
-            {"id": "first_evaluate_agent", "name": "第一次使用评估Agent", "action": "use_evaluate_agent", "reward": 15,
-             "value": 2},
-            {"id": "first_checkin", "name": "第一次完成打卡", "action": "checkin", "reward": 15, "value": 2},
-            {"id": "first_timer", "name": "第一次使用计时器", "action": "use_timer", "reward": 10, "value": 2},
-            {"id": "first_generate_question", "name": "第一次生成题目", "action": "generate_question", "reward": 20,
-             "value": 3},
-            {"id": "first_complete_question", "name": "第一次完成题目", "action": "complete_question", "reward": 20,
-             "value": 3},
-            {"id": "first_create_set", "name": "第一次创建题集", "action": "create_set", "reward": 20, "value": 3},
-            {"id": "first_add_to_set", "name": "第一次加入题目到题集", "action": "add_to_set", "reward": 15,
-             "value": 2},
-            {"id": "first_conquer_mistake", "name": "第一次攻克错题", "action": "conquer_mistake", "reward": 25,
-             "value": 4},
-            {"id": "first_view_report", "name": "第一次查看学情报告", "action": "view_report", "reward": 10,
-             "value": 2},
-            {"id": "first_view_career", "name": "第一次查看学程总览", "action": "view_career", "reward": 10,
-             "value": 2},
-        ]
+        # 用模块级常量 SEED_TASKS（原来这里内联了同一份清单，和常量重复；2026-10-01 消重复）。
+        # 以后加任务改常量那一处即可，别在这儿重写一份。
 
         seed_results = []
-        for task in seed_task_defs:
+        for task in SEED_TASKS:
             count = stats.get(task["action"], 0)
             done = count > 0
             claim_key = f"seed_{task['id']}"
@@ -760,47 +796,11 @@ async def _compute_task_progress(user_id: str):
         # 施肥任务（每日）
         # ============================================================
         logger.info(f"🔍 开始构建施肥任务...")
-        daily_defs = [
-            {"name": "发送 5 条消息", "action": "chat", "target": 5, "reward": 10, "value": 1},
-            {"name": "发送 10 条消息", "action": "chat", "target": 10, "reward": 15, "value": 2},
-            {"name": "发送 20 条消息", "action": "chat", "target": 20, "reward": 20, "value": 3},
-            {"name": "使用计时器 1 次", "action": "use_timer", "target": 1, "reward": 10, "value": 1},
-            {"name": "使用计时器 2 次", "action": "use_timer", "target": 2, "reward": 15, "value": 2},
-            {"name": "使用计时器 4 次", "action": "use_timer", "target": 4, "reward": 20, "value": 3},
-            {"name": "生成 2 道题目", "action": "generate_question", "target": 2, "reward": 15, "value": 2},
-            {"name": "生成 3 道题目", "action": "generate_question", "target": 3, "reward": 20, "value": 3},
-            {"name": "生成 5 道题目", "action": "generate_question", "target": 5, "reward": 25, "value": 4},
-            {"name": "做 5 道题", "action": "complete_question", "target": 5, "reward": 25, "value": 3},
-            {"name": "做 8 道题", "action": "complete_question", "target": 8, "reward": 30, "value": 4},
-            {"name": "做 15 道题", "action": "complete_question", "target": 15, "reward": 40, "value": 5},
-            {"name": "攻克 1 道错题", "action": "conquer_mistake", "target": 1, "reward": 20, "value": 3},
-            {"name": "攻克 2 道错题", "action": "conquer_mistake", "target": 2, "reward": 25, "value": 4},
-            {"name": "攻克 5 道错题", "action": "conquer_mistake", "target": 5, "reward": 40, "value": 5},
-            {"name": "创建 1 个题集", "action": "create_set", "target": 1, "reward": 15, "value": 2},
-            {"name": "创建 2 个题集", "action": "create_set", "target": 2, "reward": 20, "value": 3},
-            {"name": "创建 3 个题集", "action": "create_set", "target": 3, "reward": 30, "value": 4},
-            {"name": "加入 1 道题到题集", "action": "add_to_set", "target": 1, "reward": 10, "value": 1},
-            {"name": "加入 3 道题到题集", "action": "add_to_set", "target": 3, "reward": 20, "value": 2},
-            {"name": "加入 5 道题到题集", "action": "add_to_set", "target": 5, "reward": 25, "value": 3},
-            {"name": "完成 1 次打卡", "action": "checkin", "target": 1, "reward": 10, "value": 1},
-            {"name": "完成 2 次打卡", "action": "checkin", "target": 2, "reward": 15, "value": 2},
-            {"name": "完成 3 次打卡", "action": "checkin", "target": 3, "reward": 15, "value": 3},
-            {"name": "查看学情报告 1 次", "action": "view_report", "target": 1, "reward": 10, "value": 1},
-            {"name": "查看学情报告 2 次", "action": "view_report", "target": 2, "reward": 15, "value": 2},
-            {"name": "查看学情报告 3 次", "action": "view_report", "target": 3, "reward": 15, "value": 3},
-            {"name": "使用规划Agent 1 次", "action": "use_plan_agent", "target": 1, "reward": 10, "value": 1},
-            {"name": "使用规划Agent 2 次", "action": "use_plan_agent", "target": 2, "reward": 15, "value": 2},
-            {"name": "使用规划Agent 3 次", "action": "use_plan_agent", "target": 3, "reward": 15, "value": 3},
-            {"name": "使用生成Agent 3 次", "action": "use_generate_agent", "target": 3, "reward": 15, "value": 2},
-            {"name": "使用生成Agent 5 次", "action": "use_generate_agent", "target": 5, "reward": 20, "value": 3},
-            {"name": "使用生成Agent 10 次", "action": "use_generate_agent", "target": 10, "reward": 30, "value": 4},
-            {"name": "使用评估Agent 1 次", "action": "use_evaluate_agent", "target": 1, "reward": 10, "value": 1},
-            {"name": "使用评估Agent 2 次", "action": "use_evaluate_agent", "target": 2, "reward": 15, "value": 2},
-            {"name": "使用评估Agent 3 次", "action": "use_evaluate_agent", "target": 3, "reward": 15, "value": 3},
-        ]
+        # 用模块级常量 DAILY_TASKS（原来这里内联了同一份清单，和常量重复；2026-10-01 消重复）。
+        # 以后加任务改常量那一处即可，别在这儿重写一份。
 
         daily_results = []
-        for task in daily_defs:
+        for task in DAILY_TASKS:
             count = today_count.get(task["action"], 0)
             progress = min(100, int(count / task["target"] * 100))
             done = progress >= 100
@@ -832,53 +832,12 @@ async def _compute_task_progress(user_id: str):
         # 发芽任务（长期阶梯）
         # ============================================================
         logger.info(f"🔍 开始构建发芽任务...")
-        long_defs = [
-            {"name": "累计打卡 3 天", "action": "checkin", "target": 3, "reward": 20, "value": 2, "requires": None},
-            {"name": "累计打卡 7 天", "action": "checkin", "target": 7, "reward": 30, "value": 2,
-             "requires": "累计打卡 3 天"},
-            {"name": "累计打卡 30 天", "action": "checkin", "target": 30, "reward": 100, "value": 3,
-             "requires": "累计打卡 7 天"},
-            {"name": "累计做 10 道题", "action": "complete_question", "target": 10, "reward": 20, "value": 2,
-             "requires": None},
-            {"name": "累计做 50 道题", "action": "complete_question", "target": 50, "reward": 50, "value": 2,
-             "requires": "累计做 10 道题"},
-            {"name": "累计做 200 道题", "action": "complete_question", "target": 200, "reward": 150, "value": 3,
-             "requires": "累计做 50 道题"},
-            {"name": "累计生成 5 道题", "action": "generate_question", "target": 5, "reward": 15, "value": 2,
-             "requires": None},
-            {"name": "累计生成 20 道题", "action": "generate_question", "target": 20, "reward": 40, "value": 2,
-             "requires": "累计生成 5 道题"},
-            {"name": "累计生成 50 道题", "action": "generate_question", "target": 50, "reward": 100, "value": 3,
-             "requires": "累计生成 20 道题"},
-            {"name": "累计攻克 5 道错题", "action": "conquer_mistake", "target": 5, "reward": 20, "value": 2,
-             "requires": None},
-            {"name": "累计攻克 20 道错题", "action": "conquer_mistake", "target": 20, "reward": 50, "value": 2,
-             "requires": "累计攻克 5 道错题"},
-            {"name": "累计攻克 50 道错题", "action": "conquer_mistake", "target": 50, "reward": 120, "value": 3,
-             "requires": "累计攻克 20 道错题"},
-            {"name": "累计创建 3 个题集", "action": "create_set", "target": 3, "reward": 15, "value": 2,
-             "requires": None},
-            {"name": "累计创建 10 个题集", "action": "create_set", "target": 10, "reward": 40, "value": 2,
-             "requires": "累计创建 3 个题集"},
-            {"name": "累计创建 30 个题集", "action": "create_set", "target": 30, "reward": 100, "value": 3,
-             "requires": "累计创建 10 个题集"},
-            {"name": "累计加入 5 道题到题集", "action": "add_to_set", "target": 5, "reward": 10, "value": 1,
-             "requires": None},
-            {"name": "累计加入 20 道题到题集", "action": "add_to_set", "target": 20, "reward": 30, "value": 2,
-             "requires": "累计加入 5 道题到题集"},
-            {"name": "累计加入 50 道题到题集", "action": "add_to_set", "target": 50, "reward": 80, "value": 3,
-             "requires": "累计加入 20 道题到题集"},
-            {"name": "累计使用AI对话 10 次", "action": "chat", "target": 10, "reward": 15, "value": 2,
-             "requires": None},
-            {"name": "累计使用AI对话 50 次", "action": "chat", "target": 50, "reward": 40, "value": 2,
-             "requires": "累计使用AI对话 10 次"},
-            {"name": "累计使用AI对话 200 次", "action": "chat", "target": 200, "reward": 100, "value": 3,
-             "requires": "累计使用AI对话 50 次"},
-        ]
+        # 用模块级常量 LONG_TASKS（原来这里内联了同一份清单，和常量重复；2026-10-01 消重复）。
+        # 以后加任务改常量那一处即可，别在这儿重写一份。
 
         long_results = []
         completed_long_names = set()
-        for task in long_defs:
+        for task in LONG_TASKS:
             count = stats.get(task["action"], 0)
             progress = min(100, int(count / task["target"] * 100))
             done = progress >= 100

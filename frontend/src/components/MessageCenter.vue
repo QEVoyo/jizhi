@@ -313,7 +313,8 @@ onUnmounted(() => clearInterval(poll))
 </script>
 
 <style scoped>
-.mc-page { min-height: calc(100vh - var(--jz-top, 0px)); display: flex; justify-content: center; padding: 28px 20px; }
+.mc-page { height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto; display: flex; justify-content: center; padding: 28px 20px; }
 
 .mc-container {
   max-width: 780px; width: 100%; padding: 24px 30px;

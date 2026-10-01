@@ -478,9 +478,18 @@ async def _generate_one(spec: dict) -> bool:
 
         # 2. TTS（2026-09-04 用户定调：只用阿里云千问，便于统一管理；失败走行级重试）
         voice = row.get("voice_key") if row.get("voice_key") in VOICE_POOL else VOICE_POOL[0]
-        audio = await asyncio.to_thread(qwen_tts, narration, voice=voice, speed=settings.VIDEO_TTS_SPEED)
+        # ⚠️ 带出**失败原因**：TTS 有 6 条失败路径（文本空/依赖没装/API 报错/超时…），
+        #    而它历史上只 `return None`。于是库里存的永远是笼统的一句
+        #    「千问 TTS 返回空音频」—— 查的人往 TTS 服务上找，可能压根不是那儿的问题。
+        _tts_fail: list = []
+        audio = await asyncio.to_thread(
+            qwen_tts, narration, voice=voice,
+            speed=settings.VIDEO_TTS_SPEED, fail_reason=_tts_fail,
+        )
         if not audio:
-            raise RuntimeError("千问 TTS 返回空音频")
+            raise RuntimeError(
+                "千问 TTS 未产出音频：" + (_tts_fail[0] if _tts_fail else "原因未知（未捕获到具体失败点）")
+            )
         tts_engine = "qwen"
 
         # 3. 上传 storage（公共读桶；新视频是新对象，anon 直插即可）

@@ -272,6 +272,34 @@ async def video_me_favorites(user_id: str):
     return {"items": items}
 
 
+@router.get("/me/{user_id}/pushes")
+async def video_me_pushes(user_id: str, limit: int = Query(80, ge=1, le=200)):
+    """「推送」分类（2026-10-01 新增）。
+
+    题目/计划那边触发懒生成时，涉及的视频会被推送到**触发者**的视频库。
+    和「我的视频」分开：
+
+        我的视频 = 我主动点「生成我的视频」建的（owner_user_id = 我）
+        推送     = 题目/计划带出来的（记在 user_video_pushes）
+
+    ⚠️ 为什么用关联表而不是给视频加个 owner：视频是**全站共享**的，
+       一个知识点只有一条（`(subject, knowledge_key, angle)` 唯一格）。
+       同一个知识点被 A 先触发时，B 拿到的就是 A 那条 ——
+       「谁被推送过什么」必须单独记，否则 B 的推送列表永远是空的。
+    """
+    resp = await db.select("user_video_pushes", eq={"user_id": user_id},
+                           order="created_at.desc", limit=limit, use_service_role=True)
+    items = []
+    for p in _rows(resp):
+        v = await _get_video(p.get("video_id"))
+        if not v:
+            continue   # 视频被删了就跳过 —— 关联表刻意不做外键，靠这里兜
+        v["pushed_at"] = p.get("created_at")
+        v["push_source"] = p.get("source")
+        items.append(v)
+    return {"items": items}
+
+
 @router.post("/generate-mine")
 async def video_generate_mine(body: dict):
     """自己生成：模板引擎按用户指定（或随机）排产，作者 = 我，初始仅自留（private）"""

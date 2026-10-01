@@ -486,13 +486,12 @@ export function suppressWebBehaviors() {
     winToggleMaximize()
   })
 
-  // 右键菜单：先直接屏蔽。将来要做自定义菜单，在这里换成自己的实现。
-  window.addEventListener('contextmenu', (e) => {
-    const t = e.target
-    // 输入框里保留右键（复制/粘贴是刚需）
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
-    e.preventDefault()
-  })
+  // 右键菜单：原来在这里**无条件 preventDefault**，注释写着「将来要做自定义菜单」。
+  // 2026-10-01 做出来了 —— 搬到 desktop/ContextMenu.vue（App.vue 里 v-if="isDesktop" 挂载）。
+  //
+  // ⚠️ 这里**刻意不再抢一份**。两处各拦一半的话，「谁生效」就取决于监听器注册顺序 ——
+  //    正是下面快捷键那段注释里说的那类隐式依赖。归属只留一处：ContextMenu.vue。
+  //    它同样对输入框放行（剪切/复制/粘贴/拼写检查是刚需，原生菜单更好）。
 
   // Ctrl + 滚轮缩放：网页里会整体缩放，应用里非常出戏
   window.addEventListener('wheel', (e) => {

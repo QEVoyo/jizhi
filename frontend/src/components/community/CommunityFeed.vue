@@ -145,6 +145,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { recordAction } from '@/api/career'
 import PostCard from './PostCard.vue'
 import {
   getPosts,
@@ -224,6 +225,8 @@ async function handlePublish() {
 
     await createPost(postData)
 
+    // 学程埋点（2026-10-01）：发了一条社区动态
+    try { recordAction(authStore.user?.id, 'community_post') } catch { /* 埋点不影响发帖 */ }
     ElMessage.success('发布成功')
     publishTitle.value = ''
     publishContent.value = ''

@@ -70,26 +70,42 @@ def get_tts_audio(
     volume: int = 5,
     pitch: int = 5,
     format: str = "mp3",
+    fail_reason: Optional[list] = None,
 ) -> Optional[bytes]:
     """
     文字转语音（千问 TTS-Plus）→ 返回 mp3 字节，失败返回 None
+
     :param speed: 语速 1-9（内部映射 rate 0.5-2.0）
     :param volume: 音量 1-9（内部映射 0-100）
     :param pitch: 音高 1-9（内部映射 pitch 0.5-2.0）
+    :param fail_reason: 传一个 list 进来，失败时会把**原因**塞进去（不改返回值，老调用方不受影响）。
+
+    ⚠️ 为什么要这个出口（2026-10-01）：这个函数有 6 条失败路径 —— 文本为空、
+        去 emoji 后为空、**websocket-client 没装**、API 报 task-failed、
+        没收到音频帧、抛异常 —— 但**全都只是 `return None`**。
+        调用方看到「空」就只能写一句「TTS 返回空音频」，于是日志/数据库里
+        永远查不出到底哪一种，**很可能往 TTS 服务上找，而问题根本不在那儿**
+        （比如依赖没装、或者旁白本来就是空的）。
     """
-    if not text:
+    def _fail(reason: str):
+        if fail_reason is not None:
+            fail_reason.append(reason)
+        # warning 而不是 info：失败原因必须能在日志里看见
+        logger.warning(f"[千问TTS] {reason}")
         return None
+
+    if not text:
+        return _fail("旁白文本为空，无可合成内容")
     text = _strip_emoji(text)[:2000]
     if not text:
-        return None
+        return _fail("旁白去掉表情符号后为空，无可合成内容")
 
     # websocket-client 是可选依赖（只有语音合成用它）。
     # 延迟导入：缺这个包时语音播报不可用，但不该拖垮整个服务启动。
     try:
         import websocket
     except ImportError:
-        logger.info("[千问TTS] 未安装 websocket-client，语音播报不可用（pip install websocket-client）")
-        return None
+        return _fail("未安装 websocket-client（pip install websocket-client）—— 和 TTS 服务本身无关")
 
     if voice not in {v["value"] for v in QWEN_TTS_VOICES}:
         voice = QWEN_DEFAULT_VOICE
@@ -165,21 +181,17 @@ def get_tts_audio(
                 if data.get("data"):
                     audio_parts.append(base64.b64decode(data["data"]))
             elif ev == "task-failed":
-                logger.info(
-                    f"[千问TTS] 合成失败: {ctrl.get('header', {}).get('error_message', '')}"
-                )
-                return None
+                err = ctrl.get("header", {}).get("error_message", "") or "（服务端没给原因）"
+                return _fail(f"服务端返回 task-failed：{err}")
             elif ev == "task-finished":
                 break
 
         audio = b"".join(audio_parts)
         if not audio:
-            logger.info("[千问TTS] 未收到音频数据")
-            return None
+            return _fail(f"连接正常但没收到任何音频帧（旁白 {len(text)} 字，音色 {voice}）")
         return audio
     except Exception as e:
-        logger.info(f"[千问TTS] 异常: {e}")
-        return None
+        return _fail(f"调用异常：{type(e).__name__}: {e}")
     finally:
         if ws is not None:
             try:

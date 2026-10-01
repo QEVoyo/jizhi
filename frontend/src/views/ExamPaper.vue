@@ -294,6 +294,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getExamPaper, submitExamPaper, submitExamPlan } from '@/api/subjectPlan'
 import { useAuthStore } from '@/stores/auth'
+import { recordAction } from '@/api/career'
 
 const route = useRoute()
 const router = useRouter()
@@ -515,6 +516,9 @@ async function handleSubmit() {
       }
     }
     result.value = await submitExamPaper(paperId.value, payload)
+    // 学程埋点（2026-10-01）：交了一套真题卷。
+    // 放在提交成功之后 —— 半途放弃的不算。
+    recordAction(authStore.user.id, 'exam_submit')
     showResult.value = true
   } catch (e) {
     console.error('交卷失败:', e)
@@ -621,7 +625,8 @@ watch(() => route.query.mode, async (newMode) => {
 <style scoped>
 /* ===== 页面容器 ===== */
 .ep-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   position: relative;
   color: var(--text-primary);
   font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;

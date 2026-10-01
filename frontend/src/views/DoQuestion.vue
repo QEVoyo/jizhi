@@ -232,7 +232,7 @@
             </div>
             <div class="lib-grid">
               <div
-                v-for="v in libVideos"
+                v-for="v in libShown"
                 :key="v.id"
                 class="lib-card"
                 @click="openLibVideo(v)"
@@ -275,6 +275,10 @@
                   <div class="lib-meta">十几秒后刷新一下试试</div>
                 </div>
               </div>
+            </div>
+            <!-- 超过 5 条才出「查看更多」（2026-10-01 用户定调） -->
+            <div v-if="libVideos.length > LIB_SHOW" class="lib-more" @click="libShowAll = !libShowAll">
+              {{ libShowAll ? '收起' : `查看更多（共 ${libVideos.length} 条）` }}
             </div>
           </div>
 
@@ -498,6 +502,7 @@ import { knowledgeKey, questionFingerprint, ANGLE_LABELS } from '@/utils/videoLi
 import VideoLessonPlayer from '@/components/VideoLessonPlayer.vue'
 import VideoPoster from '@/components/VideoPoster.vue'
 import { ElMessage } from 'element-plus'
+import { recordAction } from '@/api/career'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
@@ -624,9 +629,17 @@ const libKpName = computed(() => question.value.normalized_topic || question.val
 
 function scoreLabel(score) {
   if (score >= 100) return '精准匹配'
+  if (score >= 90) return '本知识点'   // 同一个知识点、只是 subject 命名不同（历史遗留）
   if (score >= 70) return '同学科'
   return '热门讲解'
 }
+
+// 超过 5 条折叠（2026-10-01 用户定调）。一个知识点可能有多个角度的讲解，
+// 全铺开会把做题页挤得没地方。
+const LIB_SHOW = 5
+const libShowAll = ref(false)
+const libShown = computed(() =>
+  libShowAll.value ? libVideos.value : libVideos.value.slice(0, LIB_SHOW))
 
 function openLibVideo(v) {
   // 播放量改为弹窗停留满 10 秒才计（watch libDialogVisible）
@@ -772,7 +785,14 @@ async function loadLibraryVideos() {
   libPollTries = 0
 
   try {
-    const ensured = await ensureVideoLib({ knowledge_key: key, knowledge_name: kp, subject })
+    const ensured = await ensureVideoLib({
+      knowledge_key: key, knowledge_name: kp, subject,
+      goal: 1,        // 「1 个保底」——没有就现生成，保证这个知识点至少有一条
+      // 推送到我的视频库（视频库新增的「推送」分类读的就是这张表）
+      user_id: authStore.user?.id || '',
+      source: 'resource',                    // 资源库 / 做题页来的
+      source_ref: question.value?.id || '',
+    })
     libTriggered.value = !!ensured.triggered
   } catch (e) {
     console.error('视频库 ensure 失败:', e)
@@ -945,6 +965,10 @@ async function handleSubmit() {
           body: JSON.stringify({ status: 'conquered' })
         })
         sessionStorage.removeItem('from_mistake_book')
+        // 学程埋点（2026-10-01）：攻克错题。
+        // `conquer_mistake` 从 2026-07-13 起没人发过 —— 挂在它上面的
+        // 「攻克 N 道错题」任务（播种/施肥/发芽都有一组）一直是死的。
+        recordAction(authStore.user.id, 'conquer_mistake')
         ElMessage.success('🎉 错题已攻克！')
       } catch (err) {
         console.error('更新错题状态失败:', err)
@@ -1092,6 +1116,9 @@ async function handleAddToSetConfirm(setId) {
     })
     if (!res.ok) throw new Error('加入失败')
 
+    // 学程埋点（2026-10-01）：加入题目到题集。
+    // 挂在 `add_to_set` 上的任务从 2026-06-28 起就断了 —— 前端一处都没发过。
+    recordAction(authStore.user.id, 'add_to_set')
     ElMessage.success('已加入题集')
     await loadQuestionSets()
   } catch (error) {
@@ -1133,7 +1160,8 @@ onUnmounted(() => {
 
 <style scoped>
 .question-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1515,6 +1543,15 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
+}
+/* 「查看更多」：在网格下方居中，做成胶囊按钮 */
+.lib-more {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: 2px; padding: 5px 16px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; color: var(--brand-bright); cursor: pointer;
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
 }
 .lib-card {
   border-radius: 12px;

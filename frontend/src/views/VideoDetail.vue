@@ -169,30 +169,56 @@
       </div>
     </el-dialog>
 
-    <!-- 做题选题弹窗（2026-09-05 用户定调：列表自选，题目标注 学科计划 / AI 生成） -->
+    <!-- 做题选题弹窗（2026-10-01 用户定调：
+         学科计划按相关度优先，**满 5 题出「查看更多」、不满 5 题用 AI 补齐到 5 题**，
+         两组各自标清来源。） -->
     <el-dialog v-model="practiceVisible" :title="'练一练 · ' + (video?.knowledge_name || '本知识点')" width="520px" class="vp-dialog" destroy-on-close>
       <div class="vd-practice">
-        <div v-if="planItems.length" class="vd-practice-group">
-          <div class="vd-pg-head"><i>📚 学科计划</i><span>本知识点推荐题</span></div>
-          <button v-for="q in planItems" :key="q.id" class="vd-pq" @click="pickQuestion(q, 'plan')">
-            <span class="vd-pq-type">{{ qTypeLabel(q) }}</span>
-            <span class="vd-pq-stem">{{ plainStem(q).slice(0, 52) }}</span>
-            <span class="vd-pq-src plan">学科计划</span>
-          </button>
-        </div>
-        <div class="vd-practice-group">
-          <div class="vd-pg-head"><i>✨ AI 生成</i><span>随堂出题</span></div>
-          <button v-for="(q, i) in aiItems" :key="'ai' + i" class="vd-pq" @click="pickQuestion(q, 'ai')">
-            <span class="vd-pq-type">{{ qTypeLabel(q) }}</span>
-            <span class="vd-pq-stem">{{ plainStem(q).slice(0, 52) }}</span>
-            <span class="vd-pq-src ai">AI 生成</span>
-          </button>
-          <div v-if="aiLoading" class="vd-pq-loading">✦ AI 正在出题…</div>
-          <div v-else-if="!aiItems.length" class="vd-pq-retry" @click="genAiItems">AI 出题没赶上趟，点这里再生成 2 道</div>
-        </div>
+        <div v-if="practiceLoading" class="vd-pq-loading">✦ 正在找相关题目…</div>
+
+        <template v-else>
+          <div v-if="planItems.length" class="vd-practice-group">
+            <div class="vd-pg-head"><i>📚 学科计划</i><span>按相关度排列</span></div>
+            <button v-for="q in shownPlanItems" :key="q.id" class="vd-pq" @click="pickQuestion(q)">
+              <span class="vd-pq-type">{{ qTypeLabel(q) }}</span>
+              <span class="vd-pq-stem">{{ plainStem(q).slice(0, 52) }}</span>
+              <span class="vd-pq-src plan">学科计划</span>
+            </button>
+            <!-- 超过 5 题才出「查看更多」；点开是展开/收起，不是翻页 -->
+            <div v-if="planItems.length > PLAN_SHOW" class="vd-pq-more" @click="planExpanded = !planExpanded">
+              {{ planExpanded ? '收起' : `查看更多（共 ${planItems.length} 题）` }}
+            </div>
+          </div>
+
+          <div v-else class="vd-pq-empty">学科计划里没有这个知识点的题</div>
+
+          <div v-if="showAiGroup" class="vd-practice-group">
+            <div class="vd-pg-head">
+              <i>✨ AI 生成</i>
+              <span>{{ planItems.length ? `补齐到 ${PLAN_SHOW} 题` : '随堂出题' }}</span>
+            </div>
+            <button v-for="(q, i) in aiItems" :key="'ai' + i" class="vd-pq" @click="pickQuestion(q)">
+              <span class="vd-pq-type">{{ qTypeLabel(q) }}</span>
+              <span class="vd-pq-stem">{{ plainStem(q).slice(0, 52) }}</span>
+              <span class="vd-pq-src ai">AI 生成</span>
+            </button>
+            <div v-if="aiLoading" class="vd-pq-loading">✦ AI 正在出题…</div>
+            <div v-else-if="!aiItems.length" class="vd-pq-retry" @click="genAiItems">AI 出题没赶上趟，点这里再生成</div>
+          </div>
+        </template>
       </div>
     </el-dialog>
     </template>
+
+    <!-- ⚠️ 这个 else 是必须的（2026-10-01 补）。
+         上面两个分支都不成立时（loading 已结束、但 video 仍是空 —— 例如接口
+         返回体里没有 video 字段却没抛异常），页面会**什么都不渲染**：
+         根元素在、内容为 0，看起来就是一片空白且零报错。
+         有兜底至少用户看得见状态、还能自己退出去。 -->
+    <div v-else class="vd-blank">
+      <p>视频加载不出来</p>
+      <button class="glass-btn" @click="$router.push('/video-square')">返回视频库</button>
+    </div>
   </div>
 </template>
 
@@ -208,6 +234,7 @@ import { ANGLE_LABELS } from '@/utils/videoLib'
 import VideoLessonPlayer from '@/components/VideoLessonPlayer.vue'
 import VideoPoster from '@/components/VideoPoster.vue'
 import { ElMessage } from 'element-plus'
+import { recordAction } from '@/api/career'
 
 const route = useRoute()
 const router = useRouter()
@@ -332,6 +359,11 @@ async function postComment() {
       user_name: authStore.user?.nickname || '同学',
       user_avatar: authStore.user?.avatar_url || '',
     })
+    // 学程埋点（2026-10-01）：评论了一次。
+    // ⚠️ 用它的是「社区评论」—— 但**社区帖子的评论功能还没实现**
+    //    （`community/PostCard.vue:121` 是个 TODO，只弹「即将上线」）。
+    //    所以先接在真在用的这条（视频评论）上；等帖子评论做出来再补一处。
+    try { recordAction(authStore.user?.id, 'community_comment') } catch { /* 埋点不影响评论 */ }
     commentText.value = ''
     video.value.comments_count = Number(video.value.comments_count || 0) + 1
     ElMessage.success('评论成功')
@@ -368,12 +400,28 @@ async function systemShare() {
   } catch { /* 用户取消分享 */ }
 }
 
-// ===== 做题（2026-09-05 用户定调：先弹题目列表自选——学科计划题 + AI 生成题两组标注，点谁跳谁）=====
+// ===== 做题（2026-10-01 用户定调）=====
+// 学科计划按**相关度**优先；**满 5 题就显示 5 题 +「查看更多」**，
+// **不满 5 题用 AI 补齐到 5 题**，两组各自标清来源，点谁进哪道题。
+//
+// 后端（GET /video/lib/{id}/questions）返回的 items 里带 syllabus_id ——
+// 跳做题页必须带上它，见 pickQuestion 的注释。
+const PLAN_SHOW = 5
 const practiceLoading = ref(false)
 const practiceVisible = ref(false)
 const planItems = ref([])
+const planExpanded = ref(false)
 const aiItems = ref([])
 const aiLoading = ref(false)
+
+/** 学科计划题不够 PLAN_SHOW 时，要 AI 补几道 */
+const aiNeed = computed(() => Math.max(0, PLAN_SHOW - planItems.value.length))
+/** 折叠态只给前 PLAN_SHOW 道 */
+const shownPlanItems = computed(() =>
+  planExpanded.value ? planItems.value : planItems.value.slice(0, PLAN_SHOW))
+/** 够 5 题就不显示 AI 组、也不烧 AI 出题的钱 */
+const showAiGroup = computed(() =>
+  aiNeed.value > 0 || aiLoading.value || aiItems.value.length > 0)
 
 const QTYPE_LABELS = { choice: '选择', fill: '填空', cloze: '完形', translation: '翻译', essay: '作文', calculation: '计算', programming: '编程', analysis: '分析', judgement: '判断', reading: '阅读' }
 function qTypeLabel(q) {
@@ -402,8 +450,11 @@ async function openPracticeList() {
   practiceVisible.value = true
   planItems.value = []
   aiItems.value = []
+  planExpanded.value = false
   try {
-    const data = await getVideoQuestions(v.id, 8)
+    // 一次多取一些：「有没有超过 5 题」决定了出不出「查看更多」，
+    // 只取 8 条的话后端那边还有更多也不知道。
+    const data = await getVideoQuestions(v.id, 20)
     planItems.value = (data && data.items) || []
   } catch (e) {
     console.error('推荐题目拉取失败:', e)
@@ -411,15 +462,19 @@ async function openPracticeList() {
   } finally {
     practiceLoading.value = false
   }
-  genAiItems()   // 两组一起呈现在列表里（学生可对照来源挑选）
+  // 够 5 题就不生成 —— AI 是**兜底**，不是每次都跑
+  if (aiNeed.value > 0) genAiItems()
 }
 
 async function genAiItems() {
   if (aiLoading.value) return
   const v = video.value
   if (!v) return
-  const CACHE_KEY = `vd_ai_practice_${v.id}`
-  // 会话内 10 分钟缓存：重复打开弹窗不重复烧 AI 出题钱
+  const want = Math.max(1, aiNeed.value)
+  // 会话内 10 分钟缓存：重复打开弹窗不重复烧 AI 出题钱。
+  // ⚠️ 缓存键带上 want —— 学科计划题为 3 条时要补 2 道，为 0 条时要补 5 道，
+  //    两者不能共用一份缓存，否则第二次打开会少给题。
+  const CACHE_KEY = `vd_ai_practice_${v.id}_${want}`
   try {
     const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null')
     if (cached && Array.isArray(cached.items) && cached.items.length && Date.now() - cached.ts < 10 * 60 * 1000) {
@@ -430,14 +485,14 @@ async function genAiItems() {
   aiLoading.value = true
   aiItems.value = []
   try {
-    const [a, b] = await Promise.all([
-      generateQuestion({ user_id: myId.value, category: v.subject || '通用', topic: v.knowledge_name || '' }),
-      generateQuestion({ user_id: myId.value, category: v.subject || '通用', topic: v.knowledge_name || '' }),
-    ])
-    aiItems.value = [a, b].filter(Boolean)
-    if (aiItems.value.length) {
+    const got = (await Promise.all(
+      Array.from({ length: want }, () =>
+        generateQuestion({ user_id: myId.value, category: v.subject || '通用', topic: v.knowledge_name || '' }))
+    )).filter(Boolean)
+    aiItems.value = got
+    if (got.length) {
       try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ items: aiItems.value, ts: Date.now() }))
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ items: got, ts: Date.now() }))
       } catch {}
     }
   } catch (e) {
@@ -448,10 +503,26 @@ async function genAiItems() {
   }
 }
 
-function pickQuestion(q, src) {
-  sessionStorage.setItem('current_question', JSON.stringify(q))
+/**
+ * 点某道题 → 进**真正的做题页**（SubjectPractice）。
+ *
+ * ⚠️ 2026-10-01 之前这里跳 `/do-question`（`DoQuestion.vue`），
+ *    而说明书给那一页的定性是「做题(**旧版**)」，真正的做题页是 SubjectPractice
+ *    （`/subject-plan/:syllabusId/practice`，说明书标 ★：11 种题型、编程题 OJ 分栏、倒计时）。
+ *    所以同一道题，走旧页就没有那些能力 —— 这是「视频库做题没做好」的一半。
+ *
+ * ⚠️ `syllabus_id` 必须带上：**题库之间题目 id 是会重名的**
+ *    （实测 18,711 题里 497 个 id 横跨多个库），不带给后端，它只能跨库猜，
+ *    猜错就是**拿另一门学科的题判你的分**。
+ *    AI 生成题不在题库里、没有 syllabus_id，走 Supabase 回落，不受重名影响；
+ *    路由里的 `_` 只是个占位（SubjectPractice 只读 query，不读 path 参数）。
+ */
+function pickQuestion(q) {
   practiceVisible.value = false
-  router.push('/do-question')
+  const sid = q.syllabus_id || ''
+  const query = { questions: q.id }
+  if (sid) query.syllabus_id = sid
+  router.push({ path: `/subject-plan/${sid || '_'}/practice`, query })
 }
 
 // ===== 下载（2026-09-05）=====
@@ -526,7 +597,8 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.vd-page { min-height: calc(100vh - var(--jz-top, 0px)); padding: 20px 28px 60px; max-width: 1200px; margin: 0 auto; }
+.vd-page { height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto; padding: 20px 28px 60px; max-width: 1200px; margin: 0 auto; }
 .vd-topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
 .vd-crumb { font-size: 12.5px; color: var(--text-muted); }
 .vd-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; }
@@ -652,6 +724,16 @@ onUnmounted(() => {
 .vd-pq-src.ai { color: #d9b8ff; background: rgba(139, 92, 255, .14); border: 1px solid rgba(186, 148, 255, .35); }
 .vd-pq-loading { font-size: 12px; color: var(--text-muted); padding: 8px 4px; }
 .vd-pq-retry { font-size: 12px; color: var(--brand-bright); padding: 8px 4px; cursor: pointer; }
+.vd-pq-more {
+  align-self: center; margin-top: 2px; padding: 5px 14px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; color: var(--brand-bright); cursor: pointer;
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
+  transition: background-color .2s ease;
+}
+.vd-pq-more:hover { background: color-mix(in srgb, var(--brand) 18%, transparent); }
+.vd-pq-empty { font-size: 12px; color: var(--text-muted); padding: 6px 4px; }
+.vd-blank { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 90px 0; color: var(--text-muted); font-size: 14px; }
 .vd-report-reasons { display: flex; gap: 6px; flex-wrap: wrap; }
 .vd-report .chip { cursor: pointer; font-family: inherit; }
 .vd-report .chip.on { background: color-mix(in srgb, #f56c6c 12%, transparent); border-color: rgba(245,108,108,.45); color: #f56c6c; }

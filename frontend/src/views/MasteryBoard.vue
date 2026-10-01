@@ -360,7 +360,8 @@ onUnmounted(() => {
 
 <style scoped>
 .mastery-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   padding: 24px 32px 120px 32px;
 }
 

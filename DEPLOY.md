@@ -79,21 +79,83 @@ https://api.jizhi-learn.com/openapi.json      → 路由数应明显多于旧版
 
 ---
 
-## 三、Redis 与 worker（视频生成用，可选但建议）
+## 三、Redis 与 worker —— **必做，不是可选**
 
-**不装不会崩**：视频排产那条路径有 try/except，只会打 ERROR 日志，**出题不受影响**。
-但不装 = 视频永远不会生成。
+> ⚠️ 这一节原来标的是「可选但建议」。**2026-10-01 实测后改口**：
+> 不做的后果不是「视频慢一点」，是**一个视频都生成不出来**，
+> 而且**查不出任何报错** —— 症状会伪装成「视频生成好慢」。
+>
+> 这是**唯一**一条「不崩、不报错、但功能全废」的部署项，所以单独拎出来。
 
-```bash
-# 装 Redis 并常驻
-redis-server --daemonize yes
-# 另起一个常驻进程（建议交给 systemd / supervisor，别挂在 uvicorn 的终端里）
-cd /www/wwwroot/backend && python worker.py
+### 3.1 为什么是必做
+
+长任务（目前是视频生成）走 Redis 队列。**没有 worker 消费 = 任务排进去就烂在队列里**：
+
+```
+出题 → 入队 video.generate → （没有 worker）→ 永远躺在那儿
+做题页显示「讲解师正在写讲稿…」→ 转几圈 → 退回到「同学科/热门」的无关视频
 ```
 
-- 队列连不上时**默认抛错，不静默降级**（这是有意的）。真要退回进程内执行，
+**API 进程自己不会执行这些任务**（这是有意的设计：重启不丢、多开 uvicorn 不重复跑）。
+
+### 3.2 装
+
+```bash
+# ① Redis 常驻
+redis-server --daemonize yes
+redis-cli ping            # 应回 PONG
+
+# ② worker 常驻（**不依赖 arq CLI**，自己做 Redis 预检）
+cd /www/wwwroot/backend
+python3.11 worker.py
+```
+
+> ⚠️ **必须带 `python3.11 -m`**（09-30 踩过）：裸 `pip` / 裸 `python` 可能落到别的
+> 解释器，装完照样报 `No module named 'arq'`。先确认这个解释器里有 arq：
+> `python3.11 -c "import arq; print(arq.__version__)"`
+
+**交给 systemd / supervisor 常驻**，别挂在 uvicorn 的终端里（关终端就没了）。
+
+### 3.3 启动时必须看到这一行
+
+```
+🔧 任务 worker 启动，Redis=redis://127.0.0.1:6379/0
+   arq 实际注册名：['video.generate']        ← 必须有这一行且名字对得上
+```
+
+**如果看到 `❌ 这些任务名没有对应的 arq 函数…` 并且进程退出 —— 那是有意的。**
+一个「起来了但每个任务都悄悄丢掉」的 worker，比一个起不来的危险得多，所以这里直接拒绝启动。
+
+> **2026-10-01 踩过的坑（留档）**：`WorkerSettings.functions = [task_video_generate]`
+> 直接传函数对象，arq 会按 `coroutine.__name__` 注册成 `"task_video_generate"`，
+> 而入队用的是 `"video.generate"` → 每个任务 `function 'video.generate' not found`
+> **被静默丢弃**。而 worker 启动日志当时打印的是 `已注册任务：['video.generate']`
+> （那是 TASKS 的键，不是 arq 的注册名）—— **看着一切正常**。
+> 修法：`func(task_video_generate, name="video.generate")`。
+
+### 3.4 验证（三步，缺一不可）
+
+```bash
+# ① 队列在动（出题后过一会儿看，应该回到 0）
+redis-cli zcard arq:queue
+
+# ② worker 日志里有任务入队 + 真的开始生成
+grep "任务入队 video.generate" /path/to/worker.log
+grep "视频就绪" /path/to/worker.log
+
+# ③ 库里真的产出了视频行
+#    Supabase: select id,status,knowledge_name from video_library order by created_at desc limit 5;
+```
+
+**判据**：出题后几秒内 `video_library` 应出现一行 `status=generating`，
+几分钟后变 `ready`。**没有新行 = 队列没被消费。**
+
+### 3.5 其它
+
+- 队列连不上时**默认抛错，不静默降级**（有意）。真要退回进程内执行，
   必须显式设 `TASK_QUEUE_FALLBACK_INLINE=true`，日志里会有 ERROR。
-- 验证：出题后看日志有没有 `📥 任务入队 video.generate`。
+- `REDIS_URL` 有默认值（`redis://127.0.0.1:6379/0`），`.env` 不配也能跑。
+- **worker 是单点**：它挂了视频就不生成。建议 systemd `Restart=always`。
 
 ---
 

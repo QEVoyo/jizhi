@@ -345,7 +345,8 @@ onUnmounted(() => {
 
 <style scoped>
 .login-page {
-  min-height: calc(100vh - var(--jz-top, 0px));
+  height: calc(100vh - var(--jz-top, 0px));
+  overflow-y: auto;
   display: flex;
   align-items: center;
   justify-content: center;
