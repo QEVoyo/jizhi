@@ -23,11 +23,18 @@ class Settings:
     QWEN_CHAT_MODEL = os.getenv("QWEN_CHAT_MODEL", "qwen-flash")
     # 评价题目/题集：qwen-plus（四维度分析需要推理质量，非延迟敏感）
     QWEN_REASON_MODEL = os.getenv("QWEN_REASON_MODEL", "qwen-plus")
-    # 视觉：qwen3-vl-flash 性价比最高（¥0.367 入/¥2.94 出，比 qwen-vl-plus 便宜约 4 倍）
-    QWEN_VISION_MODEL = os.getenv("QWEN_VISION_MODEL", "qwen3-vl-flash")
-    # 视频库讲解脚本：qwen-turbo（2026-09-04 定稿档位 ¥0.3 入/0.6 出；密钥已开通后切回；
-    # 若 403 说明该 key 未获授权，退回 env QWEN_VIDEO_MODEL=qwen-flash）
-    QWEN_VIDEO_MODEL = os.getenv("QWEN_VIDEO_MODEL", "qwen-turbo")
+    # 视觉（小基识图 / 视频抽帧）：qwen3.8-flash（2026-10-11 由 qwen3-vl-flash 换过来）
+    # qwen3-vl-flash 已于 2026-10-10 00:00 下线（官方《部分历史主线模型下线通知》），
+    # 留旧值会让 /xiaoji/vision 与 /xiaoji/video-analyze 全部 404。
+    # 候选实跑对比见开发仓库 _devtools/bench_vision_model.py：
+    #   qwen3.8-flash 真实截图核对 4/4、题干逐字转写 12/12、2.5s   ← 选中
+    #   qwen3.7-flash 3/4、12/12  ｜  qwen3-vl-plus 2/4、5/12、最慢
+    QWEN_VISION_MODEL = os.getenv("QWEN_VISION_MODEL", "qwen3.8-flash")
+    # 视频库讲解脚本：qwen-flash（2026-10-11 由 qwen-turbo 换过来）
+    # qwen-turbo 已不在官方模型清单（快照版 404/403），且实测初稿 0/5 合格：
+    # 口播 189~226 字（闸门要 240）、只给 4~5 镜，修补后仍 2/5 出不了片。
+    # qwen-flash 初稿 5/5、一次调用到位、均耗 9.9s。
+    QWEN_VIDEO_MODEL = os.getenv("QWEN_VIDEO_MODEL", "qwen-flash")
     # 视频库生成并发生成数（1 = 串行，压低 API 并发与限流风险；env 可调）
     VIDEO_WORKERS = int(os.getenv("VIDEO_WORKERS", "1"))
     # 视频库 TTS：千问(小基同款声色)；语速 6 档（7 档用户实测偏快，2026-09-04 收回一档）
