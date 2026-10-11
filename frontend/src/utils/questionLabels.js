@@ -119,3 +119,31 @@ export function longTextPlaceholder(t) {
     analysis: '输入论述答案...',
   }[t] || '输入答案...'
 }
+
+// ============================================================
+// 题干 / 选项的取法（2026-10-08 从 SubjectPractice.vue 抽出来共用）
+//
+// 题库题的题干在 `content.stem`、选项在 `content.options`；但扁平化过的题
+// （AI 生成后落库再取回来的那条路）可能直接挂在 `stem` / `options` 上，
+// 编程题的 `content` 还可能是纯字符串。**每处自己写一遍必然漏一种形状**，
+// 所以收在这里 —— 做题页和每日学习页读同一份。
+// ============================================================
+
+/** 取题干。编程题的 content 是「题目描述 + ---TEST_CASES--- + 用例」，只返回描述那段 */
+export function getStem(q) {
+  if (!q) return ''
+  const c = q.content || {}
+  if (typeof c === 'string') {
+    const idx = c.indexOf('---TEST_CASES---')
+    return idx >= 0 ? c.substring(0, idx).trim() : c
+  }
+  return c.stem || q.stem || ''
+}
+
+/** 取选项数组。content 是字符串（编程题）时没有选项 */
+export function getOptions(q) {
+  if (!q) return []
+  const c = q.content || {}
+  if (typeof c === 'string') return []
+  return c.options || q.options || []
+}

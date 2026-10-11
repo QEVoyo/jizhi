@@ -518,6 +518,14 @@ async def _generate_one(spec: dict) -> bool:
             "updated_at": datetime.utcnow().isoformat(),
         }, use_service_role=True)
         logger.info(f"✅ 视频就绪: {spec['knowledge_key']} [{spec['angle']}] {vid}")
+        # 通知当初排产的人（2026-10-07 接的消息点）。
+        # 实测 37 秒就绪，比用户做完一道题还快 —— 但用户这时多半已经离开做题页了，
+        # 这条通知就是「创新点 3」变成体验的那一下。
+        kname = row.get("knowledge_name") or spec.get("knowledge_key") or "该知识点"
+        await _notify_requester(spec, "learning.video_ready",
+                                title=f"讲解视频已就绪：{kname}",
+                                content=f"《{kname}》的讲解视频已生成完成，可以看了。",
+                                link=f"/video/{vid}")
         return False
 
     except Exception as e:
@@ -533,7 +541,36 @@ async def _generate_one(spec: dict) -> bool:
             await asyncio.sleep(5)
             _queue.put_nowait(spec)
             return True   # 稍后重试：占位保留，_pending 不清理
+
+        # 重试用尽 → 通知排产的人「这次没成」。失败必须让人知道 ——
+        # 否则前端只会一直等一个永远不会出现的视频（10-01 记过这条）。
+        await _notify_requester(spec, "learning.video_failed",
+                                title=f"讲解视频生成失败：{spec.get('knowledge_key', '')}",
+                                content=f"两次质检都没有通过，已停止重试。可以先看文字版解读，稍后再试。",
+                                link="")
         return False
+
+
+async def _notify_requester(spec: dict, notif_type: str, *, title: str,
+                            content: str, link: str) -> None:
+    """给排产者发一条视频结果通知。
+
+    ⚠️ 通知失败**不影响视频本身**（视频已经落库了），但必须留 ERROR。
+    没带 requester_id（后台批量排产）时静默跳过 —— 那些不是"某个人在等"。
+    """
+    uid = (spec or {}).get("requester_id")
+    if not uid:
+        return
+    try:
+        from utils.notification import notify, NotifyError
+        await notify(uid, notif_type, source_id=(spec or {}).get("angle") or None,
+                     title=title, content=content, link=link)
+    except NotifyError as e:
+        logger.error(f"⚠️ 视频通知未送达 user={uid} type={notif_type}: {e}")
+    except KeyError as e:
+        logger.error(f"⚠️ 视频通知类型未注册: {e}")
+    except Exception as e:                                     # noqa: BLE001
+        logger.error(f"⚠️ 视频通知异常 user={uid}: {e}")
 
 
 # ==================== 对外接口 ====================
@@ -548,6 +585,82 @@ async def _fetch_videos(knowledge_key: str, subject: str = "", statuses: Optiona
     if statuses:
         rows = [r for r in rows if r.get("status") in statuses]
     return rows
+
+
+def _split_kp_hash(v) -> str:
+    """`knowledge_key` 形如 `f"{subject}:{sha1(kp_id)[:12]}"` → 取哈希那一半。
+
+    视频库的 subject 前缀历史上混用了**三套命名**（syllabus id / syllabus 中文名 /
+    出题 AI 判定的 category），完整 key 对不上**不代表不是同一个知识点** ——
+    所以跨命名匹配只比哈希。实测：`ncre2-office:5ca68d755414` 有 4 条，
+    `excel:5ca68d755414` 有 0 条，其实是同一个知识点。
+
+    ⚠️ 这段逻辑原先在 `related_videos` 和 `routers/video.py` 的 `/lib/status`
+    里**各写了一份**，这里是抽出来的唯一实现。
+    """
+    s = str(v or "")
+    return s.split(":", 1)[1] if ":" in s else s
+
+
+def _best_video(rows: List[dict]) -> Optional[dict]:
+    """同一知识点可能有多条 ready（多角度），取**用得最多**的那条。"""
+    if not rows:
+        return None
+    return sorted(rows, key=lambda r: -(r.get("use_count") or 0))[0]
+
+
+async def find_ready_video(knowledge_key: str = "", knowledge_name: str = "",
+                           subject: str = "") -> Optional[dict]:
+    """**只读**找一个已就绪的讲解视频；找不到返回 None。
+
+    ⚠️ **绝不用 `ensure_videos()` 代替它。** 那个是「查 + 补产」二合一：
+    查不到就插一行 `generating` 并丢进生成队列。每日学习推荐**不能**那么做 ——
+    一次给全体用户排产会把 worker 压垮（`message_center_design.md` §六 明确禁止
+    「为每日推荐排产」）。
+
+    三档匹配，从便宜到贵：
+      ① `knowledge_key` 精确（走索引；调用方有 kp_id 时走这条）
+      ② `knowledge_name` 相等 / 包含（**每日推荐只有 topic 名、没有 kp_id**，走这条）
+      ③ 跨命名哈希（见 `_split_kp_hash`）—— 要全表拉一次，只在 ①② 都落空时走
+
+    成本提示：③ 是全表扫描。每日推荐按用户逐个调用，用户多时这是 N 次全表 ——
+    实际量级下可以接受（一天一次），但如果以后推荐量涨上来，这里要加进程内缓存。
+    """
+    # ① 精确 key
+    if knowledge_key:
+        rows = await _fetch_videos(knowledge_key, subject, ["ready"])
+        if rows:
+            return _best_video(rows)
+
+    # ② 按知识点名
+    name = (knowledge_name or "").strip()
+    if name:
+        eq = {"status": "ready", "knowledge_name": name}
+        resp = await db.select("video_library", select="*", eq=eq, use_service_role=True)
+        rows = resp.json() if resp.status_code < 300 else []
+        if not rows:
+            # 名字常有几个字的出入（「等比数列求和」vs「等比数列」），退一步做包含匹配
+            safe = name.replace(",", " ").replace("(", " ").replace(")", " ")
+            resp = await db.select(
+                "video_library", select="*", eq={"status": "ready"},
+                or_=f"(knowledge_name.ilike.*{safe}*,title.ilike.*{safe}*)",
+                use_service_role=True)
+            rows = resp.json() if resp.status_code < 300 else []
+        if rows:
+            return _best_video(rows)
+
+    # ③ 跨命名哈希
+    kp_hash = _split_kp_hash(knowledge_key)
+    if not kp_hash:
+        return None
+    resp = await db.select("video_library", select="*", use_service_role=True)
+    pool = [r for r in (resp.json() if resp.status_code < 300 else [])
+            if r.get("status") == "ready"
+            and _split_kp_hash(r.get("knowledge_key")) == kp_hash]
+    if subject:
+        same = [r for r in pool if r.get("subject") == subject]
+        pool = same or pool        # 同 subject 优先，但不强求
+    return _best_video(pool)
 
 
 async def _revive_row(row_id: str, subject: str, knowledge_key: str, angle: str) -> bool:
@@ -577,6 +690,7 @@ async def ensure_videos(
     goal: int = 1,
     author_name: str = "官方基智",
     author_avatar: str = "/logo.png",
+    requester_id: str = "",
 ) -> Dict[str, Any]:
     """确保知识点至少有 goal 条视频（ready/generating 都算），缺口排产。
     顺序：先复活 failed 旧行（按住原格，防重复），不够再用未占角度新插。
@@ -639,7 +753,10 @@ async def ensure_videos(
                     used_angles.add(angle)
                     continue
                 _pending.add(gkey)
-                _queue.put_nowait({"subject": subject or "", "knowledge_key": knowledge_key, "angle": angle})
+                # requester_id 跟着 spec 走（进程内队列 / 经 Redis 给 worker 进程都能带到）——
+                # 视频就绪后要**通知当初排产的那个人**："你刚做那道题的讲解好了"。
+                _queue.put_nowait({"subject": subject or "", "knowledge_key": knowledge_key,
+                                   "angle": angle, "requester_id": requester_id})
                 triggered += 1
                 used_angles.add(angle)
 
@@ -675,14 +792,10 @@ async def related_videos(
         # 另外，老代码的兜底写在 `if subject:` 分支里，而前端永远传非空 subject，
         # 所以 55 分的全局兜底**永远走不到**，结果必然是空列表。
         # 这里改成按分值降级的三档，且第一档只看「知识点哈希」跨命名匹配。2026-09-27 修。
-        def _kp_hash(v):
-            s = str(v or "")
-            return s.split(":", 1)[1] if ":" in s else s
-
-        kp_hash = _kp_hash(knowledge_key)
+        kp_hash = _split_kp_hash(knowledge_key)
         seen = {r.get("id") for r in items}
 
-        tiers = [(90, [r for r in pool if _kp_hash(r.get("knowledge_key")) == kp_hash])]
+        tiers = [(90, [r for r in pool if _split_kp_hash(r.get("knowledge_key")) == kp_hash])]
         if subject:
             tiers.append((70, [r for r in pool if r.get("subject") == subject]))
         tiers.append((55, [r for r in pool if r.get("knowledge_key") != knowledge_key]))

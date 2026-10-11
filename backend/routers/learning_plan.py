@@ -355,6 +355,10 @@ async def create_plan(req: CreatePlanRequest, current_user: str = Depends(get_cu
             if task_res.status_code not in [200, 201]:
                 raise HTTPException(status_code=400, detail=f"任务保存失败: {task_res.text}")
 
+        # 全部任务都写完了才算「计划生成成功」—— 所以发在这里，不是插在 274 行之后
+        from utils.notify_events import notify_plan_generated
+        await notify_plan_generated(req.user_id, plan_id, req.name, basis="你自己定的计划")
+
         return {"success": True, "plan_id": plan_id, "message": "规划创建成功"}
 
 
@@ -393,11 +397,14 @@ async def get_plan_detail(plan_id: str):
 # ============================================================
 # 5. 更新任务状态 + 同步规划进度
 # ============================================================
-async def _sync_plan_progress(client, plan_id: str, headers: dict, now: str) -> dict:
+async def _sync_plan_progress(client, plan_id: str, headers: dict, now: str,
+                              user_id: str = None) -> dict:
     """按「已完成任务数 / 总任务数」重算计划进度。
 
     `PUT /task/status` 和 `PUT /task/answer` 都要用 —— 抽出来免得两处口径跑偏
     （这个项目在「同一个算法写两遍」上吃过亏）。
+
+    `user_id` 只为发「计划完成」通知用，调用方有就传（省一次查询），没有也能跑。
     """
     if not plan_id:
         return {}
@@ -416,7 +423,41 @@ async def _sync_plan_progress(client, plan_id: str, headers: dict, now: str) -> 
     await client.patch(f"{settings.SUPABASE_URL}/rest/v1/learning_plans?id=eq.{plan_id}",
                        headers=headers, json={"progress": progress, "status": plan_status,
                                               "updated_at": now})
+
+    # ---- 消息中心：计划完成（2026-10-08 接的消息点）----
+    # ⚠️ 只在这一种情况下才走 —— 本函数挂在 `PUT /task/answer` 上，
+    #    那是「每答一道题一次」的热路径，不能给它常态加往返
+    #    （10-08 那条「用 points_change > 0 把好友榜查询挡在埋点路径之外」同一个道理）。
+    if plan_status == "completed":
+        await _notify_plan_completed(client, plan_id, headers, user_id)
+
     return {"progress": progress, "status": plan_status}
+
+
+async def _notify_plan_completed(client, plan_id: str, headers: dict,
+                                 user_id: str = None) -> None:
+    """计划做完了 → `plan.plan_completed`。
+
+    **不用自己判「这次是不是刚好跨过 100%」** —— 靠注册表那条 `once=True`：
+    同一个 (user, type, source_id) 只发一次，永远。所以计划完成后用户回来重做
+    题目提正确率（本文件的 docstring 明确鼓励这么做）不会重复弹。
+    """
+    try:
+        from utils.notification import notify, NotifyError
+        if not user_id:
+            r = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/learning_plans"
+                f"?id=eq.{plan_id}&select=user_id&limit=1", headers=headers)
+            rows = r.json() if r.status_code == 200 else []
+            user_id = rows[0].get("user_id") if rows else None
+        if not user_id:
+            logger.warning(f"[notify] 计划完成通知拿不到 user_id plan={plan_id}")
+            return
+        await notify(user_id, "plan.plan_completed", source_id=plan_id,
+                     title="计划已完成 🎉",
+                     content="这份计划的任务全部做完了，去看看这段时间的成果吧。")
+    except (NotifyError, KeyError) as e:
+        logger.error(f"⚠️ 计划完成通知未送达 plan={plan_id}: {e}")
 
 
 @router.put("/task/status")
@@ -489,7 +530,8 @@ async def record_task_answer(req: TaskAnswerRequest, current_user: str = Depends
             raise HTTPException(status_code=502, detail="作答记录保存失败，请重试")
 
         plan_id = task.get("plan_id") or ""
-        prog = await _sync_plan_progress(client, plan_id, headers, now)
+        # 传 user_id：本函数手上就有，省掉 _notify_plan_completed 里那次回查
+        prog = await _sync_plan_progress(client, plan_id, headers, now, req.user_id)
 
     return {"success": True, "attempts": attempts, "best_correct": best, **prog}
 

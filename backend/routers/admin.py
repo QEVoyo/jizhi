@@ -16,7 +16,7 @@ from urllib.parse import quote
 from config import settings
 from utils.admin_middleware import get_current_admin, get_current_super_admin, get_admin_headers, write_audit_log
 from utils.sanctions import invalidate as invalidate_sanction_cache
-from utils.notification import create_notification
+from utils.notification import notify, NotifyError
 import local_question_bank
 
 logger = logging.getLogger("jizhi.admin")
@@ -511,6 +511,23 @@ async def toggle_user_status(
         detail={"is_active": body.is_active},
     )
 
+    # ⚠️ 处置状态有 30 秒的进程内缓存（utils/sanctions.py 的 `_CACHE`）。
+    #    举报处置那两处（mute/ban）都调了 invalidate，**这里原来漏了** ——
+    #    后果是点完封禁/解封后最长 30 秒内状态不生效，看起来像「操作没成功」。
+    #    两个分支都要清：封禁写 is_active=False，同样读的是这份缓存。
+    invalidate_sanction_cache(user_id)
+
+    # 消息中心：解封是「恢复」，是用户最需要知道的一条 ——
+    # 他刚被拒过（登录 / 发帖 / 评论全 403），不通知的话只能自己反复试。
+    # 封禁那边由举报处置的 `_notify_sanction` 发，这里只管解封。
+    if body.is_active:
+        try:
+            await notify(user_id, "system.sanction_lifted",
+                         title="账号已解除封禁",
+                         content="你的账号已恢复正常，可以继续使用各项功能了。")
+        except (NotifyError, KeyError) as e:
+            logger.error(f"[admin] ⚠️ 解封通知未送达 user={user_id}: {e}")
+
     return {"success": True, "message": "封禁成功" if not body.is_active else "解封成功"}
 
 
@@ -683,6 +700,45 @@ async def _write_sanction(user_id: str, kind: str, *, scope: Optional[str] = Non
         raise HTTPException(status_code=502, detail="处置记录未写入（上游返回空）")
 
 
+async def _notify_sanction(user_id: str, action: str, report_id: str,
+                           body, expires_at: Optional[str]) -> None:
+    """把处置结果告诉当事人（warn / mute / ban）。
+
+    通知失败不影响处置结果（处置已经落库并回读校验过了），
+    但**必须留 ERROR** —— 用户莫名其妙发现自己不能发言，比收到一条通知糟糕得多。
+    """
+    note = getattr(body, "admin_note", None)
+    if action == "warn":
+        title = "你收到一条社区警告"
+        content = note or "你发布的内容被举报并经管理员核实，请注意社区规范。"
+    elif action == "delete_content":
+        # 与账号处置分开：发现帖子凭空消失比收到通知糟糕得多
+        try:
+            await notify(user_id, "system.content_removed", source_id=report_id,
+                         title="你发布的内容已被删除",
+                         content=note or "经管理员核实，你发布的内容违反社区规范，已被删除。",
+                         link="/community")
+        except (NotifyError, KeyError) as e:
+            logger.error(f"[admin] ⚠️ 内容删除通知未送达 user={user_id}: {e}")
+        return
+    elif action == "mute":
+        scope = getattr(body, "mute_scope", None)
+        where = {"post": "发帖", "comment": "评论"}.get(scope, "发帖与评论")
+        days = getattr(body, "mute_days", 0)
+        until = "永久" if not days or days <= 0 else f"{days} 天"
+        title = "你的账号已被禁言"
+        content = (f"暂时无法{where}（{until}）。"
+                   + (f"原因：{note}" if note else "如有疑问请联系管理员。"))
+    else:
+        title = "你的账号已被封禁"
+        content = (note or "如有疑问请联系管理员。")
+    try:
+        await notify(user_id, "system.sanction", source_id=report_id,
+                     title=title, content=content, link="/settings")
+    except (NotifyError, KeyError) as e:
+        logger.error(f"[admin] ⚠️ 处置通知未送达 user={user_id} action={action}: {e}")
+
+
 @router.put("/reports/{report_id}/resolve")
 async def resolve_report(
     report_id: str,
@@ -742,15 +798,6 @@ async def resolve_report(
         new_status = "resolved"
         await _write_sanction(author_id, "warn", reason=body.admin_note or "举报成立",
                               report_id=report_id, admin_id=current_admin)
-        try:
-            await create_notification(
-                user_id=author_id, notif_type="system",
-                title="你收到一条社区警告",
-                content=body.admin_note or "你发布的内容被举报并经管理员核实，请注意社区规范。",
-                source_id=report_id,
-            )
-        except Exception as e:
-            logger.warning(f"[admin] 警告通知发送失败（不影响处置）: {e}")
 
     elif action == "delete_content":
         sanction_kind = "warn"                   # 删内容也留一条历史
@@ -811,6 +858,21 @@ async def resolve_report(
         if got.get("status") != new_status:
             raise HTTPException(status_code=502,
                                 detail=f"举报状态未生效（库中仍为 {got.get('status')}）")
+
+    # ── 告诉举报人「你举报的内容已处理」──
+    # 与上面给「作者」的处置通知是**两个不同的人**：一个是发内容的，一个是举报的。
+    # ⚠️ content_reports 里举报人叫 reporter_id，不叫 user_id
+    await _notify_asker(f"content_reports?id=eq.{report_id}", "todo.report_result",
+                        title="你举报的内容已处理", link="/community",
+                        uid_col="reporter_id")
+
+    # ── 处置通知：warn / mute / ban 统一在这里发 ──
+    # ⚠️ 放在「回读校验」之后，而不是各分支里 ——
+    #    这样「通知说被禁言了」与「库里真的禁言了」的顺序天然成立，
+    #    不会出现通知先发、状态写失败的情况（10-01 记过同类的孤儿记录）。
+    # ⚠️ 通知失败**不改处置结果**（处置已落库），但必须留 ERROR —— 不静默。
+    if action in ("warn", "mute", "ban", "delete_content") and author_id:
+        await _notify_sanction(author_id, action, report_id, body, expires_at)
 
     await write_audit_log(
         admin_id=current_admin,
@@ -886,6 +948,12 @@ async def resolve_feedback(
     res = await _supabase_patch(f"user_feedback?id=eq.{feedback_id}", update_data)
     if res.status_code not in (200, 204):
         raise HTTPException(status_code=500, detail="操作失败")
+    # 告诉提反馈的人「已回复」（反馈是弹窗不是页面，用 ?feedback=1 唤起，见注册表）
+    await _notify_asker(f"user_feedback?id=eq.{feedback_id}", "todo.feedback_reply",
+                        title="你提的反馈已回复", link="/home?feedback=1")
+    _ = res
+    if res.status_code not in (200, 204):
+        raise HTTPException(status_code=500, detail="操作失败")
 
     await write_audit_log(
         admin_id=current_admin,
@@ -952,6 +1020,10 @@ async def resolve_qa(
     if res.status_code not in (200, 204):
         raise HTTPException(status_code=500, detail="操作失败")
 
+    # 告诉提问的人「已解答」—— 原来处理完用户那边毫无动静，只能自己回来翻（2026-10-07）
+    await _notify_asker(f"user_qa?id=eq.{qa_id}", "todo.qa_reply",
+                        title="你的提问已解答", link="/qa")
+
     await write_audit_log(
         admin_id=current_admin,
         action="resolve_qa",
@@ -961,6 +1033,31 @@ async def resolve_qa(
     )
 
     return {"success": True, "message": "已处理"}
+
+
+async def _notify_asker(query: str, notif_type: str, *, title: str, link: str,
+                        uid_col: str = "user_id") -> None:
+    """处理完反馈/Q&A 后通知提交者。
+
+    ⚠️ 通知失败不影响处置结果（已经落库了），但必须留 ERROR。
+    """
+    try:
+        from utils.notification import notify, NotifyError
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/{query}&select={uid_col}&limit=1",
+                                   headers=get_admin_headers())
+        rows = res.json() if res.status_code == 200 else []
+        uid = (rows or [{}])[0].get(uid_col) if rows else None
+        if not uid:
+            return
+        await notify(uid, notif_type, title=title, content="", link=link)
+    except NotifyError as e:
+        logger.error(f"⚠️ 处理回执未送达 {query}: {e}")
+    except KeyError as e:
+        logger.error(f"⚠️ 处理回执类型未注册: {e}")
+    except Exception as e:                                     # noqa: BLE001
+        logger.error(f"⚠️ 处理回执异常 {query}: {e}")
 
 
 # ============================
@@ -1213,7 +1310,28 @@ async def create_announcement(
         detail={"title": body.title},
     )
 
-    return {"success": True, "id": ann_id, "message": "公告已发布"}
+    # 消息中心：广播给全体用户（2026-10-08 接的消息点）。
+    # 公告以前是**只读**的 —— 走 system_announcements 表 + /announcements/active，
+    # 用户不主动去看就永远不知道发过。现在同时推一条进消息中心。
+    #
+    # ⚠️ 只有 is_active 才广播：存成草稿的公告不该现在就把所有人叫醒。
+    # ⚠️ 广播失败**不回滚公告** —— 公告已经落库了。回滚反而更糟：管理员会以为
+    #    没发成、再发一遍，那就真的重复了。只记 ERROR，并把广播人数带在返回值里。
+    broadcast = 0
+    if body.is_active:
+        try:
+            from utils.notification import notify_broadcast, NotifyError
+            broadcast = await notify_broadcast(
+                "system.announcement",
+                title=body.title,
+                content=body.content or "",
+                image_url=body.image_url or "",
+            )
+        except (NotifyError, KeyError, ValueError) as e:
+            logger.error(f"⚠️ 公告广播失败 ann={ann_id}: {e}")
+
+    return {"success": True, "id": ann_id, "broadcast": broadcast,
+            "message": "公告已发布"}
 
 
 @router.put("/announcements/{announcement_id}")

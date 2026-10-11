@@ -36,6 +36,16 @@
         <el-button text class="nav-action" @click="clearHistory" title="清空记录">
           <i class="fas fa-trash-alt"></i>
         </el-button>
+        <!-- 消息中心（2026-10-08 新增，右上第 6 键）。角标与侧边栏/转盘同源 -->
+        <el-button
+          text
+          class="nav-action nav-action-msg"
+          @click="goMessages"
+          :title="unreadTotal ? `消息中心（${unreadTotal} 条未读）` : '消息中心'"
+        >
+          <i class="fas fa-bell"></i>
+          <span v-if="unreadTotal" class="nav-badge">{{ unreadTotal > 99 ? '99+' : unreadTotal }}</span>
+        </el-button>
         <el-button text class="nav-action" @click="goSettings">
           <i class="fas fa-cog"></i>
         </el-button>
@@ -454,18 +464,43 @@
           </div>
         </div>
 
-        <!-- 小基推荐 -->
+        <!-- 小基推荐（= 学习推荐，2026-10-08 改成三合一的呈现） -->
         <section class="side-card">
           <div class="side-card-head"><span class="side-card-ic amber"><i class="fas fa-lightbulb"></i></span>小基推荐</div>
           <div v-if="daily.recommendation" class="rec-card">
-            <div class="rec-title">{{ daily.recommendation.title }}</div>
-            <div class="rec-content">{{ daily.recommendation.content }}</div>
-            <el-button size="small" type="primary" @click="goRecLink">
-              {{ daily.recommendation.action_label || '立即学习' }}
-            </el-button>
+            <!-- ⚠️ 标题 + 推荐正文是**原来就有的**，别拿新东西把它们顶掉 ——
+                 2026-10-08 我一度用「依据」那一行替换了正文，用户当场指出来：
+                 要的是「在原来的基础上切出三块」，不是换掉原来的。
+                 「依据」降级成标题上的 tooltip，信息还在，不占位置。 -->
+            <div class="rec-title" :title="recBasis || ''">{{ recTopic }}</div>
+            <div v-if="recBlurb" class="rec-content">{{ recBlurb }}</div>
+            <!-- 三块三行 —— 与消息中心那条、学习页是同一套东西，点哪行都进同一个页面 -->
+            <div class="rec-blocks">
+              <div class="rec-block" @click="goRecLink">
+                <span class="rec-no">①</span><span class="rec-name">学习内容</span>
+                <span class="rec-meta">约 {{ recMinutes }} 分钟</span>
+              </div>
+              <div v-if="recQCount" class="rec-block" @click="goRecLink">
+                <span class="rec-no">②</span><span class="rec-name">练习</span>
+                <span class="rec-meta">{{ recQCount }} 题</span>
+              </div>
+              <div v-if="recVideo" class="rec-block" @click="goRecLink">
+                <span class="rec-no">③</span><span class="rec-name">讲解视频</span>
+                <span class="rec-meta">{{ recVideo.duration || '' }}</span>
+              </div>
+            </div>
+            <el-button size="small" type="primary" @click="goRecLink">立即学习</el-button>
           </div>
           <div v-else class="rec-empty">
             <span>今天还没有学习推荐～<br />去做几道题，小基明天给你定制</span>
+            <!-- 手动生成（2026-10-08）：定时是早上 8 点，但想现在看就能现在生成。
+                 去重在后端 —— 今天已有就直接返回那条，点几次都不会多出来。 -->
+            <el-button
+              size="small"
+              class="rec-gen-btn"
+              :loading="recGenerating"
+              @click="generateRec"
+            >生成今日推荐</el-button>
           </div>
           </section>
 
@@ -790,6 +825,8 @@ import { agents as agentMetaList } from '@/utils/mockAgents'
 import VocabCard from '@/components/VocabCard.vue'
 import EdgeNavDock from '@/components/EdgeNavDock.vue'
 import { useXiaojiAvatar } from '@/composables/useXiaojiAvatar'
+import { useNotifications } from '@/composables/useNotifications'
+import { generateTodayRec } from '@/api/dailyLearn'
 import { BACKEND_URL } from '@/utils/constants'
 
 const router = useRouter()
@@ -1017,9 +1054,55 @@ async function loadDaily() {
   } catch { /* 侧栏数据失败不影响主功能 */ }
 }
 
+// ===== 小基推荐（= 学习推荐）的三块 =====
+// 数据来自 `notifications.payload` —— 后端 `daily_generator` 产的三合一
+//（学习内容 / 题目 / 视频），见 message_center_design.md §六。
+// ⚠️ 卡片和消息中心那条是**同一行数据**，`/xiaoji/daily` 取的就是最新一条
+//    `learning.daily_rec` 通知。
+const recPayload = computed(() => daily.value.recommendation?.payload || {})
+const recTopic = computed(() =>
+  recPayload.value.content?.title || daily.value.recommendation?.title || '今日推荐')
+// 推荐正文（LLM 写的那段）—— **原来就显示在卡片上的**，不能因为加了三块就把它挤掉
+const recBlurb = computed(() => daily.value.recommendation?.content || '')
+// 「为什么推荐这个」—— 降级成标题的 tooltip，不占版面
+const recBasis = computed(() => recPayload.value.content?.basis || '')
+const recMinutes = computed(() => recPayload.value.content?.minutes || 0)
+const recQCount = computed(() => (recPayload.value.questions || []).length)
+const recVideo = computed(() => recPayload.value.video || null)
+
 function goRecLink() {
-  const link = daily.value.recommendation?.action_link
-  if (link) router.push(link)
+  // ⚠️ 2026-10-08 修：原来跳的是 `action_link`。那一列**表里是有的**（建表时的
+  //    老列），但 `notify()` 从来不写它 —— 全站统一走 `link`，所以它恒为空串，
+  //    后端读出来也是空、下面这个 `||` 兜底都轮不到真地址 ——
+  //    **这个按钮一直是「点了完全没反应」的静默 no-op**。
+  //    现在读 `link`（`notify(link=...)` 是真写库的），后端也兜了默认值。
+  router.push(daily.value.recommendation?.link || '/daily-learn')
+}
+
+// ===== 手动生成今日推荐（卡片空态里的按钮）=====
+const recGenerating = ref(false)
+
+async function generateRec() {
+  if (recGenerating.value) return
+  recGenerating.value = true
+  try {
+    const res = await generateTodayRec(authStore.user?.id)
+    if (res?.recommendation) {
+      // 不管是「刚生成」还是「今天已经有了」，后端都会把那条返回回来
+      daily.value.recommendation = res.recommendation
+      ElMessage.success(res.generated ? '今日推荐已生成' : '今天已经生成过了')
+    } else {
+      // 生成器凑不出内容（宁缺毋滥），给一句能指导下一步的话而不是「失败」
+      const d = res?.detail || {}
+      ElMessage.warning(d.no_content
+        ? '暂时凑不出推荐内容，先做几道题再来试试'
+        : '暂时无法生成，请稍后再试')
+    }
+  } catch (e) {
+    ElMessage.error('生成失败，请重试')
+  } finally {
+    recGenerating.value = false
+  }
 }
 
 // 当前轮到哪个队员署名（发消息前置位，流式回复创建消息时固化）
@@ -2554,6 +2637,19 @@ function goSettings() {
   router.push('/settings')
 }
 
+// ===== 消息中心入口 + 未读角标（2026-10-08 加的右上第 6 键）=====
+// 数据源与侧边栏 / 边缘转盘**同一个接口**（`/messages/badges`）——
+// 全站角标只有一套算法，不要在这里自己数（10-07 踩过：两套算法让侧边栏
+// 和消息中心的数字永远对不上）。
+// ⚠️ 2026-10-08：改成读**全站共享的那一份**（`composables/useNotifications.js`）——
+//    这里原本也有自己的 30 秒计时器，与 Sidebar / EdgeNavDock 重复。
+const { badges: sharedBadges } = useNotifications()
+const unreadTotal = computed(() => sharedBadges.value.total || 0)
+
+function goMessages() {
+  router.push('/message')
+}
+
 function handleResize() {
   updateScale()
 }
@@ -2567,14 +2663,26 @@ watch(messages, () => {
   })
 })
 
+// 回到这个标签页时重拉一次侧栏数据。
+// ⚠️ 2026-10-08：推荐是**定时器在用户设定的时间**生成的（默认早上 8 点），
+//    而 loadDaily() 只在挂载时跑一次 —— 页面一直开着的话，推荐生成了也永远
+//    看不到，得手动刷新。实测就撞上了这个（生成成功、卡片还是空态）。
+//    用 visibilitychange 而不是加轮询：推荐一天就一条，为它每 30 秒查 6 张表不值。
+function onVisible() {
+  if (document.visibilityState === 'visible') loadDaily()
+}
+
 onMounted(() => {
   loadVoiceConfig().then(() => loadMessages()).then(() => handleHighlight())
   loadDaily()
   window.addEventListener('resize', handleResize)
+  document.addEventListener('visibilitychange', onVisible)
+  // 未读角标**不在这里轮询** —— 全站只有 App.vue 起的那一个计时器
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  document.removeEventListener('visibilitychange', onVisible)
   if (isRecording.value) stopRecording()
   clearTimeout(closeTimer)
   if (asrWs && asrWs.readyState !== WebSocket.CLOSED) {
@@ -2704,13 +2812,47 @@ onUnmounted(() => {
   padding: 10px;
   display: flex; flex-direction: column; gap: 8px;
 }
+/* ⚠️ 两个态**必须占同样的高度**（2026-10-08 用户指出「占位变了」）：
+   `.side-card` 是 flex 列，而右栏是 `position:absolute; top:0; bottom:0; overflow:hidden`
+   的定高列 —— 推荐卡一高一矮，下面的「小基关心 / 使用日志 / 寄语」就跟着跳。
+   以前空态 ≈98px、有推荐 ≈190px，本来就差 90px；我加了三块行和空态按钮后
+   差距拉到 ~130px，当场被看出来。
+   做法：两个态共用 `--rec-h`，并把正文**钳到 3 行** ——
+   正文最长 120 字，不钳的话高度随字数漂，照样不稳。 */
+.side-card { --rec-h: 205px; }
+.rec-card, .rec-empty { min-height: var(--rec-h); }
+
 .rec-title { font-size: 13px; font-weight: 600; color: color-mix(in srgb, #f59e0b 70%, var(--text-primary)); }
-.rec-content { font-size: 12px; line-height: 1.7; color: var(--text-secondary); }
+.rec-content {
+  font-size: 12px; line-height: 1.7; color: var(--text-secondary);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* 三块三行（2026-10-08）：和消息中心那条、学习页是同一套东西 */
+.rec-blocks { display: flex; flex-direction: column; gap: 4px; }
+.rec-block {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 8px; border-radius: 8px; cursor: pointer;
+  font-size: 12px; color: var(--text-secondary);
+  background: rgba(245,158,11,.05);
+  transition: background .18s ease;
+}
+.rec-block:hover { background: rgba(245,158,11,.13); }
+.rec-no { color: color-mix(in srgb, #f59e0b 70%, var(--text-primary)); font-size: 11px; }
+.rec-name { flex: 1; }
+.rec-meta { font-size: 11px; color: var(--text-muted); }
 .rec-empty {
   text-align: center; font-size: 12px; color: var(--text-muted);
   background: rgba(128,128,128,.04); border-radius: 12px;
   padding: 10px 8px; line-height: 1.6;
+  /* 高度与 .rec-card 对齐（见上面 --rec-h）；内容垂直居中，
+     否则留白全堆在下面、看着像没渲染完 */
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
 }
+/* 空态里的「生成今日推荐」（2026-10-08）。el-button 是 inline-block，
+   .rec-empty 已经 text-align:center，所以只需要给它一个上边距。 */
+.rec-gen-btn { margin-top: 8px; }
 .quick-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .quick-chip {
   font-size: 11px; padding: 3px 8px; border-radius: 20px;
@@ -2864,6 +3006,29 @@ onUnmounted(() => {
 }
 .nav-action:hover {
   color: var(--text-primary) !important;
+}
+
+/* 消息中心键的未读角标（2026-10-08）。绝对定位挂在按钮右上，
+   所以按钮本身要 relative；红色与侧边栏/转盘同一套。
+   （已确认全局没有给 el-button 加 overflow:hidden，角标不会被裁。） */
+.nav-action-msg {
+  position: relative;
+}
+.nav-badge {
+  position: absolute;
+  top: -1px;
+  right: -3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  background: #ef4444;
+  color: #fff;
+  pointer-events: none;
 }
 
 /* ===== 搜索跳转高亮 ===== */

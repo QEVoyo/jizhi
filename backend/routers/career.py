@@ -260,7 +260,133 @@ async def record_action(action: dict, current_user: str = Depends(get_current_us
     action_type = action.get("action_type")
     metadata = action.get("metadata", {})
     await add_user_action(user_id, action_type, metadata)
+
+    # 打卡回执（默认关：页面上即时可见，发消息偏吵 —— 开关由注册表控制）
+    if action_type == "checkin":
+        try:
+            from utils.notification import notify, NotifyError
+            today = datetime.now().strftime("%Y-%m-%d")
+            await notify(user_id, "career.checkin", source_id=today,
+                         title="今日打卡成功", content="坚持就是胜利", link="/career")
+        except (NotifyError, KeyError):
+            pass          # 默认关的类型，失败不打扰
+
+    # 记完动作顺手看有没有任务因此达成（2026-10-07 接的消息点）
+    await _notify_newly_completed(user_id)
     return {"success": True}
+
+
+# 上次看到的「已完成任务名」快照。
+# ⚠️ 为什么要它：任务完成状态是从埋点**现算**出来的（没有"完成记录"表），
+#    不做差集的话，用户每做一次动作都会把**所有已完成的任务**再通知一遍。
+#    内存丢了也没关系 —— 丢一次只是少发一轮通知，不会发错。
+_done_snapshot: dict = {}
+
+
+async def _notify_newly_completed(user_id: str) -> None:
+    """对比前后两次的任务完成集合，只通知**这次新达成**的。"""
+    try:
+        from utils.notification import notify, NotifyError
+        data = await _compute_task_progress(user_id)
+        if not isinstance(data, dict) or "error" in data:
+            return
+
+        # 分桶收集：seed（播种/首次）· daily（施肥/每日）· long（发芽/阶段性）
+        done_by_bucket = {"seed": set(), "daily": set(), "long": set()}
+        total_by_bucket = {"seed": 0, "daily": 0, "long": 0}
+        for bucket in ("seed", "daily", "long"):
+            for t in data.get(bucket) or []:
+                total_by_bucket[bucket] += 1
+                if t.get("completed") or t.get("is_completed"):
+                    done_by_bucket[bucket].add(t.get("name") or t.get("id"))
+
+        now_done = set().union(*done_by_bucket.values())
+        before = _done_snapshot.get(user_id)
+        _done_snapshot[user_id] = now_done
+        if before is None:
+            return                      # 第一次只建基线，不发（否则一进页面就轰炸）
+        fresh = [n for n in now_done - before if n]
+        if not fresh:
+            return
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        for name in fresh:
+            # 聚合键用日期：今天完成的几个任务并成一条「今天完成了 3 个任务」，
+            # 每个任务名进 payload.actors（详情里看得到具体是哪几个）
+            await notify(user_id, "career.task_done",
+                         actor_name=name, source_id=f"task_{today}",
+                         title=f"完成任务：{name}", link="/career/tasks")
+
+        # ── 阶段性目标（发芽/长线）：单独发，不被聚合淹没 ──
+        for name in fresh:
+            if name in done_by_bucket["long"]:
+                await notify(user_id, "career.milestone_done", source_id=name,
+                             title=f"达成阶段目标：{name}",
+                             content="这是阶段性任务，奖励已可领取", link="/career/tasks")
+
+        # ── 今日任务全清 ──
+        d_total, d_done = total_by_bucket["daily"], len(done_by_bucket["daily"])
+        if d_total and d_done >= d_total:
+            await notify(user_id, "career.daily_all_done", source_id=today,
+                         title="今日任务全清",
+                         content=f"今天的 {d_total} 个任务都完成了，可以一次性领全清奖励",
+                         link="/career/tasks")
+
+        # ── 某一期通关（如播种 24/24 → 进入施肥期）──
+        for bucket, label in (("seed", "播种期"), ("daily", "施肥期"), ("long", "发芽期")):
+            t_total = total_by_bucket[bucket]
+            if t_total and len(done_by_bucket[bucket]) >= t_total:
+                await notify(user_id, "career.phase_clear", source_id=f"{bucket}_{today}",
+                             title=f"{label}全部完成",
+                             content=f"{label}的 {t_total} 项已全部达成，学程进入下一阶段",
+                             link="/career/tasks")
+
+        logger.info(f"[career] 新完成任务 {len(fresh)} 个 user={user_id}: {fresh}")
+    except (NotifyError, KeyError) as e:
+        logger.error(f"⚠️ 任务达成通知未送达 user={user_id}: {e}")
+    except Exception as e:                                      # noqa: BLE001
+        logger.error(f"⚠️ 任务达成检测异常 user={user_id}: {e}")
+
+
+async def _notify_claim(user_id: str, kind: str, name: str, reward: int, value: int,
+                        result: dict) -> None:
+    """领取奖励之后的三条消息：奖励到账 / 等级提升 / 段位晋升。
+
+    `result` 就是 `_apply_user_stats()` 的返回值 —— 它**本来就在算** rank_up / level_up
+    （前端拿去做动画），只是从来没人据此发过消息。
+    """
+    try:
+        from utils.notification import notify, NotifyError
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        if kind == "achievement":
+            await notify(user_id, "career.achievement", source_id=name,
+                         title=f"解锁成就「{name}」",
+                         content=f"奖励已到账：段位分 +{reward}、等级分 +{value}",
+                         link="/career/achievements")
+
+        # 奖励到账（聚合：一天里领多次并成一条）
+        await notify(user_id, "career.reward_claimed",
+                     actor_name=f"{name} +{reward}",
+                     source_id=f"reward_{today}",
+                     title=f"奖励到账：+{reward} 段位分 / +{value} 等级分",
+                     content=f"来自：{name}", link="/career")
+
+        if result.get("rank_up"):
+            await notify(user_id, "career.rank_up",
+                         source_id=str(result.get("new_rank") or ""),
+                         title=f"段位晋升到「{result.get('new_rank') or ''}」",
+                         content=f"当前段位分 {result.get('new_total_points', '')}",
+                         link="/career/rank")
+        if result.get("level_up"):
+            await notify(user_id, "career.level_up",
+                         source_id=str(result.get("new_level") or ""),
+                         title=f"等级提升到 Lv.{result.get('new_level')}",
+                         content="继续做题可以再升级", link="/career")
+    except (NotifyError, KeyError) as e:
+        logger.error(f"⚠️ 奖励通知未送达 user={user_id} kind={kind}: {e}")
+    except Exception as e:                                      # noqa: BLE001
+        logger.error(f"⚠️ 奖励通知异常 user={user_id}: {e}")
 
 @router.get("/actions/{user_id}")
 async def get_user_actions(user_id: str, current_user: str = Depends(get_current_user)):
@@ -370,6 +496,60 @@ async def update_user_stats(data: dict, current_user: str = Depends(get_current_
     )
 
 
+async def _notify_rank_pass(user_id: str, old_points: int, new_points: int) -> None:
+    """刚被甩在身后的好友 → `social.rank_pass`。
+
+    判定就是一句话：**他的分原本在你之上（含持平），现在被你够到或反超了**
+    （`old_points < 他的分 <= new_points`）。这个区间是精确的 ——
+    只按 `new_points` 比大小，会把「你早就超过的人」每次涨分都重报一遍。
+
+    ⚠️ 只有积分**增加**时才该调（调用方判）：这里要多查两次库
+    （friendships + user_stats），每答一道题都跑一遍不划算。
+    注册为 `default_on=False` —— 好友榜是会给别人压力的东西，想收自己开。
+    """
+    if new_points <= old_points:
+        return
+    try:
+        from utils.notification import notify, NotifyError
+        headers = get_supabase_headers()
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # 好友关系是双向存的（同 friends.py:230），两个方向都要查
+            fr = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/friendships?status=eq.accepted"
+                f"&or=(user_id.eq.{user_id},friend_id.eq.{user_id})"
+                f"&select=user_id,friend_id", headers=headers)
+            if fr.status_code != 200:
+                return
+            friend_ids = {(f["friend_id"] if f["user_id"] == user_id else f["user_id"])
+                          for f in (fr.json() or [])}
+            friend_ids.discard(user_id)
+            friend_ids.discard(None)
+            if not friend_ids:
+                return
+            ids = ",".join(f'"{i}"' for i in friend_ids)
+            st = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/user_stats?user_id=in.({ids})"
+                f"&select=user_id,points", headers=headers)
+        if st.status_code != 200:
+            return
+
+        passed = [r for r in (st.json() or [])
+                  if old_points < (r.get("points") or 0) <= new_points]
+        if not passed:
+            return
+        today = datetime.now().strftime("%Y-%m-%d")
+        await notify(user_id, "social.rank_pass",
+                     actor_name=f"+{new_points - old_points}",
+                     source_id=f"rank_pass_{today}",
+                     title=f"你超过了 {len(passed)} 位好友",
+                     content=f"当前段位分 {new_points}，继续做题还能往上走。",
+                     link="/community/rank")
+    except (NotifyError, KeyError) as e:
+        logger.error(f"⚠️ 好友榜超越通知未送达 user={user_id}: {e}")
+    except Exception as e:                                      # noqa: BLE001
+        logger.error(f"⚠️ 好友榜超越检测异常 user={user_id}: {e}")
+
+
 async def _apply_user_stats(user_id: str, points_change: int, level_points_change: int, source: str):
     """积分与段位/等级写入的核心逻辑。
 
@@ -429,6 +609,10 @@ async def _apply_user_stats(user_id: str, points_change: int, level_points_chang
         update_url = f"{settings.SUPABASE_URL}/rest/v1/user_stats?user_id=eq.{user_id}"
         res = await client.patch(update_url, headers=headers, json=update_data)
 
+        # 好友榜：这一次涨分超过了谁（只在积分确实增加 + 写入成功时才查）
+        if points_change > 0 and res.status_code in [200, 204]:
+            await _notify_rank_pass(user_id, old_points, new_points)
+
         return {
             "success": res.status_code in [200, 204],
             "points_gained": points_change,
@@ -485,10 +669,11 @@ async def claim_achievement(req: ClaimAchievementRequest, current_user: str = De
         update_result = await _apply_user_stats(
             req.user_id, reward, 0, f"achievement_{req.achievement_id}"
         )
+    await _notify_claim(req.user_id, "achievement", ach_name, reward, 0, update_result)
 
-        return {
-            "success": True,
-            "message": "领取成功",
+    return {
+        "success": True,
+        "message": "领取成功",
             "rank_points_gained": reward,
             "level_points_gained": 0,
             "new_total_points": update_result.get("new_total_points", 0),
@@ -573,6 +758,7 @@ async def claim_task(req: ClaimTaskRequest, current_user: str = Depends(get_curr
     update_result = await _apply_user_stats(
         req.user_id, reward, value, f"task_{req.task_type}_{req.task_id}"
     )
+    await _notify_claim(req.user_id, req.task_type, task_name, reward, value, update_result)
 
     return {
         "success": True,
@@ -607,6 +793,7 @@ async def claim_bonus(data: dict, current_user: str = Depends(get_current_user))
         await client.post(claim_url, headers=headers, json=claim_data)
 
     update_result = await _apply_user_stats(user_id, 20, 30, "daily_bonus")
+    await _notify_claim(user_id, "bonus", "今日任务全清", 20, 30, update_result)
 
     return {
         "success": True,

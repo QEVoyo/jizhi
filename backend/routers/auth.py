@@ -523,6 +523,16 @@ async def update_password(
         if update_res.status_code != 200:
             raise HTTPException(status_code=400, detail="修改密码失败")
 
+        # 消息中心：账号安全通知。密码**已经改完了** —— 通知发不出去不该让用户
+        # 以为改密失败（他会再改一次），所以这里只记 ERROR，不抛。
+        try:
+            from utils.notification import notify, NotifyError
+            await notify(user_id, "system.password_changed",
+                         title="登录密码已修改",
+                         content="如果不是你本人操作的，请立刻重新修改密码。")
+        except (NotifyError, KeyError) as e:
+            logger.error(f"⚠️ 改密通知未送达 user={user_id}: {e}")
+
         return {"success": True, "message": "密码修改成功"}
 
 
@@ -636,6 +646,17 @@ async def set_credentials(
             headers=svc_headers, json={"used": True})
 
     logger.info(f"✅ 用户 {user_id} 补设邮箱密码: {email}")
+
+    # 消息中心：这是「微信建的号 → 补上真正的钥匙」，用户最该收到确认的一条。
+    # 同改密：账号已经生效了，通知失败不回滚，只记 ERROR。
+    try:
+        from utils.notification import notify, NotifyError
+        await notify(user_id, "system.email_bound",
+                     title="邮箱绑定成功",
+                     content=f"现在可以用 {email} 在网页端 / 桌面端 / 手机端登录了。")
+    except (NotifyError, KeyError) as e:
+        logger.error(f"⚠️ 邮箱绑定通知未送达 user={user_id}: {e}")
+
     return {"success": True, "email": email,
             "message": "设置成功，现在可以用这个邮箱在网页端/桌面端/手机端登录了"}
 

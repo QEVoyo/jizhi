@@ -207,18 +207,17 @@ async def notify_task_done(
     if not user_id:
         return
     try:
-        from utils.notification import create_notification
+        from utils.notification import notify, NotifyError
 
-        await create_notification(
-            user_id=user_id,
-            notif_type="task_failed" if failed else "task_done",
-            title=title,
-            content=content,
-            source_id=source_id,
-            link=link,
+        await notify(
+            user_id, "learning.task_failed" if failed else "learning.task_done",
+            title=title, content=content, source_id=source_id, link=link,
         )
-    except Exception as e:
-        logger.warning(f"任务通知写入失败（不影响任务本身）: {e}")
+    except NotifyError as e:
+        # 活已经干完了，通知写失败不让任务算失败 —— 但必须留 ERROR，不静默
+        logger.error(f"⚠️ 任务通知未送达 user={user_id} source={source_id}: {e}")
+    except KeyError as e:
+        logger.error(f"⚠️ 任务通知类型未注册: {e}")
 
 
 # ==================== worker 入口 ====================

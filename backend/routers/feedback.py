@@ -62,7 +62,27 @@ async def submit_feedback(data: FeedbackSubmit, current_user: str = Depends(get_
     if not success:
         raise HTTPException(status_code=500, detail="邮件发送失败，请稍后重试")
 
+    # 顺手告诉管理员：有新反馈待处理（2026-10-07 接的消息点）。
+    # 管理员现在靠人肉刷后台，这条就是把他们拉回来。
+    await _notify_admins_new("admin.new_feedback", "有新的用户反馈待处理",
+                             f"{data.type}：{data.content[:40]}")
+
     # saved 如实反映落库结果：邮件成功但入库失败是可能的（两者互相独立），
     # 显式带出来，后台/排查时不用再去猜。
     return {"success": True, "saved": feedback_saved,
             "message": "感谢反馈！我们会认真对待每一条建议 💪"}
+
+
+async def _notify_admins_new(notif_type: str, title: str, content: str) -> None:
+    """通知全体管理员有新的待办。
+
+    ⚠️ 失败不影响用户提交（反馈已经落库 + 邮件也发了），但必须留 ERROR。
+    """
+    try:
+        from utils.notification import notify_admins, NotifyError
+        await notify_admins(notif_type, title=title, content=content,
+                            link="/admin/feedback")
+    except NotifyError as e:
+        logger.error(f"⚠️ 管理员待办通知失败 type={notif_type}: {e}")
+    except KeyError as e:
+        logger.error(f"⚠️ 管理员待办类型未注册: {e}")

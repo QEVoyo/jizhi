@@ -667,6 +667,24 @@ async def submit_diagnosis(
                     json=task_row
                 )
 
+    # 一次提交产生**两个**事件：诊断完成 + 计划生成。
+    # 计划就是诊断的产物，所以两条都在这里发 —— 用户在消息中心看到的是
+    # 「你做了摸底，正确率 X」和「据此生成了一份计划」，是两件独立可点的事。
+    from utils.notify_events import notify_plan_generated
+    try:
+        from utils.notification import notify, NotifyError
+        await notify(
+            data.user_id, "learning.diagnosis_done",
+            source_id=plan_id,
+            title="摸底诊断已完成",
+            content=f"正确率 {accuracy}%（{correct_count}/{len(data.answers)}），"
+                    f"据此生成的学习计划已经可以用了。",
+        )
+    except (NotifyError, KeyError) as e:
+        logger.error(f"⚠️ 诊断完成通知未送达 user={data.user_id}: {e}")
+
+    await notify_plan_generated(data.user_id, plan_id, plan_name, basis="根据你的摸底诊断")
+
     return {
         "plan_id": plan_id,
         "plan_name": plan_name,
@@ -1336,6 +1354,13 @@ async def submit_answer(plan_id: str, data: AnswerSubmit, current_user: str = De
                     # （记录已经落库了），但必须留下痕迹，别静默。
                     if up.status_code >= 300:
                         logger.warning(f"掌握度更新失败 [{up.status_code}]: {up.text[:200]}")
+                    else:
+                        # 消息中心：掌握度跃升 / 薄弱堆积（2026-10-08 接的消息点）。
+                        # ⚠️ 只在**已有记录被更新**的分支里调 —— 下面的首次插入没有
+                        #    「旧分」，拿 0 → 70 去比会把「第一次做对一个知识点」
+                        #    报成「掌握度跃升」。阈值在 utils/notify_events.py。
+                        from utils.notify_events import notify_mastery_change
+                        await notify_mastery_change(data.user_id, kp, old_score, new_score)
                 else:
                     # 首次插入
                     kp_row = {

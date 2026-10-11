@@ -11,7 +11,7 @@ from logging_config import logger
 from services import video_gen
 from services.supabase import get_supabase_headers
 from config import settings
-import local_question_bank
+from services import kp_questions
 
 router = APIRouter(prefix="/video", tags=["视频"])
 
@@ -226,6 +226,8 @@ async def lib_ensure(req: LibEnsureReq):
         req.knowledge_key, req.knowledge_name,
         subject=req.subject, stage=req.stage, goal=req.goal,
         author_name=req.author_name, author_avatar=req.author_avatar,
+        # 带上请求者：视频就绪/失败时通知他（用户做完题就走了，37 秒后回来不一定还在这页）
+        requester_id=req.user_id or "",
     )
     # 带了 user_id 就顺带推送到他的视频库 —— 视频库新增的「推送」分类读的就是这张表。
     # 推送**不阻塞** ensure 本身：记失败也只打日志，视频照样能用。
@@ -313,21 +315,6 @@ async def lib_warm(req: LibWarmReq):
     return {"success": True, **res}
 
 
-def _q_stem_text(q: dict) -> str:
-    """把题干的三种存法（stem / content.stem / content 是纯字符串）拉平成一段文字。
-
-    题库题的题干在 `content.stem`（`SubjectPractice` 就是从那儿读的），
-    但扁平化过的题也可能直接挂在 `stem` 上。模糊匹配两者都要能命中。
-    """
-    raw = q.get("stem")
-    if not raw:
-        c = q.get("content")
-        raw = c.get("stem") if isinstance(c, dict) else (c if isinstance(c, str) else None)
-    if isinstance(raw, (list, dict)):
-        raw = json.dumps(raw, ensure_ascii=False)
-    return str(raw or q.get("title") or "")
-
-
 @router.get("/lib/{video_id}/questions")
 async def video_questions(video_id: str, limit: int = Query(12, ge=1, le=60)):
     """做题按钮：按**相关度**从学科计划题库检索本知识点的题。
@@ -357,47 +344,17 @@ async def video_questions(video_id: str, limit: int = Query(12, ge=1, le=60)):
         raise HTTPException(status_code=404, detail="视频不存在")
     row = rows[0]
     subject = row.get("subject") or ""
-    kk = row.get("knowledge_key") or ""
-    target = (row.get("knowledge_name") or "").strip()
-    t_low = target.lower()
-    # knowledge_key 的形式是 f"{subject}:{sha1(知识点)[:12]}"。
-    # ⚠️ 视频行的 subject 历史上有三套命名（syllabus id / syllabus 中文名 /
-    # 出题 AI 判定的 category），而 get_bank() 只认 syllabus id ——
-    # 传中文名直接返回 None。所以不再按库分先后，改成给同库加权重。
-    kp_hash = kk.split(":", 1)[1] if ":" in kk else kk
-
-    names = local_question_bank.syllabus_names()
-    scored: List[tuple] = []
-    try:
-        for sid, bank in local_question_bank.all_banks().items():
-            for q in (bank or {}).get("questions") or []:
-                s = 0
-                kp_id = str(q.get("kp_id") or q.get("sub_category") or "")
-                if kp_id and video_gen.make_knowledge_key("x", kp_id).split(":", 1)[-1] == kp_hash:
-                    s = 120
-                elif t_low:
-                    name = (q.get("kp_name") or "").strip().lower()
-                    if name:
-                        if name == t_low:
-                            s = 100
-                        elif t_low in name or name in t_low:
-                            s = 80
-                    if not s and t_low in _q_stem_text(q).lower():
-                        s = 60
-                if not s:
-                    continue
-                if subject and sid == subject:
-                    s += 15
-                scored.append((s, sid, q))
-        # 分数降序；同分保持题库原顺序（stable sort）
-        scored.sort(key=lambda x: -x[0])
-    except Exception as e:
-        logger.info(f"⚠️ 视频练题查找失败: {e}")
-
-    items = [
-        {**q, "syllabus_id": sid, "syllabus_name": names.get(sid, sid), "match_score": s}
-        for s, sid, q in scored[:limit]
-    ]
+    # 2026-10-08：打分逻辑抽到 `services/kp_questions.py`，每日学习推荐共用同一份
+    #（原先 inline 在这里，再抄一份给推荐用迟早改一处漏一处）。
+    # ⚠️ 视频行的 subject 前缀有**三套命名历史**（syllabus id / 中文名 /
+    # 出题 AI 判定的 category），完整 key 对不上不代表不是同一个知识点 ——
+    # 所以只把哈希那半传进去做跨命名比对。
+    items = kp_questions.score_by_kp(
+        row.get("knowledge_name") or "",
+        subject=subject,
+        kp_hash=video_gen._split_kp_hash(row.get("knowledge_key")),
+        limit=limit,
+    )
     return {
         "subject": subject,
         "knowledge_name": row.get("knowledge_name"),

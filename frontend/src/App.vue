@@ -25,6 +25,7 @@ import GlobalSearch from '@/components/GlobalSearch.vue'
 import DesktopWindowControls from '@/desktop/DesktopWindowControls.vue'
 import DesktopContextMenu from '@/desktop/ContextMenu.vue'
 import { isDesktop } from '@/desktop'
+import { startNotifications } from '@/composables/useNotifications'
 
 const route = useRoute()
 const router = useRouter()
@@ -85,6 +86,10 @@ onMounted(() => {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) setTimeout(unstickTransition, 80)
   })
+  // 未读角标 + 桌面通知：**全站唯一**的轮询点（2026-10-08）。
+  // 挂在这里而不是各页面里 —— 弹窗要跨路由存活，而且改造前
+  // Sidebar / EdgeNavDock / XiaojiCall 各自起计时器，首页就是 3 份重复请求。
+  startNotifications()
 })
 </script>
 
@@ -167,5 +172,94 @@ html.jz-desktop .app-container {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.5);
+}
+
+/* ===== 桌面通知：页内长条（2026-10-08）=====
+   由 `composables/useNotifications.js` 用 `document.createElement` 挂到 body 上，
+   **在组件作用域之外** —— 所以样式必须写在这里（全局），写进任何 .vue 的
+   scoped 里都命中不了。
+
+   三条设计要求（用户提的）：
+     ① **长条，不是方卡** —— 宽而扁，照消息中心的列表行做
+        （左侧 3px 竖色条 + 方形图标 + 标题/时间一行 + 摘要一行）
+     ② **毛玻璃** —— 低不透明度 + 强模糊 + 高饱和 + 一道亮边；
+        以前写成 88% 不透明，那看着就是块实心板
+     ③ **覆盖，不是堆积** —— 同一时刻**只有一条**，新的顶掉旧的，
+        总高度恒定（所以不用 ElNotification：它只会往下堆）
+
+   位置：**上部居中**（2026-10-08 用户定）。
+   注意不是四角 —— 右上角被桌面壳的窗口控制键占着（top:10px right:20px）。 */
+.jz-toast {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  z-index: 9999;
+  width: min(620px, calc(100vw - 40px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px 11px 16px;
+  border-radius: 14px;
+  cursor: pointer;
+  overflow: hidden;
+
+  /* ② 毛玻璃 */
+  background: color-mix(in srgb, var(--surface, #ffffff) 62%, transparent);
+  backdrop-filter: blur(30px) saturate(1.7);
+  -webkit-backdrop-filter: blur(30px) saturate(1.7);
+  border: 1px solid color-mix(in srgb, var(--surface, #ffffff) 45%, transparent);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .16),
+              inset 0 1px 0 rgba(255, 255, 255, .35);
+
+  /* 进场/出场。⚠️ translateX(-50%) 必须一直带着 —— 它是横向居中的实现，
+     任何一处 transform 漏了它，长条就会跳回左侧。 */
+  transform: translateX(-50%) translateY(-14px) scale(.985);
+  opacity: 0;
+  transition: transform .22s cubic-bezier(.2, .9, .3, 1.15), opacity .22s ease;
+}
+.jz-toast.in  { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+.jz-toast.out { transform: translateX(-50%) translateY(-10px) scale(.985); opacity: 0; }
+.jz-toast:hover {
+  transform: translateX(-50%) translateY(0) scale(1.006);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, .2),
+              inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+
+/* ① 左侧 3px 竖色条 —— 与消息中心 `.mc-card .bar` 同一个视觉语言 */
+.jz-toast .jz-bar {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, var(--c1), var(--c2));
+}
+/* 方形图标，取消息点标签的首字 —— 同 `.mc-icon` */
+.jz-toast .jz-ic {
+  flex: none; width: 30px; height: 30px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; color: #fff;
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+}
+.jz-toast .jz-body { flex: 1; min-width: 0; }
+.jz-toast .jz-top { display: flex; align-items: center; gap: 8px; }
+.jz-toast .jz-name {
+  font-size: 13.5px; font-weight: 600; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* 聚合行的「N 条」标记 */
+.jz-toast .jz-count {
+  flex: none; font-size: 11px; padding: 1px 7px; border-radius: 8px;
+  background: color-mix(in srgb, var(--c1) 18%, transparent); color: var(--c1);
+}
+.jz-toast .jz-time { flex: none; margin-left: auto; font-size: 11px; color: var(--text-muted); }
+/* 摘要**只占一行** + 省略号 —— 这是「长条」的关键，多行就变回方块了 */
+.jz-toast .jz-preview {
+  margin-top: 2px; font-size: 12.5px; line-height: 1.6; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.jz-toast .jz-x {
+  flex: none; width: 22px; height: 22px; border: none; border-radius: 7px;
+  background: transparent; cursor: pointer; color: var(--text-muted); font-size: 13px;
+}
+.jz-toast .jz-x:hover {
+  background: color-mix(in srgb, var(--text-muted) 20%, transparent);
+  color: var(--text-primary);
 }
 </style>

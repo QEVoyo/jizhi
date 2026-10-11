@@ -10,6 +10,7 @@ router = APIRouter(prefix="/tools", tags=["工具"])
 
 
 from services.supabase import get_supabase_headers, get_supabase_service_headers
+from utils.notification import notify, NotifyError
 from logging_config import logger
 
 
@@ -71,7 +72,13 @@ async def save_checkin(user_id: str, data: Dict[str, Any], current_user: str = D
 
 # ========== 倒计时（时间胶囊） ==========
 async def _notify_due_capsules(client, headers, user_id, events):
-    """时间胶囊到期通知（2026-08-26）：到期未开启的胶囊发一条系统通知，按 source_id 去重不轰炸"""
+    """时间胶囊到期通知（2026-08-26 立，2026-10-07 收编进统一入口）
+
+    去重交给 `notify()`：`system.capsule_due` 注册为 **once** —— 同一个胶囊只提醒一次，
+    不管用户读没读。改造前这里是手写的一套「先查有没有」的去重 + 自己拼 dict 插表。
+
+    （`client` / `headers` 保留只为不改调用方签名，这里不再用。）
+    """
     today = datetime.now().strftime("%Y-%m-%d")
     for ev in events or []:
         title = ev.get("title") or ev.get("name") or "时间胶囊"
@@ -80,27 +87,15 @@ async def _notify_due_capsules(client, headers, user_id, events):
         target = ev.get("target_date", "")
         if not target or target > today:
             continue
-        source_id = f"capsule_{ev.get('id', '')}"
         try:
-            check_url = (
-                f"{settings.SUPABASE_URL}/rest/v1/notifications"
-                f"?user_id=eq.{user_id}&type=eq.system&source_id=eq.{source_id}&select=id&limit=1"
+            await notify(
+                user_id, "system.capsule_due",
+                source_id=f"capsule_{ev.get('id', '')}",
+                title="胶囊已到开启时间",
+                content=f"你的时间胶囊「{title}」已到开启时间，打开它看看当初写下的留言吧",
             )
-            check_res = await client.get(check_url, headers=headers)
-            if check_res.status_code == 200 and check_res.json():
-                continue  # 已通知过
-            notif = {
-                "user_id": user_id, "type": "system",
-                "title": "胶囊已到开启时间",
-                "content": f"你的时间胶囊「{title}」已到开启时间，打开它看看当初写下的留言吧",
-                "source_id": source_id, "msg_count": 1, "is_read": False,
-            }
-            insert_res = await client.post(
-                f"{settings.SUPABASE_URL}/rest/v1/notifications", headers=headers, json=notif)
-            if insert_res.status_code not in (200, 201):
-                logger.info(f"胶囊到期通知失败: {insert_res.text}")
-        except Exception as e:
-            logger.info(f"胶囊到期通知异常: {e}")
+        except (NotifyError, KeyError) as e:
+            logger.error(f"⚠️ 胶囊到期通知未送达 user={user_id}: {e}")
 
 
 @router.get("/countdown/{user_id}")

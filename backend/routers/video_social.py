@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+import httpx
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 
@@ -157,13 +158,59 @@ async def _toggle(video_id: str, user_id: str, table: str, col_key: str) -> dict
     return {"active": active, "count": count}
 
 
+async def _notify_video_owner(video_id: str, actor_id: str, notif_type: str,
+                              verb: str, snippet: str = "") -> None:
+    """给视频作者发一条互动消息（点赞 / 评论）。
+
+    ⚠️ 通知是派生产物：写失败**不影响点赞/评论本身**（那些已经落库了），
+    但必须留 ERROR —— 不静默（这是这个项目栽过三次的坑）。
+    两种收不到的情况：作者就是触发者自己；`owner_user_id` 为空（官方视频）。
+    """
+    if not video_id or not actor_id:
+        return
+    try:
+        from utils.notification import notify, NotifyError
+        from services.supabase import get_supabase_service_headers
+
+        v = await _get_video(video_id) or {}
+        owner = v.get("owner_user_id")
+        if not owner or owner == actor_id:
+            return          # 官方视频没人可通知；自己的视频不通知自己
+
+        headers = get_supabase_service_headers()
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # 触发者昵称 —— 详情弹层要显示「谁赞的」
+            prof = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{actor_id}"
+                f"&select=nickname,user_account", headers=headers)
+        prow = (prof.json() or [{}])[0] if prof.status_code == 200 else {}
+        actor_name = prow.get("nickname") or prow.get("user_account") or "有人"
+
+        name = v.get("title") or v.get("knowledge_name") or "你的视频"
+        await notify(owner, notif_type,
+                     actor_id=actor_id, actor_name=actor_name,
+                     source_id=video_id,          # 按视频聚合，与帖子同一维度
+                     title=f"{actor_name} {verb}",
+                     content=snippet or f"《{name}》")
+    except NotifyError as e:
+        logger.error(f"⚠️ 视频互动通知未送达 video={video_id} type={notif_type}: {e}")
+    except KeyError as e:
+        logger.error(f"⚠️ 视频互动类型未注册: {e}")
+    except Exception as e:                                     # noqa: BLE001
+        logger.error(f"⚠️ 视频互动通知异常 video={video_id}: {e}")
+
+
 @router.post("/{video_id}/like")
 async def video_like(video_id: str, body: dict):
     """点赞/取消（幂等 toggle）"""
     user_id = str(body.get("user_id") or "").strip()
     if not user_id:
         raise HTTPException(status_code=400, detail="缺少 user_id")
-    return await _toggle(video_id, user_id, "video_likes", "likes_count")
+    result = await _toggle(video_id, user_id, "video_likes", "likes_count")
+    # 只在**新点赞**时通知作者。取消点赞也发的话，点一下再取消就白弹一条。
+    if result.get("active"):
+        await _notify_video_owner(video_id, user_id, "social.video_like", "赞了你的视频")
+    return result
 
 
 @router.post("/{video_id}/favorite")
@@ -210,6 +257,9 @@ async def video_comment_create(video_id: str, body: dict):
         await db.update("video_library", eq={"id": video_id},
                         data={"comments_count": int(v.get("comments_count") or 0) + 1},
                         use_service_role=True)
+    # 评论正文当消息内容，作者不点开也能看见说了什么
+    await _notify_video_owner(video_id, user_id, "social.video_comment",
+                              "评论了你的视频", snippet=content[:60])
     return {"success": True}
 
 
@@ -357,8 +407,31 @@ async def video_publish(video_id: str, body: dict):
         raise HTTPException(status_code=403, detail="只能发布自己的视频")
     if v.get("status") != "ready":
         raise HTTPException(status_code=400, detail="视频还没生成完")
+    already_pending = v.get("publish_status") == "pending"
     await db.update("video_library", eq={"id": video_id}, data={"publish_status": "pending"},
                     use_service_role=True)
+
+    # 消息中心：告诉管理员有内容待审（原来只能靠人肉刷后台）。
+    # ⚠️ 两个刻意不做的选择：
+    #   1. **不传 source_id**。`admin.content_review` 是 aggregate=False，
+    #      而同一个视频可以「被驳回 → 重新申请」。传 source_id=video_id 的话，
+    #      管理员还没读旧通知时再申请会撞部分唯一索引 —— 而非聚合类型撞索引
+    #      **不走聚合回退，直接抛**，结果是管理员漏掉这次重审。宁可多一条。
+    #   2. **重复点「发布」不重复通知**。状态本来就是 pending，写不写都一样；
+    #      不判的话第二次点击会再发一条，而重复点按钮是正常操作。
+    if not already_pending:
+        try:
+            from utils.notification import notify_admins, NotifyError
+            title = (v.get("title") or v.get("knowledge_name") or "未命名视频")[:40]
+            await notify_admins("admin.content_review",
+                                title="有新的视频待审核",
+                                content=f"《{title}》申请发布到广场",
+                                link="/admin/videos")
+        except NotifyError as e:
+            logger.error(f"⚠️ 内容待审通知失败 video={video_id}: {e}")
+        except KeyError as e:
+            logger.error(f"⚠️ 管理员待办类型未注册: {e}")
+
     return {"success": True}
 
 
