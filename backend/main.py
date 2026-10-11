@@ -21,8 +21,11 @@ from routers import admin_video
 from routers import agent_center
 from routers import vocab
 from routers import download
+from routers import message_center
+from routers import daily_learn
 from agents.tuning import start_background_tuning
 from services.video_gen import start_video_worker
+from services.daily_scheduler import start_daily_scheduler
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 
@@ -32,9 +35,13 @@ async def lifespan(app):
     tuning_task = start_background_tuning()
     # 视频库生成 worker：知识点级模板视频后台排产（2026-09-04）
     video_task = start_video_worker()
+    # 每日推荐 / 每日总结：每 10 分钟醒来一次，把到点且今天还没生成的用户挑出来
+    #（2026-10-08）。发不发由用户自己的开关 + 时间决定，见 services/daily_scheduler.py
+    daily_task = start_daily_scheduler()
     yield
     tuning_task.cancel()
     video_task.cancel()
+    daily_task.cancel()
 
 
 app = FastAPI(title="基智学习助手 API", version="1.0.0", lifespan=lifespan)
@@ -83,6 +90,9 @@ app.include_router(admin_video.router)
 app.include_router(agent_center.router, prefix="/agent-center")
 app.include_router(vocab.router)
 app.include_router(download.router)
+# 消息中心（2026-10-07）：前缀就是 /messages，唯一的一套读接口
+app.include_router(message_center.router)
+app.include_router(daily_learn.router)
 
 @app.get("/")
 def root():

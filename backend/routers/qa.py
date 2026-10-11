@@ -113,4 +113,14 @@ async def submit_qa_question(data: QASubmitRequest, current_user: str = Depends(
     if not success:
         raise HTTPException(status_code=500, detail="邮件发送失败，请稍后重试")
 
+    # 告诉管理员有新提问（2026-10-07 接的消息点：原来靠人肉刷后台）
+    try:
+        from utils.notification import notify_admins, NotifyError
+        await notify_admins("admin.new_qa", title="有新的用户提问待处理",
+                            content=data.question[:40], link="/admin/qa")
+    except NotifyError as e:
+        logger.error(f"⚠️ 管理员待办通知失败: {e}")
+    except KeyError as e:
+        logger.error(f"⚠️ 管理员待办类型未注册: {e}")
+
     return {"success": True, "message": "问题已发送，我们会尽快回复"}

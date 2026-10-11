@@ -74,13 +74,16 @@
      - 5.7.2 [九维详情](#572-九维详情)
      - 5.7.3 [后端数据聚合](#573-后端数据聚合evaluationpy)
    - 5.8 [消息中心](#58-消息中心)
-     - 5.8.1 [通知分类](#581-通知分类10-个-tab)
-     - 5.8.2 [通知创建与聚合](#582-通知创建与聚合notificationpy)
-     - 5.8.3 [每日智能生成](#583-每日智能生成daily_generatorpy)
-     - 5.8.4 [消息卡片展示](#584-消息卡片展示)
-     - 5.8.5 [设置面板](#585-设置面板)
-     - 5.8.6 [轮询与集成](#586-轮询与集成)
-     - 5.8.7 [帮助中心 Q&A](#587-帮助中心-qa)
+     - 5.8.1 [消息点注册表](#581-消息点注册表全站唯一定义)
+     - 5.8.2 [写入唯一入口](#582-写入唯一入口utilsnotificationpy)
+     - 5.8.3 [已读的三条路径](#583-已读的三条路径)
+     - 5.8.4 [每日学习推荐（三合一）](#584-每日学习推荐三合一--独立学习页)
+     - 5.8.5 [每日生成与定时](#585-每日生成与定时servicesdaily_generatorpy--daily_schedulerpy)
+     - 5.8.6 [角标、轮询与接口](#586-角标轮询与接口)
+     - 5.8.7 [设置](#587-设置)
+     - 5.8.8 [详情：七种形态](#588-详情七种形态2026-10-08)
+     - 5.8.9 [桌面通知](#589-桌面通知2026-10-08)
+     - 5.8.10 [帮助中心 Q&A](#5810-帮助中心-qa)
    - 5.9 [工具箱](#59-工具箱)
      - 5.9.0 [整体架构](#590-整体架构)
      - 5.9.1 [打卡](#591-打卡)
@@ -522,7 +525,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 #   [题库] cet4 (CET-4 英语四级): OK 已加载 1098 题
 #   [题库] cet6 ... OK 已加载 1073 题
 #   ...共 17 个考纲
-#   [题库] 总计 17 个考纲题库，16889 道题目
+#   [题库] 总计 17 个考纲题库，19338 道题目
 #   Uvicorn running on http://0.0.0.0:8000
 
 # 终端 2 — 启动前端
@@ -767,7 +770,7 @@ project1/
             ├── Sidebar.vue           # ★ App 图标网格侧边栏 (54K)
             ├── AppLayout.vue         # 全局布局 (毛玻璃 + 淡彩流光)
             ├── QAPage.vue            # ★ 帮助中心 (7 分类 29 FAQ, 36K)
-            ├── MessageCenter.vue     # 消息中心 (含公告 Tab, 21K)
+            ├── MessageCenter.vue     # 消息中心（Tab/配色/跳转全由 /messages/registry 推导）
             ├── ChatArea.vue          # AI 对话区
             ├── CareerSidebar.vue     # 生涯模块侧边栏
             ├── XiaojiCall.vue        # 小基 AI 语音通话
@@ -2416,70 +2419,208 @@ POST /learning-plan/create {user_id, name, stage, ..., tasks[]}
 ### 5.8 消息中心
 
 
-位于 `/message`，全部平台通知的聚合中心。
+位于 `/message`，全部平台通知的聚合中心。**2026-10-07 整体重构过**，本节描述的是重构后的形态；
+设计规格与取舍见 `message_center_design.md`。
 
-#### 5.8.1 通知分类（10 个 Tab）
+#### 5.8.1 消息点注册表（全站唯一定义）
 
-| Tab | 类型 | 聚合策略 |
-|-----|------|---------|
-| 全部 | — | 合并展示 |
-| 好友消息 | `chat` | 同一 `source_id` 合并，`msg_count` 递增 |
-| 社区互动 | `social` | 同上，同一 `source_id` 合并 |
-| 学程动态 | `learning` | 每条独立 |
-| 计划提醒 | `plan_reminder` | 每条独立 |
-| 评估报告 | `evaluation` | 每条独立 |
-| 每日推荐 | `daily_rec` | 每天一条 AI 生成 |
-| 昨日总结 | `daily_summary` | 每天一条 AI 生成 |
-| 系统消息 | `system` | 每条独立 |
-| 公告 | `announcement` | 从 `GET /admin/announcements/active` 独立加载 |
+`backend/notification_registry.py` 定义 **66 个消息点 / 9 个大类**，一行一个 `_t(...)`：
 
-#### 5.8.2 通知创建与聚合（notification.py）
+| 大类 | 开关 | 语义色 |
+|---|---|---|
+| `chat` 好友消息 | `chat_enabled` | `--brand`（跟品牌色） |
+| `social` 社区互动 | `social_enabled` | `#E6A23C` |
+| `learning` 学习 | `learning_enabled` | `#67C23A` |
+| `plan` 计划提醒 | `plan_reminder_enabled` | `#F56C6C` |
+| `evaluation` 评估 | `evaluation_enabled` | `#8B5CF6` |
+| `career` 学程 | `career_enabled` | `#F59E0B` |
+| `todo` 待办 | `todo_enabled` | `#06B6D4` |
+| `system` 系统消息 | `system_enabled` | `#64748B` |
+| `admin` 管理 | `admin_enabled` | `#6366F1` |
+
+- 组内每个消息点由大类色**派生**一个渐变色（`derive_color`）：色相 ±8°、明度 ±14%。
+  **公式只有这一份实现**，前端与预览页都从 `GET /messages/registry` 取（`c1`/`c2`），不重写。
+- 消息点三个修饰位：`aggregate`（同一 `(user, type, source_id)` 的未读并成一行，`msg_count` 计条数）、
+  `once`（一辈子只发一次）、`todo`（已读必须由处理动作驱动，看见不算）。
+- **未注册的 type 会被 `notify()` 直接拒绝（KeyError）** —— 这是刻意的：改造前线上出现过
+  `task_done` 这种「后端在写、前端没定义」的类型，在列表里显示成英文原文。
+
+#### 5.8.2 写入唯一入口（`utils/notification.py`）
 
 ```python
-def create_notification(user_id, notif_type, title, content, source_id=None, ...):
-    if notif_type in ('chat', 'social'):
-        # 聚合模式：查找同一 source_id 的未读通知
-        existing = GET /notifications?user_id=&type=&source_id=&is_read=false
-        if existing:
-            # UPDATE: msg_count++, content=最新
-            UPDATE /notifications/{id} ...
-        else:
-            # INSERT 新行
-    else:
-        # 直接插入模式
-        INSERT INTO notifications ...
+await notify(to_user, notif_type, *, actor_id, actor_name, source_id,
+             title, content, link, image_url, payload)
 ```
 
-#### 5.8.3 每日智能生成（daily_generator.py）
+三条硬规矩（改造前三条全部违反，是这轮重构的主因）：
 
-**昨日总结**：查询昨日 `question_records` + `user_kp_mastery` → LLM 分析答题情况/强弱知识点 → 生成 150 字鼓励性总结 → 写入通知
+1. **失败必须抛**（`NotifyError`）。改造前 `_upsert_notification()` 的 PATCH 写了 `updated_at`
+   而表里没这一列 → 每次 400 → 返回 False → **调用方不检查** → 私信通知静默失效两个月。
+2. **类型必须注册**，未注册直接 `KeyError`。
+3. **不许绕过**。时间胶囊、每日推荐原先各自拼 dict 插表，现在全部收编。
 
-**每日推荐**：定位最弱知识点 → LLM 生成 120 字学习建议 + 跳转链接 → 写入通知
+聚合实现是「先 INSERT，撞部分唯一索引（409）再改走 UPDATE」——不用 `ON CONFLICT`：
+部分索引的谓词没法在 `ON CONFLICT` 里表达。
 
-#### 5.8.4 消息卡片展示
+> ⚠️ **陷阱**：那个部分唯一索引建在 `(user_id, type, source_id) WHERE is_read=false`，
+> **不看 `aggregate`**。给**非聚合**类型传 `source_id`，第二次撞索引时因为 `aggregate=false`
+> **不走聚合回退、直接抛 `NotifyError`**。给一个点加 `source_id` 之前先看它是不是 aggregate。
 
-- 头像（发送者头像或首字母 fallback）
-- 类型彩色圆点
-- 发送者名称 / 相对时间（"刚刚"/"X分钟前"/"X小时前"/"X天前"）
-- 预览内容（截断）
-- 消息计数标签（聚合类消息显示 "+N"）
-- 未读消息蓝色左边框
-- 点击：聊天消息 → `/community/chat/{sender_id}`；其他 → `link` 字段跳转
-- 公告：点击展开完整内容 + 配图
+**广播**（`notify_broadcast()`）是唯一的例外入口，目前只有公告用它：逐人走 `notify()` 是 2N 次
+往返，会把管理员的发布按钮卡死，所以改成数组插入 + 查退订名单。它自己承担开关判断。
+**除它之外，任何写入都必须走 `notify()`。**
 
-#### 5.8.5 设置面板
+> ⚠️ **老列还在，但 `notify()` 不写**：`notifications` 表建表时有
+> `summary` / `image_url` / `action_label` / `action_link` 四列。全站统一走 **`link`** ——
+> 这四列在每一行上都是空的。2026-10-08 卡片按钮「点了没反应」，根因就是读的是 `action_link`。
 
-8 个通知频道开关：聊天 / 社交 / 学习 / 计划提醒 / 评估报告 / 每日推荐 / 昨日总结 / 系统消息。每日推荐和昨日总结可设推送时间（07:00/08:00/09:00）。存储于 `notification_settings` 表。
+> 🚨 **部署必看**：`notifications.type` 上曾有建表时留下的**类型白名单 CHECK**。
+> 消息中心改造引入的 66 个新类型（`组.动作` 形式）**一条都插不进去**，报 PostgREST `23514`
+> （check_violation）。2026-10-08 已用 `sql/notifications_drop_stale_type_check.sql` 删除。
+> **在没跑过这个脚本的库上，整个消息中心一条通知都发不出来。**
 
-#### 5.8.6 轮询与集成
+#### 5.8.3 已读的三条路径
 
-- 30 秒轮询 `getUnreadSummary()`
-- 侧边栏通过 `GET /community/sidebar-badges` 获取未读角标
-- "全部已读" → `PUT /community/messages/read-all`
-- "清空" → `DELETE /community/messages/clear`
-- 单条删除 → `DELETE /community/messages?ids=...`
+| 路径 | 触发 | 覆盖 |
+|---|---|---|
+| A | 点开某条 → 看详情 | 非待办类型 |
+| B | **走到目标页面即已读**（全局路由守卫 `afterEach` → `PUT /messages/read-by-route`） | 一处覆盖全部；**`system` / `todo` 两组不参与** |
+| C | 直接标记（单条 / 按组 / 按类型 / 全部） | 手动 |
 
-#### 5.8.7 帮助中心 Q&A
+**待办型**（好友请求、题集分享、举报队列…）：打开详情**不算**已读，点了处理动作才算 ——
+否则角标没了事还在。
+
+#### 5.8.4 每日学习推荐（三合一 + 独立学习页）
+
+一条 `learning.daily_rec` 消息 = **一套可直接执行的任务**（学习内容 + 题目 + 视频）。
+
+- **payload**（存 `notifications.payload` jsonb）：
+  ```jsonc
+  {
+    "content":   { "title", "kp_id", "minutes", "basis", "sections"? },
+    "questions": [ { "qid", "stem", "type", "difficulty", "syllabus_id" } ],
+    "video":     { "video_id", "title", "duration", "duration_sec", "state" } | null,
+    "progress":  { "content": false, "questions": false, "video": false }
+  }
+  ```
+  ⚠️ `questions[].syllabus_id` **必须有**：题库 18,711 题里 **497 个 id 横跨多库**，
+  做题端靠它定位题目，不带就会跨库猜 —— **拿 A 科目的题判 B 科目的分**。
+  ⚠️ `content.sections`（正文）**不在发送时生成**（太贵），首次打开学习页时按需生成并**写回 payload**（幂等）。
+- **入口（两个，进的是同一个页面）**：
+  - 首页右栏「**小基推荐**」卡片（`components/XiaojiCall.vue`）—— 卡片和消息中心读的是**同一行数据**
+  - 消息中心那条的详情 →「去学习」
+- **落点**：`/daily-learn/:id?`（`views/DailyLearn.vue`，2026-10-08 新建）。
+  不带 id 取最新一条 —— 因为 `notify()` 是先 INSERT 才拿得到 row id，link 在插入时就得定。
+- **做题**：走无计划链路 `POST /subject-plan/practice/submit`（`plan_id` 为空），
+  作答照常写 `question_records` 与掌握度（`user_kp_mastery` 里 `plan_id is null` 那一桶）。
+- **视频只做「命中复用」，绝不排产**（`video_gen.find_ready_video`，纯只读）——
+  一次给全体用户排产会把 worker 压垮。命中不到就那一块空着。
+- **空则不发**：题目与视频**至少得有一块**，否则当天不发（宁缺毋滥）。
+- **推荐依据**可配（`daily_rec_source`）：`mix` 结合 / `profile` 按我的资料 / `history` 按做题记录，
+  带两条回落规则（否则新用户选了 `history` 会永远收不到）。
+
+#### 5.8.5 每日生成与定时（`services/daily_generator.py` + `daily_scheduler.py`）
+
+**两个生成逻辑**，各有自己的开关与发送时间：
+
+| | 消息点 | 开关 | 时间键 | 默认 |
+|---|---|---|---|---|
+| 每日学习推荐 | `learning.daily_rec` | `daily_rec_enabled` | `daily_rec_time` | 08:00 |
+| 每日总结 | `learning.daily_summary` | `daily_summary_enabled` | `daily_summary_time` | 07:00 |
+
+- **调度是轮询不是定点**：`services/daily_scheduler.py` 每 **10 分钟**醒来一次，把
+  「开着开关 + 到点了 + 今天还没生成」的用户挑出来生成。发送时间是**每用户自己设的**，
+  全局定时器表达不了；用 `>=` 而不是 `==`，服务器重启期间错过的时间点下一轮能补上。
+- **按天去重**：生成前先查 `notifications` 今天有没有（`has_today`）——
+  既省 LLM，又避开「非聚合类型撞唯一索引直接抛」那个坑。
+- **手动生成**：`POST /daily-learn/generate`（首页推荐卡空态里的「生成今日推荐」按钮）。
+  `force` 只忽略发送时间，**去重照旧** —— 点几次都安全。
+- 两个默认值只在 `utils/notification.DEFAULT_SETTINGS` 里定义**一份**，
+  设置页与调度器都从那儿取（曾经两处各硬编码一份，导致「设置页显示 08:00、后台按随时发」）。
+
+学习页的接口（`routers/daily_learn.py`，前缀 `/daily-learn`）：
+
+| 方法 | 路径 | 作用 |
+|---|---|---|
+| GET | `/latest` | 我最新的一条推荐（卡片不带 id 时走这条；没有返回 `null` 而非 404） |
+| GET | `/{id}` | 指定某一条 |
+| GET | `/{id}/questions` | 完整题面（payload 里只存 120 字 stem 摘要）。**按每道题自己的 `syllabus_id` 取** |
+| POST | `/{id}/content` | 生成/返回学习正文，**幂等**（已有 `sections` 就直出不重烧 LLM） |
+| PUT | `/{id}/progress` | 标记某一块做完；三块齐 → 置 `handled_at`；第一次动就整条已读 |
+| POST | `/generate` | **手动生成今天的推荐**（首页卡片空态那个按钮）。忽略发送时间，**不去重** |
+
+#### 5.8.6 角标、轮询与接口
+
+- **角标只有一个来源**：`GET /messages/badges`。侧边栏、边缘转盘、首页顶栏、
+  浏览器标题（`(N) 基智…`）全部用它。改造前有三套算法（`unread/summary`、`sidebar-badges`、
+  前端直接 fetch 公告），数字必然对不上。
+- 30 秒轮询一次；返回 `{total, groups:{chat,social,learning,…}}`，前端按大类归并
+  （「社区」入口 = chat + social）。
+- 首页顶栏右侧的「消息中心」键（`XiaojiCall.vue`，2026-10-08 加的第 6 个键）也带这个角标。
+- 主要接口（`routers/message_center.py`，前缀 `/messages`）：
+  列表 `GET ""` · 角标 `/badges` · 注册表 `/registry` · 详情 `GET /{id}` ·
+  已读 `PUT /{id}/read` `/read` `/read-by-route` · 待办 `PUT /{id}/handled` ·
+  删除 `DELETE /{id}` `DELETE ""` · 设置 `GET/PUT /settings`。
+
+#### 5.8.7 设置
+
+**唯一入口是设置页**（`/settings`，消息中心的齿轮跳过去）。九个大类开关 +
+两个独立项（每日学习推荐、每日总结）+ 免打扰时段 + 推荐依据三选一。
+存储于 `notification_settings` 表；读不到时回落 `DEFAULT_SETTINGS`（宁可多发，用户能关）。
+
+> 改造前同一套设置在设置页和消息中心齿轮面板**各写一遍**（同一张表、同一批键），
+> 改一处另一处不同步；而且**后端没有任何代码读这些开关**，开关全是装饰。
+
+
+#### 5.8.8 详情：七种形态（2026-10-08）
+
+点开一条消息看到的详情体**不再是「一个模子」**，按内容归成七种形态。
+
+**关键约束**：不能 66 个消息点各写一套模板 —— 那会毁掉「加一个消息点 = 注册表加一行、
+前端零改动」这条契约（见 5.8.1）。所以**形态由后端从注册表已有的标志推导**
+（`notification_registry._shape_of`），前端只认形态名（`GET /messages/registry` 的 `shape`）：
+
+| 形态 | 判据 | 渲染 |
+|---|---|---|
+| `rec` | `payload_schema == daily_rec` | 三块预览 + 正文 + 通栏「去学习」 |
+| `summary` | `payload_schema == daily_summary` | 数字卡片 + 知识点标签 + 三段文字 |
+| `actors` | `aggregate` | 大号数字 + 带头像圆点的名字标签 + 正文 |
+| `todo` | `todo` | 「处理完才算已读」提示条 + 正文 |
+| `notice` | `group == system` | 图标 + 类型名 + 正文 |
+| `celebrate` | `group == career` | 居中大徽章 + 居中正文 |
+| `plain` | 其余 | 分段正文（兜底） |
+
+⚠️ **顺序有意义**：先看 payload，再看 `aggregate` / `todo`，最后按大类兜底。
+⚠️ 注册表里可**逐条覆写**（`_t(..., shape="...")`）。
+⚠️ 正文**按空行切成 `<p>`** 渲染 —— 直接 `{{ content }}` 会因为没有 `white-space`
+把模型写的 `\n\n` 折叠成空格、多段并成一段（2026-10-08 修）。
+
+> ⚠️ **不给用户看的，就别显示**：详情里原本有一块「类型 / 点击去向 / 已读规则」，
+> 列表每行下面还有一个原始类型键（`learning.daily_rec` 这种）—— 都是排查用的，已删。
+
+#### 5.8.9 桌面通知（2026-10-08）
+
+新消息到达时弹通知，**两个通道**：
+
+| 窗口状态 | 弹在哪 | 实现 |
+|---|---|---|
+| **主界面在前台** | **上部分居中** | 页内长条（自渲染 DOM，**不是 `ElNotification`**） |
+| **最小化 / 切到别的标签** | **右下角** | 系统通知 `new Notification`，位置**由操作系统摆** |
+| 应用完全没打开 | ❌ | **做不到** —— 需要后端推送通道（Web Push / 厂商通道） |
+
+- **长条**：宽而扁（620px），照消息中心列表行做 —— 左侧 3px 竖色条 + 方形图标 +
+  标题/时间一行 + 摘要一行。毛玻璃：62% 不透明 + `blur(30px) saturate(1.7)` + 亮边。
+- **同一时刻只有一条**，新的顶掉旧的（队列），总高度恒定。
+  ⚠️ 正因为 `ElNotification` **只会往下堆**，才弃用它自己渲染。
+- 停留 3 秒、右上角可叉、**点它进消息中心看详情**（`/message?open=<id>`）。
+- ⚠️ **系统通知要授权**，且浏览器**要求用户手势** → 挂在第一次点击上申请。
+  **没授权不静默丢弃**，退回「攒着，切回来累计弹一条」。
+- 两条抑制规则：**正在消息中心页面时不弹**（用户正看着）；**免打扰时段（`dnd_start`/`dnd_end`）不弹**。
+
+#### 5.8.10 帮助中心 Q&A
+
+> （编号说明：本节原为 5.8.7，2026-10-08 重写 §5.8 时新增了「设置」「详情形态」「桌面通知」
+> 三节，顺延至此。帮助中心本身与消息中心无直接关系，是历史编号。）
 
 `frontend/src/components/QAPage.vue` — 7 分类 29 条 FAQ：
 - 入门指南(4) / 学科计划(7) / 资源库(6) / 学程(6) / 社区(5) / 账号(4) / API(4)
@@ -3317,7 +3458,7 @@ async def get_dashboard():
 ```
 Supabase REST API 默认不返回总数（分页性能考虑）。
 加上 Prefer: count=exact 头后，响应头会包含：
-  Content-Range: 0-0/16889
+  Content-Range: 0-0/19338
                            ↑ 总数
 后端从 Content-Range 解析总数。
 ```
@@ -3517,7 +3658,7 @@ GET /admin/logs?action=ban_user&page=1&page_size=20
 | 学习偏好 | 7 项下拉（阶段/年级/专业/目标/难度/讲解方式/每日时长） | `PUT /auth/update-learning-info` |
 | 外观 | 主题定制四轴（2026-09-03 后无浅/深/跟随系统开关，明暗由**背景色亮度自动派生**）：**背景色 / 组件色(毛玻璃) / 主题色 / 字体色**（各带预设 + 高级 rgb 选色）；**预设一套**方案一键换四轴；**默认方案 = 深空蓝四轴**（新用户首次进入 + 恢复默认）；**实时预览小界面 + 适配度提醒**（5 组 WCAG 对比度加权百分比 + 逐项建议 + 自动调整字体色）；组件色经 `var(--surface)` 收编全站 500+ 白描层；**仅落地页跟随系统明暗、不可改**；**外观码**（2026-09-04）：四轴打包成可分享码（`JZ1-bg-surface-brand-字体档-校验`，官方套装为 `JZ1-space` 超短别名，校验防抄错）+/theme?code= 免登录直达预览一键应用 | themeStore（localStorage 缓存，`GET/PUT /auth/theme` 账号同步） |
 | 隐私 | 在线 / 隐身 | `PUT /auth/status` |
-| 通知设置 | 8 开关 + 每日推荐/总结时间 | `GET/PUT /community/notification-settings` |
+| 通知设置 | 9 大类开关 + 每日推荐/总结（各带开关与时间）+ 免打扰 + 推荐依据 | `GET/PUT /messages/settings`（旧路径 `/community/notification-settings` 是重构前的） |
 | 账号安全 | 修改密码。**微信绑定已删（2026-09-28）** —— 公众号测试号扫码整条移除，改由「微信建号 + 补邮箱密码」承担（见 5.11.2） | `PUT /auth/update-password`、`POST /auth/set-credentials` |
 | 快捷键 | 25 个动作可改键；录制态 + 冲突提示；**跟随账号**（`user_shortcuts` 表） | `GET /auth/shortcuts/{user_id}`、`PUT /auth/shortcuts`（见 5.17） |
 | 桌宠 | 显示开关 / 轮盘项开关 / 小基大小（滑杆）/ 开机自启。**仅桌面壳里出现**（网页版整块隐藏） | 壳的 `set_pet_visible` / `set_pet_prefs`、`plugin:autostart`（见 18.3） |
@@ -3665,7 +3806,7 @@ GET /admin/logs?action=ban_user&page=1&page_size=20
 
 #### 5.16.1 生成引擎与分镜脚本
 
-- **链路**：qwen-flash 分镜脚本（DashScope，`settings.QWEN_VIDEO_MODEL`；**2026-10-11 由 qwen-turbo 换过来**）→ 千问 TTS（小基同款四音色 longan\*，语速 6 档 `VIDEO_TTS_SPEED`，**只用阿里云模型**）→ Supabase Storage 公共桶 `video-lib/{id}/audio.mp3`
+- **链路**：qwen-flash 分镜脚本（DashScope，`settings.QWEN_VIDEO_MODEL`；**2026-10-11 由 qwen-turbo 换过来** —— 旧模型初稿质检 0/5 合格、修补后仍 2/5 出不了片）→ 千问 TTS（小基同款四音色 longan\*，语速 6 档 `VIDEO_TTS_SPEED`，**只用阿里云模型**）→ Supabase Storage 公共桶 `video-lib/{id}/audio.mp3`
 - **分镜脚本 v3**：`title / hook / scenes[{mood, widget, params, narration}] / narration`；构件白名单 point·array·balance·example·phrase；口播 ≥240 字质检 + 失败修补重写一次；mood 四态（lecture 严谨 / story 轻松比喻 / highlight 重点强调 / demo 例题示范）逐镜切换，旁白语气随之变化
 - **队列**：进程内 asyncio worker（lifespan 挂载，`VIDEO_WORKERS` 默认 1）；`(subject, knowledge_key, angle)` 唯一格 + generating 占位幂等；失败自动重试 1 次，failed 旧格 409 自愈复活（先复活后新插，杜绝重复行）
 - **触发**：题目落库 fire-and-forget `ensure_videos`（`questions.py`）；学科计划暖库 CLI `scripts/warm_video_lib.py --per N`（每考纲各取热搜前 N）/ 后台批量生成；`POST /video/lib/ensure|warm`、`GET /video/lib/related`（100 本知识点 / 70 同学科 / 55 全局 + `question_video_links` 快照）
@@ -3788,7 +3929,7 @@ config.py                REDIS_URL + TASK_QUEUE_FALLBACK_INLINE
 
 **关键设计：Redis 连不上时默认抛错，不静默降级。** 这个项目在「看起来在跑、其实没跑」上吃的亏太多了。真要退回进程内执行，必须显式打开 `TASK_QUEUE_FALLBACK_INLINE=true`，且日志里会有 ERROR。
 
-**完成通知**：任务跑完写一条进 `notifications` 表（复用 `create_notification`，它做了聚合 upsert 不会刷屏），用户去消息中心看。**不推 SSE/WebSocket**。
+**完成通知**：任务跑完写一条进 `notifications` 表（走**唯一写入入口** `notify()`，聚合去重由它统一处理，见 5.8.2），用户去消息中心看。**不推 SSE/WebSocket**。
 
 #### 5.18.4 ⚠️ 考试批量分析**没有迁**，理由是它还不满足前提
 
@@ -4274,6 +4415,7 @@ POST /vocab/practice-set { user_id, words }         # 薄弱词定向出题（�
 | `/profile-card` | ProfileCard | `{requiresAuth:true}` | 个人画像星图 |
 | `/qa` | QAPage | `{requiresAuth:false}` | 帮助中心（08-22 公开） |
 | `/message` | MessageCenter | `{requiresAuth:true}` | 消息中心 |
+| `/daily-learn/:id?` | DailyLearn | `{requiresAuth:true}` | 每日学习推荐学习页（三合一：内容/题目/视频）。不带 id 取最新一条；首页「小基推荐」卡片和消息中心那条都跳这里 |
 | `/api-center` | ApiCenter | `{requiresAuth:true}` | API 模型中心 |
 | `/agent-center` | AgentCenter | `{requiresAuth:true}` | 智能体中心 |
 | `/agent-center/:agentKey` | AgentDetail | `{requiresAuth:true}` | 智能体详情调节 |
@@ -5739,7 +5881,15 @@ app.mixin({ onShow() { useThemeStore(pinia).syncChrome() } })
 
 ### 18.3 桌宠
 
-桌宠是**桌面级**的：独立透明置顶窗口，关掉主程序也还在（这是用户明确选的形态）。
+桌宠是**桌面级**的：独立透明置顶窗口，与主窗口并存。
+
+> ⚠️ **2026-10-08 订正**：本节此前写着「关掉主程序也还在」，**已被退出逻辑推翻**。
+> `src-tauri/src/main.rs` 里主窗口的 `CloseRequested` 是
+> `api.prevent_close()` + `app.exit(0)` —— **关主窗口 = 整个进程退出**，桌宠一起没。
+> 这么定是因为：项目没有托盘图标，而桌宠又被刻意做成不提供「打开主窗口」的入口
+> （2026-09-28 定），若主窗口关了而进程还活着，用户就**再也找不回来**了。
+> （此前窗口状态一直存不下来（`%APPDATA%\com.jizhi.desktop` 恒空），也正是因为
+> 进程从来是被强杀的、没优雅退出过。）
 
 #### 交互：悬停轮盘（2026-09-29 定稿）
 

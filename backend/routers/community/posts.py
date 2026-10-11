@@ -269,6 +269,50 @@ async def delete_post(post_id: str, user_id: str = Query(...), current_user: str
 
 
 
+async def _notify_post_author(post_id: str, actor_id: str, notif_type: str,
+                              verb: str, extra_link: str = "") -> None:
+    """给帖子作者发一条社区互动消息。
+
+    ⚠️ 通知是派生产物：写失败**不影响点赞/评论本身**（那些已经落库了），
+    但必须留 ERROR —— 不静默。作者自己的操作不通知自己。
+    """
+    if not post_id or not actor_id:
+        return
+    try:
+        from utils.notification import notify, NotifyError
+        from services.supabase import get_supabase_service_headers
+        headers = get_supabase_service_headers()
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # 取作者 + 帖子标题（标题用来把消息写具体："赞了你的《…》"）
+            res = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}"
+                f"&select=user_id,title,content",
+                headers=headers)
+            # 取触发者昵称 —— 详情页要显示"谁赞的"
+            prof = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{actor_id}&select=nickname,user_account",
+                headers=headers)
+        row = (res.json() or [{}])[0] if res.status_code == 200 else {}
+        author_id = row.get("user_id")
+        if not author_id or author_id == actor_id:
+            return
+        prow = (prof.json() or [{}])[0] if prof.status_code == 200 else {}
+        actor_name = prow.get("nickname") or prow.get("user_account") or "有人"
+        title = (row.get("title") or (row.get("content") or "")[:16] or "你的动态")
+        await notify(author_id, notif_type,
+                     actor_id=actor_id, actor_name=actor_name,
+                     source_id=post_id,
+                     title=f"{actor_name} {verb}",
+                     content=f"《{title}》",
+                     link=f"/post/{post_id}{extra_link}")
+    except NotifyError as e:
+        logger.error(f"⚠️ 社区互动通知未送达 post={post_id} type={notif_type}: {e}")
+    except KeyError as e:
+        logger.error(f"⚠️ 社区通知类型未注册: {e}")
+    except Exception as e:                                     # noqa: BLE001
+        logger.error(f"⚠️ 社区互动通知异常 post={post_id}: {e}")
+
+
 @router.post("/post/{post_id}/like")
 async def like_post(post_id: str, user_id: str, current_user: str = Depends(get_current_user)):
     """点赞动态"""
@@ -306,7 +350,12 @@ async def like_post(post_id: str, user_id: str, current_user: str = Depends(get_
             headers=headers,
             json={"like_count": current_count + 1}
         )
-        return {"success": True, "message": "点赞成功"}
+
+    # 5. 通知作者（2026-10-07 接的消息点）。
+    #    聚合型：同一个帖子的多个赞并成一行「3 人赞了你的帖子」，
+    #    actor_name 会累积进 payload.actors，详情里看得到是谁赞的。
+    await _notify_post_author(post_id, user_id, "social.post_like", "赞了你的帖子")
+    return {"success": True, "message": "点赞成功"}
 
 
 @router.delete("/post/{post_id}/like")
@@ -383,7 +432,9 @@ async def collect_post(post_id: str, user_id: str, current_user: str = Depends(g
             # 不能像以前那样一声不吭。2026-09-27。
             logger.error(f"⚠️ 更新 collect_count 失败 {patch_res.status_code}: {patch_res.text[:200]}")
 
-        return {"success": True, "message": "收藏成功"}
+    # 通知作者（聚合型：多次收藏并成一条）
+    await _notify_post_author(post_id, user_id, "social.post_collect", "收藏了你的帖子")
+    return {"success": True, "message": "收藏成功"}
 
 
 @router.delete("/post/{post_id}/collect")
@@ -459,7 +510,61 @@ async def create_comment(post_id: str, user_id: str, data: CommentCreate, curren
             headers=headers,
             json={"comment_count": current_count + 1}
         )
-        return res.json()
+
+    # 通知（2026-10-07 接的消息点）：
+    #   评论帖子   → social.post_comment（发给作者）
+    #   回复评论   → social.comment_reply（发给被回复的人，priority=high）
+    #   两者都带 ?comment={cid}，点进去滚到那一条并高亮
+    await _notify_comment(post_id, user_id, data)
+    return res.json()
+
+
+async def _notify_comment(post_id: str, actor_id: str, data) -> None:
+    """评论/回复的通知。回复要发给**被回复的人**，不是帖子作者 —— 那是两件事。"""
+    try:
+        from utils.notification import notify, NotifyError
+        from services.supabase import get_supabase_service_headers
+        headers = get_supabase_service_headers()
+        parent_id = getattr(data, "parent_id", None)
+
+        # 找刚插进去那条评论的 id（用来做 ?comment= 锚点）
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            cid_res = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/comments?post_id=eq.{post_id}"
+                f"&user_id=eq.{actor_id}&order=created_at.desc&limit=1&select=id",
+                headers=headers)
+            prof = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{actor_id}"
+                f"&select=nickname,user_account", headers=headers)
+        cid = ((cid_res.json() or [{}])[0] or {}).get("id", "") if cid_res.status_code == 200 else ""
+        prow = (prof.json() or [{}])[0] if prof.status_code == 200 else {}
+        actor_name = prow.get("nickname") or prow.get("user_account") or "有人"
+        snippet = (getattr(data, "content", "") or "")[:40]
+
+        if parent_id:
+            # 回复：收件人是被回复的那条评论的作者
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                p_res = await client.get(
+                    f"{settings.SUPABASE_URL}/rest/v1/comments?id=eq.{parent_id}&select=user_id",
+                    headers=headers)
+            parent_author = ((p_res.json() or [{}])[0] or {}).get("user_id") if p_res.status_code == 200 else None
+            if parent_author and parent_author != actor_id:
+                await notify(parent_author, "social.comment_reply",
+                             actor_id=actor_id, actor_name=actor_name,
+                             source_id=post_id,
+                             title=f"{actor_name} 回复了你的评论",
+                             content=snippet,
+                             link=f"/post/{post_id}?comment={cid}")
+            return
+
+        await _notify_post_author(post_id, actor_id, "social.post_comment",
+                                  "评论了你的动态", extra_link=f"?comment={cid}")
+    except NotifyError as e:
+        logger.error(f"⚠️ 评论通知未送达 post={post_id}: {e}")
+    except KeyError as e:
+        logger.error(f"⚠️ 评论通知类型未注册: {e}")
+    except Exception as e:                                     # noqa: BLE001
+        logger.error(f"⚠️ 评论通知异常 post={post_id}: {e}")
 
 
 @router.delete("/comment/{comment_id}")

@@ -16,6 +16,7 @@ from typing import Optional
 import httpx
 
 from config import settings
+from logging_config import logger
 
 router = APIRouter(prefix="/subject-plan", tags=["真题套卷"])
 
@@ -360,6 +361,22 @@ async def submit_exam_paper(paper_id: str, data: ExamSubmitRequest):
     # 保存记录
     record_id = await _save_paper_record(paper_id, data.user_id, earned_total, total_available,
                                          section_results, all_question_results, data.elapsed_seconds)
+
+    # 批改完成 → 告诉本人。
+    # ⚠️ 必须判 `record_id`：`_save_paper_record` 落库失败时**只 print 并返回 None**，
+    #    不抛异常（见本文件 630-652）—— 不判就会为一份没存下来的卷子发通知。
+    if record_id:
+        try:
+            from utils.notification import notify, NotifyError
+            await notify(
+                data.user_id, "learning.exam_graded",
+                source_id=record_id,
+                title=f"交卷批改完成：{round(earned_total, 1)} / {total_available} 分",
+                content=(f"错了 {len(wrong_questions)} 道。"
+                         f"错题分析正在后台生成，稍后回来看看哪块最该补。"),
+            )
+        except (NotifyError, KeyError) as e:
+            logger.error(f"⚠️ 交卷批改通知未送达 user={data.user_id} record={record_id}: {e}")
 
     return {"paper_id": paper_id, "record_id": record_id,
         "total_score": round(earned_total, 1), "max_score": total_available,
@@ -993,6 +1010,13 @@ async def generate_plan_from_exam(paper_id: str, data: ExamPlanRequest):
                         print(f"[真题计划] 任务插入失败: {tr.status_code} {tr.text[:200]}")
             except Exception as e:
                 print(f"[真题计划] 保存任务失败: {e}")
+
+    # 8. 消息中心：第三条建计划路径（另两条见 utils/notify_events.py 文件头）
+    #    放在这里而不是任务循环之前 —— 计划行已经落库，通知里说的是既成事实。
+    #    上面两处失败都是 `return {"error": ...}` 提前返回，走不到这里。
+    from utils.notify_events import notify_plan_generated
+    await notify_plan_generated(data.user_id, plan_id, plan_row["name"],
+                                basis="根据你的真题答卷")
 
     return {
         "plan_id": plan_id, "plan_name": plan_row["name"],

@@ -1,6 +1,6 @@
 # 基智学习助手 (Jizhi Learn) — 项目总日志
 
-> 架构演进 / 关键决策 / 文件索引 · 最后更新：2026-09-30
+> 架构演进 / 关键决策 / 文件索引 · 最后更新：2026-10-07
 > 每日变更记录见：[logs/](./logs/)
 > 系统说明书见：[SYSTEM_MANUAL.md](./SYSTEM_MANUAL.md)
 
@@ -1747,3 +1747,105 @@ super_admin (超级管理员)
 - **右键菜单**（桌面版）：原来被无条件屏蔽。做成**按落点变内容**的分组菜单，并加扩展点 `desktop/ctxMenu.js`（页面项排最上面）
 - **过渡兜底**：`App.vue` 在路由切换后检查 `enter-from` 类是否卡住（rAF 被节流时永不回收 → 整页 opacity:0）
 - `VideoDetail` 补 `else` 分支（两个 `v-if` 都不成立时什么都不渲染 = 空白）
+
+### 163. 作品定名与提交材料成包（2026-10-07）
+- 定名 **基智-多智能体学习平台**（缩写仍是「基智」，助手人格「小基」不动）。报告改 **3 处全称**：`content.py:18` 封面作品名称、`content.py:27` 作品简介首句、`gen_pdf.py:265` PDF 元数据标题。验证：旧名 **0 处** / 新名 2 处 / 32 页不变；8 张插图里本来就没有产品名
+- **提交材料 8 份**进 `D:\作品集\基智-多智能体学习平台\`，命名 `AI+软件创新-基智-多智能体学习平台-XXX`（技术报告 / 演示 PPT / 演示视频 / 安装包 / 桌面版源码 / 网页版源码 / 源码说明 / 体验账号）
+- **安装包三个同名副本 md5 一致**（`bf8c42f4…`）→ 确认是**含桌宠**那版，不是 09-27 的旧包（1,439,914 B）；**网页版源码与部署仓库 `frontend/src` 逐文件比对 0 差异**
+- ⚠️ 源码包**剔除 `.env.local`** —— 内含 `VERCEL_OIDC_TOKEN`（真实部署凭证）；`.env` 保留（anon key 本就随前端产物分发）。`src/`+`public/` 敏感串扫描 **0 命中**
+- 新增 `_competition/gen_source_doc.py` —— 生成《源码说明》PDF，材料清单的**体积 / 页数 / 视频时长都是生成时读实际文件算的**（时长从 mp4 的 `mvhd` 盒读，不依赖 ffprobe）；第二节专讲「桌面端源码里为什么没有主界面」（主窗口加载线上站点，不是缺漏）
+- 300 字简介定为 **问题—方案—效果—应用**，骨架取自报告 §一（一）/ §二（一）/ §（十二）/ 附录 B。**前两版写成「桌面端怎么交付的」，连着被否** —— 见教训
+
+### 164. 报告里的「现状陈述」会过期：视频生成那条（2026-10-07）
+- §（十一）已知边界原写「异步任务队列所需的服务与常驻进程**待上线**（**视频生成目前在线上不工作**，本地已验证通过）」—— 写于 10-02，**已过期**
+- 改为「…**已上线**，讲解视频的排产与生成**在线上正常工作**；三个数据库脚本待执行」（SQL 那条仍成立，按用户确认保留）
+- **连带效果**：创新点 3「按知识点的讲解即时推送」从「我们本地做到了」升格为「**线上正在跑，评委现在点就能看**」，§（十）的「37 秒就绪」成为可自验指标
+- **教训**：报告里凡写「目前 / 尚未 / 待…」的句子，每次重新打开都必须逐条复核
+- 未改：§（十一）备案 / 小程序提审两条（用户确认未变）；**`SYSTEM_MANUAL.md` §18.3「桌宠关掉主程序也还在」仍过期** —— 10-01 已改成「关主窗口 = `app.exit(0)`」（`main.rs:306-313`），待修
+
+### 165. 消息中心重构：一处入口、一张表、一个读接口（2026-10-07）
+- **起因**：消息中心「很乱」。先量再判 —— 线上 `notifications` **全表 5 行**（system 3 / chat 2，最近 08-24），前端却挂着 **10 个 Tab**；乱的是**结构不是数据**
+- 🎯 **找根因**：`_upsert_notification()` 的 PATCH 写 `updated_at`，而**这张表没有这一列** → 每次 400 → 返回 False → **调用方不检查返回值** → 私信通知**冻结在 08-24 两个月**（铁证：接收者 `540b599b…` 的 msg_count 永远 1，而同一发送者后来还发过 3 条）
+- **三套读法**合并为一：`unread/summary`（只查未读，点一下就没）+ `sidebar-badges`（chat 按发送者去重）+ 前端直连公告 → 统一到 `/messages/*`（12 个端点）
+- **写入契约**：`notification_registry.py`（**66 个消息点 / 9 大类**）+ `notify()` 唯一入口 —— 未注册类型抛错、失败必抛、`last_at` 取代不存在的 `updated_at`。5 个写入方全部收编（其中 2 个原本绕过公共入口）
+- **已读三条路径**：A 点消息→详情→已读 · B **走到目标页即已读**（挂全局路由守卫，`system`/`todo` 不参与）· C 直接标记。**待办型必须由处理动作收尾**
+- **配色**：九大类固定语义色 + 组内派生渐变，公式只有**一份实现**（后端 `derive_color`），前端与预览页从 `/messages/registry` 取
+- **每日学习推荐**：三合一（学习内容 + 题目 + 视频），**详情里直接就能做**（与学科计划每日任务同构，内容随机挑）；**推荐依据可配**（结合 / 按资料 / 按做题记录 + 两条回落规则）
+- **顺手挖出两个老 bug**：`/post/:id` 路由**根本不存在**（收藏页与我的帖子点了没反应，已新建详情页 + `?comment=` 锚点）；`delete_content` 处置**只写记录不通知**（用户会发现帖子凭空消失）
+- 产物：`message_center_design.md`（实施契约）· `sql/message_center_rework.sql` · `tests/test_notifications.py`（重写，含那次静默失败的**回归测试**）· `_devtools/message-center-preview.html`（可点、能做题的预览页）
+- ⚠️ **没部署、没提交**；**前端一次都没在浏览器里看过**；66 个消息点**只接了 8 处**
+
+### 166. 消息中心接线：「注册 ≠ 可接」，33 个未接里 14 个没有事件源（2026-10-08）
+- **任务原话**：「你现在接完消息中心吧，应该挺快」。**先量再判** —— 上一节记的「其余约 40 个」实测是 **33 个**（注册 65 / 已接 32）
+- 🎯 **核心结论**：按「有没有事件源」分类，**只有 19 个能接，14 个接不了** —— 不是漏接，是**那件事在代码里压根没发生**。注册表只声明「这个点存在」，不保证「触发它的事存在」
+- **接不了的 14 个**（每条都去代码里找过）：`system.new_device`（后端无设备概念，登录只取 IP 做限流）· `system.account_deleted`（无注销端点，logout 是空壳）· `system.policy_update`（无协议版本概念）· `system.desktop_update`（无发布事件，/download/latest 是现算）· `system.syllabus_updated`（无收藏表，考纲在 JSON 里）· `evaluation.table_ready` / `report_ready`（evaluation.py **是纯读路由**，报告只活在 15 分钟内存缓存）· `plan.daily_tasks`（不是每天生成，建计划时一次写完，「今天是第几天」读接口现算）· `plan.phase_switch`（phase 建计划时写死）· `plan.plan_ending`（剩余天数从没被比较过）· `plan.study_reminder` / `career.inactive_care` / `career.weekly_report` / `learning.wordbook_review`（定时型；词条表**连复习调度字段都没有**）
+- **这轮接上 7 个**：`chat.friend_removed`（friends.py:184）· `social.video_like`（**仅新点赞时发**，取消不发）· `social.video_comment` · `social.rank_pass`（career.py:500，新 `_notify_rank_pass`）· `learning.plan_generated`（两个入口）· `learning.diagnosis_done` · `learning.exam_graded`。**32 → 39 / 65**
+- 新增 **`utils/notify_events.py`** —— 跨文件复用的消息点快捷函数（**只放 ≥2 个文件要用的**）：`learning.plan_generated` 有**三条互不共用代码**的建计划路径，掌握度有**两个写入点**，同一段 notify() 抄五遍必然改一处漏四处
+- ⚠️ **注册表改一处**：`social.rank_pass` → `aggregate=True`。**不改就报错** —— 不聚合又传 `source_id`，第二次撞部分唯一索引(409)，而聚合回退分支要求 `aggregate=True`，于是直接抛 `NotifyError`
+- **好友榜判定**：`old_points < 他的分 <= new_points`（原本在你之上、现在被够到或反超）。只比 `new_points` 会把「早就超过的人」每次涨分重报。代价是每次涨分多查两次库，已用 `points_change > 0` 挡住，且挂在 `_apply_user_stats`（**不在 `record_action` 埋点路径上**）
+- **顺手读出的三个既有缺陷**（都不是这轮引入的）：① 🎯 `plan_daily_tasks` **缺 `user_id`/`date`/`completed` 三列**，而 `agent_center.py:166` 按这三列查 → 恒空 → 磨合引擎 `_rule_plan_tasks` / `_rule_plan_pace` **永不触发** ② `subject_plans` 建完从不更新，全仓无 PATCH（只有 `learning_plans` 有 `_sync_plan_progress`），所以那两条路径的计划没有完成度 ③ **删好友只删一个方向**（DELETE 单条件，而好友列表查询是双向的）
+- 另记两条待修：`toggle_user_status` 解封**没调 `sanctions.invalidate()`**（mute/ban 都调了）→ 最长 30 秒仍被拒；**禁言无法解除**（全仓只有写 `muted_until`，没有清除路径）
+- ⚠️ **没部署、没提交、一次都没跑起来过**。验证只有 `py_compile` + `import main`。**第三个建计划入口（`exam_papers.py:997` 真题答卷）写到一半被打断，只有它没接**；`notify_mastery_change()` **定义了但无人调用**（死代码），其阈值 `JUMP_DELTA=20` / `WEAK_ALERT_AT=5` **是这轮自己定的，待拍板**
+
+### 167. 接完余下 12 个消息点 + 首页第 6 键（2026-10-08 续）
+- 上一节判定「有事件源但没接」的 **12 个全部接完**：`learning.plan_generated`（第三条建计划入口，补上尾巴）· `system.password_changed` · `system.email_bound` · `system.sanction_lifted` · `admin.new_report` · `admin.content_review` · `plan.plan_completed` · `learning.mistake_conquered` · `learning.mistake_threshold` · `evaluation.engine_tuning` · `learning.mastery_jump` / `weak_alert`（阈值用户拍板沿用 20/60/5）· `system.announcement`
+- **盘点 51/65 已接**（扫全部非注册表源文件逐个类型找调用点），剩下 **14 个正是上节判定「没有事件源」的那批**，一条没多一条没少。粗扫有误报：`system.policy_update` 只出现在测试里断言 link 为空，已剔除
+- **新增 `notify_broadcast()`** —— 第一个也是唯一一个绕开 `notify()` 的写入口（公告）。逐人走 `notify()` 是 **2N 次往返**，会把管理员发布按钮卡死；改成数组插入一批 + **反向查退订名单**。文件头写明「除它之外任何写入都必须走 notify()」
+- ⚠️ **一个反复咬人的坑：非聚合类型 + `source_id`**。部分唯一索引建在 `(user_id,type,source_id) WHERE is_read=false`，**不看 `aggregate`** —— 非聚合类型撞索引时**不走聚合回退、直接抛 `NotifyError`**。本轮三处各用不同办法绕开：`admin.new_report` 传**每次各不相同的** report_id · `admin.content_review` **不传**（同一视频可「驳回→重审」，传了会让管理员漏掉重审）· `mistake_conquered` 改成 `aggregate=True` 按天取
+- **顺带修**：`toggle_user_status` 解封**漏调 `sanctions.invalidate()`**（上节记为待修，本轮修掉）；`questions.py` 错题状态 PATCH **不看状态码**（接通知前必须先确认，否则会为一次**没发生**的攻克发消息）
+- **首页右上第 6 键**：`XiaojiCall.vue` 的 `.nav-actions` 加「消息中心」，带未读角标，走 `GET /messages/badges`（与侧边栏/转盘同源）
+- ⚠️ **顺带撞见一个真 bug（未修）**：`EdgeNavDock.vue:282-288` **算了 `badgeCount` 但模板 115-127 行从没渲染它** —— 10-07 统一角标的工作**在侧边栏生效、在边缘转盘上没有**。`Sidebar.vue:768` 的 `.icon-badge` 同样是死规则
+
+### 168. 🚨 每日学习推荐三合一 + 定时 + **真跑塌方**（2026-10-08 续）
+- **任务原话**：「小基推荐其实就是学习推荐，你要做好这里」→ 后接「要做定时，设置要有效，加一个生成按键，检测到今日已生成就不再生成，生成有两个逻辑，时间先设早上 8 点」
+- **先量**：卡片和消息中心**读的是同一行数据**（`/xiaoji/daily` 取最新一条 `learning.daily_rec`）。但两边都是残的 —— ① 卡片按钮是**静默 no-op** ② 消息中心那个三合一面板是**空壳**（「提交这 N 题」只做 `recDone.questions = true`，零 API 调用，连提示语都是假的）
+- ⚠️ **订正一条我自己的错误判断**：我一度断言「`action_link` 不是 notifications 表的列」——**错的**。实测那四列（`summary`/`image_url`/`action_label`/`action_link`）**建表时就有**，真相是 **`notify()` 从不写它们**（全站统一走 `link`）。结论一样（按钮是坏的），原因不同，四处注释已订正
+- **做成什么**（用户拍板）：**独立全屏页 `/daily-learn/:id?`**，首页卡片与消息中心那条**进的是同一个页面**。设计文档 §六 原写「详情里直接做，不是跳出去做」，**按用户口径改掉并同步了文档**
+- **payload**：`content`（正文**按需生成**并写回，幂等 —— 每日推荐没有任务行可当缓存载体）+ `questions` + `video` + `progress`。⚠️ **`syllabus_id` 是补的**：§六 的 schema 漏了它，而题库 **497 个 id 横跨多库**，不带就会跨库猜（拿 A 科目的题判 B 科目的分）
+- **视频只做命中复用**：新增 `video_gen.find_ready_video()`（**纯只读**）。⚠️ **绝不能用 `ensure_videos()` 代替** —— 那是「查+补产」二合一，查不到就插行排产
+- **抽掉三处重复**：`routers/video.py` 内联的分层打分 → `services/kp_questions.py`（两处共用）· `video_gen` 跨命名哈希匹配（原在 `related_videos` 与 `/lib/status` **各一份**）→ `_split_kp_hash` · `getStem`/`getOptions`（`SubjectPractice.vue` 的**局部函数**）→ `utils/questionLabels.js`
+- **两个生成逻辑 + 定时**：`services/daily_scheduler.py` **每 10 分钟轮询**（不是「每天 8 点跑一次」—— 发送时间**每用户自己设**，全局定时器表达不了；用 `>=` 而非 `==`，重启期间错过的下一轮能补）。**按天去重** `has_today()` 在**生成之前**查库（省 LLM + 避开非聚合撞唯一索引那个抛）。手动 `POST /daily-learn/generate` 放卡片空态，`force` 只忽略时间、**去重照旧**
+- ⚠️ **默认值原本两份**：设置页硬编码 `08:00`，而调度器读的 `DEFAULT_SETTINGS` 里**没有这两个键** → **设置页显示 8 点、后台按「随时发」跑**。收成一份
+- 🚨 **真跑之后的塌方**（本节最有价值的部分）：
+  - 🚨 **`notifications.type` 上有陈年 CHECK** —— 六条通知全部 `400 {"code":"23514"}`（check_violation）。只读排查：全表 5 行，`type` **只有 `chat`/`system` 两个无点号老值**。**建表时按当时类型加过白名单 CHECK，10-07 引入的 66 个 `组.动作` 新类型一条都插不进去** —— 也就是**整个消息中心在真库上从来没发出过一条通知**。产出 `sql/notifications_drop_stale_type_check.sql`
+  - 🎯 **`get_user_yesterday_activity()` 100% 必崩**：`sum((sum(s) for s in …), [])` 内层已压成 int，外层再想拼列表 → `TypeError`。**这条路径从没执行过**
+  - 🎯 **约 1/3 用户会永远收不到推荐**：依据的 topic 来自 `questions` 表 AI 题的 topic，而检索匹配题库 `kp_name` —— **两套词汇**，9 个真实 topic 里 3 个搜不到题。而 `_pick_focus` 只试 `weak[0]` 一个 → 改成**候选一串、从前往后试**
+  - **ISO 时间戳的 `+00:00` 拼进 URL 被解码成空格** → 查询 400、活跃用户恒为 0，**看起来像「今天没人活跃」**。必须走 `params=`（`agents/tuning.py` 一直这么写，我照抄时漏了）。⚠️ **这处是我新代码引入的**，能被发现是因为按上节规矩写了 WARNING 而非静默返回空
+  - **`video_library` 没有 `duration` 列**（真实列名 `audio_duration`，秒/浮点）—— 拉一行数据才看出来
+- ⚠️ **我自己写错的迁移脚本**：第一版要求约束定义里出现 `IN (`，而 PostgreSQL 把 `type IN (…)` 规范化成 `type = ANY (ARRAY[…])` —— **没有 `IN (`**，于是「看得见它、却一个都不删」。已改成按列名词边界匹配 + 「一个都没删就把定义贴出来」
+- ⚠️ **用户体验上被纠正两次**：① 我用「依据」替换了卡片原来那段 120 字正文、还把按钮文案从「立即学习」改成「开始学习」——**都是多余改动，已还原**（「依据」降级成标题 tooltip）② **空态与有推荐的高度不一样，右栏会跳** —— 根因是右栏 `position:absolute; top:0; bottom:0; overflow:hidden` 的**定高列**。⚠️ 该差值**改之前就有**（98px vs 190px），我加三块行后拉到 130px，**不是引入者、是加剧者**
+- ✅ **真跑过的**：`find_ready_video` 三条路径（含**没命中时 70→70 行、确认不排产**）· `generate_daily_recommendation` **3 个真实用户全部拿到完整三合一** · `run_due_once` 状态码可见（`{'error': 6}` → 修复后 `sent`）· `/xiaoji/daily` `/daily-learn/latest` `/{id}/questions` 全部 200 且数据完整 · 通知回归测试 **15/15** · `vite build` 通过
+- ⚠️ **仍未做**：`notifications_drop_stale_type_check.sql` **必须在目标库执行**（不做则消息中心全废）· 边缘转盘角标仍死 · `--rec-h: 205px` 是手算的没在浏览器量过 · 定时任务只验到「能跑」，**完整的「到点自动送达」要等明早 8 点** · **没部署、没提交**
+- 📄 **同步的文档**：`SYSTEM_MANUAL.md` **§5.8 整节重写**（原内容是改造前的：`create_notification` 已不存在、8 开关、Tab 从旧 type 推）+ 订正 §18.3 桌宠（`main.rs` 主窗口 `CloseRequested` → `app.exit(0)`，**关主程序桌宠一起没**）+ 题数 16889→19338 + 设置接口改 `/messages/settings` + 新增 `/daily-learn` 路由 · `message_center_design.md` §六/§十 全面订正 + 新增「真跑暴露的崩溃」「陈年 CHECK」两节
+
+### 169. 桌面通知弹窗 + 消息详情归成七种形态（2026-10-08 续二）
+- **任务原话**：「要有弹窗保持3秒，可以叉掉的，点击进入详情的」→ 后接「如果是主界面打开状态就在上部分居中，没打开或最小状态就右下角」
+- ⚠️ **先当场说明一件做不到的事**：「应用完全没打开」收不到任何东西 —— 没有进程在看门。要那样得走**后端推送**（Web Push / 厂商通道），是另一个量级的工程。能做的是**前台 → 页内长条（上部居中）**、**后台/最小化 → 系统通知（右下角，位置由 OS 摆）**
+- **两个通道**：前台走页内自渲染长条；后台走 `new Notification`（点它**先把窗口唤到前面**再进详情，`tag` 用消息 id 去重）。⚠️ 系统通知要授权且浏览器**要求用户手势** → 挂在第一次点击上申请；**没授权不静默丢弃**，退回「攒着，切回来累计弹一条」
+- **用户连提三条视觉要求**（「要长条不要宽」「像消息中心一条一条」「毛玻璃」「覆盖而不是堆积下去」）→ ① 330×90 方卡 → **620×54 横条**（摘要只占一行 + 省略号）② 照 `.mc-card` 做：左侧 3px 竖色条 + 方形图标 + 标题/时间行 + 摘要行 ③ `88% 不透明`（看着是实心板）→ **62% + `blur(30px) saturate(1.7)` + 亮边** ④ **弃用 `ElNotification`** —— 它只会往下堆；改成自己渲染 + 队列，**同一时刻只有一条**、总高度恒定
+- **轮询从 6 个收成 1 个**：Sidebar / EdgeNavDock / XiaojiCall / MessageCenter 各自 30 秒轮询同一个 `/messages/badges`（首页三个组件同时挂着 = 同页面 3 份重复请求）→ 抽成 `composables/useNotifications.js`，一个计时器一份共享状态。`/messages/badges` 顺带返回 **`latest`**（最新一条未读摘要），前端比对 `id` 变没变即可，零新增接口
+- ⚠️ **另两个轮询没动**：`CareerSidebar.vue:298` / `CommunitySidebar.vue:81` 打的**不是** `/messages/badges`，而是**旧的 `/community/sidebar-badges`** —— 正是 10-07 要消灭的「两套算法」源头，**学程页/社区页角标至今仍和消息中心对不上**。没动因为映射不是 1:1（`friendRequestCount` 来自 `friendships` 表、`career_tasks` 靠 `link` 含 `tasks` 数、旧 `unread_chats` 是「按发送者去重」），换数据源数字本身就会变
+- **消息详情归成七种形态**（用户：「每一个消息都要排版好」）。约束是 10-07 定的「加消息点前端零改动」→ 不写 66 套模板，由**后端从注册表已有标志推导**（`notification_registry._shape_of`），前端只认形态名：`rec` / `summary` / `actors`(aggregate) / `todo` / `notice`(system) / `celebrate`(career) / `plain`。**实测分布：1 / 1 / 9 / 10 / 12 / 9 / 23**，注册表可逐条覆写
+- **排版量出来的两条根因**：① **数字埋在散文里** —— `50 道题`、`9%`、薄弱点后端本来就精确算出来了，却让 LLM 复述成 150 字散文 ② 🎯 **`.modal-text` 上没有 `white-space`** —— 模型写的 `\n\n` **被 HTML 折叠成空格，多段并成一段**（推荐正文那坨就是这么来的）
+- **总结改成结构化**：数字/知识点由后端**原样带入** payload，LLM **只写三段文字**（点评/建议/鼓励）；⚠️ **LLM 挂了不丢整条**，退回确定性文案而**数字始终是真数据**。实测通过（真实用户 + 真实 LLM）
+- **删掉不该给用户看的**（用户：「消息只需要给有需要的」）：详情弹层的「类型/点击去向/已读规则」整块、调试用的「组内第 N/M 个」、**列表每行下面的原始类型键**；连带清 4 条死 CSS + 2 个死 computed。顺带把「标记已读」改成**只在未读时出现**（`markRead()` 第一行就是 `if (m.is_read) return`，已读时是死按钮）
+- 🎯 **抓到四个 bug**：**我引入的 2 个** —— ① `loadBadge` 删了函数但 3 处调用还在（其中一处在 `boot()`），**消息中心一打开就崩**，而 ⚠️ **`vite build` 抓不到未定义的裸标识符** ② 删 `readRule` 时留下重复的 `canDelete`（这个构建能抓）。**既有的 2 个（没动）** —— ③ `XiaojiCall.vue:166` 的 `previewImage` **从未定义过**（HEAD 里就没有），点聊天图片抛错 ④ `Sidebar.vue` **整个意见反馈弹窗是死的**：`showFeedback`/`feedbackOptions`/`feedbackType`/`feedbackTypeLabel`/`feedbackContent`/`feedbackSubmitting`/`feedbackMenuVisible` **七个标识符全没声明**，是之前导航重构（`router-link`→`NavWheel`）时和 `activeMenu`/`sessions` 一批误删的
+- **为此写了个扫描脚本**：把模板里被当函数调用的标识符和脚本里的定义对一遍 —— 专门抓「构建抓不到」的那一类
+- **预览页** `_devtools/notification-preview.html`：弹窗五种情形自动轮播（含最小化时系统通知）+ 模式/主题切换 + **七种形态各一个真实渲染**；标题、大类、配色**全部从注册表生成**
+- ⚠️ **没部署、没提交**（部署仓库仍停在 `f420dfb`/10-01）；**前端我一次没在浏览器里打开过**，只有 `vite build` + 扫描脚本
+
+### 170. 模型下线排查：换掉两个已废模型 + 挖出流式崩溃（2026-10-11）
+- **起因**：「qwen-turbo 我在官网查不到」→ 顺着查，发现**两个模型已经死了**，而且都在真实链路上
+- 🚨 **`qwen3-vl-flash` 已于 2026-10-10 00:00 下线**（官方《部分历史主线模型下线通知》）。它是 `QWEN_VISION_MODEL`，撑着小基**识图**和**视频抽帧分析**两条用户功能 —— 也就是说**前一天刚断，两条功能全 404**
+- 🎯 **404 与 403 必须分开看**：`404 Model not exist` 是**下架**，`403 access_denied` 只是**这个 key 没授权**。混为一谈会把「去控制台开权限」当成解法。兼容端点和 DashScope 原生多模态端点**都**返回 404，才敢定案
+- ⚠️ **`qwen-turbo` 更隐蔽**：调得通（返回 `model='qwen-turbo'`，0.79s，**不是别名**），但**不在官方模型清单里**，快照版 `qwen-turbo-0919` 已 404、`-2024-11-01` 已 403。属「随时进下一批」状态
+- 🎯 **它不只是「要被换」，是已经在产废稿**：拿 `_SCRIPT_PROMPT` 真跑 5 个知识点、按项目自己的质检闸判 —— **初稿 0/5**（口播 189/211/226 字，闸门要 240；只给 4~5 镜），修补后**仍 2/5 抛「两次质检不通过」出不了片**
+- **选型靠实测不靠猜**（`_devtools/bench_video_model{,_2}.py`）：`qwen-plus` 看着更聪明，但**系统性只给 5 镜**（初稿 0/5、均耗 100.7s、超时一次 208s）；**`qwen-flash` 初稿 5/5、一次调用到位、均耗 9.9s** → 视频脚本 `qwen-turbo → qwen-flash`，单条脚本 ≈0.0019 元
+- **识图选型同样反直觉**（`_devtools/bench_vision_model.py`，真实截图 4 项核对 + 题库真题逐字转写）：**专用视觉模型 `qwen3-vl-plus` 最差**（2/4、5/12、24.5s），**`qwen3.8-flash` 全中**（4/4、12/12、2.5s）→ 识图 `qwen3-vl-flash → qwen3.8-flash`
+- ⚠️ **官方推荐的 `qwen3.6-flash` 开不了**：控制台模型列表里没有它（403 `access_denied`），放行的是 `qwen3.7-flash` / `qwen3.8-flash`
+- 🎯 **顺手挖出一个真 bug（未爆，但一碰就炸）**：`call_qwen_stream` / `call_llm_stream` / `call_llm_vision_stream` 三处都是 `chunk.choices[0].delta.content` —— **没防空**。**`qwen3.7/3.8-flash 会在流末尾补一个 `choices=[]` 的 usage 块**（实测 23 块里第 23 块就是它），取 `[0]` 当场 `IndexError`，**整条流断在半截**，日志只有一行 `list index out of range`，看不出跟模型有关。`qwen-flash` 从不发这种块，所以这个坑一直躺着 —— **只要把对话档切到 3.8 就会当场全崩**
+- ✅ 三处都加了守卫；新增 `tests/test_stream_guard.py`（6 项），**第 5 项专测灵敏度**：同一份输入喂给修复前的老写法必须真的抛 `IndexError` —— 抓不到旧 bug 的断言等于没写
+- **结论：对话档不动**。`qwen-flash` 实测够用（首字节 1.0s、0 处 markdown 违规、让它「直接告诉答案」时它会引导着一起算——正是提示词要的行为），而 `qwen3.8-flash` 贵 **2.8 倍**（0.8/2.7 vs 0.2/1.5），换过去的收益**没有证据**。先把流式 bug 修掉，让 3.8 处于「随时可换」
+- 📄 **文档同步（开发仓库 + 部署仓库各一份，逐处定点改，不整份覆盖）**：`SYSTEM_MANUAL.md`（§5.3 功能表、§5.16.1 视频链路、§附录路由表、§5.4.3 小基模式）、`WORKFLOW_STANDARD.md`（成本纪律 + 附录 B 成本模型）、`PROJECT_SUMMARY.md`（架构 AI 行 + 视频库行）、`_competition/content.py`。替换脚本**带锚点唯一性校验**，对不上就报错退出，不静默跳过
+- ⚠️ **没顺手改的（不是这次的范围）**：手册里 `doubao_stream_generator` / `volc_client` / `chat_endpoint_id` 那几处 —— 代码里**这些早已不存在**，是更早删掉火山链路的遗留。属结构性过时，该单独开一轮清理，**没有夹带在这次里**
+- ⚠️ **部署仓库 7 个文件已改但没 commit / 没 push**：`config.py`（两个默认值）、`agents/qwen_client.py`、`agents/llm_client.py`（这两个与开发仓库**差异只有本次改动**，可直接同步）、`services/video_gen.py`（docstring），加三份文档。**生产上识图和视频脚本在此之前都是坏的**

@@ -165,9 +165,12 @@ async def get_xiaoji_daily(user_id: str, current_user: str = Depends(get_current
     headers = get_supabase_headers()
     since = (datetime.now(BEIJING) - timedelta(days=7)).strftime("%Y-%m-%d")
 
+    # ⚠️ 刻意**不写 `select=`**：写成列举列名的话，一旦某个列在目标库上还没建
+    #    （`payload` 是 `message_center_rework.sql` 加的），PostgREST 直接 400，
+    #    整张卡片会连标题都拿不到。不写 select 就只回库里真有的列 —— 降级更平滑。
     rec_url = (
         f"{settings.SUPABASE_URL}/rest/v1/notifications"
-        f"?user_id=eq.{user_id}&type=eq.daily_rec&order=created_at.desc&limit=1"
+        f"?user_id=eq.{user_id}&type=eq.learning.daily_rec&order=created_at.desc&limit=1"
     )
     records_url = (
         f"{settings.SUPABASE_URL}/rest/v1/question_records"
@@ -208,10 +211,20 @@ async def get_xiaoji_daily(user_id: str, current_user: str = Depends(get_current
             if rows:
                 r = rows[0]
                 recommendation = {
+                    "id": r.get("id"),
                     "title": r.get("title"),
                     "content": r.get("content"),
-                    "action_label": r.get("action_label"),
-                    "action_link": r.get("action_link"),
+                    # ⚠️ 2026-10-08 修：原来读的是 `action_label` / `action_link`。
+                    #    这两个列**在表里是有的**（建表时就有，第 11/12 列），
+                    #    但 `notify()` 从来不写它们 —— 全站统一走 `link`。
+                    #    所以这两列在每一行上都是空串，写方 `daily_generator`
+                    #    往返回 dict 里塞的 action_* 也根本没进过库，
+                    #    前端 `goRecLink()` 拿到的恒为空 → **卡片按钮点了完全没反应**。
+                    #    现在统一读 `link`（`notify(link=...)` 是真写库的），
+                    #    action_* 两个键删掉 —— 它们从来没被填过值。
+                    "link": r.get("link") or "/daily-learn",
+                    # 三合一的三块（内容 / 题目 / 视频），卡片要按它渲染成三行
+                    "payload": r.get("payload") or {},
                 }
 
         records = []

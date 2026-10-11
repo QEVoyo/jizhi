@@ -301,7 +301,7 @@ import VideoLessonPlayer from '@/components/VideoLessonPlayer.vue'
 import { ElMessage } from 'element-plus'
 import { recordAction } from '@/api/career'
 import request from '@/utils/request'
-import { typeLabel, buildCategoryMap, isSingleChoice, isMultiChoice, isLongTextType, longTextPlaceholder } from '@/utils/questionLabels'
+import { typeLabel, buildCategoryMap, isSingleChoice, isMultiChoice, isLongTextType, longTextPlaceholder, getStem, getOptions } from '@/utils/questionLabels'
 
 const route = useRoute()
 const router = useRouter()
@@ -605,17 +605,8 @@ function categoryLabel(c) {
   return dimLabelMap.value[c] || c
 }
 
-function getStem(q) {
-  if (!q) return ''
-  const c = q.content || {}
-  if (typeof c === 'string') {
-    // 编程题文本格式：去除测试用例部分，只显示题目描述
-    const idx = c.indexOf('---TEST_CASES---')
-    return idx >= 0 ? c.substring(0, idx).trim() : c
-  }
-  return c.stem || ''
-}
-function getOptions(q) { if (!q) return []; const c = q.content || {}; return typeof c === 'string' ? [] : (c.options || []) }
+// getStem / getOptions 2026-10-08 抽到 @/utils/questionLabels 共用
+//（每日学习页也要同一份 —— 各写一份必然漏一种题目形状）
 
 // 使用共享工具中的 isSingleChoice（不包含 cloze）、isMultiChoice、isLongTextType、longTextPlaceholder
 // 在前端模板中，cloze 通过 `v-else-if="question.question_type === 'cloze'"` 单独处理

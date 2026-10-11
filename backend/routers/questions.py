@@ -811,6 +811,85 @@ async def generate_question_core(user_id, category, topic, question_type, diffic
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 
+# ========== 错题攻克通知 ==========
+async def _notify_mistake_conquered(user_id: str, question_id: str,
+                                    topic: str = "") -> None:
+    """攻克一道错题 → `learning.mistake_conquered`（2026-10-08 接的消息点）。
+
+    本文件有**两个入口**产生这个事实：`evaluate_answer`（重答答对，自动）
+    与 `conquer_mistake`（用户手动标记），所以就地抽一个函数。
+    ⚠️ 不放进 `utils/notify_events.py` —— 那个文件的契约是「只在 ≥2 个**文件**复用时才放」。
+
+    ⚠️ `source_id` 按**天**取：注册表里这条是 aggregate=True，同一天的攻克
+    并成一行（msg_count 就是条数）。传固定值（如题目 id）会变成「每道题一行」，
+    等于没聚合；不传 source_id 则聚合根本不生效 —— aggregate 的判据就是它。
+    题目标签走 `actor_name`，与 career.task_done 同一个写法。
+    """
+    if not user_id or not question_id:
+        return
+    try:
+        from utils.notification import notify, NotifyError
+        today = datetime.now().strftime("%Y-%m-%d")   # 本地日期，与 career.py 口径一致
+        await notify(
+            user_id, "learning.mistake_conquered",
+            actor_name=topic,
+            source_id=f"mistake_{today}",
+            title="攻克了一道错题",
+            content=f"「{topic}」已经拿下，继续保持。" if topic else "已经拿下，继续保持。",
+        )
+    except (NotifyError, KeyError) as e:
+        logger.error(f"⚠️ 错题攻克通知未送达 user={user_id} q={question_id}: {e}")
+
+
+# 待攻克错题攒到这个数就提醒一次（2026-10-08 定的；与 career.py 里既有的
+# 成就「错题猎手 = 攻克 10 道错题」同一量级，口径保持一致）
+MISTAKE_ALERT_AT = 10
+
+
+async def _notify_mistake_threshold(user_id: str) -> None:
+    """待攻克错题攒到阈值 → `learning.mistake_threshold`。
+
+    「待攻克」判据是 `mistake_status = 'learning'`，**不用 `is_mistake`** ——
+    手动标记攻克的路径（`conquer_mistake`）把 `is_mistake` 置成 False 而状态是
+    `conquered`，用 is_mistake 数出来的口径会和用户看到的错题本对不上。
+
+    ⚠️ 只在**恰好等于**阈值时报一次：用 `>=` 的话第 11、12 道错题会各报一遍。
+    与 `utils/notify_events.py` 里 weak_alert 的处理一致 —— 错题一次只加一道，
+    所以「恰好跨过」在实践中总能命中。
+    """
+    if not user_id:
+        return
+    try:
+        import httpx
+        from services.supabase import get_supabase_service_headers
+        from utils.notification import notify, NotifyError
+
+        # 用 service_role 数：anon 受 RLS 过滤会少数（用户看到的错题本会偏多）
+        url = (f"{settings.SUPABASE_URL}/rest/v1/questions"
+               f"?user_id=eq.{user_id}&mistake_status=eq.learning&select=id")
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.get(url, headers={
+                **get_supabase_service_headers(),
+                "Prefer": "count=exact", "Range-Unit": "items", "Range": "0-0",
+            })
+        # PostgREST 超过一页返回 206，不是 200 —— 只认 200 会把「有数据」读成失败
+        if res.status_code not in (200, 206):
+            return
+        cr = res.headers.get("content-range") or ""
+        count = int(cr.split("/")[-1]) if "/" in cr else -1
+        if count != MISTAKE_ALERT_AT:
+            return
+        await notify(
+            user_id, "learning.mistake_threshold",
+            title=f"错题本攒到 {count} 道待攻克了",
+            content="挑几道先清掉吧，堆着会越来越难追。",
+        )
+    except (NotifyError, KeyError) as e:
+        logger.error(f"⚠️ 错题本阈值通知未送达 user={user_id}: {e}")
+    except Exception as e:                                      # noqa: BLE001
+        logger.warning(f"[notify] 统计待攻克错题失败 user={user_id}: {e}")
+
+
 # ========== AI 评估 ==========
 @router.post("/evaluate")
 async def evaluate_answer(data: dict):
@@ -895,11 +974,15 @@ async def evaluate_answer(data: dict):
 
             async with httpx.AsyncClient() as client:
                 # 先查询当前错题状态
-                check_url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}&select=is_mistake,mistake_status"
+                # ⚠️ mastery_score 是给「掌握度跃升」通知用的旧分 ——
+                #    通知要报的是「从多少提到多少」，只有新分没用。
+                check_url = (f"{settings.SUPABASE_URL}/rest/v1/questions"
+                             f"?id=eq.{question_id}&select=is_mistake,mistake_status,mastery_score")
                 check_res = await client.get(check_url, headers=headers)
                 current = check_res.json()[0] if check_res.json() else {}
                 current_is_mistake = current.get('is_mistake', False)
                 current_status = current.get('mistake_status', 'none')
+                current_mastery = current.get('mastery_score')
 
                 # 判断错题本逻辑
                 if mastery_score < 60:
@@ -924,8 +1007,32 @@ async def evaluate_answer(data: dict):
                         }
 
                 update_url = f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}"
-                await client.patch(update_url, headers=headers, json=update_data)
-                logger.info(f"✅ 已更新掌握度: {mastery_score}%, 错题状态: {update_data.get('mistake_status')}")
+                patch_res = await client.patch(update_url, headers=headers, json=update_data)
+                # ⚠️ 原来是 `await client.patch(...)` 不看返回值 —— 写没写进去没人知道。
+                #    接通知之前必须先确认：否则会为一次**根本没发生**的攻克发消息
+                #    （10-08 记的「静默失败的第四个变体：失败返回 None 不抛」）。
+                if patch_res.status_code not in (200, 204):
+                    logger.error(f"❌ 错题状态回写失败 [{patch_res.status_code}]: "
+                                 f"{patch_res.text[:200]}")
+                else:
+                    logger.info(f"✅ 已更新掌握度: {mastery_score}%, 错题状态: {update_data.get('mistake_status')}")
+                    topic = question.get("topic") or normalized_topic or ""
+                    if update_data.get("mistake_status") == "conquered":
+                        await _notify_mistake_conquered(user_id, question_id, topic)
+                    elif (update_data.get("mistake_status") == "learning"
+                          and current_status != "learning"):
+                        # ⚠️ 只在**新进错题本**时才去数一次。重复答错同一道题也会
+                        #    走到上面那个 <60 分支，若不加这个判断，这条「每答一道题
+                        #    走一次」的路上就会常态多一次 count 查询（10-08 的教训：
+                        #    好友榜超越那次就是靠 points_change > 0 把它挡在热路径外的）。
+                        await _notify_mistake_threshold(user_id)
+
+                    # 掌握度两条（跃升 / 薄弱堆积）：阈值见 utils/notify_events.py。
+                    # 首次作答时 current_mastery 是 None，函数内部会直接返回 ——
+                    # 新题没有「旧分」，不该拿 0 → 70 报成跃升。
+                    from utils.notify_events import notify_mastery_change
+                    await notify_mastery_change(user_id, topic,
+                                                current_mastery, mastery_score)
         logger.info(f"=== 评估结果完整返回: {result} ===")
         return result
 
@@ -1058,7 +1165,23 @@ async def conquer_mistake(question_id: str):
     }
 
     async with httpx.AsyncClient() as client:
+        # 先读现状，两个用途：
+        #   ① 拿 user_id —— 这个端点只有 question_id，而通知得知道发给谁
+        #   ② 判「这次是不是真的攻克了一道错题」—— 已经是 conquered 的再点一次、
+        #      或对一道从没错过的题调用，都不该发通知
+        got = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/questions?id=eq.{question_id}"
+            f"&select=user_id,is_mistake,mistake_status,topic",
+            headers=headers)
+        rows = got.json() if got.status_code == 200 else []
+        before = rows[0] if rows else {}
+        newly_conquered = (bool(before.get("is_mistake"))
+                           and before.get("mistake_status") != "conquered")
+
         res = await client.patch(update_url, headers=headers, json=update_data)
         if res.status_code in [200, 204]:
+            if newly_conquered:
+                await _notify_mistake_conquered(
+                    before.get("user_id"), question_id, before.get("topic") or "")
             return {"success": True}
         return {"success": False}

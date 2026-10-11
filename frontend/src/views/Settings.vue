@@ -460,10 +460,13 @@
           <span class="card-title">通知设置</span>
         </div>
         <div class="card-body">
+          <!-- 九个大类开关（2026-10-07 重做：原来 8 个开关里有一半的类型根本没有写入方） -->
           <div class="notif-grid">
             <div v-for="item in notifItems" :key="item.key" class="notif-row">
               <div class="notif-info">
-                <span class="notif-label">{{ item.label }}</span>
+                <span class="notif-label">
+                  <span class="notif-dot" :style="{ background: item.color }"></span>{{ item.label }}
+                </span>
                 <span class="notif-desc">{{ item.desc }}</span>
               </div>
               <label class="switch">
@@ -472,14 +475,66 @@
               </label>
             </div>
           </div>
-          <div class="notif-time-row">
-            <div class="notif-time-field">
-              <label class="field-label">每日推荐时间</label>
-              <input type="time" class="glass-input" v-model="notifSettings.daily_rec_time" @change="saveNotifSettings" style="width:160px" />
+
+          <!-- 每日学习推荐：开关 + 时间 + 依据 -->
+          <div class="notif-block">
+            <div class="notif-block-title">每日学习推荐</div>
+            <div class="notif-row">
+              <div class="notif-info">
+                <span class="notif-label">开启每日推荐</span>
+                <span class="notif-desc">每天一条：学习内容 + 题目 + 视频，点开就能直接做</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" v-model="notifSettings.daily_rec_enabled" @change="saveNotifSettings" />
+                <span class="switch-slider"></span>
+              </label>
             </div>
-            <div class="notif-time-field">
-              <label class="field-label">每日总结时间</label>
-              <input type="time" class="glass-input" v-model="notifSettings.daily_summary_time" @change="saveNotifSettings" style="width:160px" />
+            <div class="notif-time-row">
+              <div class="notif-time-field">
+                <label class="field-label">推送时间</label>
+                <input type="time" class="glass-input" v-model="notifSettings.daily_rec_time"
+                       @change="saveNotifSettings" style="width:150px" />
+              </div>
+              <div class="notif-time-field">
+                <label class="field-label">昨日总结时间</label>
+                <input type="time" class="glass-input" v-model="notifSettings.daily_summary_time"
+                       @change="saveNotifSettings" style="width:150px" />
+              </div>
+            </div>
+            <div class="rec-source">
+              <div class="field-label">推荐依据</div>
+              <div class="rec-source-opts">
+                <button v-for="opt in recSourceOpts" :key="opt.value" type="button"
+                        class="rec-source-btn"
+                        :class="{ on: notifSettings.daily_rec_source === opt.value }"
+                        @click="notifSettings.daily_rec_source = opt.value; saveNotifSettings()">
+                  <b>{{ opt.label }}</b><span>{{ opt.desc }}</span>
+                </button>
+              </div>
+              <div class="rec-source-tip">
+                ⚠️ 选「按做题记录」但还没有任何记录时，会自动退回「按资料」，
+                避免新用户永远收不到推荐
+              </div>
+            </div>
+          </div>
+
+          <!-- 免打扰 -->
+          <div class="notif-block">
+            <div class="notif-block-title">免打扰时段</div>
+            <div class="notif-time-row">
+              <div class="notif-time-field">
+                <label class="field-label">开始</label>
+                <input type="time" class="glass-input" v-model="notifSettings.dnd_start"
+                       @change="saveNotifSettings" style="width:150px" />
+              </div>
+              <div class="notif-time-field">
+                <label class="field-label">结束</label>
+                <input type="time" class="glass-input" v-model="notifSettings.dnd_end"
+                       @change="saveNotifSettings" style="width:150px" />
+              </div>
+            </div>
+            <div class="notif-desc" style="margin-top:6px">
+              此时段内不弹桌面通知，站内消息照常收（留空 = 不免打扰）
             </div>
           </div>
         </div>
@@ -609,7 +664,7 @@ import XiaojiSettings from '@/components/XiaojiSettings.vue'
 import ShortcutsSection from '@/shortcuts/ShortcutsSection.vue'
 import { setUser } from '@/utils/storage'
 import { updateNickname, updateBio, uploadAvatar, updateUserTheme } from '@/api/auth'
-import { getNotificationSettings, updateNotificationSettings } from '@/api/community'
+import { getMessageSettings, updateMessageSettings } from '@/api/messages'
 import { isDesktop, getAppVersion, checkUpdate, openExternal, setPetVisible, petEnabledLocally, PET_WHEEL_ITEMS, PET_SCALE_MIN, PET_SCALE_MAX, PET_SCALE_STEP, petPrefsLocally, savePetPrefs, isAutostartEnabled, setAutostart } from '@/desktop'
 import { BACKEND_URL } from '@/utils/constants'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -1105,45 +1160,60 @@ async function changePassword() {
   finally { changingPw.value = false }
 }
 
-// ===== 通知设置 =====
+// ===== 通知设置（2026-10-07 改走 /messages/settings，开关按九个大类）=====
 const notifSettings = reactive({
   chat_enabled: true,
   social_enabled: true,
   learning_enabled: true,
   plan_reminder_enabled: true,
   evaluation_enabled: true,
+  career_enabled: true,
+  todo_enabled: true,
+  system_enabled: true,
+  admin_enabled: true,
   daily_rec_enabled: true,
   daily_summary_enabled: true,
-  system_enabled: true,
   daily_rec_time: '08:00',
   daily_summary_time: '07:00',
+  daily_rec_source: 'mix',          // profile / history / mix
+  dnd_start: '',
+  dnd_end: '',
 })
 
+// 大类开关：颜色与消息中心一致（同一份注册表的口径）
 const notifItems = [
-  { key: 'chat_enabled', label: '对话通知', desc: 'AI 对话完成、新消息提醒' },
-  { key: 'social_enabled', label: '社交通知', desc: '好友请求、评论、点赞' },
-  { key: 'learning_enabled', label: '学习提醒', desc: '每日任务、学习进度提醒' },
-  { key: 'plan_reminder_enabled', label: '计划提醒', desc: '学习计划到期提醒' },
-  { key: 'evaluation_enabled', label: '评估通知', desc: '诊断结果、学情报告生成' },
-  { key: 'daily_rec_enabled', label: '每日推荐', desc: '每日个性化题目推荐' },
-  { key: 'daily_summary_enabled', label: '每日总结', desc: '学习数据日报' },
-  { key: 'system_enabled', label: '系统通知', desc: '公告、维护、活动通知' },
+  { key: 'chat_enabled', label: '好友消息', color: '#3B82F6', desc: '私信、好友请求与通过' },
+  { key: 'social_enabled', label: '社区互动', color: '#E6A23C', desc: '点赞、收藏、评论、回复' },
+  { key: 'learning_enabled', label: '学习', color: '#67C23A', desc: '出题、批改、讲解视频、掌握度、每日推荐' },
+  { key: 'plan_reminder_enabled', label: '计划提醒', color: '#F56C6C', desc: '今日任务、学习提醒、阶段切换' },
+  { key: 'evaluation_enabled', label: '评估', color: '#8B5CF6', desc: '评估表、学情报告、磨合引擎调参' },
+  { key: 'career_enabled', label: '学程', color: '#F59E0B', desc: '任务达成、成就、段位、打卡' },
+  { key: 'todo_enabled', label: '待办', color: '#06B6D4', desc: '题集分享、反馈回复等需要你动手的' },
+  { key: 'system_enabled', label: '系统消息', color: '#64748B', desc: '公告、账号安全、处置通知' },
+]
+
+// 推荐依据三选一
+const recSourceOpts = [
+  { value: 'mix', label: '结合', desc: '有做题记录就按错的来，没有就按你的资料' },
+  { value: 'profile', label: '按我的资料', desc: '学习阶段 / 年级 / 专业 / 学习目标' },
+  { value: 'history', label: '按做题记录', desc: '只看错题与薄弱知识点，不看资料' },
+]
+
+const NOTIF_KEYS = [
+  'chat_enabled', 'social_enabled', 'learning_enabled', 'plan_reminder_enabled',
+  'evaluation_enabled', 'career_enabled', 'todo_enabled', 'system_enabled', 'admin_enabled',
+  'daily_rec_enabled', 'daily_summary_enabled',
+  'daily_rec_time', 'daily_summary_time', 'daily_rec_source', 'dnd_start', 'dnd_end',
 ]
 
 async function loadNotifSettings() {
   if (!authStore.user?.id) return
   try {
-    const data = await getNotificationSettings(authStore.user.id)
-    // 后端返回平铺对象 {chat_enabled, ...}，只取已知键避免脏字段
-    if (data && typeof data.chat_enabled === 'boolean') {
-      const KEYS = [
-        'chat_enabled', 'social_enabled', 'learning_enabled', 'plan_reminder_enabled',
-        'evaluation_enabled', 'daily_rec_enabled', 'daily_summary_enabled', 'system_enabled',
-        'daily_rec_time', 'daily_summary_time'
-      ]
-      KEYS.forEach(k => { if (data[k] !== undefined) notifSettings[k] = data[k] })
-    }
-  } catch { /* 使用默认值 */ }
+    const data = await getMessageSettings(authStore.user.id)
+    NOTIF_KEYS.forEach(k => { if (data?.[k] !== undefined && data[k] !== null) notifSettings[k] = data[k] })
+  } catch (e) {
+    ElMessage.error('读取消息设置失败：' + (e?.response?.data?.detail || e.message))
+  }
 }
 
 let notifSaveTimer = null
@@ -1151,8 +1221,13 @@ function saveNotifSettings() {
   clearTimeout(notifSaveTimer)
   notifSaveTimer = setTimeout(async () => {
     try {
-      await updateNotificationSettings({ data: { ...notifSettings }, user_id: authStore.user.id })
-    } catch { /* 静默失败 */ }
+      const body = {}
+      NOTIF_KEYS.forEach(k => { if (notifSettings[k] !== undefined) body[k] = notifSettings[k] })
+      await updateMessageSettings(authStore.user.id, body)
+    } catch (e) {
+      // ⚠️ 改造前这里是 `catch { /* 静默失败 */ }` —— 保存失败用户以为存上了
+      ElMessage.error('保存失败：' + (e?.response?.data?.detail || e.message))
+    }
   }, 400)
 }
 
@@ -1729,6 +1804,30 @@ select.glass-input { cursor: pointer; appearance: none; }
 }
 
 /* ====== 通知设置 ====== */
+/* 大类色点：与消息中心同一套配色（大类固定语义色） */
+.notif-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 7px; vertical-align: 1px; }
+.notif-block { margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,.06); }
+.notif-block-title { font-size: 13px; font-weight: 600; color: var(--text-primary);
+  margin-bottom: 10px; }
+/* 推荐依据三选一 */
+.rec-source { margin-top: 14px; }
+.rec-source-opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.rec-source-btn { flex: 1; min-width: 170px; text-align: left; cursor: pointer;
+  padding: 10px 12px; border-radius: 10px; font-family: inherit;
+  background: color-mix(in srgb, var(--surface, #ffffff) 3%, transparent);
+  border: 1px solid var(--line-soft); color: var(--text-secondary); transition: all .2s; }
+.rec-source-btn:hover { border-color: color-mix(in srgb, var(--brand) 40%, transparent); }
+.rec-source-btn.on { border-color: color-mix(in srgb, var(--brand) 55%, transparent);
+  background: color-mix(in srgb, var(--brand) 10%, transparent); }
+.rec-source-btn b { display: block; font-size: 13px; color: var(--text-primary); }
+.rec-source-btn.on b { color: var(--brand); }
+.rec-source-btn span { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.rec-source-tip { margin-top: 8px; font-size: 11.5px; color: #e6a23c;
+  background: rgba(230,162,60,.08); border-left: 2px solid #e6a23c;
+  padding: 7px 10px; border-radius: 0 8px 8px 0; }
+
 .notif-grid { display: flex; flex-direction: column; gap: 4px; }
 .notif-row {
   display: flex;

@@ -41,6 +41,16 @@ export function getVideoRelated(params) {
 }
 
 /**
+ * 单条视频详情（含 `audio_url`，播放器要的就是它）。
+ *
+ * ⚠️ 每日学习推荐的 payload 里只存了 `video_id` + 标题 + 时长，
+ * **没有 `audio_url`** —— 播放前必须按 id 拉这一次。
+ */
+export function getVideoDetail(videoId) {
+  return request.get(`/video/lib/${videoId}`).then(res => res.data)
+}
+
+/**
  * 「推送」分类：题目/计划那边触发懒生成时，推送到我视频库里的视频（2026-10-01）。
  *
  * ⚠️ 和「我的视频」是两回事：

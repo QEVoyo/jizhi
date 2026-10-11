@@ -4,6 +4,17 @@ import request from '@/utils/request'
 // 1. 动态
 // ============================================================
 
+/** 单条动态详情（含作者、点赞/收藏状态、评论列表）。
+ *  2026-10-07 补：收藏页与「我的帖子」一直在 push('/post/xxx')，
+ *  而那个路由**根本不存在** —— 点了没反应。建详情页时一并接上。 */
+export function getPost(postId, userId) {
+  return request.get(`/community/post/${postId}`, { params: { user_id: userId } }).then(res => res.data)
+}
+
+export function getPostComments(postId) {
+  return request.get(`/community/post/${postId}/comments`).then(res => res.data)
+}
+
 export function getPosts(params) {
   return request.get('/community/posts', { params }).then(res => res.data)
 }

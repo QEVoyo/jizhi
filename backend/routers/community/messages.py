@@ -8,7 +8,7 @@ from collections import defaultdict
 from utils.sensitive_words import check_content_safety
 from utils.email import send_report_email
 from utils.auth_middleware import get_current_user, verify_user_match
-from utils.notification import create_notification
+from utils.notification import notify, NotifyError
 from services.supabase import get_supabase_headers, get_supabase_service_headers
 from logging_config import logger
 from .models import *
@@ -19,7 +19,12 @@ router = APIRouter(prefix="/community", tags=["社区-消息"])
 
 @router.get("/messages/unread/summary")
 async def get_unread_message_summary(user_id: str = Query(...), current_user: str = Depends(get_current_user)):
-    """获取未读消息汇总（从 notifications 表）"""
+    """⚠️ 兼容层（2026-10-07）：**Web 端已改用 `GET /messages`**，这里留给小程序。
+
+    已知缺陷（新接口已修，旧接口不动）：只查未读 → 点一下消息就消失；
+    `message_count` 数的是行数而不是聚合的 `msg_count`；
+    与 `/sidebar-badges` 是两套算法，数字对不上。
+    """
     verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
 
@@ -42,8 +47,13 @@ async def get_unread_message_summary(user_id: str = Query(...), current_user: st
         result = []
 
         # 处理 chat 类型：按发送者再分组
-        if "chat" in grouped:
-            chat_msgs = grouped["chat"]
+        # 类型名 2026-10-07 改成了带点的（chat → chat.message），
+        # 这里两种都认，否则小程序会把 "chat.message" 当名字显示出来
+        chat_keys = [k for k in list(grouped) if k == "chat" or k.startswith("chat.")]
+        if chat_keys:
+            chat_msgs = []
+            for k in chat_keys:
+                chat_msgs.extend(grouped.pop(k))
             sender_group = defaultdict(list)
             for msg in chat_msgs:
                 sender_group[msg["source_id"]].append(msg)
@@ -121,7 +131,8 @@ async def mark_messages_read(
     headers = get_supabase_headers()
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        url = f"{settings.SUPABASE_URL}/rest/v1/notifications?user_id=eq.{user_id}&type=eq.chat&source_id=eq.{friend_id}&is_read=eq.false"
+        # 类型名已改（2026-10-07）：chat → chat.message
+        url = f"{settings.SUPABASE_URL}/rest/v1/notifications?user_id=eq.{user_id}&type=eq.chat.message&source_id=eq.{friend_id}&is_read=eq.false"
         res = await client.patch(url, headers=headers, json={"is_read": True})
         if res.status_code not in [200, 204]:
             raise HTTPException(status_code=400, detail="标记已读失败")
@@ -176,15 +187,20 @@ async def send_private_message(user_id: str, data: PrivateMessageCreate, current
 
         logger.info(f"=== 发送者: {sender_name}, 接收者: {data.receiver_id} ===")
 
-        # ===== 3. 聚合通知（同好友多条消息只占一行） =====
-        await create_notification(
-            user_id=data.receiver_id,
-            notif_type="chat",
-            source_id=user_id,
-            title=f"{sender_name} 发来了一条消息",
-            content=data.content[:100] if data.content else "[图片]",
-            link=f"/community/chat/{user_id}",
-        )
+        # ===== 3. 聚合通知（同好友多条消息只占一行）=====
+        # ⚠️ 消息本体已落库成功，通知是派生产物：写失败不改请求结果，
+        #    但必须留 ERROR。改造前这一句的返回值没人看，
+        #    而它每次都因「写不存在的 updated_at 列」失败 —— 静默了两个月。
+        try:
+            await notify(
+                data.receiver_id, "chat.message",
+                actor_id=user_id, actor_name=sender_name, source_id=user_id,
+                title=f"{sender_name} 发来了一条消息",
+                content=(data.content or "")[:100] or "[图片]",
+                link=f"/community/chat/{user_id}",
+            )
+        except (NotifyError, KeyError) as e:
+            logger.error(f"[community] ⚠️ 私信通知未送达 to={data.receiver_id}: {e}")
 
         if not res.text:
             return {"success": True, "message": "发送成功"}
@@ -252,7 +268,25 @@ async def share_question_set(user_id: str, data: QuestionSetShareCreate, current
         res = await client.post(url, headers=headers, json=share_data)
         if res.status_code not in [200, 201]:
             raise HTTPException(status_code=400, detail="分享失败")
-        return res.json()
+        # 取分享者昵称 + 题集名，把消息写具体
+        prof = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=nickname",
+            headers=headers)
+        setres = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/question_sets?id=eq.{data.set_id}&select=name",
+            headers=headers)
+    name = ((prof.json() or [{}])[0] or {}).get("nickname") or "有人"
+    set_name = ((setres.json() or [{}])[0] or {}).get("name") or "一个题集"
+
+    # 待办型：收到的人要「接受 / 拒绝」之后才算已读（看见不算）
+    try:
+        await notify(data.receiver_id, "todo.set_share",
+                     actor_id=user_id, actor_name=name, source_id=data.set_id,
+                     title=f"{name} 分享给你题集《{set_name}》",
+                     content="接受后可加入你的题集", link=f"/set-detail?id={data.set_id}")
+    except (NotifyError, KeyError) as e:
+        logger.error(f"⚠️ 题集分享通知未送达 to={data.receiver_id}: {e}")
+    return res.json()
 
 
 @router.get("/share/received")
@@ -307,7 +341,18 @@ async def handle_share(share_id: str, action: str = Query(...), user_id: str = Q
                     raise HTTPException(status_code=400, detail="接收题集失败")
 
         await client.patch(url, headers=headers, json={"status": status, "updated_at": datetime.now().isoformat()})
-        return {"success": True, "message": f"已{status}"}
+
+    # 告诉分享者结果（待办型：他那边也有一条待办要收尾）
+    sender_id = share.get("sender_id")
+    if sender_id and sender_id != user_id:
+        try:
+            await notify(sender_id, "todo.share_result",
+                         actor_id=user_id, source_id=share.get("set_id"),
+                         title=f"你分享的题集已被{'接受' if action == 'accept' else '拒绝'}",
+                         content="", link=f"/set-detail?id={share.get('set_id')}")
+        except (NotifyError, KeyError) as e:
+            logger.error(f"⚠️ 题集分享结果通知未送达 to={sender_id}: {e}")
+    return {"success": True, "message": f"已{status}"}
 
 
 # ============================================================
@@ -386,6 +431,7 @@ async def create_report(user_id: str, data: ReportCreate, current_user: str = De
         if isinstance(created, list) and not created:
             logger.error("举报写入返回空数组，实际未落库")
             raise HTTPException(status_code=502, detail="举报未成功写入，请稍后重试")
+        report_id = created[0].get("id") if isinstance(created, list) and created else None
 
         # 4. 发邮件
         send_report_email(
@@ -396,6 +442,24 @@ async def create_report(user_id: str, data: ReportCreate, current_user: str = De
             target_content=target_content,
             target_author=target_author
         )
+
+        # 5. 告诉管理员有新的举报待处理（2026-10-08 接的消息点）
+        #    此前后台的举报队列只能靠人肉刷 `GET /admin/reports`。
+        #    举报已经落库、邮件也已发出 —— 通知失败不回滚，只记 ERROR。
+        #    ⚠️ source_id 传 report_id：**每份举报的 id 都不同**，所以永远撞不上
+        #    部分唯一索引。别在这里传固定值（如 f"report_{today}"）——
+        #    admin.new_report 是 aggregate=False，撞了索引不会走聚合回退，直接抛。
+        try:
+            from utils.notification import notify_admins, NotifyError
+            await notify_admins("admin.new_report",
+                                title="有新的举报待处理",
+                                content=f"{nickname}：{(data.reason or '')[:40]}",
+                                link="/admin/reports",
+                                source_id=report_id)
+        except NotifyError as e:
+            logger.error(f"⚠️ 管理员举报待办通知失败: {e}")
+        except KeyError as e:
+            logger.error(f"⚠️ 管理员待办类型未注册: {e}")
 
         return {"success": True, "message": "举报已提交"}
 

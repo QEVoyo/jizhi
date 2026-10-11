@@ -35,7 +35,7 @@
 | 前端 | Vue 3（Composition API）+ Vite + Pinia + Element Plus + ECharts | 毛玻璃科幻视觉、四轴主题定制（默认深空蓝，明暗由背景色自动派生，仅落地页跟随系统）、图表双视图（图表/表格） |
 | 后端 | FastAPI + httpx 直连 PostgREST + asyncio | 无 ORM；SSE 流式；lifespan 后台任务（磨合引擎每日评估） |
 | 数据 | Supabase（PostgreSQL + PostgREST 直连 + RLS）+ 本地 JSON 题库 | 题库 17 考纲 JSON 启动全量加载；用户数据 30+ 张表 |
-| AI | DeepSeek V4.1 Flash（**文本与识图同一模型**，思考默认关）+ **阿里云千问全家桶**（chat·vision·realtime·**TTS**·**脚本 qwen-flash**）+ 讯飞 ASR | 统一封装 `agents/llm_client.py`；语音播报/视频库音轨已全量切千问（2026-09-04 定调只用阿里云） |
+| AI | DeepSeek V4.1 Flash（**文本与识图同一模型**，思考默认关）+ **阿里云千问全家桶**（chat·vision·realtime·**TTS**·**脚本 qwen-flash**）+ 讯飞 ASR | 统一封装 `agents/llm_client.py`；语音播报/视频库音轨已全量切千问（2026-09-04 定调只用阿里云）。**2026-10-11 换过两个模型**：视频脚本 qwen-turbo→qwen-flash、识图 qwen3-vl-flash→qwen3.8-flash（前者已下线） |
 | 认证 | 自签 JWT 双模（Supabase 在线 + 离线降级）；**邮箱密码 / 邮箱验证码 + 小程序微信一键登录** | 三级角色（超管/管理员/用户）。**网页微信扫码已于 09-28 整条移除**（见五、认证） |
 | 小程序 | uni-app 3.0 + Vue 3 | **无底部 TabBar**，导航与网页端对齐，复用主站后端（`D:\jizhi-miniapp`） |
 | 桌面版 | Rust + Tauri v2 + 系统 WebView2 | **壳加载线上站点**，不重写 UI；安装包 **1.4 MB**；含独立透明置顶的**桌宠**窗口（`_devtools/jizhi-desktop`，在 project1 仓库之外） |
@@ -72,7 +72,7 @@
 | 模块 | 功能 |
 |---|---|
 | 管理后台 | 仪表盘统计聚合、用户/内容/题库/公告管理、**视频库管理（审核/举报/批量暖库）**、审计日志、批量导入流水线 |
-| 消息中心 | 10 类通知、每日智能生成、设置面板、轮询 |
+| 消息中心 | 66 个消息点 / 9 大类（`notification_registry.py` 唯一定义）、`notify()` 唯一写入入口、已读三路径、`/messages/badges` 单一角标来源；详情按内容分**七种形态**（形态由注册表推导，加消息点前端零改动）；桌面通知两个通道（前台页内长条 / 后台系统通知）；每日学习推荐三合一落独立页 `/daily-learn`，定时按用户自己的时间发（默认 08:00） |
 | 工具箱 | 打卡、考试倒计时、计时器、学习日志 |
 | 帮助中心 | Q&A（访客可看）、开源文档（零登录） |
 | 落地页 | 长滚动叙事 + CSS 科幻 mockup + 星空/打字机/磁性按钮交互套装 |

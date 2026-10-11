@@ -107,7 +107,9 @@ async def send_friend_request(user_id: str, friend_id: str = Query(...), current
         if res.status_code not in [200, 201]:
             raise HTTPException(status_code=400, detail=f"发送失败: {res.text}")
 
-        return {"success": True, "message": "好友请求已发送"}
+    # 通知对方（待办型：接受/拒绝之后才算已读，看见不算）
+    await _notify_friend(user_id, friend_id, "chat.friend_request", "请求加你为好友")
+    return {"success": True, "message": "好友请求已发送"}
 
 
 @router.put("/friends/request/{request_id}")
@@ -123,7 +125,44 @@ async def handle_friend_request(request_id: str, action: str = Query(...), user_
         res = await client.patch(url, headers=headers, json={"status": status})
         if res.status_code not in [200, 204]:
             raise HTTPException(status_code=400, detail="操作失败")
-        return {"success": True, "message": f"已{status}"}
+        # 读回这条关系，拿到"谁请求的" —— 通知要发给请求方，不是处理方
+        rel = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/friendships?id=eq.{request_id}"
+            f"&select=user_id,friend_id,status", headers=headers)
+    row = (rel.json() or [{}])[0] if rel.status_code == 200 else {}
+
+    if action == "accept" and row.get("user_id"):
+        # 你点了接受 → 告诉当初发请求的人
+        await _notify_friend(user_id, row["user_id"], "chat.friend_accepted",
+                             "通过了你的好友请求")
+    return {"success": True, "message": f"已{status}"}
+
+
+async def _notify_friend(actor_id: str, to_user: str, notif_type: str, verb: str) -> None:
+    """好友相关通知。待办型（request）由处理动作收尾，通过通知是一次性的。"""
+    if not to_user or to_user == actor_id:
+        return
+    try:
+        from utils.notification import notify, NotifyError
+        from services.supabase import get_supabase_service_headers
+        headers = get_supabase_service_headers()
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            prof = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{actor_id}"
+                f"&select=nickname,user_account", headers=headers)
+        prow = (prof.json() or [{}])[0] if prof.status_code == 200 else {}
+        name = prow.get("nickname") or prow.get("user_account") or "有人"
+        await notify(to_user, notif_type,
+                     actor_id=actor_id, actor_name=name,
+                     source_id=actor_id,          # 好友消息按"人"聚合，与私信同一维度
+                     title=f"{name} {verb}",
+                     link="/community/friends")
+    except NotifyError as e:
+        logger.error(f"⚠️ 好友通知未送达 to={to_user} type={notif_type}: {e}")
+    except KeyError as e:
+        logger.error(f"⚠️ 好友通知类型未注册: {e}")
+    except Exception as e:                                     # noqa: BLE001
+        logger.error(f"⚠️ 好友通知异常: {e}")
 
 
 @router.delete("/friends/{friend_id}")
@@ -141,6 +180,9 @@ async def delete_friend(
         res = await client.delete(url, headers=headers)
         if res.status_code not in [200, 204]:
             raise HTTPException(status_code=400, detail="删除失败")
+        # 通知被删的那一方。`chat.friend_removed` 注册为**默认关**（社交上敏感，
+        # 想收自己开）—— 但事件本身要发出去，否则开了开关也永远收不到。
+        await _notify_friend(user_id, friend_id, "chat.friend_removed", "把你移出了好友列表")
         return {"success": True}
 
 

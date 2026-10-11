@@ -141,6 +141,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useNavStore } from '@/stores/nav'
 import { getUserStats } from '@/api/career'
+import { useNotifications } from '@/composables/useNotifications'
 import ToolPanel from '@/components/ToolPanel.vue'
 
 const props = defineProps({
@@ -271,12 +272,33 @@ if (authStore.user?.role !== 'user') {
   NAV_ITEMS.push({ to: '/admin', icon: 'admin.png', label: '管理后台', key: 'admin' })
 }
 
+// 未读角标（2026-10-07）：与侧边栏**同一个接口**，口径才一致。
+// ⚠️ 2026-10-08：改成读**全站共享的那一份**（`composables/useNotifications.js`）——
+//    这里原本有自己的 30 秒计时器，Sidebar / XiaojiCall 也各有一个，
+//    首页三个组件同时挂着就是同页面 3 份重复请求。现在只有一个计时器。
+const { badges } = useNotifications()
+
 const wheelItems = computed(() =>
   NAV_ITEMS.map(item => ({
     ...item,
     active: item.to ? route.path.startsWith(item.to) : false,
+    badgeCount:
+      item.key === 'messages' ? (badges.value.total || 0)
+      : item.key === 'career' ? (badges.value.groups?.career || 0)
+      : item.key === 'community' ? ((badges.value.groups?.chat || 0) + (badges.value.groups?.social || 0))
+      : item.key === 'subject-plan' ? (badges.value.groups?.plan || 0)
+      : item.key === 'evaluation-center' ? (badges.value.groups?.evaluation || 0)
+      : 0,
   }))
 )
+
+// 浏览器标题也带上未读数（切到别的标签页也看得见）。
+// 以前这行写在 loadBadges 里，现在角标由 composable 统一拉，
+// 这里改成跟着共享状态走 —— 谁拉的不重要，值变了就更新标题。
+const TITLE_BASE = '基智 · 多智能体学习平台'
+watch(() => badges.value.total, (n) => {
+  document.title = n ? `(${n}) ${TITLE_BASE}` : TITLE_BASE
+}, { immediate: true })
 
 // ===== 旋转状态（2026-08-27：RAF 连续旋转——图标逐帧落在椭圆参数点上，沿轨道线滑动不「发飘」） =====
 const offset = ref(0)      // 整数目标偏移（前端高亮/卡片等展示逻辑按它算）
@@ -469,6 +491,8 @@ onMounted(() => {
       .then(stats => { if (stats?.rank) rankName.value = stats.rank })
       .catch(() => {})
   }
+  // 未读角标**不在这里轮询** —— 全站只有 App.vue 起的那个计时器
+  //（`composables/useNotifications.js`），这里只是读共享状态。
 })
 
 onUnmounted(() => {

@@ -192,6 +192,7 @@ import { ref, computed, onMounted, inject, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getUserStats } from '@/api/career'
+import { useNotifications } from '@/composables/useNotifications'
 import NavWheel from '@/components/NavWheel.vue'
 import ToolPanel from '@/components/ToolPanel.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -217,10 +218,10 @@ const navItems = computed(() => {
     { to: '/profile',      icon: 'profile.png',         label: '个人中心', key: 'profile' },
     { to: '/settings',     icon: 'settings.png',        label: '设置',     key: 'settings' },
     { to: '/resource-lib', icon: 'resource-lib.png',    label: '资源库',   key: 'resource-lib' },
-    { to: '/evaluation-center', icon: 'evaluation.png', label: '评估中心', key: 'evaluation-center' },
+    { to: '/evaluation-center', icon: 'evaluation.png', label: '评估中心', key: 'evaluation-center', badge: 'evaluation' },
     { to: '/career',       icon: 'career.png',          label: '学程',     key: 'career',     badge: 'career' },
     { to: '/profile-card', icon: 'profile-card.png',    label: '个人画像', key: 'profile-card', highlight: true },
-    { to: '/subject-plan', icon: 'subject-plan.png',    label: '学科计划', key: 'subject-plan' },
+    { to: '/subject-plan', icon: 'subject-plan.png',    label: '学科计划', key: 'subject-plan', badge: 'plan' },
     { to: '/video-square', icon: 'video-library.png',   label: '视频库',   key: 'video-square' },
     { to: '/community',    icon: 'community.png',       label: '社区',     key: 'community',  badge: 'community' },
     { to: '/qa',           icon: 'qa.png',              label: 'Q&A',      key: 'qa' },
@@ -238,6 +239,8 @@ const navItems = computed(() => {
     active: route.path.startsWith(item.to),
     badgeCount: item.badge === 'career' ? careerBadge.value
               : item.badge === 'community' ? communityUnreadCount.value
+              : item.badge === 'plan' ? planBadge.value
+              : item.badge === 'evaluation' ? evaluationBadge.value
               : item.badge === 'total' ? unreadCount.value
               : 0,
   }))
@@ -373,60 +376,34 @@ function handleLogout() {
     .catch(() => {})
 }
 
-const unreadCount = ref(0)
-const communityUnreadCount = ref(0)
-const careerBadge = ref(0)
-
-async function loadBadges() {
-  const uid = authStore.user?.id
-  const token = authStore.token
-  if (!uid || !token) { stopBadgePolling(); return }
-  const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
-  try {
-    const res = await fetch(`${base}/community/sidebar-badges?user_id=${uid}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    if (res.status === 401) {
-      // token 过期，停止轮询，不再骚扰后端
-      stopBadgePolling()
-      return
-    }
-    if (!res.ok) throw new Error('badges failed')
-    const data = await res.json()
-    const b = data.badges || {}
-    unreadCount.value = b.total || 0
-    communityUnreadCount.value = b.community || 0
-    careerBadge.value = b.career || 0
-  } catch {
-    // 网络错误等静默处理
-  }
-}
-
-function stopBadgePolling() {
-  if (badgeTimer) { clearInterval(badgeTimer); badgeTimer = null }
-}
-
-function startBadgePolling() {
-  stopBadgePolling()
-  loadBadges()
-  badgeTimer = setInterval(() => { loadBadges() }, 30000)
-}
-
-let badgeTimer = null
+// 角标来自**全站共享的那一份**（`composables/useNotifications.js`）。
+// ⚠️ 2026-10-08：这里原本有自己的 30 秒计时器，而 EdgeNavDock / XiaojiCall
+//    也各有一个 —— 首页三个组件同时挂着就是**同页面 3 份重复请求**。
+//    现在只有一个计时器（App.vue 启动的），这里只是把共享状态摊开成几个名字。
+//
+// 口径说明（原有注释保留其结论）：2026-10-07 起改走 `/messages/badges`，
+// 全站角标**只有一个来源** —— 此前 `sidebar-badges` 与消息中心是两套算法
+// （那边 chat 按发送者去重、这边数行数），数字必然对不上。
+const { badges } = useNotifications()
+const unreadCount = computed(() => badges.value.total || 0)
+// 「社区」入口 = chat + social（好友请求也在 chat 大类里）
+const communityUnreadCount = computed(() =>
+  (badges.value.groups?.chat || 0) + (badges.value.groups?.social || 0))
+const careerBadge = computed(() => badges.value.groups?.career || 0)
+// 学科计划 / 评估中心也接上（原来这两个入口没有角标）
+const planBadge = computed(() => badges.value.groups?.plan || 0)
+const evaluationBadge = computed(() => badges.value.groups?.evaluation || 0)
 
 onMounted(() => {
   // 仅在已登录时加载
   if (!authStore.isLoggedIn) return
 
   loadRankData()
-  loadBadges()
   document.addEventListener('click', handleClickOutside)
-  badgeTimer = setInterval(() => { loadBadges() }, 30000)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
-  if (badgeTimer) clearInterval(badgeTimer)
 })
 </script>
 

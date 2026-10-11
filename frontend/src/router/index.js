@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { readByRoute } from '@/api/messages'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import CommunityFriends from '@/components/community/CommunityFriends.vue'
@@ -230,6 +231,27 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    // 每日学习推荐 · 学习页（2026-10-08 新建）。
+    // **首页「小基推荐」卡片和消息中心那条都跳这里** —— 用户拍板用独立全屏页，
+    // 不是 §六 原设计的就地弹层。
+    // :id 可选：不带就取最新一条（`notify()` 是先 INSERT 才拿得到 row id，
+    // link 在插入那一刻就得定，所以推荐消息里存的是不带 id 的 /daily-learn）。
+    path: '/daily-learn/:id?',
+    name: 'DailyLearn',
+    component: () => import('@/views/DailyLearn.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    // 动态详情（2026-10-07 新建）。
+    // 收藏页与「我的帖子」一直在 push('/post/xxx')，而这个路由**原本不存在**
+    // —— 点了没反应。它同时是「评论被回复 / 帖子被赞」这类消息的落点，
+    // 支持 ?comment={id} 滚到那条评论并高亮。
+    path: '/post/:id',
+    name: 'PostDetail',
+    component: () => import('@/views/PostDetail.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/Settings.vue'),
@@ -408,6 +430,31 @@ router.beforeEach((to, from, next) => {
   else {
     next()
   }
+})
+
+// ============================================================
+// 已读路径 B：走到目标页面 → 指向该页的未读消息自动已读
+// （2026-10-07）
+//
+// ⚠️ 为什么挂在全局守卫上，而不是每个页面自己标：
+//    全站有 66 个消息点，写 66 处「进页面就标记」必漏；挂这里**一处覆盖全部**，
+//    以后加消息点也不用管。服务端按 link 匹配当前 url，
+//    并且**排除 system / todo 两组** —— 去 /settings 改个主题不该把
+//    「你被禁言了」顺手清掉，待办也必须由处理动作收尾。
+//
+// 失败一律静默：这是个副作用，不能因为它把路由跳转搞挂。
+// ============================================================
+router.afterEach((to) => {
+  try {
+    if (!to.meta?.requiresAuth) return
+    const auth = useAuthStore()
+    const uid = auth.user?.id
+    if (!uid) return
+    const url = to.fullPath
+    setTimeout(() => {
+      readByRoute(uid, url).catch(() => {})
+    }, 400)   // 等页面渲染完再发，避免和目标页的首屏请求抢带宽
+  } catch { /* 静默：标记已读失败不该影响导航 */ }
 })
 
 export default router

@@ -113,15 +113,20 @@ async def trigger_daily_generation(
     gen_type: str = Query("all"),
     current_user: str = Depends(get_current_user),
 ):
-    """手动触发每日生成（调试用）- type: summary / rec / all"""
+    """手动触发每日生成（调试用）- type: summary / rec / all
+
+    `force=True`：忽略用户设定的发送时间（调试就是要「现在生成」）。
+    ⚠️ 但**去重仍然生效** —— 今天已经生成过就返回 `skipped_done`，
+    不会因为多点几次就多出几条。要重来请先删掉今天那条。
+    """
     verify_user_match(user_id, current_user)
     from services.daily_generator import run_daily_summary, run_daily_recommendation
 
     result = {}
     if gen_type in ("summary", "all"):
-        result["summary"] = await run_daily_summary(user_id)
+        result["summary"] = await run_daily_summary(user_id, force=True)
     if gen_type in ("rec", "all"):
-        result["recommendation"] = await run_daily_recommendation(user_id)
+        result["recommendation"] = await run_daily_recommendation(user_id, force=True)
 
     return {"success": True, **result}
 
@@ -140,7 +145,8 @@ async def get_sidebar_badges(
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         # 社区：好友消息 + 互动
-        comm_url = f"{settings.SUPABASE_URL}/rest/v1/notifications?user_id=eq.{user_id}&is_read=eq.false&type=in.(chat,social)&select=id"
+        # 按大类数，不按具体类型 —— 以后往 social 里加消息点，这里不用改
+        comm_url = f"{settings.SUPABASE_URL}/rest/v1/notifications?user_id=eq.{user_id}&is_read=eq.false&group_key=in.(chat,social)&select=id"
         comm_res = await client.get(comm_url, headers=headers)
         if comm_res.status_code == 200:
             badges["community"] = len(comm_res.json())
@@ -152,14 +158,14 @@ async def get_sidebar_badges(
             badges["friend_requests"] = len(friends_res.json())
 
         # 未读私聊消息（按 sender 去重计数）
-        chat_url = f"{settings.SUPABASE_URL}/rest/v1/notifications?user_id=eq.{user_id}&is_read=eq.false&type=eq.chat&select=source_id"
+        chat_url = f"{settings.SUPABASE_URL}/rest/v1/notifications?user_id=eq.{user_id}&is_read=eq.false&type=eq.chat.message&select=source_id"
         chat_res = await client.get(chat_url, headers=headers)
         if chat_res.status_code == 200:
             senders = set(n.get("source_id") for n in (chat_res.json() or []) if n.get("source_id"))
             badges["unread_chats"] = len(senders)
 
         # 学程总未读
-        career_url = f"{settings.SUPABASE_URL}/rest/v1/notifications?user_id=eq.{user_id}&is_read=eq.false&type=eq.learning&select=id,link"
+        career_url = f"{settings.SUPABASE_URL}/rest/v1/notifications?user_id=eq.{user_id}&is_read=eq.false&group_key=eq.learning&select=id,link"
         career_res = await client.get(career_url, headers=headers)
         if career_res.status_code == 200:
             learning_notifs = career_res.json() or []

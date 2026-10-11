@@ -237,7 +237,46 @@ async def run_tuning_for_user(user_id: str) -> list:
                             f"{change['old']} → {change['new']}（{change['reason']}）")
             except Exception as e:
                 logger.warning(f"[tuning] 规则 {rule['agent_key']}.{rule['param_key']} 评估失败: {e}")
+
+    # 消息中心：调完参数告诉用户（2026-10-08 接的消息点）。
+    # 放在 `async with` **外面** —— 通知自己开连接，没必要占着这个 client。
+    if applied:
+        await _notify_tuning(user_id, applied)
+
     return applied
+
+
+async def _notify_tuning(user_id: str, applied: list) -> None:
+    """磨合引擎调完参数 → `evaluation.engine_tuning`。
+
+    **一次评估只发一条**，把改动列进 content 和 payload ——
+    六条规则同时命中时逐条发就是刷屏，所以注册表里这条是 aggregate，
+    source_id 按天取，同一天多次评估并成一行。
+
+    这是报告里「参数可解释的自适应」那条创新点的**通知载体**：
+    用户得能看见改了哪几项、每项为什么改（`reason` 就是规则里那句话）。
+
+    ⚠️ 通知失败不回滚调参 —— 参数已经写进 agent_prefs 了，只记 ERROR。
+    """
+    try:
+        from utils.notification import notify, NotifyError
+        n = len(applied)
+        # content 自带完整摘要：前端即使还没渲染 payload，用户也能读懂改了什么
+        summary = "；".join(
+            f"{a['agent_key']}.{a['param_key']} {a['old_value']}→{a['new_value']}"
+            for a in applied)
+        items = [{"agent_key": a["agent_key"], "param_key": a["param_key"],
+                  "old": str(a["old_value"]), "new": str(a["new_value"]),
+                  "reason": a["reason"]} for a in applied]
+        await notify(
+            user_id, "evaluation.engine_tuning",
+            source_id=f"tuning_{datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
+            title=f"磨合引擎为你调整了 {n} 项参数",
+            content=summary,
+            payload={"items": items},
+        )
+    except (NotifyError, KeyError) as e:
+        logger.error(f"⚠️ 磨合引擎调参通知未送达 user={user_id}: {e}")
 
 
 # ============================================================
