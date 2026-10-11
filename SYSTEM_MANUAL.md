@@ -1198,8 +1198,8 @@ else:
 
 | 功能 | 实现 | 说明 |
 |------|------|------|
-| 文字聊天 | `POST /community/xiaoji/chat` | 火山引擎豆包，temperature=0.8，最近 10 条消息为上下文 |
-| 图片理解 | `POST /community/xiaoji/vision` | 千问 qwen3-vl-flash（08-25 收编阿里云） |
+| 文字聊天 | `POST /community/xiaoji/chat` | 千问 qwen-flash（`settings.QWEN_CHAT_MODEL`），temperature=0.8，最近 10 条消息为上下文 |
+| 图片理解 | `POST /community/xiaoji/vision` | 千问 qwen3.8-flash（`settings.QWEN_VISION_MODEL`；**2026-10-11 由已下线的 qwen3-vl-flash 换过来**） |
 | 语音合成 | 浏览器 `SpeechSynthesis` API | 中文 (zh-CN)，可开关 |
 | 语音输入 | 浏览器 `SpeechRecognition` API | 中文识别 → 自动发送 |
 | 题目评估 | `POST /community/xiaoji/evaluate-question` | 4 步 Agent 流水线 |
@@ -1822,7 +1822,7 @@ levelProgress = min(100, currentProgress / currentNeeded × 100)%
 
 **语音输入**：浏览器 `SpeechRecognition` API（zh-CN）→ 识别结果自动填入并发送。
 
-**小基模式**：与小基对话时切换 API → `POST /community/xiaoji/chat`（火山引擎豆包）→ TTS 朗读回复。
+**小基模式**：与小基对话时切换 API → `POST /community/xiaoji/chat`（千问 qwen-flash）→ TTS 朗读回复。
 
 #### 5.4.4 好友排行（Rank）
 
@@ -3665,7 +3665,7 @@ GET /admin/logs?action=ban_user&page=1&page_size=20
 
 #### 5.16.1 生成引擎与分镜脚本
 
-- **链路**：qwen-turbo 分镜脚本（DashScope，`settings.QWEN_VIDEO_MODEL`）→ 千问 TTS（小基同款四音色 longan\*，语速 6 档 `VIDEO_TTS_SPEED`，**只用阿里云模型**）→ Supabase Storage 公共桶 `video-lib/{id}/audio.mp3`
+- **链路**：qwen-flash 分镜脚本（DashScope，`settings.QWEN_VIDEO_MODEL`；**2026-10-11 由 qwen-turbo 换过来**）→ 千问 TTS（小基同款四音色 longan\*，语速 6 档 `VIDEO_TTS_SPEED`，**只用阿里云模型**）→ Supabase Storage 公共桶 `video-lib/{id}/audio.mp3`
 - **分镜脚本 v3**：`title / hook / scenes[{mood, widget, params, narration}] / narration`；构件白名单 point·array·balance·example·phrase；口播 ≥240 字质检 + 失败修补重写一次；mood 四态（lecture 严谨 / story 轻松比喻 / highlight 重点强调 / demo 例题示范）逐镜切换，旁白语气随之变化
 - **队列**：进程内 asyncio worker（lifespan 挂载，`VIDEO_WORKERS` 默认 1）；`(subject, knowledge_key, angle)` 唯一格 + generating 占位幂等；失败自动重试 1 次，failed 旧格 409 自愈复活（先复活后新插，杜绝重复行）
 - **触发**：题目落库 fire-and-forget `ensure_videos`（`questions.py`）；学科计划暖库 CLI `scripts/warm_video_lib.py --per N`（每考纲各取热搜前 N）/ 后台批量生成；`POST /video/lib/ensure|warm`、`GET /video/lib/related`（100 本知识点 / 70 同学科 / 55 全局 + `question_video_links` 快照）
@@ -4175,8 +4175,8 @@ POST /chat/vision { image_url, question }# 图片识别 (DeepSeek V4.1 Flash)
 前缀 `/community/xiaoji`（`backend/routers/community/xiaoji.py`，主路由，全部需登录）：
 
 ```
-POST /community/xiaoji/chat                # 文字聊天 (豆包角色模型，最近 10 条上下文)
-POST /community/xiaoji/vision              # 图片理解 (千问 qwen3-vl-flash)
+POST /community/xiaoji/chat                # 文字聊天 (千问 qwen-flash，最近 10 条上下文)
+POST /community/xiaoji/vision              # 图片理解 (千问 qwen3.8-flash)
 GET  /community/xiaoji/messages            # 聊天记录 (asc；?search= 模糊搜索 ilike.*kw*)
 GET  /community/xiaoji/config              # 获取配置 (?user_id=)
 PUT  /community/xiaoji/config              # 更新配置 (查→PATCH / 无→INSERT Upsert)

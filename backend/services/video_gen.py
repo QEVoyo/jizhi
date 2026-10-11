@@ -1,7 +1,8 @@
 """视频库生成引擎（2026-09-04 定稿）
 
 知识点级模板生成视频：
-  LLM 脚本（qwen-turbo，DashScope）→ 讯飞 TTS → Supabase Storage 音轨。
+  LLM 脚本（qwen-flash，DashScope；2026-10-11 由 qwen-turbo 换过来，见 config.py）
+  → 讯飞 TTS → Supabase Storage 音轨。
 
 省钱原则（定稿）：
   1. 视频单元 = 知识点，与题目无关：一个新知识点只生成一次，其下所有题复用

@@ -59,8 +59,15 @@ def call_llm_stream(messages, temperature=0.7):
         **_thinking_kwargs(),
     )
     for chunk in response:
-        if chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+        # ⚠️ 不能直接 chunk.choices[0] —— 部分模型会在流末尾补一个 choices 为空的
+        # usage 块（千问侧实测 qwen3.8-flash 如此），取 [0] 会抛 IndexError
+        # 把整条流打断：用户看到「说到一半突然没了」，日志只有一行 list index out of range。
+        # DeepSeek 目前不发这种块，属预防性守卫。
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+        if delta and delta.content:
+            yield delta.content
 
 def get_vision_model():
     """识图模型 —— V4.1 Flash 原生多模态，与文本同一个模型
@@ -108,5 +115,12 @@ def call_llm_vision_stream(image_url, prompt="请描述这张图片的内容", t
         **_thinking_kwargs(),
     )
     for chunk in response:
-        if chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+        # ⚠️ 不能直接 chunk.choices[0] —— 部分模型会在流末尾补一个 choices 为空的
+        # usage 块（千问侧实测 qwen3.8-flash 如此），取 [0] 会抛 IndexError
+        # 把整条流打断：用户看到「说到一半突然没了」，日志只有一行 list index out of range。
+        # DeepSeek 目前不发这种块，属预防性守卫。
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+        if delta and delta.content:
+            yield delta.content

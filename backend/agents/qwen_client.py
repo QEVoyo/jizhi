@@ -49,8 +49,15 @@ def call_qwen_stream(messages, temperature=0.7, model=None):
         max_tokens=8192,
     )
     for chunk in response:
-        if chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+        # ⚠️ 不能直接 chunk.choices[0] —— 部分模型（实测 qwen3.8-flash）会在流末尾
+        # 补一个 choices 为空的 usage 块，取 [0] 会抛 IndexError 把整条流打断：
+        # 用户看到的是「说到一半突然没了」，日志里只有一个 list index out of range。
+        # qwen-flash 不发这种块，所以这个坑一直没暴露。
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+        if delta and delta.content:
+            yield delta.content
 
 
 def call_qwen_vision(image_url, prompt="请描述这张图片的内容", temperature=0.8):
