@@ -548,7 +548,7 @@
               <span class="call-dur">{{ fmtMinutes(c.duration_seconds) }} · {{ c.turns }} 轮</span>
             </div>
             <div v-if="!daily.logs || daily.logs.call_count === 0" class="call-empty">
-              还没有通话记录，点输入框的 <i class="fas fa-phone"></i> 试试～
+              暂无通话记录。点击输入框的电话图标发起通话
             </div>
           </div>
           <!-- 时段分布：固定不滚，永远可见 -->
@@ -662,7 +662,7 @@
                 输入关键词模糊搜索题库（如「细胞」「函数」「四级词汇」），或先选考纲再搜
               </div>
               <div v-else-if="!bankResults.length" class="empty-tip">
-                没有找到相关题目，换个关键词试试
+                未找到相关题目，请更换关键词重试
               </div>
               <div
                 v-for="q in bankResults"
@@ -1095,7 +1095,7 @@ async function generateRec() {
       // 生成器凑不出内容（宁缺毋滥），给一句能指导下一步的话而不是「失败」
       const d = res?.detail || {}
       ElMessage.warning(d.no_content
-        ? '暂时凑不出推荐内容，先做几道题再来试试'
+        ? '暂无推荐内容，完成练习后可再次查看'
         : '暂时无法生成，请稍后再试')
     }
   } catch (e) {
@@ -1527,7 +1527,12 @@ let closeTimer = null
 
 function asrWsUrl() {
   const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
-  return base.replace(/^http/, 'ws') + '/xiaoji/asr-ws'
+  // 浏览器 WebSocket **不能自定义请求头**，所以凭证只能走 query。
+  // 后端 /xiaoji/asr-ws 会先验签再 accept，没带或验不过直接 403。
+  // （讯飞 iat 按量计费，补这道之前该端点是匿名可用的。）
+  const token = authStore.token
+  return base.replace(/^http/, 'ws') + '/xiaoji/asr-ws' +
+    (token ? `?token=${encodeURIComponent(token)}` : '')
 }
 
 async function toggleRecording() {
@@ -2591,7 +2596,7 @@ async function handleVideoSelect(event) {
     ElMessage.success(`已抽取 ${videoFrames.value.length} 帧，输入想了解的问题后发送`)
   } catch (e) {
     console.error('抽帧失败:', e)
-    ElMessage.error('视频读取失败，请换一个视频试试')
+    ElMessage.error('视频读取失败，请更换视频')
     videoFrames.value = []
   } finally {
     loadingMsg.close()

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Header, D
 from pydantic import BaseModel
 from typing import Optional
 from config import settings
+import asyncio
 import httpx
 import time
 import uuid
@@ -9,12 +10,31 @@ import random
 from PIL import Image
 import io
 from utils.email import send_verification_code_email
-from utils.auth_middleware import get_current_user, verify_user_match
+from utils.auth_middleware import get_current_user, verify_user_match, verify_user_match_logged
 from services.supabase import get_supabase_headers, get_supabase_service_headers
 from utils.rate_limit import check_rate_limit
+from utils.client_ip import get_client_ip
 from logging_config import logger
 
 router = APIRouter(prefix="/auth", tags=["认证"])
+
+
+def _ip_key(request: Request) -> str:
+    """
+    限流键里的 IP 段 —— 本文件的限流一律走它，不要直接读 request.client.host。
+
+    为什么不能直接读 request.client.host：
+        线上是 Nginx → 127.0.0.1:8000 → uvicorn，所以它**恒为 127.0.0.1**。
+        限流键写成 f"register:{127.0.0.1}" 就等于「全站每 60 秒只能注册 3 次」——
+        注释里写的是"同一 IP"，实际跑的是"所有人共用一个桶"。
+        详见 utils/client_ip.py 文件头与 logs/2026-09-27.md。
+
+    取不到真实 IP 时为什么退回固定串而不是跳过限流：
+        这几个端点是撞库 / 扫号的前线。极端情况下把本地调试并进一桶，
+        也比「因为拿不到 IP 就完全不设防」安全得多。
+        取不到只可能是本机直连调试，或反代没配 X-Real-IP（后者会打 error 日志）。
+    """
+    return get_client_ip(request) or "local"
 
 # 微信不提供邮箱，而建号必须有个唯一登录标识 —— 用这个保留域做占位。
 # .local 是 RFC 6762 保留 TLD，永远不可投递；用户之后可在设置页补真实邮箱+密码。
@@ -28,8 +48,8 @@ class LoginRequest(BaseModel):
 
 @router.post("/login")
 async def login(req: LoginRequest, request: Request):
-    # ✅ 速率限制：同一账号 60秒内最多5次尝试
-    client_ip = request.client.host if request.client else "unknown"
+    # ✅ 速率限制：同一 IP + 同一账号 60 秒内最多 5 次尝试
+    client_ip = _ip_key(request)
     check_rate_limit(f"login:{client_ip}:{req.login_input}", max_requests=5, window_seconds=60,
                      error_message="登录尝试过于频繁，请60秒后重试")
     headers = {
@@ -101,6 +121,26 @@ async def login(req: LoginRequest, request: Request):
             is_admin = profile.get("is_admin", False)
             role = profile.get("role", "user")
 
+        # ── 每日登录 +1（信誉值）──
+        # 规则侧有 once_per_day，同一天多登几次只会加一次；分值在库里。
+        #
+        # ⚠️ 为什么用 create_task 而不是 await：
+        #    apply_delta 内部有 3~4 次 Supabase 往返（查规则→查今日用量→读分→
+        #    写分→写流水）。挂在登录路径上就是**每次登录多几百毫秒**，
+        #    而登录是所有人进门的唯一入口 —— 不该为一个 +1 分承担这个延迟。
+        #    代价：进程恰好在那一刻退出会丢掉这次加分。对一个奖励分来说可以接受。
+        #
+        # ⚠️ 回调里必须把异常取出来，否则 asyncio 只会在 GC 时打一句
+        #    "Task exception was never retrieved"，等于静默失败。
+        async def _award_login_daily():
+            try:
+                from utils.reputation import apply_delta
+                await apply_delta(user_id, "login.daily", source_type="auth")
+            except Exception as e:
+                logger.warning(f"[auth] 每日登录加分失败（不影响登录）: {e}")
+
+        asyncio.create_task(_award_login_daily())
+
         return {
             "id": user_id,
             "email": email,
@@ -127,8 +167,8 @@ async def login(req: LoginRequest, request: Request):
 @router.post("/send-code")
 async def send_verification_code(email: str, request: Request):
     """发送邮箱验证码"""
-    # ✅ 速率限制：同一 IP + 邮箱 60秒内最多1次
-    client_ip = request.client.host if request.client else "unknown"
+    # ✅ 速率限制：同一 IP + 邮箱 60 秒内最多 1 次
+    client_ip = _ip_key(request)
     check_rate_limit(f"send_code:{client_ip}:{email}", max_requests=1, window_seconds=60,
                      error_message="验证码已发送，请60秒后重试")
     # 生成6位数字验证码
@@ -181,8 +221,8 @@ class RegisterRequest(BaseModel):
 
 @router.post("/register")
 async def register(req: RegisterRequest, request: Request):
-    # ✅ 速率限制：同一 IP 60秒内最多3次注册
-    client_ip = request.client.host if request.client else "unknown"
+    # ✅ 速率限制：同一 IP 60 秒内最多 3 次注册
+    client_ip = _ip_key(request)
     check_rate_limit(f"register:{client_ip}", max_requests=3, window_seconds=60,
                      error_message="注册请求过于频繁，请60秒后重试")
     headers = {
@@ -283,7 +323,16 @@ async def register(req: RegisterRequest, request: Request):
 
 
 @router.get("/profile/{user_id}")
-async def get_profile(user_id: str):
+async def get_profile(user_id: str, request: Request,
+                      token_user_id: str = Depends(get_current_user)):
+    """
+    查用户资料。
+
+    ⚠️ 2026-10-15 之前这个接口**完全不需要登录**，而且返回里带 `email`
+       —— 任何人遍历 user_id 就能把全站用户的邮箱拖走。
+       现在：① 必须登录；② `email` 只有查自己时才返回。
+       其余的昵称/头像/简介/学段这些本来就用于公开展示，保持不变。
+    """
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
@@ -301,7 +350,8 @@ async def get_profile(user_id: str):
         profile = res.json()[0]
         return {
             "id": profile.get("id"),
-            "email": profile.get("email"),
+            # email 属于个人信息，只在查自己时给 —— 别人的资料是公开的，邮箱不是
+            "email": profile.get("email") if token_user_id == user_id else None,
             "nickname": profile.get("nickname"),
             "user_account": profile.get("user_account"),
             "avatar_url": profile.get("avatar_url"),
@@ -942,11 +992,13 @@ async def wx_bind(req: WxBindRequest, request: Request):
     if not req.openid:
         raise HTTPException(status_code=400, detail="缺少 openid")
 
-    client_ip = request.client.host if request.client else "unknown"
-    # 两级限流（2026-09-27 修）：
-    # 原来只按纯 IP 限 5 次/60 秒 —— NAT / 校园网下整栋楼共用一个桶，
-    # 别人试几次就把你挤掉，用户侧表现就是「能走到绑定、但绑定失败」。
-    # 改成和本文件 /login（第 30 行）同一套写法：按「IP + 登录账号」限，各账号各占一个桶。
+    client_ip = _ip_key(request)
+    # 两级限流：
+    # 2026-09-27 第一版：原来只按纯 IP 限 5 次/60 秒 —— NAT / 校园网下整栋楼共用一个桶，
+    #   别人试几次就把你挤掉，用户侧表现就是「能走到绑定、但绑定失败」。
+    #   当时改成了「IP + 登录账号」两级，但**根因没动**：那会儿的 IP 段还是
+    #   request.client.host，恒为 127.0.0.1，所以实际上限的是「全站 + 账号」。
+    # 2026-10-15：IP 段换成 _ip_key()，现在才是注释里写的那个语义。
     check_rate_limit(f"wxbind:{client_ip}:{req.login_input.strip().lower()}",
                      max_requests=5, window_seconds=60,
                      error_message="该账号绑定尝试过于频繁，请60秒后重试")
@@ -1053,8 +1105,19 @@ async def wx_bind(req: WxBindRequest, request: Request):
 # 微信用户信息查询（供前端 localStorage 恢复后完整获取用户资料）
 # ============================================================
 @router.get("/wechat/user/{user_id}")
-async def get_wechat_user(user_id: str):
-    """根据 user_id 获取用户资料（微信登录用户无 Supabase 时的本地存储查询）"""
+async def get_wechat_user(user_id: str, request: Request,
+                          token_user_id: str = Depends(get_current_user)):
+    """
+    根据 user_id 获取用户资料（微信登录用户无 Supabase 时的本地存储查询）。
+
+    ⚠️ 2026-10-15 之前**不需要登录**，回退分支还会把 profiles **整行**原样返回 ——
+       里面含 `email` 和 `wechat_openid`。等于任何人拿一个 user_id
+       就能查到别人的邮箱和微信身份标识。
+
+    这个接口的用途（见上方注释）是「localStorage 恢复后拿回**自己**的资料」，
+    所以查自己之外的人本来就没有正当场景 —— 直接限成仅本人。
+    """
+    await verify_user_match_logged(user_id.strip(), token_user_id, request, "auth.wechat_user")
     local = _temp_user_store.get(f"user:{user_id}")
     if local:
         return {"success": True, "user": local}

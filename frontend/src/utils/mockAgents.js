@@ -29,6 +29,7 @@ export const agents = [
     ],
     suggestion: '对话日平均做题 19 题、非对话日 14 题——对话对你的学习有拉动，保持现状。',
     action: '保持现状',
+    apply: [],                       // 保持现状 = 不改参数
     timeline: [{ date: '8月18日', text: '讲解风格 详细→简洁', effect: '待 tuning_log 接入' }],
     calls: 516,   // = touchpoints 合计 ✅
     spark: [8, 9, 7, 10, 9, 11, 10, 12, 11, 13, 12, 14, 13, 15, 14, 16, 15, 17, 16, 18, 17, 19, 18, 20, 19, 21, 20, 22, 21, 22], // ✅ 每日调用次数 user_actions
@@ -54,6 +55,12 @@ export const agents = [
     ],
     suggestion: '完成率 41% 偏低，且 ≤3 个/天时你的完成率有 62% → 建议每日任务 5→3 个。',
     action: '一键调整',
+    // ⚠️ 要改哪些参数**只写在这里**。AgentDetail.vue 原来把 3 / 舒缓 写死在
+    //    `if (key === 'plan')` 分支里，和上面文案各说各的，改一处漏一处。
+    apply: [
+      { param_key: 'tasks', value: 3, auto: true },
+      { param_key: 'pace', value: '舒缓', auto: true },
+    ],
     timeline: [{ date: '8月12日', text: '阶段节奏 紧凑→适中', effect: '待 tuning_log 接入' }],
     calls: 109,
     spark: [30, 28, 32, 31, 29, 34, 33, 32, 36, 35, 34, 38, 37, 39, 38, 41, 40, 42, 41, 40, 43, 42, 41, 44, 43, 42, 41, 42, 41, 41], // ✅ 每日完成率% plan_daily_tasks
@@ -79,6 +86,7 @@ export const agents = [
     ],
     suggestion: '7-8 级题收录率只有 48%（1-6 级有 70%+）→ 建议出题难度 7→6。',
     action: '一键调整',
+    apply: [{ param_key: 'difficulty', value: 6, auto: true }],
     timeline: [{ date: '8月5日', text: '题型分布 选择题优先→均衡', effect: '待 tuning_log 接入' }],
     calls: 147,
     spark: [6, 8, 5, 9, 7, 10, 8, 11, 9, 12, 10, 13, 11, 14, 12, 15, 13, 16, 14, 15, 16, 15, 17, 16, 15, 17, 16, 18, 17, 18], // ✅ 每日生成题量 generation_history
@@ -103,6 +111,7 @@ export const agents = [
     ],
     suggestion: '错因分析覆盖 96%，批改量稳定增长，评估 Agent 正在生效，无需调整。',
     action: '保持现状',
+    apply: [],
     timeline: [{ date: '8月9日', text: '讲解深度 直接给答案→先提示', effect: '待 tuning_log 接入' }],
     calls: 196,
     spark: [2, 3, 2, 4, 3, 5, 4, 6, 5, 6, 7, 6, 8, 7, 8, 9, 8, 9, 10, 9, 10, 11, 10, 11, 12, 11, 12, 13, 12, 13], // ✅ 每日批改题量 question_records.ai_feedback
@@ -129,6 +138,7 @@ export const agents = [
     ],
     suggestion: '互动日平均做题 23 题、非互动日 17 题——小基的督促对你有效，可提高主动关心频率。',
     action: '提高关心频率',
+    apply: [{ param_key: 'care', value: '高', auto: false }],
     timeline: [{ date: '8月15日', text: '风格 督促为主→鼓励为主', effect: '待 tuning_log 接入' }],
     calls: 317,
     spark: [10, 11, 9, 13, 12, 14, 13, 15, 14, 16, 15, 17, 16, 18, 17, 19, 18, 20, 19, 21, 20, 22, 21, 23, 22, 24, 23, 24, 23, 25], // ✅ 每日做题量 question_records

@@ -17,6 +17,13 @@
           <el-option label="正常" value="active" />
           <el-option label="已封禁" value="banned" />
         </el-select>
+        <el-select v-model="daysFilter" placeholder="注册时间" size="default"
+                   @change="onDaysChange" class="status-select">
+          <el-option label="不限时间" :value="0" />
+          <el-option label="今日新增" :value="1" />
+          <el-option label="近 7 天" :value="7" />
+          <el-option label="近 30 天" :value="30" />
+        </el-select>
       </div>
     </div>
 
@@ -147,6 +154,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getUsers, getUserDetail, updateUserStatus, updateUserAdmin } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -154,12 +162,32 @@ import dayjs from 'dayjs'
 import AdminLoading from '@/components/admin/AdminLoading.vue'
 
 const authStore = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const isSuperAdmin = computed(() => authStore.user?.role === 'super_admin')
+
+// 主面板的卡片会带 ?days=1 跳过来 —— 落地就该是筛好的列表。
+// ⚠️ 用 Number() 而不是直接赋值：query 里拿到的是字符串 "1"，
+//    而 el-select 的选项 value 是数字 1，不转会匹配不上、下拉显示空白。
+function onDaysChange() {
+  page.value = 1
+  // 把筛选同步回地址栏：这样刷新/分享链接还是同一个视图，
+  // 而且「卡片跳过来」和「自己手选」走的是同一条路径，不会两套行为。
+  const q = { ...route.query }
+  if (daysFilter.value) q.days = String(daysFilter.value)
+  else delete q.days
+  router.replace({ query: q })
+  loadUsers()
+}
 
 const loading = ref(false)
 const users = ref([])
 const search = ref('')
 const statusFilter = ref('')
+// 注册时间筛选。0=不限，1=今日新增。
+// 主面板的「今日新增」卡片会带 ?days=1 跳过来，落地就是筛好的列表
+// ——否则点进来看到的是全部 23 个人，跟卡片上的 0 对不上。
+const daysFilter = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -181,6 +209,7 @@ async function loadUsers() {
     const params = { page: page.value, page_size: pageSize.value }
     if (search.value) params.search = search.value
     if (statusFilter.value) params.status = statusFilter.value
+    if (daysFilter.value) params.days = daysFilter.value
     const data = await getUsers(params)
     users.value = data.items || []
     total.value = data.total || 0
@@ -239,7 +268,16 @@ function formatDate(d) {
   return d ? dayjs(d).format('YYYY-MM-DD HH:mm') : '-'
 }
 
-onMounted(loadUsers)
+onMounted(() => {
+  // 两处会带参数跳进来：
+  //   · 主面板「今日新增」→ ?days=1
+  //   · 学习计划列表点用户名 → ?search=<昵称或邮箱>
+  // 直接输 /admin/users 就都没有，走默认。
+  const d = Number(route.query.days || 0)
+  daysFilter.value = Number.isFinite(d) && d > 0 ? d : 0
+  if (route.query.search) search.value = String(route.query.search)
+  loadUsers()
+})
 </script>
 
 <style scoped>

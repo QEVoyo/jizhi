@@ -22,6 +22,11 @@ from typing import Optional
 
 from config import settings
 from logging_config import logger
+from utils import gen_audit
+
+# 生成审计用的标识。TTS 是**按量计费**的，而且不只是语音播报在用 ——
+# services/video_gen.py 的视频配音也走这里，那条链路此前完全没有计数。
+_PROVIDER = "qwen"
 
 
 # emoji 不朗读：合成前剥掉（含肤色修饰/ZWJ 组合/变体选择符/按键符）
@@ -71,6 +76,7 @@ def get_tts_audio(
     pitch: int = 5,
     format: str = "mp3",
     fail_reason: Optional[list] = None,
+    purpose: str = "unknown",
 ) -> Optional[bytes]:
     """
     文字转语音（千问 TTS-Plus）→ 返回 mp3 字节，失败返回 None
@@ -87,11 +93,25 @@ def get_tts_audio(
         永远查不出到底哪一种，**很可能往 TTS 服务上找，而问题根本不在那儿**
         （比如依赖没装、或者旁白本来就是空的）。
     """
+    # 是否**真的发起了**对 TTS 服务的调用。前面几条 return（文本为空、依赖没装、
+    # 音色非法）根本没碰到服务，不算 AI 调用 —— 记进去会把「调用次数」灌水。
+    # ⚠️ 这两个变量必须在 def _fail 之前赋值：_fail 会在它们赋值之前就被调用。
+    called = False
+    started = 0.0
+
     def _fail(reason: str):
         if fail_reason is not None:
             fail_reason.append(reason)
         # warning 而不是 info：失败原因必须能在日志里看见
         logger.warning(f"[千问TTS] {reason}")
+        if called:
+            # 真连了服务却没拿到音频。status 用 empty_output 而不是 provider_error：
+            # 这里大多数情况是"服务正常但没吐音频帧"，不是调用失败。
+            gen_audit.note_status(
+                provider=_PROVIDER, model=QWEN_TTS_MODEL, purpose=purpose,
+                started=started, status=gen_audit.STATUS_EMPTY_OUTPUT,
+                input_chars=len(text) or None,
+                detail={"reason": reason[:200], "voice": voice, "format": format})
         return None
 
     if not text:
@@ -144,6 +164,9 @@ def get_tts_audio(
     ws = None
     audio_parts = []
     try:
+        # ── 埋点从这一行开始：下面才是真的连 TTS 服务 ──
+        called = True
+        started = time.perf_counter()
         # 握手偶发超时（网络抖动），重试一次
         try:
             ws = websocket.create_connection(
@@ -189,6 +212,14 @@ def get_tts_audio(
         audio = b"".join(audio_parts)
         if not audio:
             return _fail(f"连接正常但没收到任何音频帧（旁白 {len(text)} 字，音色 {voice}）")
+        # input_chars 记的是**送去合成的字数**（TTS 的输入就是文本）；
+        # 产出是音频，字节数放 detail —— 和别处的 output_chars（字符数）不是一个量纲，
+        # 混进同一列会让「输出长度」这个指标失去意义。
+        gen_audit.note_status(
+            provider=_PROVIDER, model=QWEN_TTS_MODEL, purpose=purpose,
+            started=started, status=gen_audit.STATUS_OK,
+            input_chars=len(text) or None,
+            detail={"audio_bytes": len(audio), "voice": voice, "format": format})
         return audio
     except Exception as e:
         return _fail(f"调用异常：{type(e).__name__}: {e}")

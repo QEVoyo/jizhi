@@ -334,7 +334,7 @@ const detailData = ref(null)
 
 // ===== 升级弹窗 =====
 const showUpgradeModal = ref(false)
-const upgradeTitle = ref('🎉 升级啦！')
+const upgradeTitle = ref('段位提升')
 const upgradeIcon = ref('🚀')
 const upgradeText = ref('')
 const upgradePoints = ref(0)

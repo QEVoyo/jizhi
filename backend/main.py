@@ -18,6 +18,8 @@ from routers import subject_plan
 from routers import exam_papers
 from routers import admin
 from routers import admin_video
+from routers import admin_security
+from routers import admin_content_review
 from routers import agent_center
 from routers import vocab
 from routers import download
@@ -26,11 +28,16 @@ from routers import daily_learn
 from agents.tuning import start_background_tuning
 from services.video_gen import start_video_worker
 from services.daily_scheduler import start_daily_scheduler
+from utils.security_middleware import SecurityMiddleware, startup_checks
+from utils import security_log
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 
 @asynccontextmanager
 async def lifespan(app):
+    # 起服务前先自检（JWT_SECRET 是否还是默认值 / 限流器前提是否成立）。
+    # 只告警不拦截 —— 每条都是"现在能跑但前提已变"，直接拒绝启动会把误判变成宕机。
+    startup_checks()
     # 磨合规则引擎：每日对近 14 天活跃用户自动评估（参数自动托管）
     tuning_task = start_background_tuning()
     # 视频库生成 worker：知识点级模板视频后台排产（2026-09-04）
@@ -42,9 +49,20 @@ async def lifespan(app):
     tuning_task.cancel()
     video_task.cancel()
     daily_task.cancel()
+    # 先把队列里没写完的安全事件刷下去，再退出。
+    # 不刷的话进程一停，最后几条（往往正是出事时那几条）就没了。
+    await security_log.shutdown()
 
 
 app = FastAPI(title="基智学习助手 API", version="1.0.0", lifespan=lifespan)
+
+# ⚠️ 安全中间件必须注册在 CORS **之前** —— 顺序是个坑，别调换。
+#    Starlette 的 add_middleware 是往列表头部插，而列表里**第一个是最外层**。
+#    所以这里的写法得到的外层顺序是：CORS → Security → 路由。
+#    反过来写的话，Security 会在 CORS 外面，它直接 send 出去的 429
+#    **不带任何 CORS 头** —— 浏览器不会显示"请求过于频繁"，
+#    只会报一个语焉不详的 CORS 错误，排查时完全看不出是限流。
+app.add_middleware(SecurityMiddleware)
 
 # ====== CORS 配置 - 允许所有前端域名 ======
 app.add_middleware(
@@ -87,6 +105,8 @@ app.include_router(subject_plan.router)
 app.include_router(exam_papers.router)
 app.include_router(admin.router)
 app.include_router(admin_video.router)
+app.include_router(admin_security.router)
+app.include_router(admin_content_review.router)
 app.include_router(agent_center.router, prefix="/agent-center")
 app.include_router(vocab.router)
 app.include_router(download.router)

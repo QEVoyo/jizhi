@@ -10,7 +10,9 @@ from utils.xunfei_client import XunfeiClient
 from agents.qwen_client import call_qwen, call_qwen_stream, call_qwen_vision
 from agents.intent_router import route_intent
 from utils.auth_middleware import get_current_user, verify_user_match
-from services.supabase import get_supabase_headers
+from utils.reputation_gate import ai_quota_gate
+from utils.sensitive_words import check_and_penalize
+from services.supabase import get_supabase_headers, ilike_term
 from services import xiaoji_memory
 from services import xiaoji_persona
 from logging_config import logger
@@ -257,8 +259,9 @@ async def get_xiaoji_messages(
     headers = get_supabase_headers()
     url = f"{settings.SUPABASE_URL}/rest/v1/xiaoji_messages?user_id=eq.{user_id}"
     if search:
-        # PostgREST 模糊匹配通配符是 *（会转成 SQL 的 %），不能用裸 %
-        url += f"&content=ilike.*{search}*&order=created_at.asc"
+        # PostgREST 模糊匹配通配符是 *（会转成 SQL 的 %），不能用裸 %。
+        # 搜索词本身也要过 ilike_term —— 里面的 + & 空格会把 URL 拆坏。
+        url += f"&content=ilike.*{ilike_term(search)}*&order=created_at.asc"
     else:
         url += f"&order=created_at.desc&limit={limit}&offset={offset}"
 
@@ -397,8 +400,8 @@ async def xiaoji_agent_generate(
     topic = (data.get("topic") or "").strip()
     picked_from = ""
     if topic and len(topic) >= 2:
-        from utils.sensitive_words import check_content_safety
-        safe, reason = check_content_safety(topic)
+        safe, reason = await check_and_penalize(topic, current_user, field="topic",
+                                                endpoint="/community/xiaoji/teammate")
         if not safe:
             raise HTTPException(status_code=400, detail=f"知识点包含敏感信息：{reason}")
         picked_from = f"按你指定的知识点「{topic}」"
@@ -407,8 +410,8 @@ async def xiaoji_agent_generate(
 
     extra = data.get("extra") or ""
     if extra:
-        from utils.sensitive_words import check_content_safety
-        safe, reason = check_content_safety(extra)
+        safe, reason = await check_and_penalize(extra, current_user, field="extra",
+                                                endpoint="/community/xiaoji/teammate")
         if not safe:
             raise HTTPException(status_code=400, detail=f"补充说明包含敏感信息：{reason}")
 
@@ -618,8 +621,14 @@ async def update_xiaoji_config(user_id: str = Query(...), data: dict = Body(...)
         return {"success": True, "message": "更新成功"}
 
 @router.post("/xiaoji/tts")
-async def xiaoji_tts(data: dict = Body(...)):
-    """文字转语音（千问 TTS-Plus，与 /xiaoji/tts 同源）"""
+async def xiaoji_tts(data: dict = Body(...), _user: str = Depends(get_current_user),
+                     _quota=Depends(ai_quota_gate("tts"))):
+    """
+    文字转语音（千问 TTS-Plus，与 /xiaoji/tts 同源）。
+
+    ⚠️ 2026-10-15 之前不需要登录。已核过：全仓无调用点
+       （三端用的都是 /xiaoji/tts），所以补鉴权零风险。
+    """
 
     text = data.get("text", "")
     speed = data.get("speed", 5)
@@ -643,8 +652,14 @@ async def xiaoji_tts(data: dict = Body(...)):
 
 
 @router.post("/xiaoji/asr")
-async def xiaoji_asr(data: dict = Body(...)):
-    """语音转文字 - 使用讯飞 ASR"""
+async def xiaoji_asr(data: dict = Body(...), _user: str = Depends(get_current_user),
+                     _quota=Depends(ai_quota_gate("asr"))):
+    """
+    语音转文字 - 使用讯飞 ASR。
+
+    ⚠️ 2026-10-15 之前不需要登录，且全仓无调用点（网页端 api/xiaoji.js 里
+       有封装但没人调）。补鉴权零风险。
+    """
 
     client = XunfeiClient()
     audio_base64 = data.get("audio_base64", "")

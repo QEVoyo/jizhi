@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel
 import httpx
 
-from services.supabase import db
+from services.supabase import db, ilike_term
 from services import video_gen
 from utils.admin_middleware import get_current_admin, write_audit_log
 from logging_config import logger
@@ -66,7 +66,11 @@ async def admin_video_list(
         eq["publish_status"] = publish_status
     if status:
         eq["status"] = status
-    or_ = f"(title.ilike.%{q}%,knowledge_name.ilike.%{q}%)" if q else None
+    # ⚠️ 通配符用 `*`（PostgREST 自己的写法），**不要用 `%`** ——
+    #    原样的 `%` 会让 Supabase 边缘 worker 抛异常（Cloudflare 1101 → 500），
+    #    而列表页拿到 500 只会显示成空。2026-10-15 修的。
+    or_ = (f"(title.ilike.*{ilike_term(q)}*,knowledge_name.ilike.*{ilike_term(q)}*)"
+           if q else None)
     resp = await db.select("video_library", eq=eq, or_=or_,
                            order="created_at.desc",
                            limit=page_size, offset=(page - 1) * page_size,

@@ -10,6 +10,7 @@ from pathlib import Path
 from config import settings
 from services.supabase import get_supabase_headers, get_supabase_service_headers
 from utils.auth_middleware import get_current_user, verify_user_match
+from utils.reputation_gate import ai_quota_gate
 from agents.llm_client import call_llm
 from logging_config import logger
 from local_question_bank import (
@@ -360,8 +361,19 @@ async def get_syllabus_questions(
     question_type: str = Query(None),
     difficulty: int = Query(None),
     search: str = Query(None),
-    limit: int = Query(20),
-    offset: int = Query(0),
+    # ⚠️ 必须带 le（2026-10-15 加）。原来只有 Query(20)，也就是**无上限** ——
+    #    `?limit=999999` 一次就能把整个题库（最大 2017 题）连同 answer/explanation
+    #    原样拖走，不需要登录。这是最直接的一条拖库通道。
+    #
+    # 上限定 1000 而不是更小，是因为前端真的在用 1000：
+    #    SyllabusDetail.vue:933 的收藏夹视图 `const limit = bankFavOnly ? 1000 : pageSize`
+    #    —— 它拉全量再在客户端过滤收藏。定小了会当场打断收藏夹。
+    # ⚠️ 所以这个上限**挡的是 `limit=999999` 这种，挡不住拖库**：
+    #    1000/次 × 20 次也就把 19338 题拖完了（中间件限流 300 次/分钟，也不拦）。
+    #    真正的止血是「题库接口不下发答案」，见 TASKS 第四期。
+    #    届时前端收藏夹也该改成服务端过滤，这个上限才能收紧。
+    limit: int = Query(20, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     random_order: bool = Query(False),
 ):
     """考纲题库查询 — 纯内存操作，免登录"""
@@ -831,14 +843,29 @@ async def get_today_tasks(plan_id: str, user_id: str = Query(...), current_user:
         try:
             day_start = datetime.now(timezone.utc).replace(
                 hour=0, minute=0, second=0, microsecond=0).isoformat()
-            rec_url = (
-                f"{settings.SUPABASE_URL}/rest/v1/question_records"
-                f"?plan_id=eq.{plan_id}&user_id=eq.{user_id}"
-                f"&created_at=gte.{day_start}&select=id"
+            # ⚠️ 查询条件走 `params=`，**不要手工拼查询串**。
+            #    day_start 形如 `2026-10-15T00:00:00+00:00`，而 `+` 在 query
+            #    string 里等于空格 —— 服务端收到 `...00:00 00:00`，回 400
+            #    `invalid input syntax for type timestamp with time zone`。
+            #    （同一天在 admin_security.py 上踩到同一个坑，那边表现为整页 502；
+            #      这里更阴：非 200 被下面的判断吞掉，「今日完成度」永远显示 0。）
+            rec_res = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/question_records",
+                headers=headers,
+                params={
+                    "plan_id": f"eq.{plan_id}",
+                    "user_id": f"eq.{user_id}",
+                    "created_at": f"gte.{day_start}",
+                    "select": "id",
+                },
             )
-            rec_res = await client.get(rec_url, headers=headers)
             if rec_res.status_code == 200:
                 today_done = len(rec_res.json())
+            else:
+                # 不吞：把「查询失败」和「今天确实一道没做」分开。
+                # 都显示 0 的话，界面上的 0 会被当成好消息。
+                logger.warning("统计今日完成度失败：上游 %s %s",
+                               rec_res.status_code, rec_res.text[:200])
         except Exception as e:
             logger.warning(f"统计今日完成度失败: {e}")
 
@@ -1091,10 +1118,17 @@ async def get_questions_by_ids(
     ids: str = Query(...),
     syllabus_id: str = Query(""),
     user_id: str = Query(""),
+    _auth_user: str = Depends(get_current_user),
 ):
-    """批量获取题目详情 — 题库本地存储，无需登录。
+    """批量获取题目详情。
 
-    2026-10-01 起有三层：
+    ⚠️ **2026-10-15 起需要登录**（此前是匿名的）。原来 `ids` 也无上限，
+       匿名 + 无上限 = **19338 道题的完整对象（含答案解析）一个 token 都不用就能拖**。
+       上限见下面的 `_MAX_IDS`。
+
+    题库在本地内存，所以这条**不花 AI 钱**；要登录是为了堵上面那个口子。
+
+    取题有三层（2026-10-01 起）：
 
     ① `bank_get_by_ids(syllabus_id, ...)` —— 老路径，按考纲取内存题库
     ② `find_question_global` —— 跨考纲再找一轮。视频/资源库来做题时没有
@@ -1108,6 +1142,22 @@ async def get_questions_by_ids(
     以前会直接返回 []（`get_by_ids` 里 `_banks.get("")` 拿不到库）。
     """
     id_list = [i.strip() for i in ids.split(",") if i.strip()]
+    # ⚠️ 条数上限（2026-10-15 加）。原来对 ids 的长度毫无约束。
+    #
+    # 客观上限本来是被 nginx 卡着的：请求行缓冲 32k，题 id 是 36 位 UUID，
+    # 所以一次最多约 860 个 —— 但那仍然是一次几百道题的完整对象（含答案解析）。
+    # 合法用法最多 ~10 个（SyllabusDetail 的 goMasteryDrill 取 10、
+    # goPractice 取一个计划任务的题、goPracticeSingle 与 VideoDetail 各取 1），
+    # 100 是很宽裕的余量。
+    #
+    # 超限**明确报 400 而不是静默截断** —— 截断的话前端只会看到"少了几道题"，
+    # 无从知道为什么。
+    _MAX_IDS = 100
+    if len(id_list) > _MAX_IDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"一次最多查询 {_MAX_IDS} 道题（收到 {len(id_list)} 道），请分批请求",
+        )
     questions = bank_get_by_ids(syllabus_id, id_list) if syllabus_id else []
 
     found = {q.get("id") for q in questions}
@@ -1134,7 +1184,8 @@ async def get_questions_by_ids(
 # 8c. 题库模糊搜索（2026-08-25 小基「发送题目」用，内存零延迟）
 # ====================================================================
 @router.get("/questions/stats")
-async def get_questions_global_stats(ids: str = Query(...)):
+async def get_questions_global_stats(ids: str = Query(...),
+                                     _user: str = Depends(get_current_user)):
     """题目**全局**统计（所有用户）——「这道题难不难」。
 
     给做题页显示：提交数 / 通过数 / 通过率 / 平均通过时长。
@@ -1197,6 +1248,7 @@ async def search_questions(
     q: str = Query(..., min_length=1),
     syllabus_id: str = Query(""),
     limit: int = Query(20, ge=1, le=50),
+    _auth_user: str = Depends(get_current_user),
 ):
     """跨考纲模糊搜索题目（题干/知识点/标题），免登录"""
     questions = bank_search(q.strip(), limit=limit, syllabus_id=syllabus_id or None)
@@ -1551,8 +1603,16 @@ class CodeRun(BaseModel):
 
 
 @router.post("/code/run")
-async def run_code_endpoint(data: CodeRun):
-    """运行代码（自定义输入）—— 沙箱执行，返回输出"""
+async def run_code_endpoint(data: CodeRun, _user: str = Depends(get_current_user),
+                            _quota=Depends(ai_quota_gate("code_run"))):
+    """
+    运行代码（自定义输入）—— 沙箱执行，返回输出。
+
+    ⚠️ 2026-10-15 之前**不需要登录** —— 这是对外开放的任意代码执行沙箱。
+       沙箱本身有隔离，但"匿名 + 无限流"等于把一份免费的算力挂在公网上。
+       补鉴权前已核过所有调用点：网页端 3 处（DoQuestion 的裸 fetch 已补上
+       Authorization 头，另两处走 axios 封装自带），其余端未调用。
+    """
     result = await run_code(data.language, data.code, data.input)
     return {
         "output": result.get("stdout", "") or result.get("stderr", ""),
@@ -1594,8 +1654,13 @@ async def _load_question_for_code(question_id: str, syllabus_id: str = ""):
 
 
 @router.post("/code/submit")
-async def submit_code(data: CodeSubmit):
-    """提交代码 → 沙箱执行 → 逐测试点评分，返回 AC/WA/TLE 等状态（无需登录）"""
+async def submit_code(data: CodeSubmit, _user: str = Depends(get_current_user),
+                       _quota=Depends(ai_quota_gate("code_submit"))):
+    """提交代码 → 沙箱执行 → 逐测试点评分，返回 AC/WA/TLE 等状态。
+
+    ⚠️ 2026-10-15 之前不需要登录（注释里原来还写着"无需登录"）。
+       它会**逐个测试点**跑沙箱，是比 /code/run 更贵的一条路。
+    """
 
     # 1. 查题目 — 本地题库优先，回落到 AI 生成题（Supabase questions 表）
     sid = data.syllabus_id

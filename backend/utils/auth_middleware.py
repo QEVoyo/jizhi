@@ -81,3 +81,68 @@ def verify_user_match(param_user_id: str, token_user_id: str) -> None:
             status_code=403,
             detail="无权操作其他用户的数据"
         )
+
+
+async def verify_user_match_logged(
+    param_user_id: str,
+    token_user_id: str,
+    request=None,
+    what: str = "",
+) -> None:
+    """
+    同 verify_user_match，但把**冒充尝试**记进安全事件（security_events）。
+
+    为什么不直接改 verify_user_match：
+        它已经被约 130 处调用，改它等于全站一次性换行为，风险与收益不匹配。
+        新写的、或本轮加固的接口用这个；老接口维持原样。
+
+    为什么值得单独记一条事件：
+        「请求里自报的 user_id」和「token 里的 user_id」不一致，
+        在正常使用中**几乎不可能发生** —— 前端两个值本来就同源。
+        所以每一条都对应一次真实的越权尝试，是本项目最干净的一个攻击信号。
+        项目原有的 write 接口大量靠 body 自报身份（video_social 那一批），
+        这正是攻击者最可能来碰的地方。
+    """
+    if param_user_id == token_user_id:
+        return
+
+    # 延迟导入：auth_middleware 被几乎所有 router 引用，
+    # 顶层引入 security_log 会把它的依赖链（httpx/config/services）也拖进每次冷启动。
+    from utils.security_log import (
+        EVENT_IMPERSONATION, SEVERITY_HIGH, record_event,
+    )
+    try:
+        await record_event(
+            EVENT_IMPERSONATION,
+            severity=SEVERITY_HIGH,
+            request=request,
+            user_id=token_user_id,
+            status_code=403,
+            detail={
+                "claimed_user_id": str(param_user_id)[:64],
+                "token_user_id": str(token_user_id)[:64],
+                "action": what or "unknown",
+            },
+        )
+    except Exception:
+        # 记事件失败不能改变鉴权结果 —— 403 照发
+        pass
+
+    # 扣信誉分。
+    # ⚠️ 分值在库里（reputation_rules 的 access.impersonation），要调改表即可；
+    #    不想要这条联动的话，把那条规则 enabled 置 false 就行，不用动代码。
+    #    之所以敢自动扣：已登录接口里"自报 user_id 与凭证不符"几乎没有正常场景 ——
+    #    前端两个值同源。
+    try:
+        from utils.reputation import apply_delta
+        await apply_delta(
+            token_user_id, "access.impersonation",
+            source_type="security",
+            reason_text=f"请求自报身份与凭证不符（{what or '未标注动作'}）",
+            detail={"claimed_user_id": str(param_user_id)[:64], "action": what or ""},
+        )
+    except Exception:
+        # 同上：扣分失败不能改变鉴权结果
+        pass
+
+    raise HTTPException(status_code=403, detail="无权操作其他用户的数据")

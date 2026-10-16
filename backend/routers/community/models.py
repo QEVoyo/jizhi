@@ -9,7 +9,6 @@ import re
 from utils.email import send_report_email
 from collections import defaultdict
 import json
-from utils.sensitive_words import check_content_safety
 from utils.auth_middleware import get_current_user, verify_user_match
 
 router = APIRouter(prefix="/community", tags=["社区"])

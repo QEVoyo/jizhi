@@ -8,8 +8,10 @@ import httpx
 from datetime import datetime, timezone
 import json
 import re
-from utils.sensitive_words import check_content_safety
+from utils.sensitive_words import check_and_penalize
+from utils.safety_gateway import generate, GatewayError, InputBlocked
 from utils.auth_middleware import get_current_user, verify_user_match
+from utils.reputation_gate import ai_quota_gate
 from services import task_queue, video_gen
 from logging_config import logger
 
@@ -539,21 +541,31 @@ async def _verify_programming_question(result: dict, max_cases: int = 5):
 
 # ========== AI 生成题目 ==========
 @router.post("/generate")
-async def generate_question(data: dict):
-    """AI 生成题目"""
+async def generate_question(data: dict, current_user: str = Depends(get_current_user),
+                            _quota=Depends(ai_quota_gate("question_gen"))):
+    """
+    AI 生成题目。
+
+    ⚠️ 2026-10-15 之前**不需要登录** —— 这是一个匿名可打的 LLM 调用口，
+       等于对外开放了一次出题的真实开销。现在必须先登录。
+    """
+    # 请求体里的 user_id 只做一致性校验（有些调用方不带它，那就跳过；
+    # 身份一律以 token 为准，不靠它）
+    claimed = str(data.get("user_id") or "").strip()
+    if claimed:
+        verify_user_match(claimed, current_user)
+
     # ✅ 内容安全过滤
     topic = data.get("topic", "")
     extra = data.get("extra", "")
 
-    if topic:
-        safe, reason = check_content_safety(topic)
-        if not safe:
-            raise HTTPException(status_code=400, detail=f"知识点包含敏感信息：{reason}")
-
-    if extra:
-        safe, reason = check_content_safety(extra)
-        if not safe:
-            raise HTTPException(status_code=400, detail=f"补充说明包含敏感信息：{reason}")
+    # ⚠️ 违禁词检查已经**搬到网关里**（2026-10-15）。
+    #    这里不再单独查一遍 —— 否则同一个输入被审两次（两倍 LLM 调用、两倍成本），
+    #    而且"扣分"也会走两条路径。
+    #    网关那边用 input_texts={"topic":..., "extra":...} 声明哪些是用户可控的，
+    #    命中时抛 InputBlocked，下面统一转成 400。
+    #    「用户提示词里有违禁词必须禁止生成」这条要求仍然成立 ——
+    #    只是执行点从这儿移到了网关的入闸。
 
     user_id = data.get("user_id")
     category = data.get("category", "通用")
@@ -639,19 +651,28 @@ async def generate_question_core(user_id, category, topic, question_type, diffic
 {json_template}"""
 
     try:
-        response = call_llm(
-            [{"role": "user", "content": prompt}],
+        # 走安全包网关（2026-10-15）：准入 → 入闸 → 生成 → 出闸 一次做完，
+        # JSON 的解析/围栏/尾逗号/截断修复也由 utils/ai_json.py 统一处理 ——
+        # 本文件原来那个 extract_json_from_response 抠不出的脏输出，那边能抠。
+        result = await generate(
+            purpose="question_gen",
+            messages=[{"role": "user", "content": prompt}],
+            user_id=current_user,
             temperature=0.9,
-            use_cache=False
+            expect_json=True,
+            input_texts={"topic": topic, "extra": extra},
         )
-        logger.info(f"=== AI 原始返回 ===\n{response}\n=== 结束 ===")
+    except GatewayError as e:
+        raise HTTPException(
+            status_code=400 if isinstance(e, InputBlocked) else 502,
+            detail=f"AI 出题失败：{e}",
+        )
 
-        try:
-            result = extract_json_from_response(response)
-        except ValueError as e:
-            logger.info(f"解析失败: {e}")
-            raise HTTPException(status_code=500, detail=f"AI 返回格式错误: {str(e)}")
-
+    try:
+        # 下面这一大段是网关之后的「结构兜底 + 质检」：
+        # 补默认字段、钳难度、编程题实跑校验、落库、视频排产。
+        # 它原本和 LLM 调用在同一个 try 里，拆出来之后语义更清楚 ——
+        # 那些是**我们的后处理**，和"模型调用失败"不是一类问题。
         if "title" not in result:
             result["title"] = "题目生成失败"
         if "type" not in result:
@@ -892,8 +913,16 @@ async def _notify_mistake_threshold(user_id: str) -> None:
 
 # ========== AI 评估 ==========
 @router.post("/evaluate")
-async def evaluate_answer(data: dict):
-    """评估用户答案"""
+async def evaluate_answer(data: dict, current_user: str = Depends(get_current_user),
+                           _quota=Depends(ai_quota_gate("question_eval"))):
+    """评估用户答案。
+
+    ⚠️ 2026-10-15 之前**不需要登录** —— 同样是匿名可打的 LLM 调用口。
+    """
+    claimed = str(data.get("user_id") or "").strip()
+    if claimed:
+        verify_user_match(claimed, current_user)
+
     logger.info("=== evaluate_answer 被调用了 ===")  # 👈 加这行
     from agents.llm_client import call_llm
     from datetime import datetime
@@ -939,12 +968,24 @@ async def evaluate_answer(data: dict):
 }}"""
 
     try:
-        response = call_llm([{"role": "user", "content": prompt}], temperature=0.5)
-        logger.info(f"=== AI 原始返回: {response} ===")  # 👈 加这行
-        try:
-            result = extract_json_from_response(response)
-        except ValueError as e:
-            raise HTTPException(status_code=500, detail=f"AI 返回格式错误: {str(e)}")
+        # 同样走网关。user_answer 是用户可控的，进 input_texts；
+        # 题目本身的字段（title/explanation…）不进 —— 它们是**服务端生成后回传**的，
+        # 而且每次都全量送审的话，一次批改要多花好几倍审核成本。
+        result = await generate(
+            purpose="question_eval",
+            messages=[{"role": "user", "content": prompt}],
+            user_id=current_user,
+            temperature=0.5,
+            expect_json=True,
+            input_texts={"user_answer": str(user_answer or "")},
+        )
+    except GatewayError as e:
+        raise HTTPException(
+            status_code=400 if isinstance(e, InputBlocked) else 502,
+            detail=f"AI 批改失败：{e}",
+        )
+
+    try:
 
         # 确保所有字段存在
         if "is_correct" not in result:

@@ -17,6 +17,12 @@
           <template #prefix><i class="fas fa-search"></i></template>
         </el-input>
       </div>
+      <!-- 进「小基 · 能带你去的地方」那棵功能树。
+           放在搜索框旁边而不是塞进历史区：它不是一个「搜索来源」，
+           而是从这页出去的另一条路。 -->
+      <el-button text class="nav-tree" title="查看完整功能导航" @click="router.push('/xiaoji/tree')">
+        <i class="fas fa-sitemap"></i>
+      </el-button>
       <span class="nav-cancel" @click="router.back()">取消</span>
     </div>
 
@@ -235,6 +241,16 @@ onUnmounted(() => {
   font-size: 14px;
   cursor: pointer;
   flex-shrink: 0;
+}
+/* 进功能树的入口。跟返回键同款，只是图标不同 —— 顶栏上两个 icon 按钮
+   长得不一样会显得是两套东西。 */
+.nav-tree {
+  font-size: 17px;
+  color: var(--text-secondary) !important;
+  flex-shrink: 0;
+}
+.nav-tree:hover {
+  color: var(--brand) !important;
 }
 .nav-cancel:hover {
   color: var(--text-primary);

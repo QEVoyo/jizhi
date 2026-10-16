@@ -43,7 +43,7 @@
         <div v-if="!filteredFAQs.length" class="empty-state">
           <i class="fas fa-search" style="font-size:48px;opacity:.3"></i>
           <p>没有找到相关问题</p>
-          <p style="font-size:13px;opacity:.6">试试其他关键词，或者使用下方即时答疑</p>
+          <p style="font-size:13px;opacity:.6">请尝试其他关键词，或使用下方即时答疑</p>
         </div>
       </div>
 
@@ -293,7 +293,7 @@ const faqs = ref([
   { id: 24, tag: '资源库', tagColor: '#42A5F5', question: '侧边栏工具箱怎么用？', answer: [
     '侧边栏下方工具区有 4 个工具图标，点击右侧滑出毛玻璃面板：',
     '',
-    ' 打卡 — 创建打卡项目（如"每日背单词"），每天点一下完成打卡，进度条跟踪',
+    ' 打卡 — 创建打卡项目（如"每日背单词"），每日点击完成打卡，进度条跟踪',
     ' 倒计时 — 设置目标日期和事件名（如"CET-6 考试"），显示剩余天数',
     ' 计时器 — 支持正向计时和倒计时，完成后自动记录到学习日志',
     ' 学习日志 — 按日期分组展示学习记录（打卡记录、计时器完成记录等）',

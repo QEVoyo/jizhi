@@ -118,6 +118,19 @@
                 {{ rankIcon }} {{ rankName }} {{ rankSubSymbol }}
               </span>
               <span class="meta-badge points">⭐ {{ profile?.points || 0 }}</span>
+              <!-- 信誉值：与上面那个积分**不是一回事**。
+                   积分只增不减（学习攒的），信誉可增可减（违规会掉、清白会回来）。
+                   用不同的形状（盾牌 + 分数）区分，避免用户以为学习分被扣了。 -->
+              <span
+                v-if="reputation"
+                class="meta-badge reputation"
+                :class="`rep-${reputation.tier}`"
+                :title="reputationTitle"
+              >
+                <i class="fas" :class="reputationIcon"></i>
+                {{ reputation.score }}
+                <em v-if="reputation.badge" class="rep-badge">{{ reputation.badge }}</em>
+              </span>
             </div>
           </div>
         </div>
@@ -513,6 +526,42 @@ function calcLevel(points) {
   }
   return level
 }
+
+// ── 信誉值（2026-10-15）──
+// 与积分是两个体系：积分是学习攒的成长分（只增不减），
+// 信誉是风控分（可增可减，清洁白会自己恢复）。
+// 后端 profile_card 里返回 reputation；查不到时为 null，此时整块不渲染 ——
+// 显示成 0 分会让用户以为自己出事了。
+// profile 装的是 /profile-card 的**整个响应对象**（所以模板里才写 profile?.points，
+// 而 points 在后端是顶层字段）。reputation 也在同一层。
+const reputation = computed(() => profile.value?.reputation || null)
+
+const REP_ICON = {
+  excellent: 'fa-shield-heart',
+  normal: 'fa-shield',
+  restricted: 'fa-shield-halved',
+  high_risk: 'fa-triangle-exclamation',
+}
+const reputationIcon = computed(() => REP_ICON[reputation.value?.tier] || 'fa-shield')
+
+// 悬停说明必须写清两件事：这分数是干嘛的、现在限制了什么。
+// 只显示一个数字而不解释，用户只会来问"我这是啥"。
+const reputationTitle = computed(() => {
+  const r = reputation.value
+  if (!r) return ''
+  const parts = [`信誉 ${r.score} 分 · ${r.tier_label}档`]
+  if (r.perks_text) parts.push(r.perks_text)
+  if (r.ai_daily_quota === 0) parts.push('AI 生成已暂停')
+  else if (r.ai_daily_quota > 0) parts.push(`AI 生成每天 ${r.ai_daily_quota} 次`)
+  if (r.content_needs_review) parts.push('新发内容需先审核')
+  if (!r.can_publish) parts.push('已暂停内容发布')
+  if (r.streak_days >= 3) {
+    parts.push(r.days_to_next_tier > 0
+      ? `已连续 ${r.streak_days} 天无违规，再坚持 ${r.days_to_next_tier} 天限制会放宽`
+      : `已连续 ${r.streak_days} 天无违规`)
+  }
+  return parts.join(' · ')
+})
 
 const userLevel = computed(() => {
   if (!profile.value) return 1
@@ -1062,6 +1111,22 @@ onMounted(() => {
   background: color-mix(in srgb, var(--surface, #ffffff) 6%, transparent);
   color: rgba(255,255,255,0.75);
 }
+/* 信誉值徽章：按档位分色。
+   ⚠️ 每档**同时**有图标（盾牌形状不同）和悬停说明 —— 只靠颜色区分是不行的，
+      色觉障碍用户和灰度屏上就废了。这和后台安全中心里
+      「状态色必须配图标+文字」是同一条规矩。 */
+.meta-badge.reputation { display: inline-flex; align-items: center; gap: 4px; }
+.meta-badge.reputation i { font-size: 11px; }
+.meta-badge.reputation em {
+  font-style: normal; font-size: 10px; opacity: .85;
+  padding-left: 4px; margin-left: 2px;
+  border-left: 1px solid currentColor;
+}
+.meta-badge.rep-excellent   { background: color-mix(in srgb, #0ca30c 18%, transparent); color: #6fdc6f; }
+.meta-badge.rep-normal      { background: color-mix(in srgb, #409EFF 15%, transparent); color: var(--brand-bright); }
+.meta-badge.rep-restricted  { background: color-mix(in srgb, #fab219 18%, transparent); color: #f5c95c; }
+.meta-badge.rep-high_risk   { background: color-mix(in srgb, #d03b3b 20%, transparent); color: #f08a8a; }
+
 .meta-badge.level {
   background: color-mix(in srgb, var(--brand) 15%, transparent);
   color: var(--brand-bright);

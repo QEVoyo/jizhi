@@ -86,7 +86,7 @@
         </div>
       </div>
       <div v-if="!loading && !items.length" class="vs-empty">
-        广场还是空的——第一批讲解视频正在生成，几分钟后再来看看
+        暂无内容，首批讲解视频正在生成，请稍后刷新查看
       </div>
     </div>
 
@@ -122,7 +122,7 @@
           </div>
         </div>
       </div>
-      <div v-if="!favLoading && !favItems.length" class="vs-empty">还没有收藏，看视频时点一下「收藏」就能在这里找到</div>
+      <div v-if="!favLoading && !favItems.length" class="vs-empty">暂无收藏。观看视频时点击「收藏」，即可在此查看</div>
     </div>
 
     <!-- 我的视频 -->
@@ -167,7 +167,7 @@
           </div>
         </div>
       </div>
-      <div v-if="!myLoading && !myItems.length" class="vs-empty">还没有自己的视频，点左上「生成我的讲解视频」试试</div>
+      <div v-if="!myLoading && !myItems.length" class="vs-empty">暂无视频。点击左上角「生成我的讲解视频」开始创建</div>
     </div>
 
     <!-- 「推送」分类（2026-10-01）：我生成题目 / 建计划时，按知识点顺带触发出来的讲解。

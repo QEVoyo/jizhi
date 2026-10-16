@@ -27,13 +27,22 @@
       </div>
     </div>
 
-    <!-- ===== 可行动建议（数据驱动 · 一键应用） ===== -->
+    <!-- ===== 建议（预设规则 · 一键应用） =====
+         ⚠️ 原来这里写的是「数据驱动」，**不准确**：这段建议文案来自
+         mockAgents.js 的静态定义，不是按这个账号的数据算出来的。
+         上方的指标卡（`detail.stats`）才是后端实时算的。
+         一键应用改的是真参数、真写库 —— 那句仍然成立。
+         （2026-10-16 省赛整改第 1 项） -->
     <section class="ad-card" v-if="meta && meta.suggestion">
       <div class="suggest-banner">
         <span class="suggest-text">💡 {{ suggestionText }}</span>
-        <button class="suggest-btn" :class="{ applied }" @click="applySuggestion">
-          {{ applied ? '已应用 ✓' : meta.action }}
+        <button class="suggest-btn" :class="{ applied }" :disabled="applying"
+                @click="applySuggestion">
+          {{ applied ? '已应用 ✓' : (applying ? '应用中…' : meta.action) }}
         </button>
+      </div>
+      <div class="suggest-src">
+        依据预设规则给出，不是按本账号数据计算的；应用后会把参数写入你的账号
       </div>
     </section>
 
@@ -285,26 +294,50 @@ function setPref(paramKey, value, auto) {
   else prefs.value.push({ param_key: paramKey, value, auto_managed: auto })
 }
 
-// ===== 建议一键应用（本地演示，与下方参数调节联动） =====
+// ===== 建议一键应用 =====
+//
+// ⚠️ 2026-10-16 省赛整改第 1 项。原来有三个问题，都在「保存」这一步：
+//
+//   ① **假成功**：`applied.value = true` 写在 `saveAgentPrefs` **之前**，
+//      所以按钮立刻变成「已应用 ✓」—— 哪怕保存失败。
+//   ② **静默失败**：`saveAgentPrefs(...).catch(() => {})` 把失败整个吞掉，
+//      控制台和界面都不留痕。这正是本项目反复强调的「静默降级」。
+//   ③ **值散落在分支里**：`if (key === 'generate')` 里写死 6 / 3 / 舒缓 / 高。
+//      现在这些值跟着建议一起定义在 mockAgents.js 的 `apply` 字段上 ——
+//      建议文案说"降到 3 个"，就一定是 3，不会两处各写一遍然后慢慢漂移。
 const applied = ref(false)
+const applying = ref(false)
 const suggestionText = ref(meta?.suggestion || '')
-function applySuggestion() {
-  if (applied.value) return
-  applied.value = true
-  if (key === 'generate') {
-    setPref('difficulty', 6, true)
-    suggestionText.value = '难度已调至 6，下个周期观察 7-8 级题收录率是否回到 60%+。'
-  } else if (key === 'plan') {
-    setPref('tasks', 3, true)
-    setPref('pace', '舒缓', true)
-    suggestionText.value = '每日任务量已调至 3 个、节奏改「舒缓」，下个周期观察计划完成率。'
-  } else if (key === 'xiaoji') {
-    setPref('care', '高', false)
-    suggestionText.value = '已提高主动关心频率，小基会更常来督促你。'
-  } else {
-    suggestionText.value = '已确认保持现状，下个周期继续观察。'
+const APPLIED_TEXT = {
+  generate: '难度已调至 6，下个周期观察 7-8 级题收录率是否回到 60%+。',
+  plan: '每日任务量已调至 3 个、节奏改「舒缓」，下个周期观察计划完成率。',
+  xiaoji: '已提高主动关心频率，小基会更常来督促你。',
+}
+
+async function applySuggestion() {
+  if (applied.value || applying.value) return
+  applying.value = true
+
+  // 备份一份内存状态：保存失败要**回滚**，否则界面上会留着一组没存进库的参数 ——
+  // 用户以为改了，刷新就没了，比直接报错更难查。
+  const backup = prefs.value.map(p => ({ ...p }))
+  try {
+    for (const spec of (meta?.apply || [])) {
+      setPref(spec.param_key, spec.value, spec.auto)
+    }
+    await saveAgentPrefs(key, authStore.user.id, prefs.value)
+    // ✅ 只有真的存进去了才显示「已应用」
+    applied.value = true
+    suggestionText.value = APPLIED_TEXT[key] || '已按建议调整，下个周期继续观察。'
+    ElMessage.success('已应用到你的账号')
+  } catch (e) {
+    prefs.value = backup
+    const msg = e?.response?.data?.detail || e?.message || '网络异常'
+    ElMessage.error(`应用失败，参数未改动（${msg}）`)
+    console.error('[agent] 应用建议失败:', e)
+  } finally {
+    applying.value = false
   }
-  saveAgentPrefs(key, authStore.user.id, prefs.value).catch(() => {})
 }
 
 // ===== 趋势图（ECharts：渐变面积 + 十字准线 + 磨合事件 markLine） =====
@@ -507,6 +540,9 @@ function saveParams() {
 }
 .suggest-btn:hover { background: rgba(251,146,60,.24); transform: translateY(-1px); }
 .suggest-btn.applied { border-color: var(--viz-good); background: rgba(12,163,12,.12); color: var(--viz-good); cursor: default; }
+.suggest-btn:disabled { opacity: .6; cursor: default; transform: none; }
+/* 数据来源说明。比正文小一档、更淡 —— 是注解不是内容，但必须看得见。 */
+.suggest-src { margin-top: 8px; font-size: 11px; line-height: 1.5; color: var(--text-muted); opacity: .8; }
 
 /* ===== Hero ===== */
 .ad-hero { margin-bottom: 18px; }

@@ -148,6 +148,10 @@
      - 5.18.2 [一个重要取舍：不是所有 create_task 都该迁](#5182-一个重要取舍不是所有-create_task-都该迁)
      - 5.18.3 [落地与约束](#5183-落地与约束)
      - 5.18.4 [考试批量分析没有迁](#5184--考试批量分析没有迁理由是它还不满足前提)
+   - 5.19 [页面命名册与功能树](#519-页面命名册与功能树2026-10-16-新增)
+     - 5.19.1 [pageMeta 是页面清单的唯一数据源](#5191-utilspagemetajs-是页面清单的唯一数据源)
+     - 5.19.2 [功能树 /xiaoji/tree](#5192-功能树-xiaojitree)
+     - 5.19.3 [前端端到端检查集](#5193-前端端到端检查集-_devtoolswebcheck)
 6. [后端 API 参考](#6-后端-api-参考)
    - 6.1 [学科计划 API](#61-学科计划-api)
    - 6.2 [认证 API](#62-认证-api)
@@ -167,12 +171,20 @@
    - 8.3 [管理员系统表 DDL](#83-管理员系统表-ddl)
    - 8.4 [本地题库数据模型](#84-本地题库数据模型)
    - 8.5 [索引策略](#85-索引策略)
+   - 8.6 [安全与信誉表（2026-10-15）](#86-安全与信誉表2026-10-15)
 9. [认证与安全体系](#9-认证与安全体系)
    - 9.1 [认证架构](#91-认证架构)
    - 9.2 [JWT 双模验证流程](#92-jwt-双模验证流程)
    - 9.3 [三级角色鉴权](#93-三级角色鉴权)
    - 9.4 [微信 OAuth 接入（已移除）](#94-微信-oauth-接入2026-09-28-已整节移除)
-   - 9.5 [速率限制与安全措施](#95-速率限制与安全措施)
+   - 9.5 [速率限制（2026-10-15 重做）](#95-速率限制2026-10-15-重做)
+   - 9.6 [真实 IP](#96-真实-ip2026-10-15)
+   - 9.7 [安全事件](#97-安全事件2026-10-15)
+   - 9.8 [信誉值](#98-信誉值2026-10-15)
+   - 9.9 [内容可见性与先审后发](#99-内容可见性与先审后发2026-10-15)
+   - 9.10 [安全包网关与生成审计](#910-安全包网关与生成审计2026-10-15)
+   - 9.11 [AI 调用埋点：为什么打在客户端层](#911-ai-调用埋点为什么打在客户端层2026-10-16)
+   - 9.12 [搜索词编码：ilike_term 与 ilike_term_params 的分工](#912-搜索词编码ilike_term-与-ilike_term_params-的分工)
 10. [AI 集成](#10-ai-集成)
     - 10.1 [LLM 客户端](#101-llm-客户端)
     - 10.2 [AI 批改引擎](#102-ai-批改引擎)
@@ -185,8 +197,9 @@
     - 11.4 [安全边界与限制](#114-安全边界与限制)
 12. [管理后台](#12-管理后台)
     - 12.1 [功能全景](#121-功能全景)
-    - 12.2 [审计日志系统](#122-审计日志系统)
-    - 12.3 [题库管理 CRUD](#123-题库管理-crud)
+    - 12.2 [安全中心（2026-10-15 新增）](#122-安全中心2026-10-15-新增)
+    - 12.3 [审计日志系统](#123-审计日志系统)
+    - 12.4 [题库管理 CRUD](#124-题库管理-crud)
 13. [本地题库引擎](#13-本地题库引擎)
     - 13.1 [设计动机](#131-设计动机)
     - 13.2 [数据加载流程](#132-数据加载流程)
@@ -396,9 +409,9 @@ python-dotenv           # .env 环境变量加载
 Pillow                  # 图片处理（头像压缩 + 二维码）
 python-multipart        # 文件上传支持
 pydantic                # 请求/响应模型校验
-requests                # 同步 HTTP（volc_client / xunfei_client）
+requests                # 同步 HTTP（xunfei_client）
 PyJWT                   # 自签 JWT 签发与验证
-qrcode                  # 微信登录二维码生成
+qrcode                  # 遗留：网页微信扫码已于 2026-09-28 整条移除，已无消费方
 ```
 
 **环境变量 (`.env`) 完整参考**：
@@ -437,10 +450,9 @@ JWT_EXPIRE_HOURS=720           # 30 天
 FRONTEND_URL=http://localhost:5173
 BACKEND_EXTERNAL_URL=http://192.168.1.100:80    # 后端外网地址（原用于微信 OAuth 回调；该功能已移除）
 
-# ===== 火山引擎 / 豆包 (可选) =====
-VOLC_ACCESS_KEY=...
-VOLC_SECRET_KEY=...
-ARK_API_KEY=...
+# ⚠️ 火山引擎 / 豆包（VOLC_* / ARK_API_KEY）**已整条移除**，代码里没有任何消费方。
+#    2026-08-25「LLM 全量收编」之后主链路就走 DeepSeek + 阿里云千问了，
+#    仅语音识别还留在讯飞（见下）。
 
 # ===== 科大讯飞 (可选) =====
 XUNFEI_APPID=...
@@ -480,8 +492,23 @@ npm run dev
             ├── subject_plans        (★ 活跃)
             ├── plan_daily_tasks     (★ 活跃)
             ├── diagnosis_results    (★ 活跃)
-            ├── question_records     (★ 活跃)
+            ├── question_records     (⚠️ **近乎空表** —— 见下)
             └── user_kp_mastery     (★ 活跃)
+
+> ⚠️ **`question_records` 不是「作答主表」，别被名字骗了。**（2026-10-16 核对）
+>
+> | 表 | 真库行数 | 谁在用 |
+> |---|---|---|
+> | **`questions`** | **470** | **真正活跃的那张** —— `chat.py` / `community/messages.py` / `community/xiaoji.py` / `daily_learn.py` 都读它取作答与逐题掌握度（`mastery_score` / `topic` / `is_mistake`） |
+> | `question_records` | **7** | 只有 `admin.py` 的用户详情计数、`agent_center.py` 的效果指标在读 |
+>
+> 两张表名都像「作答记录」，实际写的是两张。**主面板当初那张「总做题数」卡就是栽在这上面** ——
+> 它查 `question_records`，于是长期显示「7 道题」，看着像坏了、也说明不了任何事，
+> 2026-10-16 已撤掉那张卡。
+>
+> 要用作答数据时**先确认是哪条链**：资源库链（AI 出题 → `questions`）还是
+> 学科计划链（计划任务 → `question_records` + `user_kp_mastery`）。
+> 详见技术报告里「两条闭环链」那一节。
 
 步骤 2: backend/sql/admin_tables.sql
         └── 创建管理员系统表 + 扩展 profiles
@@ -513,6 +540,26 @@ npm run dev
 步骤 9: backend/sql/xiaoji_rls_policies.sql
         └── xiaoji_messages / xiaoji_config 表 RLS 放行策略（小基上下文记忆必需）
 ```
+
+**⚠️ 上面只是最早期的那一批。** `backend/sql/` 下现在有 **34 份脚本**，之后陆续追加的按批次是：
+
+| 批次 | 脚本 |
+|---|---|
+| 08-22 ~ 09-10 | `agent_center_tables` · `vocab_tables` · `xiaoji_call_logs` · `create_video_library` + 三个 `fix_video_*` · `fix_settings_tables` · `fix_user_theme` · `create_xiaoji_memory` · `fix_xiaoji_agent_column` |
+| 09-29 ~ 09-30 | `user_shortcuts` · `exam_paper_records` + `grant_exam_paper_records` · **`admin_rework_20260930`** |
+| 10-01 | `fix_records_nullable_plan` · `learning_plan_rework` · `user_video_pushes` |
+| 10-07 ~ 10-08 | **`message_center_rework`** · **`notifications_drop_stale_type_check`** |
+| **10-15** | **`security_center`** · **`reputation`** · **`content_review_queue`** · **`ai_generation_audit`** |
+
+**🔑 怎么确认某份脚本在真库里跑过没有 —— 别问人，查表：**
+
+- `notifications` 里**已经存在** `learning.daily_rec` / `learning.daily_summary` 两种新式类型
+  → 说明 `notifications_drop_stale_type_check.sql` 跑过了。
+  **约束在的话这些行根本写不进去，存在即证明约束已删** —— 比去查 `pg_constraint` 省事得多
+  （PostgREST 也不暴露它）。
+- `security_events` / `user_reputation` / `ai_generation_audit` 这些表**存不存在**，直接 `select 1` 试。
+- 后台安全中心页面**报 502 时会指名是哪份 SQL**（`_fail` 的 `sql_file` 参数）——
+  三块共用一个模块，报错文案指向对应的那一份，不会把人引错地方。
 
 ### 3.5 开发环境启动
 
@@ -635,10 +682,17 @@ project1/
 │   │   ├── code_runner.py            # ★ 代码沙箱 (334行)
 │   │   ├── email.py                  # SMTP 邮件发送
 │   │   ├── notification.py           # 站内通知
-│   │   ├── rate_limit.py             # 内存速率限制
-│   │   ├── sensitive_words.py        # 敏感词过滤
-│   │   ├── volc_client.py            # 火山引擎(豆包)客户端
-│   │   └── xunfei_client.py          # 科大讯飞语音客户端
+│   │   ├── rate_limit.py             # 内存速率限制（认证接口用）
+│   │   ├── security_middleware.py    # 全局限流（纯 ASGI）
+│   │   ├── security_log.py           # 安全事件记录
+│   │   ├── client_ip.py              # 真实 IP（Nginx 后 request.client.host 恒为本机）
+│   │   ├── reputation.py             # 信誉引擎
+│   │   ├── reputation_gate.py        # 信誉 HTTP 闸口
+│   │   ├── safety_gateway.py         # 安全包网关（AI 生成统一入口）
+│   │   ├── ai_json.py                # 统一 JSON 解析
+│   │   ├── gen_audit.py              # 生成审计写入
+│   │   ├── sensitive_words.py        # 敏感词过滤（⚠️ 无本地词库，纯 LLM 判）
+│   │   └── xunfei_client.py          # 科大讯飞语音客户端（仅 ASR）
 │   │
 │   ├── services/                     # 服务层
 │   │   └── supabase.py               # ★ Supabase REST API 封装 (165行)
@@ -722,7 +776,7 @@ project1/
         │   ├── planetTexture.js      # 九颗行星的程序化地表（6 生成器 × 9 配方）+ 云层 + 光环
         │   ├── blackHole.js          # 中央黑洞（事件视界 + 光子环 + 吸积盘）+ 星尘粒子系统
         │   ├── appearanceCode.js     # 外观码：主题配置的编解码与分享
-        │   ├── pageMeta.js           # 页面元信息（标题/图标/分类）
+        │   ├── pageMeta.js           # ★ 全站页面命名册 —— 搜索与功能树的**唯一数据源**（见 5.19）
         │   ├── mockAgents.js         # 智能体中心的演示数据
         │   ├── videoLib.js           # 视频库数据访问
         │   ├── videoRender.js        # 视频渲染管线
@@ -787,6 +841,9 @@ project1/
 
 ### 4.2 后端模块职责
 
+> ⚠️ 下面的行数是**写的当时的量级**，代码一直在长，别拿它当准数（要看行数直接 `wc -l`）。
+> 这份表的价值在"某个职责归哪个文件"，不在数字。
+
 | 模块 | 职责 | 行数 |
 |------|------|------|
 | `local_question_bank.py` | 启动时加载 17 JSON → dict 内存；提供 query/random/get_by_ids/add/delete/save；支持跨考纲搜索 | 322 |
@@ -799,6 +856,21 @@ project1/
 | `admin_middleware.py` | 查 profiles.role → 三级角色鉴权 + `write_audit_log()` 非阻塞写入 | 96 |
 | `llm_client.py` | OpenAI SDK → DeepSeek API: `call_llm()` 非流式 + `call_llm_stream()` 流式 | 45 |
 | `seed_all_banks.py` | 读 syllabi.json → 算差值 → 按维度/题型批量生成 → 括号计数法提取 JSON → 修复截断 → 持久化 | 263 |
+
+**安全与风控（2026-10-15 新增）**
+
+| 模块 | 职责 |
+|------|------|
+| `utils/client_ip.py` | 真实 IP —— 线上是 `客户端→Nginx→127.0.0.1:8000`，`request.client.host` **恒为 127.0.0.1** |
+| `utils/security_log.py` | 事件记录 —— 内存队列 + 后台消费者（**不阻塞 / 不静默 / 不无限增长**） |
+| `utils/security_middleware.py` | 全局限流 —— **纯 ASGI，不用 `BaseHTTPMiddleware`**（会干扰 SSE 流式） |
+| `utils/reputation.py` | 信誉引擎 —— CAS 防丢更新 / 读失败 fail-open / **规则全读表** |
+| `utils/reputation_gate.py` | 信誉 HTTP 闸口 —— `ai_quota_gate` / `require_can_publish` 等 FastAPI 依赖 |
+| `utils/safety_gateway.py` | 安全包网关 —— AI 生成的统一入口（准入→入闸→生成→出闸→记录） |
+| `utils/ai_json.py` | 统一 JSON 解析 —— 替掉全仓 10 个各写各的抠 JSON 函数 |
+| `utils/gen_audit.py` | 生成审计写入 —— **直接 await，不走队列**（理由见 9.10） |
+| `routers/admin_security.py` | 后台安全中心 —— **三块共用一个前缀**：事件 / 信誉 / 生成审计 |
+| `routers/admin_content_review.py` | 待审队列 —— 列表 + 统计 + 处置 |
 
 ### 4.3 前端模块职责
 
@@ -1325,25 +1397,35 @@ while (true) {
 }
 ```
 
-**豆包流式特殊处理**（`doubao_stream_generator()`）：
+**流式解析与守卫（2026-10-11 修过一个会打断整条流的 bug）**
 
-豆包（火山引擎）的 SSE 格式与 DeepSeek 不完全兼容，需要专门的解析器：
+三个流式接口（`call_qwen_stream` / `call_llm_stream` / `call_llm_vision_stream`）
+原来都写着同一段 —— **没防空**：
 
 ```python
-def doubao_stream_generator(stream):
-    """豆包返回格式: data:{"choices":[{"delta":{"content":"字"}}]}\n\n"""
-    for line in stream:
-        if line:
-            if line.startswith("data:") and line != "data: [DONE]":
-                try:
-                    data = json.loads(line[5:])
-                    if "choices" in data and len(data["choices"]) > 0:
-                        delta = data["choices"][0].get("delta", {})
-                        if "content" in delta:
-                            yield delta["content"]  # ← 逐字推送
-                except Exception:
-                    continue  # ← 单行解析失败不中断整体流
+for chunk in response:
+    if chunk.choices[0].delta.content:   # ← 没防空
+        yield chunk.choices[0].delta.content
 ```
+
+**`qwen3.7-flash` / `qwen3.8-flash` 会在流末尾补一个 `choices=[]` 的 usage 块**
+（实测 `qwen3.8-flash` 一次回复 23 块，**第 23 块就是它**；`qwen-flash` 从不发这种块）。
+取 `[0]` 当场 `IndexError` → **整条流断在半截**。
+
+> 它**长得不像模型问题**：用户看到的是「说到一半突然没了」，
+> 日志里只有一行 `list index out of range`。
+
+三处都加了守卫，测试见 `tests/test_stream_guard.py`（6 项）。
+**第 5 项是故意加的灵敏度断言** —— 把修复前的老写法原样抄进来当反例跑一遍，
+必须真的抛 `IndexError`。**抓不到旧 bug 的断言等于没写。**
+
+> ⚠️ 影响面：`xiaoji.py:364` 小基流式对话、`xiaoji.py:920` 队员流式、`chat.py:173` DeepSeek 流式。
+> 当时没爆，是因为对话档还挂在 `qwen-flash` 上 ——
+> **只要把 `QWEN_CHAT_MODEL` 改成 3.7/3.8，小基对话会当场全崩。**
+
+**⚠️ 另注**：`chat_provider` 的「火山/豆包备用通道」（`chat_endpoint_id`、
+`doubao_stream_generator` 等）**代码里早已不存在** —— 2026-08-25「LLM 全量收编」时删掉了主链路，
+08-22 识图也从豆包切到了 DeepSeek Vision。文档里残留的描述已在本轮清理。
 
 **故障恢复策略**：
 
@@ -1438,20 +1520,24 @@ get_user_profile(user_id) 聚合流程
       │   用户可自定义 (如 "这道题的正确答案是？")
       │
       ▼
-  VolcClient.vision_stream(image_url, question)
+  call_llm_vision_stream(image_url, prompt)      # agents/llm_client.py
       │
-      ├─ POST https://ark.cn-beijing.volces.com/api/v3/chat/completions
-      │   model: endpoint_id (视觉模型)
+      ├─ OpenAI 兼容 SDK（base_url 指向 DeepSeek）
+      │   model: settings.QWEN_VISION_MODEL
+      │          （2026-10-11 换成 qwen3.8-flash —— 原 qwen3-vl-flash 于 10-10 00:00 停服）
       │   messages: [{ role: "user", content: [
-      │       { type: "image_url", image_url: { url: "data:image/..." }},
-      │       { type: "text", text: question }
+      │       { type: "text", text: prompt },
+      │       { type: "image_url", image_url: { url: "data:image/..." }}
       │   ]}]
-      │   stream: true
+      │   stream: true, timeout: 55.0
       │
       ▼
-  StreamingResponse(doubao_stream_generator(stream))
-      → 前端流式渲染
+  StreamingResponse(...)  → 前端流式渲染
 ```
+
+> ⚠️ **`call_qwen_vision` 没有 `model` 参数** —— `call_qwen` / `call_qwen_stream` 都支持
+> 按次覆盖模型，只有识图这个写死读 `settings`。做基准测试时被它绊了一下
+> （得改全局设置才测得动）。属接口不一致，**待补**。
 
 **支持场景**：
 - 拍题搜答案：用户拍摄纸质试卷 → AI 识别题目 + 给出解答
@@ -2583,7 +2669,7 @@ await notify(to_user, notif_type, *, actor_id, actor_name, source_id,
 | 形态 | 判据 | 渲染 |
 |---|---|---|
 | `rec` | `payload_schema == daily_rec` | 三块预览 + 正文 + 通栏「去学习」 |
-| `summary` | `payload_schema == daily_summary` | 数字卡片 + 知识点标签 + 三段文字 |
+| `summary` | `payload_schema == daily_summary` | 数字卡片 + 知识点标签 + 三段文字。⚠️ 2026-10-16 起 `stats` 是**列表** `[{label,value,unit,hint}]`（张数由后端定，**取不到的指标不放卡而不是填 0**），新增 `prose_source`（ai/template/mixed）与 `bucket`；老通知仍是对象形状 `{questions,mastery}`，前端两种都认 |
 | `actors` | `aggregate` | 大号数字 + 带头像圆点的名字标签 + 正文 |
 | `todo` | `todo` | 「处理完才算已读」提示条 + 正文 |
 | `notice` | `group == system` | 图标 + 类型名 + 正文 |
@@ -2994,7 +3080,7 @@ async def upsert_tool_data(table: str, user_id: str,
 | 对话气泡 | DeepSeek V4.1 Flash / 智谱 GLM | 「我」提问气泡 + 小基头像回答气泡（`xiaoji_idle.png`）；展开卡片时打字机逐字重播，打字中头像切换 `xiaoji_speaking.png` + 闪烁光标 |
 | 识图 | DeepSeek V4.1 Flash（原生多模态） | 左侧「示例题目截图」纸质 mockup（斜置仿拍照）+ 右侧小基解析气泡 |
 | 语音 | 讯飞星火 | 播放按钮 → `POST /xiaoji/tts` 真实讯飞合成，base64 mp3 本地播放（取回后缓存复用）；播放中均衡器动画 + 实际时长 |
-| 状态 | 豆包 | 主链路 / 待命备用状态行 |
+| 状态 | 阿里云千问 | 主链路 / 待命备用状态行 |
 | 视频 | 腾讯云数字人 | 16:9 占位帧（渐变 + 播放按钮），点击提示占位中 |
 
 #### 5.10.2 模型清单
@@ -3003,7 +3089,7 @@ async def upsert_tool_data(table: str, user_id: str,
 |------|------|------------|---------|---------|------|
 | DeepSeek V4.1 Flash | DeepSeek | deepseek-flash（文本·思考默认关） | ✅ 官方 | 对话气泡+打字动画 | 全站文本主力：对话/规划/出题/批改/小基 |
 | DeepSeek 识图 | DeepSeek | deepseek-flash（原生多模态，与文本同模型） | ✅ 官方 | 截图 mockup+解析气泡 | 图片理解/拍题识别/小基识图 |
-| 豆包（火山方舟） | 火山引擎 | Ark endpoint 接入 | ✅ 官方 | 状态行 | 对话备用通道 |
+| 阿里云千问 | 阿里云百炼 | qwen-flash / qwen3.8-flash 等 | ✅ 官方 | 状态行 | 视频脚本 · 识图 · 语音合成 · 对话备用 |
 | 讯飞星火 | 科大讯飞 | ASR / TTS 接口 | ✅ 官方 | 可播放真实合成语音 | 小基语音对话 |
 | 腾讯云数字人 | 腾讯云 | 数字人视频生成 | ⬜ 可自配 Key | 视频占位帧 | 每日任务视频推送（占位中） |
 | 智谱 GLM | 智谱 AI | GLM 系列 | ⬜ 可自配 Key | 对话气泡+打字动画 | 出题备用通道 |
@@ -3025,10 +3111,10 @@ POST /chat/send 时的 Provider 路由决策树：
   │
   ├─ 检查 user_api_keys 表 (user_id 匹配)
   │   │
-  │   ├─ chat_provider = "volc" AND chat_api_key 非空
-  │   │   → 使用 VolcClient(personal_key).chat_stream()
-  │   │
   │   ├─ chat_provider = "deepseek" AND chat_api_key 非空
+  │   │   → 用户自己的 Key
+  │   │
+  │   ├─ chat_provider = "qwen" AND chat_api_key 非空
   │   │   → 使用 DeepSeekClient(personal_key).chat_stream()
   │   │
   │   ├─ chat_provider = "zhipu" AND chat_api_key 非空
@@ -3077,9 +3163,8 @@ POST /chat/send 时的 Provider 路由决策树：
 CREATE TABLE IF NOT EXISTS user_api_keys (
     user_id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
     -- 对话
-    chat_provider TEXT DEFAULT 'platform',    -- 'platform' | 'volc' | 'deepseek' | 'zhipu'
+    chat_provider TEXT DEFAULT 'platform',    -- 'platform' | 'deepseek' | 'qwen' | 'zhipu'
     chat_api_key TEXT,
-    chat_endpoint_id TEXT,                    -- 仅火山引擎豆包需要
     -- 图片理解
     vision_provider TEXT DEFAULT 'platform',
     vision_api_key TEXT,
@@ -3388,8 +3473,9 @@ async def get_current_admin(current_user = Depends(get_current_user)):
 
 | 页面 | 路由 | 组件 | 核心功能 | 权限 |
 |------|------|------|----------|------|
-| 仪表盘 | `/admin` | AdminDashboard | 7 项统计卡片（用户数/今日新增/总做题数/今日做题/待处理举报/待处理反馈/总计划数） | admin+ |
-| 用户管理 | `/admin/users` | AdminUsers | 列表搜索/封禁/解封/详情弹窗/设管理员（仅超管可见） | admin+ |
+| 仪表盘 | `/admin` | AdminDashboard | **10 项统计卡片**（用户数/今日新增/待处理举报/待处理反馈/总计划数/题库总量 + AI 调用总数/今日调用/成功率/已接入生成点）。**每张卡都能点进对应详情页**；取数失败的指标显示 `—` 并弹横幅 | admin+ |
+| 用户管理 | `/admin/users` | AdminUsers | 列表搜索/封禁/解封/详情弹窗/设管理员（仅超管可见）/注册时间筛选（`?days=` 深链） | admin+ |
+| 学习计划 | `/admin/plans` | AdminPlans | 跨用户计划列表（**嵌入 profiles 显示昵称邮箱**）+ 按名称/学科搜 + 按状态筛 | admin+ |
 | 内容审核 | `/admin/reports` | AdminReports | 举报/反馈/Q&A 三 Tab 审核 | admin+ |
 | 题库管理 | `/admin/questions` | AdminQuestions | 题目 CRUD + 考纲选择器 + 维度/题型动态筛选 + 批量导入 JSON | admin+ |
 | 公告管理 | `/admin/announcements` | AdminAnnouncements | 发布/编辑/下架 + 图片上传（Supabase Storage, ≤5MB）+ 预览 | admin+ |
@@ -3397,62 +3483,51 @@ async def get_current_admin(current_user = Depends(get_current_user)):
 
 #### 5.12.3 仪表盘统计聚合算法
 
-`GET /admin/dashboard` 并发查询 6 个 Supabase 端点：
+`GET /admin/dashboard` 用**一个内部 `count()` 闭包**顺序取 8 个指标
+（2026-10-16 调整）：
 
 ```python
-async def get_dashboard():
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        # 并发查询 6 个数据源（asyncio.gather）
-        # 1. 用户总数
-        total_users_res = await client.get(
-            f"{SUPABASE_URL}/rest/v1/profiles?select=id",
-            headers=admin_headers_with_count
-        )
-        total_users = extract_count(total_users_res)  # ← 从 Content-Range 头提取
+async def count(label, path, **params) -> int:
+    """取一个 count=exact 计数。
+    ⚠️ 失败**不返回 0 了事** —— 记日志 + 落进 errors，前端才能把
+       「取不到」和「真的是 0」分开显示。见下面「errors 字段」。
+    """
+    r = await client.get(_supabase_url(path, select="*", limit="1", **params), headers=headers)
+    if r.status_code not in (200, 206):
+        errors[label] = f"上游 {r.status_code}"
+        return 0
+    return _safe_int_from_header(r)
 
-        # 2. 今日新增用户
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        today_users_res = await client.get(
-            f"{SUPABASE_URL}/rest/v1/profiles"
-            f"?select=id&created_at=gte.{today}",
-            headers=admin_headers_with_count
-        )
-        today_new_users = extract_count(today_users_res)
-
-        # 3. 总做题数
-        total_questions_res = await _supabase_get_with_count("question_records", select="id")
-        total_questions_done = total_questions_res[1]
-
-        # 4. 今日做题数
-        today_questions_res = await _supabase_get_with_count(
-            "question_records",
-            select="id",
-            created_at=f"gte.{today}"
-        )
-        today_questions_done = today_questions_res[1]
-
-        # 5. 待处理举报
-        pending_reports_res = await _supabase_get_with_count(
-            "content_reports",
-            select="id",
-            status="eq.pending"
-        )
-        pending_reports = pending_reports_res[1]
-
-        # 6. 待处理反馈 + 总计划数
-        pending_feedback = ...
-        total_plans = ...
-
-        return {
-            "total_users": total_users,
-            "today_new_users": today_new_users,
-            "total_questions_done": total_questions_done,
-            "today_questions_done": today_questions_done,
-            "pending_reports": pending_reports,
-            "pending_feedback": pending_feedback,
-            "total_plans": total_plans
-        }
+total_users      = await count("用户总数",     "profiles")
+today_new_users  = await count("今日新增用户", "profiles", created_at=f"gte.{today_str}")
+pending_reports  = await count("待处理举报",   "content_reports", status="eq.pending")
+pending_feedback = await count("待处理反馈",   "user_feedback",    status="eq.pending")
+total_plans      = await count("总学习计划数", "subject_plans")
+ai_calls_total   = await count("AI 调用总数",  "ai_generation_audit")
+ai_calls_today   = await count("AI 今日调用",  "ai_generation_audit", created_at=f"gte.{today_str}")
+ai_calls_ok      = await count("AI 调用成功数", "ai_generation_audit", status="eq.ok")
 ```
+
+**为什么不是 `asyncio.gather`：** 8 个计数走的是同一个 `httpx.AsyncClient`，
+串行反而更好定位是哪一个挂了（`count()` 的 `label` 就是为此存在的），
+而这几个查询都是毫秒级、总量不到 100ms，并发收益可以忽略。
+
+**「今日」按北京时间算**（`timezone(timedelta(hours=8))`）。
+用 UTC 的话「今日新增」会在北京时间早上 8 点重置而不是零点。
+
+**题库总量不走 Supabase**：它在本地 JSON（`local_question_bank.count()`），
+所以不经过 `count()`、也不会失败。
+
+**AI 指标来自 `ai_generation_audit`**（见 9.10 与「AI 调用埋点」一节）。
+⚠️ **表没建时这三项会落进 `errors`** —— 这正是想要的：面板显示「取不到」，
+而不是一个看着像「AI 从没被调用过」的 0。
+
+**`ai_entry_points` 不是查库来的**，是 `utils/gen_audit.py` 里人工登记的常量：
+覆盖率要回答的是「**应该**覆盖多少」，查库只能查出「已经记了多少」，那正是它要防的事。
+
+**`errors` 字段**：`{指标名: 原因}`。前端 2026-10-16 起真的渲染它了
+（取不到的指标显示 `—` 而不是 `0`，并弹一条橙色横幅列出原因）。
+在此之前这个字段后端一直在返回、前端从没读过 —— 等于白留。
 
 **count=exact 计数机制**：
 ```
@@ -3615,7 +3690,7 @@ GET /admin/logs?action=ban_user&page=1&page_size=20
 
 | 方法 | 端点 | 说明 | 角色要求 |
 |------|------|------|---------|
-| GET | `/admin/dashboard` | 仪表盘 7 项统计 | admin+ |
+| GET | `/admin/dashboard` | 仪表盘 10 项统计（失败项进 `errors`，前端显示 `—`） | admin+ |
 | GET | `/admin/users` | 用户列表（搜索/状态筛选/分页） | admin+ |
 | GET | `/admin/users/{user_id}` | 用户详情 + 统计 | admin+ |
 | PUT | `/admin/users/{user_id}/status` | 封禁/解封 `{is_active: bool}` | admin+ |
@@ -3940,10 +4015,101 @@ config.py                REDIS_URL + TASK_QUEUE_FALLBACK_INLINE
 
 **部署依赖**：服务器要装 Redis 并常驻 `python worker.py`，`REDIS_URL` 要进生产 `.env`。
 
+### 5.19 页面命名册与功能树（2026-10-16 新增）
+
+#### 5.19.1 `utils/pageMeta.js` 是页面清单的唯一数据源
+
+它导出三份：`STATIC_PAGES`（用户页面）、`ADMIN_PAGES`（后台）、`AGENT_PAGES`（五个智能体）。
+每条含六个字段：
+
+| 字段 | 用途 |
+|---|---|
+| `title` / `path` | 展示名与路由 |
+| `aliases` / `initials` | 搜索关键词与拼音首字母（**只有全局搜索用**） |
+| `group` | 归属分区 —— **功能树的层级从这来** |
+| `desc` | 一句简介 —— **功能树悬浮预览用** |
+| `wire` | 版式类型（`list` / `table` / `dashboard` / `chat` / `timeline` / `form` / `board` / `call` / `detail` / `tree`）—— **悬浮预览按它画框** |
+
+> ⚠️ **这个文件很容易漏登记，而且漏了不报错。**
+> 2026-10-16 对账发现 13 条**用户真的能到**的路由不在里面（`/learning-plan`、
+> `/video-square`、`/admin/security` 等）—— 后果是它们**既搜不到、也不在功能树上**，
+> 全程没有任何提示。改路由时**顺手登记**是硬要求。
+>
+> 对账手法（可复跑）：
+> ```bash
+> node -e "import('./_devtools/webcheck/routes.mjs').then(async m=>{
+>   const fs=await import('node:fs')
+>   const r=m.collectRoutes('project1/frontend/src/router/index.js')
+>   const s=fs.readFileSync('project1/frontend/src/utils/pageMeta.js','utf8')
+>   const inMeta=new Set([...s.matchAll(/path:\s*'([^']+)'/g)].map(x=>x[1]))
+>   console.log(r.filter(x=>!inMeta.has(x.path)&&!x.path.includes(':')).map(x=>x.path))})"
+> ```
+> 正常结果应当**只剩** `/` 与 `/login`（落地页与认证流程，刻意不登记）。
+
+#### 5.19.2 功能树 `/xiaoji/tree`
+
+以「小基」为根、按功能分区**径向发散**的可点击树。入口在全局搜索面板的输入栏。
+
+**它不自己维护数据** —— 页面清单来自 `pageMeta`，考纲来自 `navStore.syllabi`
+（与全局搜索同一份，且带缓存），只做「按 path 段拼成树」这一件事。
+
+三条设计约定（改之前先读）：
+
+1. **只有叶子能跳转**，分区节点点了是展开／收起 —— 否则点「学习」会直接跳走，根本展不开。
+2. **层级按路径段长，不硬编层数** —— `/community/friends` 天然挂在 `/community` 下，
+   深浅自然错落。第一版硬编成「分区 → 页面」两层，用户一眼看出「这不是树，是导图」。
+3. **到页面为止，不再往下钻** —— 题目、单条帖子、某个视频这类详情页不做节点。
+
+几个踩过的坑（都写在组件注释里）：
+
+| 现象 | 真因 |
+|---|---|
+| 一进来只看到 9 个分区名 | `initialTreeDepth: 1` —— 这页存在的意义就是一眼看全，默认折叠等于把内容藏起来 |
+| 框是歪的 | 径向布局默认把节点**按枝条方向旋转**。圆圈上看不出来，换成方框就全 tilted，要 `symbolRotate: 0` + `label.rotate: 0` |
+| 每个分区名连着出现两次 | 分区分组与路径行走各建了一层 |
+| 滚轮能把树缩成一个点 | `roam: true` 默认**无限**缩放，要 `scaleLimit` |
+| 预览里的版式画了但看不见 | CSS 特异性打架：兜底的 `.tp-wire > b{display:block}`（0,1,1）压过了 `.w-split{display:flex}`（0,1,0）；而 `.w-side` 是 `<i>`，没人设 display，宽度完全不生效 |
+
+#### 5.19.3 前端端到端检查集 `_devtools/webcheck/`
+
+零依赖 —— Node 24 有内置 WebSocket，直接驱动本机 Chrome 走 DevTools Protocol，
+不装 Playwright（省 ~300MB 浏览器）。
+
+```bash
+node _devtools/webcheck/run.mjs --login        # 本地，含登录两阶段
+node _devtools/webcheck/run.mjs --target=prod  # 线上（桌面壳实际加载的那份）
+node _devtools/webcheck/run.mjs --only=D --login   # 只跑某一组
+```
+
+| 组 | 内容 |
+|---|---|
+| A 路由可达性 | 65 条 × **未登录/已登录两阶段**。按每条路由自己的 `meta.requiresAuth` 判：公开页被重定向 = 失败；受保护页**没**被重定向 = 守卫失效 |
+| B 桌面壳配置 | 三处版本号一致、前端 invoke 的命令 Rust 都注册了、窗口方法都在 capabilities 里授权了、`remote.urls` 覆盖实际地址 |
+| C 桌宠窗口 | `pet.html` 能否独立渲染、图片有没有裂 |
+| D canvas 页面 | **采样画布像素** —— 图表画在 canvas 上，`innerText` 一个字读不到，只查文本等于空过 |
+
+> ⚠️ **默认只读**（这个仓库栽过「测试把数据写进生产库」，见 code-0009）。
+> 登录是写操作，要显式 `--login`，凭据走 `JZ_TEST_ACCOUNT` / `JZ_TEST_PASSWORD`
+> 环境变量，**不写进文件**。
+>
+> ⚠️ 判据写松了会**空过**：第一版只查「有没有文本」，结果 63 条路由全渲染同一个登录
+> 跳转页（文本长度都是 42），64/64 全绿但什么都没测到。扫描类用例还要加
+> 「扫到的数量 > 0」的自检 —— 空集合恒满足任何 all() 断言。
+
+---
+
 ## 6. 后端 API 参考
 
-> 全部端点挂 `https://api.jizhi-learn.com`。生产共 **217 条路由**（`GET /openapi.json` 可查）。
+> 全部端点挂 `https://api.jizhi-learn.com`。
+>
+> **生产共 240 条路由**（2026-10-11 版；`curl https://api.jizhi-learn.com/openapi.json` 可查）。
+> **开发仓库当前是 252 条** —— 多出来的是 10-15 那批安全中心与生成审计的端点、
+> 以及 10-16 的 `/admin/plans`，**尚未部署**。
+> 路由数是判断线上跑的是哪个版本最快的办法。
+>
 > 除公开端点外都需要 JWT，身份校验在 FastAPI 层（`verify_user_match`）。
+> ⚠️ **哪些是公开的，以测试里的 `ALLOW_PUBLIC` 登记为准** —— 那不是一份手写清单，
+> 而是「要公开就得显式登记，否则测试失败」逼出来的（见 9.5）。
 
 ### 6.1 学科计划 API
 
@@ -4569,6 +4735,16 @@ subject_plans ──────────┬────────── pl
 管理后台表:
   user_feedback ───────── content_reports ───────── user_qa
   system_announcements    admin_audit_logs
+
+安全与风控表（2026-10-15）:
+  security_events         攻击/风控事件流水（只记失败和拦截，队列满丢最旧）
+  ai_generation_audit     AI 生成审计（成功也记）—— ⚠️ **刻意与上面那张分开**
+
+  user_reputation ──1:N── user_reputation_logs     当前分 / 流水
+  reputation_rules                                 加减分规则（改表即可，代码零改动）
+  reputation_tiers                                 档位阈值（excellent/normal/restricted/high_risk）
+
+  posts.status / comments.status                   先审后发（published/pending/rejected）
 ```
 
 ### 8.2 学科计划核心表 DDL
@@ -4632,6 +4808,12 @@ CREATE TABLE IF NOT EXISTS diagnosis_results (
 ```
 
 #### question_records
+
+> ⚠️ **这张表近乎空的（真库 7 行）。** 真正在写「作答 + 逐题掌握度」的是
+> Supabase 的 **`questions` 表**（470 行），它属于**资源库链**；本表属于
+> **学科计划链**（每日任务提交）。两张表名都像"作答记录"，用错会得到
+> 一个看着合理、其实毫无意义的数字 —— 主面板那张被撤掉的「总做题数」就是。
+
 ```sql
 CREATE TABLE IF NOT EXISTS question_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -4776,6 +4958,48 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
 | `content_reports` | `status`, `(target_type, target_id)` | 举报查询 |
 | `admin_audit_logs` | `admin_id`, `action`, `created_at DESC` | 日志查询 |
 
+### 8.6 安全与信誉表（2026-10-15）
+
+**四份建表脚本**（都可重复执行，幂等）：
+
+| 脚本 | 建什么 |
+|---|---|
+| `sql/security_center.sql` | `security_events` + 顺手收掉 `admin_audit_logs` / `content_reports` 的 anon 权限 |
+| `sql/reputation.sql` | 信誉四张表 |
+| `sql/content_review_queue.sql` | `posts` / `comments` 加 `status` + 审核痕迹列 |
+| `sql/ai_generation_audit.sql` | `ai_generation_audit` 生成审计表 |
+
+| 表 | 索引 | 查询场景 |
+|----|------|----------|
+| `security_events` | `occurred_at DESC` · `(event_type, occurred_at DESC)` · `(user_id, …)` · `(ip, …)` · `(severity, …) WHERE severity IN ('high','critical')` | 列表默认排序 / 趋势 / 两个 Top 榜 / 只看高危 |
+| `ai_generation_audit` | `created_at DESC` · `(purpose, …)` · `(user_id, …)` · `(status, …) WHERE status <> 'ok'` | 列表 / 按用途 / 按用户 / **只看失败的**（部分索引，绝大多数行是 ok，排除掉能小一个量级） |
+| `user_reputation` | 主键就是 `user_id` | — |
+| `user_reputation_logs` | `(user_id, created_at DESC)` · `(reason_code, …)` · `(user_id, reason_code, created_at DESC)` | 变更历史 / 哪条规则最常触发 / 幂等判重 |
+| `reputation_rules` / `reputation_tiers` | 主键 `code` | 引擎每次读表（缓存 5 分钟） |
+
+**⚠️ 建表的两个固定套路**（本项目踩过多次，每份脚本都照做）：
+
+1. **先 `REVOKE ALL ... FROM anon, authenticated;` 再 `GRANT ... TO service_role;`** ——
+   Supabase 建表时的默认权限会**把 anon / authenticated 一起授上**，光建表不加这段，
+   安全事件表就是**对全网公开的攻击日志**。顺序不能反，且必须成对出现。
+2. **BIGSERIAL 的序列要单独授权** —— `GRANT ON TABLE` **不覆盖序列**。
+   漏了这条的表现是：service_role 能读能写，但 INSERT 报
+   `42501 permission denied for sequence ...`。
+
+**⚠️ 刻意不加 CHECK 约束的地方**：
+
+- `ai_generation_audit.status` —— 调用点还在陆续往网关迁，新失败类型随时会出现。
+  加了 CHECK 的话，一个新类型会让**整条审计写入失败**，而那是这里最不该发生的事。
+  合法性在 Python 侧校验并告警。（同 `notifications` 那次教训）
+- `user_reputation_logs.delta` —— **`delta = 0` 是合法且必要的一种记录**。
+  0 分用户继续违规时分不动，但「今天又违规了」必须留下 ——
+  自然恢复的判定是「连续 N 天没有扣分记录」，不记这条的话，
+  一个在 0 分持续违规的人**恢复计时器会照常往前走**。
+
+**⚠️ 容量**：`ai_generation_audit` 是**只增**的，而且是全站每次生成一行。
+暂无保留策略 —— **故意不现在拍**（还没有真实量级数据，拍一个保留天数就是瞎猜）。
+到量了再定：定时 DELETE 或按月分区后 DROP 老分区。
+
 ---
 
 ## 9. 认证与安全体系
@@ -4906,17 +5130,274 @@ async def get_current_super_admin(current_user = Depends(get_current_user)) -> s
 **扫码登录没有取消，只是推迟**：用户明确——扫码那一端**只做 Flutter 手机应用**，
 等它出来再做，小程序不掺和。
 
-### 9.5 速率限制与安全措施
+### 9.5 速率限制（2026-10-15 重做）
 
-| 端点 | 限制 | 窗口 | 实现 |
-|------|------|------|------|
-| `POST /auth/login` | 同一 IP+账号 5 次 | 60s | `rate_limit.py` 内存计数器 |
-| `POST /auth/send-code` | 同一 IP+邮箱 1 次 | 60s | `rate_limit.py` 内存计数器 |
-| `POST /auth/register` | 同一 IP 3 次 | 60s | `rate_limit.py` 内存计数器 |
-| 上传图片 | 类型限制 PNG/JPEG/GIF/WebP + 5MB 上限 | — | admin.py 校验 |
-| 头像上传 | 强制 resize → 200×200 PNG | — | Pillow 处理 |
+**实现**：`utils/security_middleware.py` —— **纯 ASGI 中间件**。
 
-**XSS 防护**：`SubjectPractice.vue` 中使用 `v-html` 渲染完形填空题干前，通过 `fillStemHtml()` 函数剥离所有 HTML 标签。
+> ⚠️ **不用 `BaseHTTPMiddleware`**：这个应用 SSE 流式接口很多，而后者是已知会
+> **干扰流式响应和 background task** 的。
+> 它**只从 ASGI scope 读 header / method / path，一个字节的正文都不消费** —— 否则会和路由抢 body。
+
+**两条闸串行都查**（IP 档 + 用户档），**不是二选一**：小的那个先咬。
+
+| 端点前缀 | IP 限 | 用户限 | 窗口 | 用途 |
+|---|---|---|---|---|
+| `/questions/generate` | 120 | 20 | 60s | AI 出题 |
+| `/questions/evaluate` | 120 | 20 | 60s | AI 批改 |
+| `/subject-plan/code/run` | 60 | 10 | 60s | 代码沙箱执行 |
+| `/subject-plan/code/submit` | 60 | 10 | 60s | 代码沙箱提交 |
+| `/xiaoji/tts` · `/xiaoji/asr`（含 `/community/` 前缀） | 90 | 20 | 60s | 语音合成 / 识别 |
+| `/video/generate-mine` | 30 | 5 | 60s | 触发生成视频 |
+| `/auth/` | 120 | — | 60s | 认证接口 |
+| **默认（兜底）** | 300 | 600 | 60s | 其余全部 |
+
+**认证接口另有一套更细的**（`utils/rate_limit.py` 内存计数器）：
+
+| 端点 | 限制 | 窗口 |
+|---|---|---|
+| `POST /auth/login` | 同一 IP+账号 5 次 | 60s |
+| `POST /auth/send-code` | 同一 IP+邮箱 1 次 | 60s |
+| `POST /auth/register` | 同一 IP 3 次 | 60s |
+
+> ⚠️ **限流器是进程内内存实现**，单 worker 下有效。改成 `gunicorn -w N` /
+> `uvicorn --workers N` 的话**实际额度会放大 N 倍且各 worker 互不相通**，
+> 届时必须换 Redis（接口可保持不变）。**启动时会打印这条警告。**
+
+**其余上传限制**：图片 PNG/JPEG/GIF/WebP + 5MB；头像强制 resize → 200×200 PNG。
+
+**XSS 防护**：`SubjectPractice.vue` 用 `v-html` 渲染完形填空题干前，通过 `fillStemHtml()` 剥离 HTML 标签。
+
+### 9.6 真实 IP（2026-10-15）
+
+线上拓扑是 **`客户端 → Nginx → 127.0.0.1:8000`**，所以 `request.client.host` **恒为 127.0.0.1**。
+
+> ⚠️ **2026-09-27 踩过一次**：wx-bind 限流变成**全校一个桶**。当时只把 key 改成「IP+账号」
+> **绕过去了、根因没动**。这次补 `utils/client_ip.py` 正面解决。
+
+🎯 **判据是 `is_via_trusted_proxy()`，不是「peer != ip」**：
+
+| 场景 | peer | get_client_ip() | 相等？ |
+|---|---|---|---|
+| 直连（绕过 Nginx） | 真实地址 | **同一个真实地址** | **相等** |
+| 经代理（正常） | 127.0.0.1 | 真实地址 | 不等 |
+
+**方向正好相反** —— 写反了会让每条正常请求都被塞一个 `peer_ip: 127.0.0.1` 的噪音字段。
+
+### 9.7 安全事件（2026-10-15）
+
+`security_events` 表（`sql/security_center.sql`）+ `utils/security_log.py`。**三条硬约定**：
+
+1. **不阻塞请求** —— 内存队列 + 后台消费者
+2. **不静默失败** —— 丢弃和写失败都计数上报
+3. **不无限增长** —— 队列有上限，满了**丢最旧的**（新事件更可能对应正在发生的攻击）
+
+> ⚠️ **第 3 条决定了它不能兼职做生成审计**：全量生成灌进去，等于**让 AI 用量把真正的攻击记录挤掉**。
+> 生成审计走另一张表，见 9.10。
+
+**事件类型**（`组.动作`，与 `utils/security_log.py` 的常量逐条对齐）：
+
+`auth.login_failed` · `auth.login_throttled` · `auth.token_invalid` · `auth.banned_access` ·
+`auth.register_throttled` · `auth.sendcode_throttled` · `rate_limit.hit` · `access.forbidden` ·
+`access.impersonation` · `access.pii_probe` · `content.banned_word` · `content.blocked` ·
+`reputation.changed` · `reputation.blocked` · `suspicious.generic`
+
+**严重级**：`critical`（需立刻处理）/ `high`（高危）/ `warn`（可疑）/ `info`（记录）。
+
+> ⚠️ **图标和中文标签是硬性配套，颜色只是辅助。**
+> `high` / `warn` 在浅色卡片底上只有 **2.55:1 / 1.77:1**，**低于 3:1** ——
+> 这不是配色失误，状态色板就是这么定的。所以颜色在这儿**绝不能单独承载含义**。
+
+### 9.8 信誉值（2026-10-15）
+
+**可增可减的风控分**（0-100，默认满分）。
+与 `user_stats.points` 那个**只增不减**的成长分是两回事 —— **别混**。
+
+**四张表**（`sql/reputation.sql`）：`user_reputation`（当前分）/ `user_reputation_logs`（流水）/
+`reputation_rules`（加减分规则）/ `reputation_tiers`（档位）。
+引擎 `utils/reputation.py`。**四条硬约定**：
+
+1. **任何改分都必须写流水** —— 流水是申诉的唯一依据。只存 `delta` 不存 `score_after` 的话，
+   事后要靠累加还原，**漏一条就永远对不上**
+2. **并发下不能读-改-写** —— 用 CAS（`PATCH ...&score=eq.<旧值>`），匹配不到就重读重试
+   （不引 Postgres 函数是因为那要再跑一次 DDL）
+3. **读失败一律 fail-open（当满分）** —— 信誉服务挂了不该让全站用户发不出内容。
+   少拦几个帖子的代价，远小于「所有人都以为自己被封了」
+4. **规则和阈值全部读表，代码里一个数字都不写死**
+
+| 档位 | 分数 | AI 配额 | 先审后发 | 可发布 |
+|---|---|---|---|---|
+| `excellent` | 90-100 | 不限 | 否 | 是 |
+| `normal` | 70-89 | 100/天 | 否 | 是 |
+| `restricted` | 40-69 | 10/天 | **是** | 是 |
+| `high_risk` | 0-39 | 0 | 是 | **否** |
+
+**恢复是一条加速曲线**（不是固定值，四档全在 `reputation_rules` 里）：
+
+| 连续清白 | 每日恢复 |
+|---|---|
+| < 3 天 | 0（冷却） |
+| 3-6 天 | +1 |
+| 7-13 天 | +2 |
+| 14-29 天 | +3 |
+| ≥ 30 天 | +5 |
+
+从 0 回满分约 **38 天**；轻度过失（-3）**6 天**回满；封禁（-40）要一个多月。
+
+> **为什么不是固定值**：第一版是 +2 / 连续 7 天，算下来从 0 回满分要 **350 天** ——
+> 那不叫恢复，叫永久留疤，**而误判一定会发生**。
+
+**三条守住的规则，每条都有测试**：只发**最高一档**（不是 1+2+3+5 全领）、
+**恢复记录不能重置自己的计时器**（否则自锁）、扫描**一天只跑一次**。
+
+**AI 配额的记账口径**：⚠️ 配额为「不限」（-1）时**不记账也不查询** —— 那是绝大多数用户，
+为了给少数人限流而给所有人加两次数据库往返不划算。**代价：这些用户的 AI 使用量没有留档**
+（要审计生成行为，那是网关的活，见 9.10，不该靠这张表兼职）。
+
+### 9.9 内容可见性与先审后发（2026-10-15）
+
+`sql/content_review_queue.sql` 给 `posts` / `comments` 加：
+
+- `status` TEXT NOT NULL DEFAULT `'published'`（取值 `published` / `pending` / `rejected`）
+- `reviewed_by` / `reviewed_at` / `review_note`
+
+> 用 `NOT NULL DEFAULT 'published'` 一次写完，而不是「先加可空列 → 回填 → 再 SET NOT NULL」三步 ——
+> PostgreSQL 11 起带默认值的 ADD COLUMN 不重写表。
+
+动态流的两条过滤**缺一不可**（`is_deleted=eq.false` + `or=(status.eq.published,user_id.eq.<自己>)`），
+理由见 WORKFLOW_STANDARD §10.2。
+
+### 9.10 安全包网关与生成审计（2026-10-15）
+
+**网关**（`utils/safety_gateway.py` + `utils/ai_json.py`）是**所有 AI 生成的统一入口**：
+
+```
+准入（信誉够吗 / 今天配额够吗）
+  → 入闸（用户可控的文本过违禁词，命中就拒绝生成）
+  → 生成（统一走客户端、统一超时）
+  → 出闸（结构 / 长度校验 + 可选的违禁词复查）
+  → 记录（失败与拦截必留痕）
+```
+
+**为什么需要它**：在这之前全仓 40 处 AI 调用各写各的 —— 自己拼 messages、自己挑模型、
+自己判返回值、自己抠 JSON、自己决定重试。于是同一个问题有 40 个不同的答案，
+**没有一个地方能回答「我们的 AI 生成到底跑成什么样」**。
+
+**三个刻意的取舍**：
+
+1. **入闸只查「用户可控的那段文本」，不查整个 prompt。**
+   system prompt 是我们自己写的，里面有「政治敏感」这种字眼很正常。不做这个区分，
+   网关会天天误报，然后在 40 个调用处被加各种绕过 —— **那还不如没有**。
+   调用方用 `input_texts={字段名: 文本}` 显式声明哪几段是用户给的。
+2. **失败抛 `GatewayError`，不返回 `None`。** 返回 None 会让调用方写出
+   `if result is None: 用默认值`，于是「模型挂了」和「模型答了个空」在业务层长得一模一样。
+3. **不是每次生成都写安全事件** —— 理由见 9.7 的第 3 条。
+
+**生成审计**（`sql/ai_generation_audit.sql` + `utils/gen_audit.py`）：每次生成写一行，**成功也写**。
+
+> ⚠️ **这里刻意用「直接 await」而不是 `security_log` 那套队列**，三个理由：
+> ① 调用频率差着量级（中间件每个 HTTP 请求 vs 每次生成，而生成本身要等模型几秒）；
+> ② **排队会丢数据，而审计最怕丢**（丢的就是「这段用量没了」，统计失真比没有更难查）；
+> ③ 调用方本来就在等。
+> 详细取舍见 `utils/gen_audit.py` 的文件头。
+
+**status 取值**（代码与库两边必须一致；表上**刻意不加 CHECK 约束** ——
+新失败类型随时会出现，而约束会让**整条审计写入**失败）：
+
+| status | 含义 | 记 latency？ |
+|---|---|---|
+| `ok` | 正常返回 | ✅ |
+| `blocked_input` | 入闸拦下（命中违禁词） | ❌ 没调模型 |
+| `quota_denied` | 信誉配额用尽 | ❌ |
+| `provider_error` | 模型调用失败 | ✅ |
+| `empty_output` | 模型返回空白 | ✅ |
+| `too_short` | 出闸长度不足 | ✅ |
+| `json_parse_failed` | 要求 JSON 但抠不出来 | ✅ |
+
+⚠️ **两件事别混**（2026-10-16 起分得很清楚）：
+
+| | 网关迁移 | 埋点覆盖 |
+|---|---|---|
+| 管什么 | 配额校验 + 违禁词入闸 + 出入闸长度 | **只管计数** |
+| 现状 | **2/40** 个调用点 | **7/7 入口**（全覆盖） |
+| 位置 | `safety_gateway.generate()` | 客户端层，见 9.11 |
+
+所以「生成审计页的数字」现在已经可信（每一条都真的记了），
+欠的是**安全那半边** —— 没迁网关的那些调用照常计数，但没有内容检查。
+
+---
+
+### 9.11 AI 调用埋点：为什么打在客户端层（2026-10-16）
+
+**结论：埋点打在 `agents/` 的 7 个客户端函数上，不是逐个改 40 处调用点。**
+
+```python
+# agents/llm_client.py   —— 4 个
+call_llm / call_llm_stream / call_llm_vision / call_llm_vision_stream
+# agents/qwen_client.py  —— 3 个
+call_qwen / call_qwen_stream / call_qwen_vision
+```
+
+> **真正的咽喉只有这几个。** 全站 40 处「调用点」全都是它们的**使用者**。
+> 改 7 个函数 = 覆盖全站，**而且以后新写的调用点自动被计入**。
+> 逐个改调用点那种做法，漏一个就是一个统计黑洞，且**没人会发现**
+> —— 数字看起来永远是对的。
+
+**为什么不走网关就够了**：网关要求调用方显式传 `purpose`，40 处都得改；
+而客户端层对调用方是**透明**的。
+
+**不走 openai SDK 的三处另接**（websocket / 私有协议，客户端层够不着）：
+
+| 入口 | 位置 | 备注 |
+|---|---|---|
+| 讯飞 ASR | `utils/xunfei_client.py` 的 `speech_to_text` | 三个端点共用；⚠️ 它挂着 `ai_quota_gate("asr")`，**一直在扣用户配额** |
+| 千问 TTS | `utils/qwen_tts_client.py` 的 `get_tts_audio` | 不只是语音播报，**`services/video_gen.py` 的视频配音**也走它 |
+| 千问 realtime 通话 | `routers/xiaoji.py` 的 `/call-ws` | 一次通话记一行，`latency_ms` 记的是**通话时长**（不是单次请求耗时） |
+
+登记表在 `utils/gen_audit.py` 的 `AI_ENTRY_POINTS` + `entry_point_coverage()`，
+后台主面板的「已接入生成点」卡读的就是它。
+
+**三个关键机制：**
+
+1. **`record_soon()` —— 同步入口。** 客户端是同步的（openai SDK 的同步客户端），
+   而且常跑在 `asyncio.to_thread` 的工作线程里（**那里没有事件循环**）。
+   有 loop 时 `create_task`（并**自己留强引用** —— 事件循环不持有 task 的强引用，
+   不存的话它可能在跑之前被 GC 掉，表现为「日志里只有一句 Task was destroyed
+   but it is pending」而审计**静默少一条**）；没有 loop 时 `asyncio.run` 兜底。
+
+2. **`handled_by_caller()` —— 防重复记账。** 网关自己会写一条**更完整的**审计
+   （它知道 `purpose` / `user_id` / `input_chars`），所以走网关的调用必须让客户端层闭嘴，
+   否则同一次生成记两行、**调用次数直接翻倍**，而且翻得毫无规律（取决于这次走没走网关）。
+   用 **contextvar** 而不是传参：`asyncio.to_thread` 会复制上下文，协程里 set、
+   工作线程里 get 能对上。
+
+3. **`called` 标志 —— 参数问题不算调用。** 「旁白为空」「websocket-client 没装」
+   这类提前返回**根本没碰到云端**，记进去就是把调用次数灌水。
+   判断标准是「**云端有没有真的在为我们花钱**」，不是「代码里有没有个函数」。
+
+**流式还要处理消费方中途断开**（`GeneratorExit`）：用户切页面时模型那边
+**已经烧过 token**，不记会让统计系统性偏低 —— 记一条 `ok` 并标 `detail.aborted`。
+
+**量纲不混**：TTS 的输入是文本（进 `input_chars`），产出是音频（字节数放 `detail`）。
+把字节数塞进 `output_chars` 会让「输出长度」这个指标失去意义。
+
+---
+
+### 9.12 搜索词编码：`ilike_term` 与 `ilike_term_params` 的分工
+
+`services/supabase.py` 里这两个函数**必须分清**，混用会静默搜不到：
+
+| 函数 | 给谁用 | 行为 |
+|---|---|---|
+| `ilike_term()` | **手工拼 URL** 的调用方（`db.select` 的 `or_`、`url += f"&col=ilike.*{...}*"`） | 替换 `,()` 为空格 **+ `quote()` 预编码** |
+| `ilike_term_params()` | **走 httpx `params=`** 的调用方 | 只替换 `,()`，**编码交给 httpx** |
+
+> ⚠️ 2026-10-16 实测踩到：把 `ilike_term()` 的输出丢进 `params=` 会被 httpx **再编一次**
+> （`%` → `%25`），中文成了 `%25E6%25B5%258B...`，服务端拿编码残渣去 LIKE ——
+> **HTTP 200 但命中 0**，不报错、不抛异常。真库实测：搜「测试」命中 0。
+>
+> `,()` 则**两条路都必须换掉**：PostgREST 先解码整个 `or` 值再按这些字符切分，
+> 所以 `%2C` 解出来照样是分隔符。实测 `,` 不换直接 `PGRST100` 400；
+> `(` `)` 更阴 —— 不报错，静默 0 命中。
 
 ---
 
@@ -4924,34 +5405,69 @@ async def get_current_super_admin(current_user = Depends(get_current_user)) -> s
 
 ### 10.1 LLM 客户端
 
-`backend/agents/llm_client.py` (45行)：
+`backend/agents/llm_client.py` —— **这是全站 DeepSeek 调用的咽喉**
+（埋点就打在这一层，见 9.11）：
 
 ```python
-from openai import OpenAI
+_PROVIDER = "deepseek"
 
-def call_llm(messages, temperature=0.7, use_cache=True) -> str:
-    client = OpenAI(
-        api_key=os.getenv("DEEPSEEK_API_KEY"),
-        base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-        timeout=60.0          # ← 客户端级别超时
-    )
-    response = client.chat.completions.create(
-        model=get_model(),          # deepseek-flash（V4.1 Flash）
-        messages=messages,
-        temperature=temperature,
-        stream=False,
-        timeout=55.0,          # ← 请求级别超时
-        max_tokens=8192,
-    )
-    return response.choices[0].message.content
+def call_llm(messages, temperature=0.7, use_cache=True, purpose="unknown") -> str:
+    """purpose：进生成审计的「按用途」分组。默认 unknown ——
+    调用方顺手传一个（如 "question_gen"）就能让后台分得清是哪类生成。"""
+    started = time.perf_counter()
+    try:
+        client = OpenAI(
+            api_key=get_api_key(),
+            base_url=get_base_url(),
+            timeout=60.0          # ← 客户端级别超时
+        )
+        response = client.chat.completions.create(
+            model=get_model(),          # deepseek-flash（V4.1 Flash）
+            messages=messages,
+            temperature=temperature,
+            stream=False,
+            timeout=55.0,          # ← 请求级别超时
+            max_tokens=8192,
+            **_thinking_kwargs(),  # 思考模式默认关（见下）
+        )
+    except Exception as e:
+        gen_audit.note_fail(provider=_PROVIDER, model=get_model(),
+                            purpose=purpose, started=started, error=e)
+        raise                      # ← 记账后**照常上抛**，埋点不改调用方行为
+    content = response.choices[0].message.content
+    gen_audit.note_ok(provider=_PROVIDER, model=get_model(), purpose=purpose,
+                      started=started, output=content)
+    return content
 
-def call_llm_stream(messages, temperature=0.7):
+def call_llm_stream(messages, temperature=0.7, purpose="unknown"):
     """流式调用，用于 AI 对话"""
-    # 同上，但 stream=True
-    for chunk in response:
-        if chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+    started = time.perf_counter()
+    buf = []
+    try:
+        # 同上，但 stream=True
+        for chunk in response:
+            # ⚠️ 不能直接 chunk.choices[0] —— 部分模型会在流末尾补一个
+            #    choices 为空的 usage 块，取 [0] 当场 IndexError 把整条流打断
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            if delta and delta.content:
+                buf.append(delta.content)
+                yield delta.content
+    except GeneratorExit:
+        # 消费方提前断开：模型那边**已经烧过 token**，不记会让统计系统性偏低
+        gen_audit.note_ok(..., output="".join(buf), detail={"aborted": True})
+        raise
+    except Exception as e:
+        gen_audit.note_fail(..., error=e)
+        raise
+    gen_audit.note_ok(..., output="".join(buf))
 ```
+
+**思考模式**（`_thinking_kwargs`）：DeepSeek V4.1 Flash 默认开思考，
+实测首字 0.6s → 1~13s、输出 token 翻数倍且**思考计入 `max_tokens`**。
+本平台默认关闭（`extra_body={"thinking": {"type": "disabled"}}`），
+置 env `DEEPSEEK_THINKING=1` 可开 —— 但前端还需支持展示 `reasoning_content`。
 
 **超时策略**：
 - 客户端超时 (60s)：如果 DeepSeek 完全无响应
@@ -5208,14 +5724,61 @@ else:
 
 | 页面 | 路由 | 组件 | 核心功能 | 权限 |
 |------|------|------|----------|------|
-| 仪表盘 | `/admin` | AdminDashboard | 7 项统计卡片 + 快捷入口 | admin+ |
+| 仪表盘 | `/admin` | AdminDashboard | 统计卡片 + 快捷入口 | admin+ |
 | 用户管理 | `/admin/users` | AdminUsers | 列表搜索/封禁/设管理员（超管）/用户详情 | admin+ |
-| 内容审核 | `/admin/reports` | AdminReports | 举报/反馈/Q&A 三 Tab 审核 | admin+ |
+| 举报·反馈·Q&A | `/admin/{reports,feedback,qa}` | AdminReports | **三个路径共用一个组件**（页内三 Tab）—— 路径分开是为了侧边栏点哪个地址就变哪个 | admin+ |
 | 题库管理 | `/admin/questions` | AdminQuestions | 题目 CRUD + 筛选 + 批量导入 | admin+ |
-| 公告管理 | `/admin/announcements` | AdminAnnouncements | 公告 CRUD + 图片上传 | admin+ |
+| 公告管理 | `/admin/announcements` | AdminAnnouncements | 公告 CRUD + 图片上传。⚠️ **广播失败不回滚公告** | admin+ |
+| 视频库管理 | `/admin/videos` | AdminVideos | 审核用户发布申请 / 处理举报 / 批量暖库 | admin+ |
 | 操作日志 | `/admin/logs` | AdminLogs | 审计日志查询 | admin+ |
+| 设置 | `/admin/settings` | AdminSettings | 全局设置 | admin+ |
+| **安全中心** | `/admin/security` | AdminSecurity | **四个 Tab，见 12.4** | admin+ |
 
-### 12.2 审计日志系统
+### 12.2 安全中心（2026-10-15 新增）
+
+**四个 Tab，各自问一个不同的问题**：
+
+| Tab | 问的问题 | 数据源 | 后端 |
+|---|---|---|---|
+| **总览** | 谁在打我们？ | `security_events` | 聚合：趋势 / 严重级分布 / Top IP / Top 用户 |
+| **安全事件** | 具体哪一条？ | 同上 | 筛选（类型/严重级/IP/用户/端点/时间）+ 分页 |
+| **用户信誉** | 这个人可信吗？ | 信誉四表 | 查分 → 变更历史 → 手动改分（**理由必填**）/ 按档位筛 |
+| **生成审计** | 我们的 AI 跑成什么样？ | `ai_generation_audit` | 成功率 / 按用途 / 按模型 / 耗时 / 明细 |
+
+**接口**（前缀 `/admin/security`）：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/filters` | 事件类型 / 严重级清单（**来自代码登记表，不是查库 distinct** —— 后者冷启动时是空的，筛选器就是死的） |
+| GET | `/events` | 安全事件分页 |
+| GET | `/overview` | 安全事件总览聚合 |
+| GET | `/users/{user_id}/reputation` | 某用户信誉分 + 档位 + 清白天数 + 完整变更历史 |
+| PUT | `/users/{user_id}/reputation` | 手动设分（**理由必填**，空理由 422；并发冲突 409） |
+| GET | `/reputation/list` | 信誉列表。2026-10-16 起**以 `profiles` 全表为准左连接**（`?search=` 按昵称/邮箱/账号搜，`?tier=` 按档位筛）—— 详见下面第 2 条 |
+| GET | `/reputation/rules` | 规则 + 档位配置（只读） |
+| GET | `/gen-audit/overview` | 生成审计总览（含**覆盖率**字段） |
+| GET | `/gen-audit` | 生成审计明细 |
+
+**四条使用时要记住的**：
+
+1. **「安全事件」只记失败和拦截，不记全量生成** —— 它的队列满了会丢最旧的，
+   全量灌进去等于让 AI 用量把攻击记录挤掉。要看全量生成去「生成审计」。
+2. **「用户信誉」列表现在是全站用户**（2026-10-16 改）。以前只列 `user_reputation`
+   里有行的人 —— 而那张表是**懒创建**的（满分继续加分时 `apply_delta` 直接 return，
+   走不到 `_ensure_row`），于是 23 个用户只显示 1 个、还是个满分的。
+   现在**没行 = 从未变动 = 满分**（与 `get_score()` 同口径），响应多带两个字段：
+   `with_record`（其中真被动过的人数）与 `truncated`（取数触顶时如实标出来）。
+   建议前端把「全站 N 人 / 其中 M 人被动过」分开说 —— 否则 23 个满分会被读成 23 条真实记录。
+3. **⚠️「埋点覆盖」与「网关迁移」是两个数，别混**：埋点 **7/7 入口全覆盖**
+   （打在客户端层，见 9.11）—— 所以生成审计页的**总数与成功率是可信的**；
+   网关迁移仍是 **2/40** —— 没迁的那些照常计数，但**没有配额校验与违禁词入闸**。
+   欠的是安全那半边，不是计数。
+3. **⚠️ 读接口非 200 一律报 502，绝不降级成空列表**（`_fail`）。
+   安全中心显示「没有攻击」是最危险的一种假象 —— 而「表没建 / GRANT 没给 / 网络挂了」
+   全都会表现成「暂无数据」。报错文案会**指向对应的那份 SQL**
+   （三块共用一个模块，写死文件名会把运维引到一份不含该表的脚本上）。
+
+### 12.3 审计日志系统
 
 每次管理员操作自动调用 `write_audit_log()`：
 
@@ -5239,7 +5802,7 @@ async def write_audit_log(admin_id, action, target_type, target_id, detail):
         pass  # ← 日志写入失败不抛异常
 ```
 
-### 12.3 题库管理 CRUD
+### 12.4 题库管理 CRUD
 
 所有题库操作通过 `local_question_bank` 模块：
 
@@ -5578,7 +6141,8 @@ main ──── 主分支 (当前工作分支)
 
 ## 16. 已知问题与解决方案
 
-以下内容来自 `PROJECT_LOG.md`（37 条已解决问题），此处仅列重要项：
+以下内容来自 `PROJECT_LOG.md`（**183 条**已解决问题），此处仅列重要项。
+**要查某个具体问题的根因和修法，去 `PROJECT_LOG.md` 按条目号找，那儿才是完整版：**
 
 | # | 问题 | 根因 | 修复 | 影响文件 |
 |---|------|------|------|----------|
@@ -5594,6 +6158,19 @@ main ──── 主分支 (当前工作分支)
 | 32 | AI 生成的 JSON 大量解析失败 | 截断、嵌套、尾逗号、markdown 包裹 | 括号计数 + 回退 + 剥离 + 类型过滤 | seed_all_banks.py |
 | 34 | 无微信扫码登录 | 小程序有但网页版没有 | 公众号测试号 OAuth + 扫码轮询 ⚠️ **2026-09-28 整套移除**（测试号是开发工具不该上生产；个人主体也做不了网页微信登录） | auth.py |
 | 35 | 微信登录不安全（扫码即创建用户） | 自动创建用户有冒用风险 | 区分 login/bind 模式，login 必须已绑定 ⚠️ **2026-09-28 反向改回**：小程序端改为「微信一键登录**直接建号** + 之后可补邮箱密码」，不再有 bind 模式（见 5.11） | auth.py |
+
+**2026-10-15 那批（都是真库上才暴露的，详见 `PROJECT_LOG.md` 172~183 条）：**
+
+| 问题 | 根因 | 修法 |
+|---|---|---|
+| **77 个端点零鉴权** | 写操作身份只认请求体里的 `user_id` | 核过三端后补 **26 个** + 结构性护栏测试。⚠️ 补之前必须核三端，`/subject-plan/syllabi` 是游客流程，加锁当场断 |
+| **安全中心总览整页 502** | `since.isoformat()` 产出 `+00:00`，手工拼进 URL 后 **`+` 等于空格** → PostgREST 400 | 全部改走 httpx `params=` |
+| **社区搜索永远「没有结果」** | `ilike.%{}%` 里的 `%` 原样进 URL → 非法转义 → **Cloudflare 1101 → 500**，又被 `!= 200 → 空列表` 吞掉 | 换 `*` 通配符 + `ilike_term()` 编码搜索词 |
+| **社区动态流 `total` 恒为 0** | `count=exact` 是**请求头**不是查询参数，写成参数回 `PGRST100` | 改请求头 + `limit=1`，从 `Content-Range` 读数 |
+| **清白计时器被凭空掐断** | 加分规则在满分边界也写 `delta=0` 流水，而 `streak_days` 按 `delta<=0` 判违规 | 只有**扣分**规则才写边界流水 |
+| **真实 IP 恒为 127.0.0.1** | 线上经 Nginx，`request.client.host` 是本机 | `utils/client_ip.py`；判据是 `is_via_trusted_proxy()`，**不是「peer != ip」**（方向相反） |
+| **模型 API 抖动导致全站掉分** | `check_content_safety` 是 fail-closed 的，服务挂了也返回"不安全" | 用 `SERVICE_UNAVAILABLE` 把「判定违规」和「服务不可用」分开，只有前者扣分 |
+| **一个人在等出题，全站其他人跟着卡** | `call_llm` / `call_qwen` 是同步阻塞的（超时 55s），却在协程里直接调 | 网关收口处用 `asyncio.to_thread` 一次修掉（既有问题，非本轮引入） |
 
 ---
 
@@ -6058,10 +6635,11 @@ npm run build   # 产出 src-tauri/target/release/bundle/nsis/JIZHI_x.y.z_x64-se
 | `JWT_EXPIRE_HOURS` | ❌ | `720` | JWT 过期时间（30天） |
 | `FRONTEND_URL` | ❌ | `http://localhost:5173` | 前端地址 |
 | `BACKEND_EXTERNAL_URL` | ❌ | `http://localhost:8000` | 后端外网地址。**当前无消费方**（原用于微信 OAuth 回调，该功能已移除） |
-| `VOLC_ACCESS_KEY` | ❌ | — | 火山引擎 AK |
-| `VOLC_SECRET_KEY` | ❌ | — | 火山引擎 SK |
-| `ARK_API_KEY` | ❌ | — | 豆包 API Key |
-| `XUNFEI_APPID` | ❌ | — | 科大讯飞 APPID |
+| ~~`VOLC_ACCESS_KEY`~~ | — | — | ⚠️ **已移除**，代码里无消费方（2026-08-25 LLM 全量收编） |
+| ~~`VOLC_SECRET_KEY`~~ | — | — | ⚠️ 同上 |
+| ~~`ARK_API_KEY`~~ | — | — | ⚠️ 同上 |
+| `DASHSCOPE_API_KEY` | ✅ | — | 阿里云百炼（千问）—— TTS / 识图 / 视频脚本 |
+| `XUNFEI_APPID` | ❌ | — | 科大讯飞 APPID（**仅 ASR 还在用**） |
 | `XUNFEI_API_KEY` | ❌ | — | 科大讯飞 API Key |
 | `XUNFEI_API_SECRET` | ❌ | — | 科大讯飞 API Secret |
 | `REDIS_HOST` | ❌ | `localhost` | Redis 主机 |

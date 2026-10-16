@@ -2,7 +2,7 @@
   <div class="rank-page">
     <div class="rank-header">
       <h2>🏆 好友排行榜</h2>
-      <span class="rank-subtitle">看看谁在学习路上走得更远</span>
+      <span class="rank-subtitle">查看学习进度排名</span>
     </div>
 
     <el-divider />

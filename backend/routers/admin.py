@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+import re
 import uuid
 import httpx
 import time
@@ -14,6 +15,8 @@ import logging
 from urllib.parse import quote
 
 from config import settings
+from services.supabase import ilike_term
+from utils import gen_audit
 from utils.admin_middleware import get_current_admin, get_current_super_admin, get_admin_headers, write_audit_log
 from utils.sanctions import invalidate as invalidate_sanction_cache
 from utils.notification import notify, NotifyError
@@ -155,11 +158,32 @@ def _safe_int_from_header(res: httpx.Response) -> int:
 class DashboardResponse(BaseModel):
     total_users: int = 0
     today_new_users: int = 0
-    total_questions_done: int = 0
-    today_questions_done: int = 0
+    # ⚠️ 2026-10-16 删掉了 total_questions_done / today_questions_done（做题数）。
+    #    理由：这两个数来自 question_records，而真正会做题的那条链路几乎没在写它，
+    #    于是面板上长期显示「总做题数 7、今日做题 0」—— 一个看着像坏了、
+    #    实际上也说明不了任何事的数字。**宁可少一张卡片，也不放一个会误导的数。**
     pending_reports: int = 0
     pending_feedback: int = 0
     total_plans: int = 0
+    # ⚠️ 题库总量原先前端读 stats.question_bank_count，但后端**从来没返回过这个字段**，
+    #    所以卡片恒显示 0（真实值 19338 题 / 17 个考纲）。/settings 端点里一直是对的，
+    #    只有主面板漏了 —— 前端引用一个不存在的字段不会报错，只会静默显示 0。
+    question_bank_count: int = 0
+
+    # ── AI 生成审计（2026-10-16 新增）────────────────────────────────
+    # 数据源是 ai_generation_audit 表，写入方见 utils/gen_audit.py。
+    # ⚠️ 这张表**建了没有**要先确认：没建的话下面三个数会全部取不到，
+    #    会落进 errors —— 前端必须把「取不到」显示成「—」而不是 0，
+    #    否则「AI 一次都没调用过」和「表不存在」看起来一模一样。
+    ai_calls_total: int = 0        # 累计调用次数
+    ai_calls_today: int = 0        # 今日调用次数（北京时间零点起）
+    ai_calls_ok: int = 0           # 其中成功的；成功率 = ok / total，前端自己算
+    # 埋点覆盖率 {"migrated": N, "total": M}。
+    # ⚠️ 这个数**不是**从库里查的，是 utils/gen_audit.py 里登记的常量 ——
+    #    故意的：覆盖率要说的是"我们**应该**覆盖多少"，只能人工登记，
+    #    查库永远只能查出"已经记了多少"，那正是它想防的事。
+    ai_entry_points: Dict[str, int] = {}
+
     # 取不到的指标在这里留痕（key=指标名, value=原因）。
     # 之前这些统计全部 except: pass + 失败即 0，面板一片 0 和"业务上真的没有"
     # 长得一模一样 —— 有了这个字段，前端才能把"取不到"和"真的是 0"分开显示。
@@ -315,22 +339,32 @@ async def dashboard(current_admin: str = Depends(get_current_admin)):
                 return 0
             return _safe_int_from_header(r)
 
-        total_users          = await count("用户总数",     "profiles")
-        today_new_users      = await count("今日新增用户", "profiles",         created_at=f"gte.{today_str}")
-        total_questions_done = await count("总答题数",     "question_records")
-        today_questions_done = await count("今日答题数",   "question_records", created_at=f"gte.{today_str}")
-        pending_reports      = await count("待处理举报",   "content_reports",  status="eq.pending")
-        pending_feedback     = await count("待处理反馈",   "user_feedback",    status="eq.pending")
-        total_plans          = await count("总学习计划数", "subject_plans")
+        total_users      = await count("用户总数",     "profiles")
+        today_new_users  = await count("今日新增用户", "profiles",        created_at=f"gte.{today_str}")
+        pending_reports  = await count("待处理举报",   "content_reports", status="eq.pending")
+        pending_feedback = await count("待处理反馈",   "user_feedback",   status="eq.pending")
+        total_plans      = await count("总学习计划数", "subject_plans")
+
+        # AI 生成审计。表没建的话这三项会落进 errors —— 这正是想要的行为：
+        # 面板会显示「取不到」，而不是一个看着像"没调用过"的 0。
+        ai_calls_total = await count("AI 调用总数",   "ai_generation_audit")
+        ai_calls_today = await count("AI 今日调用",   "ai_generation_audit",
+                                     created_at=f"gte.{today_str}")
+        ai_calls_ok    = await count("AI 调用成功数", "ai_generation_audit", status="eq.ok")
 
     return DashboardResponse(
         total_users=total_users,
         today_new_users=today_new_users,
-        total_questions_done=total_questions_done,
-        today_questions_done=today_questions_done,
         pending_reports=pending_reports,
         pending_feedback=pending_feedback,
         total_plans=total_plans,
+        # 题库是**本地文件**（backend/question_banks/*.json），不走 Supabase，
+        # 所以不能像上面几项那样 count()。取数不经过网络，也就不会失败。
+        question_bank_count=local_question_bank.count(),
+        ai_calls_total=ai_calls_total,
+        ai_calls_today=ai_calls_today,
+        ai_calls_ok=ai_calls_ok,
+        ai_entry_points=gen_audit.entry_point_coverage(),
         errors=errors,
     )
 
@@ -343,11 +377,13 @@ async def dashboard(current_admin: str = Depends(get_current_admin)):
 async def list_users(
     search: str = Query(default="", description="搜索邮箱或昵称"),
     status: str = Query(default="", description="active / banned"),
+    days: int = Query(default=0, ge=0, le=365,
+                      description="只看最近 N 天注册的；0=不限。days=1 即「今日新增」"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     current_admin: str = Depends(get_current_admin),
 ):
-    """用户列表 - 分页 + 搜索 + 状态筛选"""
+    """用户列表 - 分页 + 搜索 + 状态筛选 + 注册时间筛选"""
     params = {
         "select": "id,email,nickname,user_account,avatar_url,learning_stage,is_admin,is_active,role,created_at",
         "order": "created_at.desc",
@@ -364,6 +400,15 @@ async def list_users(
         search_clauses.append("is_active=eq.true")
     elif status == "banned":
         search_clauses.append("is_active=eq.false")
+    # 「最近 N 天」按**北京时间**的零点算，与仪表盘的「今日新增」同口径
+    # （那边也是北京时间零点重置，不是 UTC）。days=1 → 今天 0 点起。
+    #
+    # ⚠️ 收的是**整数天数**而不是让前端传日期串：这个值要拼进 PostgREST 的
+    #    查询串，收字符串就等于开了个注入口子（顺手也省掉一处 URL 编码问题）。
+    if days:
+        since = (datetime.now(timezone(timedelta(hours=8)))
+                 - timedelta(days=days - 1)).strftime("%Y-%m-%d")
+        search_clauses.append(f"created_at=gte.{since}")
 
     # 手动拼接 URL（避免 httpx 编码 PostgREST 特殊字符）
     base = f"{settings.SUPABASE_URL}/rest/v1/profiles"
@@ -578,6 +623,85 @@ async def toggle_admin(
 
 
 # ============================
+# 学习计划
+# ============================
+
+# 计划状态的白名单。**不收任意字符串** —— 它要拼进 PostgREST 的查询串。
+# 看到新的状态就加到这里；不认识的直接忽略（返回全部），不报错 ——
+# 管理页因为一个拼错的状态码整个挂掉，比多看几行不值得。
+_PLAN_STATUSES = {"active", "completed", "paused", "archived", "abandoned"}
+
+
+@router.get("/plans")
+async def list_plans(
+    search: str = Query(default="", description="搜索计划名 / 学科 / 考纲"),
+    status: str = Query(default="", description="按状态筛，留空=全部"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_admin: str = Depends(get_current_admin),
+):
+    """
+    学习计划列表（跨用户）。
+
+    ⚠️ 为什么要**嵌入** profiles：这一页要回答的是「谁在建计划、建的是什么」。
+       只给 user_id 的话管理员得逐个去用户页粘 UUID 才认得出人 ——
+       那正是「用户信誉」列表当初的毛病（见 admin_security.py 的
+       list_reputation：列表里只有一串 UUID，等于没法用）。
+       外键 subject_plans.user_id → profiles.id 是现成的，PostgREST 直接嵌入，
+       不用自己查两遍再在 Python 里拼。
+
+    ⚠️ 注意这个 URL 是**手工拼**的（同 list_users，为了绕开 httpx 对
+       PostgREST 特殊字符的编码），所以搜索词要用 ilike_term() ——
+       会预编码的那一版。用 ilike_term_params() 反而会因为 `*` 和 `,`
+       原样进 URL 而拼坏语法。两个函数的分工见 services/supabase.py。
+    """
+    params = {
+        "select": "id,user_id,name,subject,syllabus_id,status,goal_score,"
+                  "period_days,total_days,completed_days,total_questions,"
+                  "completed_questions,created_at,updated_at,"
+                  "profiles(nickname,email,user_account)",
+        "order": "created_at.desc",
+        "limit": str(page_size),
+        "offset": str((page - 1) * page_size),
+    }
+
+    clauses = []
+    term = search.strip()
+    if term:
+        t = ilike_term(term)
+        clauses.append(f"or=(name.ilike.*{t}*,subject.ilike.*{t}*,syllabus_id.ilike.*{t}*)")
+    if status and status in _PLAN_STATUSES:
+        clauses.append(f"status=eq.{status}")
+
+    base = f"{settings.SUPABASE_URL}/rest/v1/subject_plans"
+    query_parts = [f"{k}={v}" for k, v in params.items()]
+    query_parts.extend(clauses)
+    url = base + "?" + "&".join(query_parts)
+
+    headers = get_admin_headers()
+    headers["Prefer"] = "count=exact"
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.get(url, headers=headers)
+    if r.status_code not in (200, 206):
+        logger.error(f"[admin] 学习计划列表查询失败 status={r.status_code} body={r.text[:300]}")
+        raise HTTPException(status_code=502, detail=f"学习计划查询失败（上游 {r.status_code}）")
+
+    items = r.json() if r.text else []
+    for it in items:
+        # 把嵌入的用户信息**摊平**到顶层：前端不用去猜 PostgREST 的嵌套形状，
+        # 而且没关联到用户时（账号已删）能明确看出是 None 而不是空对象。
+        prof = it.pop("profiles", None) or {}
+        if isinstance(prof, list):
+            prof = prof[0] if prof else {}
+        it["nickname"] = prof.get("nickname")
+        it["email"] = prof.get("email")
+        it["user_account"] = prof.get("user_account")
+
+    return PaginatedResponse(items=items, total=_safe_int_from_header(r),
+                             page=page, page_size=page_size)
+
+
+# ============================
 # 内容审核
 # ============================
 
@@ -698,6 +822,68 @@ async def _write_sanction(user_id: str, kind: str, *, scope: Optional[str] = Non
         created = []
     if isinstance(created, list) and not created:
         raise HTTPException(status_code=502, detail="处置记录未写入（上游返回空）")
+
+
+async def _apply_reputation_for_report(action: str, author_id: Optional[str],
+                                       reporter_id: Optional[str],
+                                       report_id: str) -> None:
+    """
+    举报处置 → 信誉值联动（2026-10-15）。
+
+    两个方向：
+      · 被举报人扣分 —— 按处置动作映射到 reputation_rules 里的 code
+      · 举报人加分 —— 只有当举报**被采纳**（不是 dismiss/mark）时给
+
+    ⚠️ 三条刻意的设计：
+
+    1. **扣分只在处置真正落库之后做。** 这个函数在端点末尾被调用，
+       排在「回写举报记录 + 回读校验」之后 —— 与本项目既有的顺序纪律一致
+       （先落状态、再写历史、最后发通知）。顺序反了就会产生
+       「扣了分但其实没处罚」的孤儿记录。
+
+    2. **按 report_id 去重。** 同一条举报可能被管理员处理两次
+       （比如先 warn 改成 ban）。`dedup_by_source=True` 保证
+       (用户, 规则, 举报 id) 只扣一次：
+         · warn → ban 会各扣一次（规则 code 不同，属于升级，应该扣）
+         · warn → warn 不会重复扣
+
+    3. **完全不抛异常。** 信誉计算失败绝不能改变处置结果本身 ——
+       管理员点了"已禁言"，就该是已禁言。失败留 ERROR 让人能事后补。
+
+    action → code 的映射写在这里，**分值在库里**（reputation_rules），
+    要调分值改表就行，不用碰这段代码。
+    """
+    code_map = {
+        "warn": "sanction.warn",
+        "delete_content": "report.upheld",
+        "mute": "sanction.mute",
+        "ban": "sanction.ban",
+    }
+    try:
+        from utils.reputation import apply_delta
+
+        code = code_map.get(action)
+        if code and author_id:
+            await apply_delta(
+                author_id, code,
+                source_type="report", source_id=str(report_id),
+                detail={"report_id": str(report_id), "action": action},
+                dedup_by_source=True,
+            )
+
+        # 举报被采纳 → 给举报人加分。dismiss / mark 不算采纳。
+        if action in code_map and reporter_id and reporter_id != author_id:
+            await apply_delta(
+                reporter_id, "report.accepted",
+                source_type="report", source_id=str(report_id),
+                reason_text="你提交的举报被采纳",
+                detail={"report_id": str(report_id), "action": action},
+                dedup_by_source=True,
+            )
+    except Exception as e:
+        # 见上面第 3 条：不允许影响处置结果
+        logger.error("[admin] 举报处置的信誉联动失败 report=%s action=%s: %s: %s",
+                     report_id, action, type(e).__name__, e)
 
 
 async def _notify_sanction(user_id: str, action: str, report_id: str,
@@ -873,6 +1059,13 @@ async def resolve_report(
     # ⚠️ 通知失败**不改处置结果**（处置已落库），但必须留 ERROR —— 不静默。
     if action in ("warn", "mute", "ban", "delete_content") and author_id:
         await _notify_sanction(author_id, action, report_id, body, expires_at)
+
+    # ── 信誉值联动 ──
+    # 放在这里（而不是各处置分支里）是刻意的：此时举报状态已回写并通过回读校验、
+    # 处置也已经在 profiles 上生效 —— 只有到这个点扣分才对应得了真实发生的事。
+    await _apply_reputation_for_report(
+        action, author_id, report.get("reporter_id"), report_id,
+    )
 
     await write_audit_log(
         admin_id=current_admin,
