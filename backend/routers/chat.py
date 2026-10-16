@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 import httpx
 from datetime import datetime
-from utils.sensitive_words import check_content_safety
+from utils.sensitive_words import check_and_penalize
 from utils.auth_middleware import get_current_user, verify_user_match
 from agents.planner import plan_with_history_stream
 from agents.generator import generate_with_history_stream
@@ -146,7 +146,8 @@ async def chat(req: ChatRequest, current_user: str = Depends(get_current_user)):
     user_message = req.messages[-1].get("content", "") if req.messages else ""
 
     if user_message:
-        safe, reason = check_content_safety(user_message)
+        safe, reason = await check_and_penalize(user_message, current_user,
+                                                field="message", endpoint="/chat/send")
         if not safe:
             raise HTTPException(status_code=400, detail=f"内容包含敏感信息：{reason}")
 

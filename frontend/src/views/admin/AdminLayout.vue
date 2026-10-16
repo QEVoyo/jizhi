@@ -16,6 +16,10 @@
           <i class="fas fa-users"></i>
           <span>用户管理</span>
         </router-link>
+        <router-link to="/admin/plans" class="admin-nav-item" :class="{ active: isActive('/admin/plans') }">
+          <i class="fas fa-list-check"></i>
+          <span>学习计划</span>
+        </router-link>
         <!-- 举报 / 反馈 / Q&A 原先是「举报审核」+「反馈 & Q&A」两项，
              后者指向 /admin/feedback 但组件标签写死为 reports —— 点了没反应。
              现在三项与页内三个标签一一对应。 -->
@@ -42,6 +46,10 @@
         <router-link to="/admin/videos" class="admin-nav-item" :class="{ active: isActive('/admin/videos') }">
           <i class="fas fa-clapperboard"></i>
           <span>视频库管理</span>
+        </router-link>
+        <router-link to="/admin/security" class="admin-nav-item" :class="{ active: isActive('/admin/security') }">
+          <i class="fas fa-user-shield"></i>
+          <span>安全中心</span>
         </router-link>
         <router-link to="/admin/logs" class="admin-nav-item" :class="{ active: isActive('/admin/logs') }">
           <i class="fas fa-clock-rotate-left"></i>

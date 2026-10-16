@@ -2,10 +2,14 @@
 每日推荐 + 昨日学习总结 生成服务
 由定时任务或手动 API 触发
 """
+import asyncio
+import re
 import httpx
 from datetime import datetime, timedelta, timezone
 from config import settings
 from agents.llm_client import call_llm
+from services.supabase import get_supabase_service_headers
+from services import summary_copy
 from utils.notification import notify, NotifyError
 from services.kp_questions import q_stem_text, score_by_kp
 from logging_config import logger
@@ -66,56 +70,214 @@ async def get_active_users(days: int = 7) -> list[dict]:
         return profiles
 
 
-async def get_user_yesterday_activity(user_id: str) -> dict:
-    """获取用户昨日学习数据"""
-    headers = {
-        "apikey": settings.SUPABASE_KEY,
-        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+# ============================================================
+# 学习总结的时间窗口
+#
+# ⚠️ 2026-10-16 之前这个函数叫「昨日」，但**根本没有日期过滤** ——
+#    取的是 questions 表里该用户的**全历史**，还是 `limit=50` 截断的前 50 条：
+#      · 完成题数 = min(真实行数, 50) → 真实做了 231 题的用户也显示「完成 50 道题」
+#      · 没写 order= → 每次取到的是哪 50 条不确定 → 掌握度在 0 / 9 / 56 之间跳
+#      · mastery_score 对绝大多数行是**从没写过的默认 0**，不是"答了 0 分"
+#    真库实测：19 条总结里 16 条写着「完成 50 道题」，而全站最新一条作答是 9 天前。
+#
+#    改按 N 天窗口 + 真实计数。窗口取 7 天是因为按「昨日」严格算的话，
+#    现在这个活跃度下**全站没人收得到总结**（真库实测某日 0 条作答）。
+# ============================================================
+SUMMARY_WINDOW_DAYS = 7
+
+# 「学习行为」白名单 —— 只数**真的产生或消费了学习内容**的动作。
+#
+# ⚠️ **必须是白名单，不能是黑名单。** user_actions 里 login / view_career /
+#    update_nickname 这类纯导航与账号动作占了很大比例（真库实测 login 229 次、
+#    view_career 230 次，各占两成以上）。全算进去的话，一个这周一次题都没做、
+#    只是天天登录的用户会收到「最近 7 天学习 14 次」—— 那正是这次要修的那类假数字。
+#
+#    新出现的动作类型默认**不算**学习；要算就显式加到这里，顺便回答一次
+#    「它到底是不是学习」。
+#
+# ⚠️ 这份白名单是照着 user_actions 里**实际出现过的 30 种类型**逐个判的
+#    （2026-10-16 真库枚举），不是拍脑袋列的。加漏一种的后果是那个动作
+#    在总结里彻底消失 —— 比如 `complete_question`（完成题目）漏掉的话，
+#    认真做题的人反而显示"零学习行为"。
+LEARNING_ACTIONS = {
+    # 出题 / 做题 / 错题
+    "generate_question", "complete_question", "conquer_mistake",
+    # 对话与四类智能体
+    "chat", "use_plan_agent", "use_generate_agent",
+    "use_evaluate_agent", "xiaoji_tool",
+    # 视频与词条
+    "generate_video", "watch_video", "wordbook_lookup",
+    # 题集 / 计时 / 摸底诊断
+    "create_set", "add_to_set", "use_timer", "timer_complete", "diagnosis_done",
+    # 看自己的学习数据（掌握度看板 / 报告）
+    "view_mastery", "view_report",
+}
+# 判过的、**故意不算**的（写在这儿免得下次有人再纠结一遍）：
+#   login / change_password / update_nickname / update_bio / update_avatar
+#     / change_status —— 账号与个人资料操作
+#   view_career —— 学程页（排行/成就），是激励页不是学习内容；而且它是
+#     全站最高频动作（230/925），放进来会把"学习行为"整个稀释掉
+#   checkin / claim_achievement —— 签到与领成就，是激励不是学习
+#   test_direct / __probe_write__ —— 测试与探针写进去的脏数据
+
+# 只用于给模型读的中文名（数字仍然是后端算的，这里只影响措辞）
+LEARNING_ACTION_LABEL = {
+    "generate_question": "出题",
+    "complete_question": "完成题目",
+    "conquer_mistake": "攻克错题",
+    "chat": "和小基对话",
+    "use_plan_agent": "用计划智能体",
+    "use_generate_agent": "用生成智能体",
+    "use_evaluate_agent": "用评估智能体",
+    "xiaoji_tool": "用小基工具",
+    "generate_video": "生成讲解视频",
+    "watch_video": "看讲解视频",
+    "wordbook_lookup": "查词条",
+    "create_set": "建题集",
+    "add_to_set": "加题集",
+    "use_timer": "用专注计时",
+    "timer_complete": "完成一次专注",
+    "diagnosis_done": "做完摸底诊断",
+    "view_mastery": "看掌握度看板",
+    "view_report": "看学习报告",
+}
+
+
+async def get_user_recent_activity(user_id: str, days: int = SUMMARY_WINDOW_DAYS) -> dict:
+    """最近 N 天的真实学习数据。三张表，**全部如实计数，不做任何推算**。
+
+    对应技术报告里的两条闭环链，分开取数：
+      · 资源库链   → `questions`（AI 逐题评分，`source=generated`）
+      · 学科计划链 → `user_kp_mastery`（EWMA 累计）
+      另加 `user_actions` 的行为流水。
+
+    ⚠️ **掌握度只统计 mastery_score > 0 的行。**
+       那个字段对大多数行从没被写过，默认值就是 0（真库实测：470 行里 345 行
+       mastery_score=0 且 `is_mistake` 也不是 true —— 按技术报告写的规则，
+       真的答错会被标 is_mistake，所以那些 0 是**缺失**，不是"零分"）。
+       把缺失值当零分平均，结论必然错，而且是**往"你很差"的方向错**：
+       用户会收到「掌握度为零说明基础概念还没打通，先别急着刷题」这种话。
+       一行有效评分都没有时返回 None，前端显示「—」而不是 0%。
+
+    ⚠️ 三个查询都走 **service_role**：原实现用的是 anon key，RLS 一旦收紧就会
+       静默返回空列表，总结会变成"你这周什么都没做"——那种错比报错更难查。
+    """
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    headers = get_supabase_service_headers()
+    base = f"{settings.SUPABASE_URL}/rest/v1"
+
+    async def fetch(path: str, params: dict, label: str):
+        """取一张表。失败返回 None（与"真的是空"区分开）。"""
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as c:
+                r = await c.get(f"{base}/{path}", params=params, headers=headers)
+            if r.status_code != 200:
+                logger.warning("[summary] %s 查询失败 status=%s body=%s",
+                               label, r.status_code, r.text[:200])
+                return None
+            return r.json()
+        except Exception as e:                                    # noqa: BLE001
+            logger.warning("[summary] %s 查询异常 %s: %s", label, type(e).__name__, e)
+            return None
+
+    questions, kp_rows, actions = await asyncio.gather(
+        fetch("questions",
+              {"user_id": f"eq.{user_id}", "created_at": f"gte.{since}",
+               "select": "topic,normalized_topic,mastery_score,is_mistake,source"},
+              "资源库链·作答"),
+        fetch("user_kp_mastery",
+              {"user_id": f"eq.{user_id}", "last_practiced_at": f"gte.{since}",
+               "select": "kp_name,mastery_score,correct_count,total_count"},
+              "学科计划链·知识点"),
+        # ⚠️ 取 action_at 不是为了显示，是为了**算出真实的天数分布**。
+        #    不取的话模型只能看到"7 次"，然后自己脑补成"连着走了七天"
+        #    —— 实测真的这么写过。与其禁止它推断，不如把真相给它。
+        fetch("user_actions",
+              {"user_id": f"eq.{user_id}", "action_at": f"gte.{since}",
+               "select": "action_type,action_at"},
+              "行为流水"),
+    )
+
+    sources_ok = {
+        "questions": questions is not None,
+        "kp": kp_rows is not None,
+        "actions": actions is not None,
     }
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # 查昨日掌握度变化（简化：取最近更新的题目）
-        url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&select=topic,mastery_score&limit=50"
-        res = await client.get(url, headers=headers)
-        questions = res.json() if res.status_code == 200 else []
+    questions = questions or []
+    kp_rows = kp_rows or []
+    actions = actions or []
 
-        # 查学程动作（activities 表从未建过 → 恒空；真实表是 user_actions）
-        actions_url = (f"{settings.SUPABASE_URL}/rest/v1/user_actions?user_id=eq.{user_id}"
-                       f"&select=action_type,action_at&order=action_at.desc&limit=20")
-        actions_res = await client.get(actions_url, headers=headers)
-        activities = actions_res.json() if actions_res.status_code == 200 else []
+    # ── 资源库链：按知识点聚合**有效评分** ──
+    topic_scores: dict[str, list] = {}
+    scored = 0
+    for q in questions:
+        s = q.get("mastery_score") or 0
+        if s <= 0:
+            continue                     # 缺失值，跳过（理由见上面的大段说明）
+        scored += 1
+        t = q.get("normalized_topic") or q.get("topic") or "未分类"
+        topic_scores.setdefault(t, []).append(s)
 
-        # 统计
-        topic_scores = {}
-        for q in questions:
-            t = q.get("topic") or "未分类"
-            s = q.get("mastery_score", 0)
-            if t not in topic_scores:
-                topic_scores[t] = []
-            topic_scores[t].append(s)
+    avg_mastery = None
+    if topic_scores:
+        all_scores = sum(topic_scores.values(), [])
+        avg_mastery = round(sum(all_scores) / len(all_scores))
 
-        avg_mastery = 0
-        if topic_scores:
-            # ⚠️ 2026-10-08 修：原来是 `sum((sum(s) for s in topic_scores.values()), [])`。
-            #    `topic_scores` 的值是**分数列表**（{'foo': [80, 60]}），内层 `sum(s)`
-            #    已经把列表压成一个 int，外层再拿 `[]` 去「拼」int →
-            #    TypeError: can only concatenate list (not "int") to list。
-            #    本意是拍平，直接 `sum(values, [])` 就是拍平。
-            #    **这条路径从来没被跑过**（每日推荐只挂在手动调试端点上），
-            #    所以这个崩溃一直没暴露 —— 一旦真推给用户就是 100% 失败。
-            all_scores = sum(topic_scores.values(), [])
-            avg_mastery = round(sum(all_scores) / len(all_scores)) if all_scores else 0
+    def topic_avg(scores):
+        return sum(scores) / len(scores)
 
-        weak = [t for t, scores in topic_scores.items() if sum(scores) / len(scores) < 50][:3]
-        improved = [t for t, scores in topic_scores.items() if sum(scores) / len(scores) >= 80][:3]
+    ranked = sorted(topic_scores.items(), key=lambda kv: topic_avg(kv[1]))
+    weak = [t for t, s in ranked if topic_avg(s) < 60][:6]
+    strong = [t for t, s in ranked if topic_avg(s) >= 80][:6]
 
-        return {
-            "question_count": len(questions),
-            "avg_mastery": avg_mastery,
-            "weak_topics": weak,
-            "strong_topics": improved,
-            "recent_activities": activities[:5],
-        }
+    # ── 学科计划链：EWMA 掌握度（这一列是逐次递推出来的真值，不是缺失）──
+    kp_topics = [{"name": k.get("kp_name") or k.get("kp_id") or "未命名知识点",
+                  "mastery": round(k.get("mastery_score") or 0),
+                  "correct": k.get("correct_count") or 0,
+                  "total": k.get("total_count") or 0}
+                 for k in kp_rows]
+    kp_topics.sort(key=lambda k: k["mastery"])
+
+    # ── 行为：区分「全部动作」与「学习动作」──
+    learning = [a for a in actions if a.get("action_type") in LEARNING_ACTIONS]
+    breakdown: dict[str, int] = {}
+    for a in learning:
+        breakdown[a["action_type"]] = breakdown.get(a["action_type"], 0) + 1
+
+    # 学习行为分布在几天里（**按北京时间切天**，与全站口径一致）。
+    #
+    # ⚠️ 这个数必须真算出来给模型 —— 不给的话它会拿"7 次"编成"连着走了七天"，
+    #    而那可能完全是假的（一天做完 7 次和连着 7 天各做 1 次是两回事）。
+    #    「与其禁止推断，不如把真相给它」比写十条禁令都管用。
+    active_days = 0
+    if learning:
+        days_seen = set()
+        for a in learning:
+            ts = a.get("action_at")
+            if not ts:
+                continue
+            try:
+                dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                days_seen.add(dt.astimezone(timezone(timedelta(hours=8))).strftime("%Y-%m-%d"))
+            except (ValueError, AttributeError):
+                continue
+        active_days = len(days_seen)
+
+    return {
+        "days": days,
+        "question_count": len(questions),
+        "mistake_count": sum(1 for q in questions if q.get("is_mistake") is True),
+        "scored_count": scored,
+        "avg_mastery": avg_mastery,
+        "weak_topics": weak,
+        "strong_topics": strong,
+        "kp_topics": kp_topics[:6],
+        "action_count": len(actions),           # 全部动作（含登录等）
+        "learning_count": len(learning),        # 只算学习动作
+        "action_breakdown": breakdown,
+        "active_days": active_days,             # 学习行为铺在几天里（真实切天）
+        "sources_ok": sources_ok,
+    }
 
 
 async def generate_daily_summary(user: dict) -> dict | None:
@@ -127,7 +289,7 @@ async def generate_daily_summary(user: dict) -> dict | None:
           Shell编程、文件操作和切片赋值的长度变化是你目前的薄弱点。建议……」
 
     **精确数据全埋在句子里**：题数、掌握度、薄弱点后端本来就**如实算出来了**
-    （`get_user_yesterday_activity`），却让模型用自然语言再讲一遍 ——
+    （`get_user_recent_activity`），却让模型用自然语言再讲一遍 ——
     又丑（前端只能当一整块文本渲染）、又不可靠（模型可能说错数）。
 
     现在拆开：
@@ -138,30 +300,138 @@ async def generate_daily_summary(user: dict) -> dict | None:
     LLM 挂了也不丢整条：退回**确定性文案**（数字仍然是真数据）。
     """
     try:
-        activity = await get_user_yesterday_activity(user["id"])
-        if activity["question_count"] == 0:
+        activity = await get_user_recent_activity(user["id"])
+        # 窗口内真的一件**学习**的事都没做 → 不发。
+        # ⚠️ 用的是 learning_count 而不是 action_count：光登录了 10 次不算学习，
+        #    给这种人发"学习总结"就是噪音（而且会逼着总结去编内容）。
+        #    三个来源任一有货就发 —— 计划链练了知识点、或查了词条，都算。
+        if (activity["question_count"] == 0 and activity["learning_count"] == 0
+                and not activity["kp_topics"]):
+            return None
+        # 三个来源一个都没取到时**不发**：那说明是查询挂了，不是"这人没学习"。
+        # 发出去就是一份"你这周什么都没做"的假总结 —— 比不发伤人得多。
+        if not any(activity["sources_ok"].values()):
+            logger.warning("[summary] 三个数据源全部取数失败，跳过 user=%s", user["id"])
             return None
 
         weak = [t for t in (activity.get("weak_topics") or []) if t]
         strong = [t for t in (activity.get("strong_topics") or []) if t]
-        mastery = activity["avg_mastery"]
+        mastery = activity["avg_mastery"]      # None = 没有有效评分（不是 0 分）
         count = activity["question_count"]
+        scored = activity["scored_count"]
+        mistakes = activity["mistake_count"]
+        kp_topics = activity["kp_topics"]
+        days = activity["days"]
+        active_days = activity["active_days"]
 
         profile_desc = f"{user.get('learning_stage', '未知')} {user.get('grade', '')}".strip()
 
-        prompt = f"""你是一位温暖的学习助手"基智"，要给一位学生写**昨日学习总结的文字部分**。
+        # ── 数字卡片：**只放真的算得出来的**，取不到的宁可不显示 ──
+        # 技术报告那条原则在这里同样适用：只用真实数据，不推算不放大。
+        learning_count = activity["learning_count"]
+        breakdown = activity["action_breakdown"]
+        breakdown_line = "、".join(
+            f"{LEARNING_ACTION_LABEL.get(k, k)} {v} 次"
+            for k, v in sorted(breakdown.items(), key=lambda kv: -kv[1])) or "无"
+
+        stats = []
+        if count:
+            stats.append({"label": "练习题目", "value": count, "unit": "道"})
+        if scored:
+            stats.append({"label": "掌握度", "value": mastery, "unit": "%",
+                          "hint": f"仅统计已批改的 {scored} 道"})
+        if mistakes:
+            stats.append({"label": "其中错题", "value": mistakes, "unit": "道"})
+        if kp_topics:
+            stats.append({"label": "计划知识点", "value": len(kp_topics), "unit": "个"})
+        if learning_count:
+            stats.append({"label": "学习行为", "value": learning_count, "unit": "次",
+                          "hint": breakdown_line})
+        if not stats:
+            # 理论上到不了这里（上面已经拦掉"什么都没做"），兜一下别给前端空数组
+            stats.append({"label": "学习行为", "value": learning_count, "unit": "次"})
+
+        # 模型只写文字，数字一律由后端原样带入（同 daily_rec 的分工）
+        mastery_line = (f"- 整体掌握度：{mastery}%（只统计已批改的 {scored} 道）"
+                        if scored else
+                        "- 整体掌握度：**本期没有已批改的作答，这项没有数据**")
+        kp_line = ('、'.join(f"{k['name']}({k['mastery']}%)" for k in kp_topics) or '无')
+
+        # ── 三段文字的两种来源：**模型优先，模板兜底** ──
+        #
+        # 模板库见 services/summary_copy.py。这里的随机是刻意的：
+        # 分组每次随机挑一条，范本也每次随机取几条 —— 同一个人连着几天
+        # 收到一模一样的句子会立刻出戏，然后再也不点开。
+        bucket = summary_copy.bucket_for(
+            count=count, scored=scored, mastery=mastery,
+            kp_topics=kp_topics, learning_count=learning_count)
+        slots = {
+            "days": days,
+            "count": count,
+            "scored": scored,
+            # ⚠️ mastery 可能是 None（没有已批改的作答）。填成"—"而不是 0 ——
+            #    模板只做字符串插值、不做比较，所以 None 不会让它算错。
+            "mastery": mastery if mastery is not None else "—",
+            "weak": weak[0] if weak else "薄弱环节",
+            "kp": len(kp_topics),
+            "behaviors": breakdown_line,
+            # ⚠️ {actions} 是**学习行为数**，和 {count}（答题数）是两个东西。
+            #    behaviors_only 那几条模板要的是这个 —— 写成 {count} 会得到
+            #    「有 0 次学习动作（查词条 3 次、对话 1 次）」这种自相矛盾的句子。
+            "actions": learning_count,
+        }
+        fallback = summary_copy.render(bucket, **slots)
+
+        # ⚠️ 给模型的是**结构**（这段怎么组织），不是成品句子。
+        #    成品句子摆在面前模型会照抄 —— 那正是"模板味"的来源。
+        #    两种模板的分工见 services/summary_copy.py 的文件头。
+        note_struct = summary_copy.structure_for(bucket, "note")
+        sug_struct = summary_copy.structure_for(bucket, "suggestion")
+        enc_struct = summary_copy.structure_for(bucket, "encouragement")
+
+        prompt = f"""你是一位温暖的学习助手"基智"，要给一位学生写**最近 {days} 天学习总结的文字部分**。
 
 学生背景：{profile_desc}
-昨日真实数据（**不要复述这些数字**，前端会用卡片单独展示）：
-- 完成题目：{count} 道
-- 整体掌握度：{mastery}%
-- 薄弱知识点：{'、'.join(weak) or '暂无'}
-- 擅长知识点：{'、'.join(strong) or '暂无'}
+真实数据（**不要复述这些数字**，前端会用卡片单独展示）：
+- 练习题目：{count} 道，其中错题 {mistakes} 道
+{mastery_line}
+- 薄弱知识点：{'、'.join(weak) or '无'}
+- 擅长知识点：{'、'.join(strong) or '无'}
+- 计划里的知识点掌握度：{kp_line}
+- 学习行为：{learning_count} 次（{breakdown_line}），分布在 {active_days} 天里（共 {days} 天）
+
+**这三段分别要怎么写**（这是结构，不是例子 —— 照着它组织语言，别找现成的句子套）：
+· 点评：{note_struct}
+· 建议：{sug_struct}
+· 鼓励：{enc_struct}
+
+⚠️ 几条硬约束：
+1. **不要提到上面没有的数字**，也不要自己换算或估计。
+2. 掌握度那项如果写着"没有数据"，就**不要评价掌握度**，改成点评练习量或学习节奏。
+3. **不要复述**：具体数值、以及**知识点名**（"需要加强 / 掌握不错 / 计划知识点"
+   那几组标签已经把知识点列全了）。你要给的是**判断**，不是把它们再念一遍。
+   反例：「错题集中在三角恒等变换和导数定义，说明卡点正是下一步要补的地方」
+   —— 前半句是念标签，后半句是同义反复（等于什么都没说）。
+   正例：「数列这块已经稳了，导数定义还差一轮巩固」—— 同样是那两个知识点，
+   但给的是**程度上的判断**。
+4. **不要拔高**。学习行为那行给的是明细（如"完成题目 6 次、和小基对话 3 次"），
+   概括时别把聊天、查词条说成"坐下来学"、"刷了一天题"、"一周九次苦读"。
+   宁可说得平一点，也别把 3 次聊天算成学习时长。
+5. **时间分布以"分布在 N 天里（共 M 天）"那个数为准**，别自己推。
+   **「坚持 / 没断 / 一直在」这类话，只在 N 接近 M 时才能说。**
+   反例（实测写过）：N=2、M=7 时说「你这周没断线」—— 那明明断了五天。
+   N 明显小于 M 的，就老实说次数，别夸他坚持，也别指责他断
+   （"这周有两次学习"就是一句准确且不伤人的话）。
+6. 鼓励要**落到这个人身上**（他这周具体做了什么），不要「你真棒」这种放之四海皆准的空话。
+7. **这是一个人自己用的备考工具**，没有同学、没有课堂。别建议「讲给同学听」
+   「小组讨论」这类做不到的事。
+8. 一句话里**别重复同一个数字**（"挑 5 道题做完，题量固定在 5 道" —— 说一遍就够）。
+   写完读一遍，读不通的句子重写。
 
 请只写三段文字，返回严格 JSON：
 {{
-  "note": "一句点评（40字内）。针对掌握度与实际表现给客观判断，不要「你很棒」这种空话",
-  "suggestion": "一条今天就能做的具体建议（60字内）。要具体到动作，不要「多加练习」这种空话",
+  "note": "一句点评（40字内）。针对实际表现给客观判断",
+  "suggestion": "一条今天就能做的具体建议（60字内）。要具体到动作",
   "encouragement": "一句鼓励（25字内）。真诚，不油腻"
 }}
 
@@ -172,37 +442,67 @@ async def generate_daily_summary(user: dict) -> dict | None:
             raw = call_llm([
                 {"role": "system", "content": "你是基智学习助手，说话温暖简洁。只返回 JSON。"},
                 {"role": "user", "content": prompt},
-            ], temperature=0.6)
+            ], temperature=0.85)     # 调高：鼓励类文字需要一点变化，0.6 太容易写成套话
             prose = _extract_json(raw)
         except Exception as e:                                  # noqa: BLE001
-            logger.warning(f"[daily_summary] LLM 生成失败，用确定性文案: {e}")
+            logger.warning(f"[daily_summary] LLM 生成失败，整条走模板: {e}")
 
-        # 三段文字任一缺失就用兜底补上 —— **数字始终是真数据**，那才是重点
-        note = (prose or {}).get("note") or _fallback_note(mastery)
-        suggestion = (prose or {}).get("suggestion") or _fallback_suggestion(weak)
-        encouragement = (prose or {}).get("encouragement") or "明天继续。"
+        # 逐段决定：模型给了就用模型的，没给（或返回残缺）就用模板补这一段。
+        # **数字始终是真数据**，那才是重点。
+        note = _cjk_spacing((prose or {}).get("note") or fallback["note"])
+        suggestion = _cjk_spacing((prose or {}).get("suggestion") or fallback["suggestion"])
+        encouragement = _cjk_spacing((prose or {}).get("encouragement") or fallback["encouragement"])
+
+        # 这段文字是谁写的 —— 记进 payload，排查时能一眼看出
+        # （"AI 总结还是模板总结"这个问题，在数据里要有答案）
+        from_ai = [k for k in ("note", "suggestion", "encouragement")
+                   if (prose or {}).get(k)]
+        prose_source = ("ai" if len(from_ai) == 3
+                        else "template" if not from_ai
+                        else "mixed")
 
         # 列表页显示的正文摘要（详情页渲染的是 payload，这里给没渲染能力的端兜底）
-        digest = f"完成 {count} 道题，整体掌握度 {mastery}%。{note}"
+        # ⚠️ 分三种情况写，别硬套「练习 N 道题」——一道题没做的时候那句话是错的。
+        if count:
+            digest = f"最近 {days} 天练习 {count} 道题"
+            if scored:
+                digest += f"，已批改的 {scored} 道平均掌握度 {mastery}%"
+        elif kp_topics:
+            digest = (f"最近 {days} 天在计划里练了 {len(kp_topics)} 个知识点，"
+                      f"没走资源库出题")
+        else:
+            digest = f"最近 {days} 天没练题，但有 {learning_count} 次学习行为（{breakdown_line}）"
+        digest += f"。{note}"
+
+        summary_line = (f"{count} 题" + (f" | 掌握度 {mastery}%" if scored else "")
+                        if count else f"{learning_count} 次学习行为")
 
         return {
             "user_id": user["id"],
             "type": "daily_summary",
-            "title": "昨日学习总结",
+            "title": f"近期学习总结",
             "content": digest,
-            "summary": f"掌握度 {mastery}% | {count} 题",
+            "summary": summary_line,
             # ⚠️ 原来这里是 action_label / action_link。那两列表里有，但 `notify()`
             #    不写（全站统一走 `link`），所以写在这儿落不了库
             #    （同 daily_rec 那个静默 no-op 的坏链）。统一走 link。
             "link": "/career",
             "payload": {
                 "kind": "summary",
-                "stats": {"questions": count, "mastery": mastery},
+                "days": days,
+                # ⚠️ stats 从**对象改成了列表**（老的是 {"questions":n,"mastery":m}）。
+                #    前端两种都要认 —— 历史上那 19 条通知还是老形状。
+                "stats": stats,
                 "weak": weak[:6],
                 "strong": strong[:6],
+                "kp": kp_topics[:6],
                 "note": note,
                 "suggestion": suggestion,
                 "encouragement": encouragement,
+                # 三段文字是模型写的、模板填的、还是混合的。
+                # 排查「今天怎么都是套话」时，第一个要看的就是这个字段。
+                "prose_source": prose_source,
+                "bucket": bucket,
             },
             "is_read": False,
         }
@@ -250,20 +550,31 @@ def _extract_json(raw: str) -> dict | None:
         return None
 
 
-def _fallback_note(mastery: int) -> str:
-    if mastery >= 80:
-        return "掌握得挺扎实，这个节奏可以保持。"
-    if mastery >= 60:
-        return "大体上跟上了，还有几处需要巩固。"
-    if mastery >= 40:
-        return "有些地方还没吃透，先别急着往前赶。"
-    return "这些内容对你来说还比较新，别着急。"
+# 注：早先这里有两个兜底函数（_fallback_note / _fallback_suggestion），
+# 每个只返回一句写死的话。2026-10-16 被 services/summary_copy.py 的模板库取代 ——
+# 那边的分组更细（练了题但没批改、只在计划里练、只有行为没练题……）、
+# 每种情况都有多条随机挑，而且同时给模型当语气范本。
+# 一句话的兜底在这两件事上都做不到。
 
 
-def _fallback_suggestion(weak: list) -> str:
-    if weak:
-        return f"今天挑「{weak[0]}」单独做 5 道题，做完对着解析过一遍。"
-    return "今天先做 5 道题，做完对着解析过一遍。"
+_CJK = r"一-鿿"
+
+
+def _cjk_spacing(text: str) -> str:
+    """阿拉伯数字和中文之间补一个空格：「今天挑5道」→「今天挑 5 道」。
+
+    ⚠️ 用后处理而不是写进提示词：模型对**排版类**指令的执行率很低
+       （说了也时灵时不灵，同一批输出里一半带空格一半不带），
+       而这纯粹是个确定性字符串变换 —— 代码做才可靠。
+       （内容是模型的，排版是代码的，两件事分开。）
+
+    `%` 两边不动：「86%」本来就该贴着数字。
+    """
+    if not text:
+        return text
+    text = re.sub(rf"(\d)([{_CJK}])", r"\1 \2", text)
+    text = re.sub(rf"([{_CJK}])(\d)", r"\1 \2", text)
+    return text
 
 
 def _focus_candidates(user: dict, activity: dict, source: str) -> tuple[list, str]:
@@ -271,7 +582,8 @@ def _focus_candidates(user: dict, activity: dict, source: str) -> tuple[list, st
 
     两种依据：
       profile —— 按个人信息：学习阶段 / 年级 / 专业 / 学习目标
-      history —— 按以往做题记录：薄弱知识点（`get_user_yesterday_activity` 算出来的）
+      history —— 按以往做题记录：薄弱知识点（`get_user_recent_activity` 算出来的，
+                只统计**真被批改过**的题 —— 见那个函数的说明）
 
     ⚠️ 两条回落规则是必须的，否则会出现「选了一种依据但凑不出内容 → 永远不发」：
       选 history 但一条做题记录都没有 → 退回 profile
@@ -484,7 +796,11 @@ async def generate_daily_recommendation(user: dict) -> dict | None:
         cfg = await get_settings(user["id"])
         source = (cfg.get("daily_rec_source") or "mix").strip() or "mix"
 
-        activity = await get_user_yesterday_activity(user["id"])
+        # ⚠️ 推荐用 **30 天**窗口，比总结的 7 天宽。
+        #    两个窗口的用途不同：总结是"最近学得怎么样"，推荐是"该补哪个老短板"
+        #    —— 短板不该因为这两周没练就消失。
+        #    （改之前这里拿的是全历史里**任意** 50 条，连"最近"都算不上。）
+        activity = await get_user_recent_activity(user["id"], days=30)
         candidates, source = _focus_candidates(user, activity, source)
         if not candidates:
             logger.info(f"[daily_rec] 依据凑不出内容，今天不发 user={user['id']} source={source}")

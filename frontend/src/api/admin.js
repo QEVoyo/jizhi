@@ -22,6 +22,12 @@ export function updateUserAdmin(userId, isAdmin) {
   return request.put(`/admin/users/${userId}/admin`, { is_admin: isAdmin }).then(res => res.data)
 }
 
+// ===== 学习计划 =====
+// 列表已经嵌好用户昵称/邮箱了（后端用外键嵌入查的），前端不用再逐个查用户。
+export function getPlans(params = {}) {
+  return request.get('/admin/plans', { params }).then(res => res.data)
+}
+
 // ===== 内容举报 =====
 export function getReports(params = {}) {
   return request.get('/admin/reports', { params }).then(res => res.data)
@@ -134,4 +140,65 @@ export function retryAdminVideo(videoId) {
 // 后台侧边栏也没有入口。2026-09-30 补上。
 export function getSystemSettings() {
   return request.get('/admin/settings').then(res => res.data)
+}
+
+// ===== 安全中心（2026-10-15）=====
+// 数据源是 security_events 表，由 utils/security_log.py 写入
+// （中间件自动记限流/鉴权失败/越权，业务主动记冒充他人 user_id）。
+
+/** 筛选器的可选项（事件类型 / 严重级）。类型来自后端登记表，不是查库 distinct */
+export function getSecurityFilters() {
+  return request.get('/admin/security/filters').then(res => res.data)
+}
+
+/** 安全事件分页列表 */
+export function getSecurityEvents(params = {}) {
+  return request.get('/admin/security/events', { params }).then(res => res.data)
+}
+
+/** 总览聚合（趋势 / 分布 / Top IP / Top 用户） */
+export function getSecurityOverview(params = {}) {
+  return request.get('/admin/security/overview', { params }).then(res => res.data)
+}
+
+// ===== 用户信誉（2026-10-15 第二期）=====
+// 信誉分与「积分」是两个体系：积分只增不减（学习攒的），信誉可增可减（违规掉、清白回来）。
+// 四张表：user_reputation / _logs / reputation_rules / reputation_tiers。
+
+/** 单个用户：分数 + 档位 + 清白天数 + 完整变更历史 */
+export function getUserReputation(userId, params = {}) {
+  return request.get(`/admin/security/users/${userId}/reputation`, { params }).then(res => res.data)
+}
+
+/** 手动设分。**理由必填** —— 后端会拒空理由，前端也先拦一道 */
+export function setUserReputation(userId, score, reason) {
+  return request.put(`/admin/security/users/${userId}/reputation`, { score, reason }).then(res => res.data)
+}
+
+/** 信誉分列表（低分在前）。只列表里有行的用户 = 有过违规记录的人 */
+export function listReputations(params = {}) {
+  return request.get('/admin/security/reputation/list', { params }).then(res => res.data)
+}
+
+/** 规则与档位配置（只读；改值直接 UPDATE 表，代码零改动） */
+export function getReputationRules() {
+  return request.get('/admin/security/reputation/rules').then(res => res.data)
+}
+
+// ===== 生成审计（2026-10-15 第三期）=====
+// 数据源是 ai_generation_audit 表，由 utils/safety_gateway.py 每次生成写一行
+// （成功也写）。与「安全事件」是两回事：那边只记失败和拦截，问的是「谁在攻击」；
+// 这边问的是「我们的 AI 生成跑成什么样」。
+//
+// ⚠️ 覆盖率取决于有多少调用点迁到了网关（现在 2/40），所以数字**不是全站**。
+//    接口返回里的 coverage 字段就是给界面提示这件事用的。
+
+/** 生成审计总览（成功率 / 按用途 / 按模型 / 耗时 / 趋势） */
+export function getGenAuditOverview(params = {}) {
+  return request.get('/admin/security/gen-audit/overview', { params }).then(res => res.data)
+}
+
+/** 生成审计明细 */
+export function getGenAuditList(params = {}) {
+  return request.get('/admin/security/gen-audit', { params }).then(res => res.data)
 }

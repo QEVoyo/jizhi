@@ -31,7 +31,7 @@
         <div v-else class="vd-notready">
           <span class="vd-nr-pen">✍️</span>
           <div class="vd-nr-text">{{ video.status === 'generating' ? '讲解师正在写讲稿…' : '生成失败，作者可以重试' }}</div>
-          <div v-if="video.status === 'generating'" class="vd-nr-sub">写完会自动呈现，稍等一下</div>
+          <div v-if="video.status === 'generating'" class="vd-nr-sub">生成完成后将自动呈现</div>
         </div>
 
         <div class="vd-head">
@@ -203,7 +203,7 @@
               <span class="vd-pq-src ai">AI 生成</span>
             </button>
             <div v-if="aiLoading" class="vd-pq-loading">✦ AI 正在出题…</div>
-            <div v-else-if="!aiItems.length" class="vd-pq-retry" @click="genAiItems">AI 出题没赶上趟，点这里再生成</div>
+            <div v-else-if="!aiItems.length" class="vd-pq-retry" @click="genAiItems">AI 出题未完成，点击重新生成</div>
           </div>
         </template>
       </div>

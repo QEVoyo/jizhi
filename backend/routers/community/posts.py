@@ -5,8 +5,10 @@ from datetime import datetime
 from config import settings
 import httpx, uuid, re, json
 from collections import defaultdict
-from utils.sensitive_words import check_content_safety
+from utils.sensitive_words import check_and_penalize
 from utils.auth_middleware import get_current_user, verify_user_match
+from utils.reputation_gate import require_can_publish
+from utils.reputation_gate import review_state_for
 from utils.sanctions import assert_can_act
 from services.supabase import get_supabase_headers, get_supabase_service_headers
 from logging_config import logger
@@ -15,18 +17,21 @@ router = APIRouter(prefix="/community", tags=["社区-动态"])
 # ============================================================
 
 @router.post("/post")
-async def create_post(user_id: str, data: PostCreate, current_user: str = Depends(get_current_user)):
+async def create_post(user_id: str, data: PostCreate, current_user: str = Depends(get_current_user),
+                      _can: str = Depends(require_can_publish)):
     """发布动态（修复标签和图片写入）"""
     verify_user_match(user_id, current_user)
     await assert_can_act(user_id, "post")      # 禁言范围含 post 时挡在这里
     # ✅ 内容安全过滤
     if data.content:
-        safe, reason = check_content_safety(data.content)
+        safe, reason = await check_and_penalize(data.content, current_user,
+                                                field="content", endpoint="/community/post")
         if not safe:
             raise HTTPException(status_code=400, detail=f"动态内容包含敏感信息：{reason}")
 
     if data.title:
-        safe, reason = check_content_safety(data.title)
+        safe, reason = await check_and_penalize(data.title, current_user,
+                                                field="title", endpoint="/community/post")
         if not safe:
             raise HTTPException(status_code=400, detail=f"标题包含敏感信息：{reason}")
 
@@ -61,6 +66,14 @@ async def create_post(user_id: str, data: PostCreate, current_user: str = Depend
             image_list = [img.strip() for img in data.images.split(',') if img.strip()]
 
     # 4. 构建要存入数据库的数据
+    #
+    # status 由信誉档位决定（2026-10-15）：
+    #   优良/正常 → 'published'，直接公开
+    #   受限/高危 → 'pending'，仅自己可见 + 进后台待审队列
+    # 判定失败时 review_state_for 会 fail-open 回 'published' ——
+    # 把所有人卡进审核队列的代价，远大于偶尔漏审一条。
+    post_status = await review_state_for(user_id)
+
     post_data = {
         "user_id": user_id,
         "title": data.title,
@@ -71,6 +84,7 @@ async def create_post(user_id: str, data: PostCreate, current_user: str = Depend
         "like_count": 0,
         "comment_count": 0,
         "collect_count": 0,
+        "status": post_status,
         "created_at": datetime.now().astimezone().isoformat()
     }
 
@@ -90,13 +104,23 @@ async def create_post(user_id: str, data: PostCreate, current_user: str = Depend
         if res.status_code not in [200, 201]:
             raise HTTPException(status_code=400, detail=f"发布失败: {res.text}")
 
+        # ⚠️ 待审时必须**明确告诉用户**，不能让他以为发出去了。
+        #    一个"发出去了但没人看得见"的帖子，用户只会觉得网站坏了。
+        pending = post_status == "pending"
+        msg = "已提交，审核通过后会公开显示" if pending else "发布成功"
+
         if not res.text:
-            return {"success": True, "message": "发布成功", "id": None}
+            return {"success": True, "message": msg, "status": post_status, "id": None}
 
         try:
-            return res.json()
-        except:
-            return {"success": True, "message": "发布成功", "id": None}
+            body = res.json()
+            if isinstance(body, dict):
+                body.setdefault("message", msg)
+                body["status"] = post_status
+                return body
+            return {"success": True, "message": msg, "status": post_status}
+        except Exception:
+            return {"success": True, "message": msg, "status": post_status, "id": None}
 
 
 @router.get("/posts")
@@ -132,18 +156,46 @@ async def get_posts(
                 return {"posts": [], "total": 0, "page": page, "page_size": page_size}
 
         # ===== 👇 关键修复：在 select 里加上 title, tags, images =====
-        url = f"{settings.SUPABASE_URL}/rest/v1/posts?select=*,profiles!user_id(nickname,avatar_url,user_account)&order=created_at.desc&limit={page_size}&offset={offset}"
+        #
+        # ⚠️ 2026-10-15 补两个过滤，缺一不可：
+        #
+        # ① `is_deleted=eq.false` —— **这是修一个既有 bug**：
+        #    这个查询以前从来没过滤软删。被举报、管理员「删除被举报内容」处理过的帖子，
+        #    在社区动态流里**照常显示**。处置记录写着"已删除"，用户还看得见。
+        #
+        # ② 可见性 = 「已公开」或「是我自己发的」：
+        #    低信誉用户的新内容 status='pending'，只有他自己看得到 ——
+        #    这正是「先审后发」里"仅自己可见"那一半。
+        #    用 or 而不是直接 eq.published，否则作者发完自己都刷不出来，
+        #    会以为发布失败了（而且他会反复重发）。
+        # ⚠️ 查询条件走 `params=` 交给 httpx 编码，**不要手工拼查询串**。
+        #
+        #    2026-10-15 踩到的：`content=ilike.%{search}%` 里那两个 `%` 通配符是
+        #    原样拼进 URL 的，而 `%he` 不是合法的百分号转义 —— Supabase 边缘 worker
+        #    直接抛异常（Cloudflare Error 1101 → HTTP 500）。偏偏下面又把非 200
+        #    静默降级成空列表，于是**社区搜索永远显示"没有结果"**，搜什么词都一样。
+        #    （同类问题的另一种面孔：admin_security / subject_plan 那边是时间戳里
+        #      的 `+`，在 query string 里等于空格。）
+        params: dict = {
+            "select": "*,profiles!user_id(nickname,avatar_url,user_account)",
+            "is_deleted": "eq.false",
+            "or": f"(status.eq.published,user_id.eq.{user_id})",
+            "order": "created_at.desc",
+            "limit": page_size,
+            "offset": offset,
+        }
 
         if filter_type == "friends" and friend_ids:
             ids_str = ",".join([f"\"{id}\"" for id in friend_ids])
-            url += f"&user_id=in.({ids_str})"
+            params["user_id"] = f"in.({ids_str})"
 
         if topic:
-            url += f"&topic=eq.{topic}"
+            params["topic"] = f"eq.{topic}"
         if search:
-            url += f"&content=ilike.%{search}%"
+            params["content"] = f"ilike.%{search}%"
 
-        res = await client.get(url, headers=headers)
+        res = await client.get(f"{settings.SUPABASE_URL}/rest/v1/posts",
+                               headers=headers, params=params)
         if res.status_code != 200:
             return {"posts": [], "total": 0}
 
@@ -179,7 +231,10 @@ async def get_posts(
 
             # ✅ 批量查询评论（1 次查询替代 N 次）
             comments_res = await client.get(
-                f"{settings.SUPABASE_URL}/rest/v1/comments?post_id=in.({ids_filter})&order=created_at.desc&select=*,profiles!user_id(nickname,avatar_url)",
+                f"{settings.SUPABASE_URL}/rest/v1/comments?post_id=in.({ids_filter})"
+                f"&is_deleted=eq.false"
+                f"&or=(status.eq.published,user_id.eq.{user_id})"
+                f"&order=created_at.desc&select=*,profiles!user_id(nickname,avatar_url)",
                 headers=svc
             )
             if comments_res.status_code not in (200, 206):
@@ -200,16 +255,33 @@ async def get_posts(
                 post["comments"] = comments_by_post.get(pid, [])[:3]  # 最多取前3条
 
         # ===== 总数统计 =====
-        count_url = f"{settings.SUPABASE_URL}/rest/v1/posts?select=id&count=exact"
+        # ⚠️ `count=exact` 是**请求头**（Prefer: count=exact），不是查询参数。
+        #    写成查询参数的话 PostgREST 会回 400
+        #    `PGRST100 failed to parse filter (exact)` —— 而下面又只看 200，
+        #    于是 **total 恒为 0、分页永远算不对**。这是 2026-10-15 在真库上
+        #    发现的既有 bug（跟同一天那批 URL 编码问题无关，是另一回事）。
+        #    条件同样走 params=，理由见上面那条查询的注释。
+        #    limit=1 只是为了别把整表 id 拉回来；真正的总数从 Content-Range 读。
+        count_params: dict = {
+            "select": "id", "limit": 1,
+            "is_deleted": "eq.false",
+            "or": f"(status.eq.published,user_id.eq.{user_id})",
+        }
         if filter_type == "friends" and friend_ids:
             ids_str = ",".join([f"\"{id}\"" for id in friend_ids])
-            count_url += f"&user_id=in.({ids_str})"
+            count_params["user_id"] = f"in.({ids_str})"
         if topic:
-            count_url += f"&topic=eq.{topic}"
+            count_params["topic"] = f"eq.{topic}"
         if search:
-            count_url += f"&content=ilike.%{search}%"
-        count_res = await client.get(count_url, headers=headers)
-        total = len(count_res.json()) if count_res.status_code == 200 else 0
+            count_params["content"] = f"ilike.%{search}%"
+        count_res = await client.get(f"{settings.SUPABASE_URL}/rest/v1/posts",
+                                     headers={**headers, "Prefer": "count=exact"},
+                                     params=count_params)
+        total = 0
+        if count_res.status_code in (200, 206):
+            _cr = count_res.headers.get("content-range", "")
+            _tail = _cr.rsplit("/", 1)[-1] if "/" in _cr else ""
+            total = int(_tail) if _tail.isdigit() else len(count_res.json())
 
         return {"posts": posts, "total": total, "page": page, "page_size": page_size}
 
@@ -219,7 +291,10 @@ async def get_post(post_id: str, user_id: str = Query(...), current_user: str = 
     """获取单条动态详情"""
     verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
-    url = f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}&select=*,profiles!user_id(nickname,avatar_url,user_account)"
+    url = (f"{settings.SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}"
+               f"&select=*,profiles!user_id(nickname,avatar_url,user_account)"
+               f"&is_deleted=eq.false"
+               f"&or=(status.eq.published,user_id.eq.{user_id})")
 
     async with httpx.AsyncClient() as client:
         res = await client.get(url, headers=headers)
@@ -472,23 +547,31 @@ async def uncollect_post(post_id: str, user_id: str, current_user: str = Depends
 
 
 @router.post("/post/{post_id}/comment")
-async def create_comment(post_id: str, user_id: str, data: CommentCreate, current_user: str = Depends(get_current_user)):
+async def create_comment(post_id: str, user_id: str, data: CommentCreate,
+                         current_user: str = Depends(get_current_user),
+                         _can: str = Depends(require_can_publish)):
     """发布评论"""
     verify_user_match(user_id, current_user)
     await assert_can_act(user_id, "comment")   # 禁言范围含 comment 时挡在这里
     # ✅ 内容安全过滤
     if data.content:
-        safe, reason = check_content_safety(data.content)
+        safe, reason = await check_and_penalize(data.content, current_user,
+                                                field="comment",
+                                                endpoint="/community/post/{post_id}/comment")
         if not safe:
             raise HTTPException(status_code=400, detail=f"评论包含敏感信息：{reason}")
 
     headers = get_supabase_headers()
 
+    # 同发帖：低信誉用户的评论先进待审（仅自己可见）
+    comment_status = await review_state_for(user_id)
+
     comment_data = {
         "post_id": post_id,
         "user_id": user_id,
         "content": data.content,
-        "parent_id": data.parent_id
+        "parent_id": data.parent_id,
+        "status": comment_status,
     }
 
     async with httpx.AsyncClient() as client:
@@ -515,8 +598,19 @@ async def create_comment(post_id: str, user_id: str, data: CommentCreate, curren
     #   评论帖子   → social.post_comment（发给作者）
     #   回复评论   → social.comment_reply（发给被回复的人，priority=high）
     #   两者都带 ?comment={cid}，点进去滚到那一条并高亮
-    await _notify_comment(post_id, user_id, data)
-    return res.json()
+    #
+    # ⚠️ 待审的评论**不发通知** —— 通知里写着"某某评论了你的帖子"，
+    #    而作者点进去什么都看不到（评论还没公开），比不通知更让人困惑。
+    #    审核通过时由后台补发（见 routers/admin_content_review.py）。
+    if comment_status == "published":
+        await _notify_comment(post_id, user_id, data)
+
+    body = res.json()
+    if isinstance(body, dict):
+        body["status"] = comment_status
+        if comment_status == "pending":
+            body["message"] = "已提交，审核通过后会公开显示"
+    return body
 
 
 async def _notify_comment(post_id: str, actor_id: str, data) -> None:

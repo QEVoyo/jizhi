@@ -100,6 +100,6 @@ export async function copyText(text, what = '内容') {
     } catch { ok = false }
   }
   if (ok) ElMessage.success(`已复制${what}`)
-  else ElMessage.warning('复制失败，可以试试 Ctrl+C')
+  else ElMessage.warning('复制失败，可使用 Ctrl+C')
   return ok
 }

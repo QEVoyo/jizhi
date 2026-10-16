@@ -14,6 +14,14 @@
               @keydown="onKeydown"
               @input="onInput"
             />
+            <!-- 进「小基 · 能带你去的地方」那棵功能树。
+                 放这儿而不是藏进「＋ 添加」那一层：它不是一个搜索来源，
+                 而是从搜索出去的**另一条路** —— 搜索是「我知道要找什么」，
+                 树是「我不知道有什么，让我看看」。 -->
+            <button class="gs-tree" title="小基能带你去的地方" @click="openTree">
+              <i class="fas fa-sitemap" />
+              <span>全部页面</span>
+            </button>
             <button class="gs-esc" title="关闭 (Esc)" @click="close">Esc</button>
           </div>
 
@@ -164,6 +172,13 @@ const activeGroup = ref(0)
 const activeIdx = ref(0)
 
 function close() { navStore.closeSearch() }
+
+// 进功能树。**先关面板再跳** —— 不关的话它是个全屏 Teleport 遮罩，
+// 会盖在树页面上面，用户看到的是"点了没反应"。
+function openTree() {
+  navStore.closeSearch()
+  router.push('/xiaoji/tree')
+}
 
 // ===== 打开面板：清空、聚焦、拉数据 =====
 watch(() => navStore.searchOpen, (open) => {
@@ -472,6 +487,20 @@ onBeforeUnmount(() => {
   cursor: pointer; font-family: inherit;
 }
 .gs-esc:hover { background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent); color: var(--text-primary); }
+
+/* 进功能树的入口。跟 Esc 同款外观但**带文字** ——
+   纯图标按钮在深色毛玻璃上几乎看不见，上一版就是这么被漏掉的。 */
+.gs-tree {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--line-soft); background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+  color: var(--text-secondary); font-size: 11px; padding: 3px 9px; border-radius: 6px;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+}
+.gs-tree:hover {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  color: var(--brand);
+}
 
 /* ===== 结果区 ===== */
 .gs-body { max-height: 50vh; overflow-y: auto; padding: 8px; }

@@ -203,7 +203,7 @@ function enqueue(items) {
     const rest = items.length - keep
     items.slice(0, keep).forEach(i => queue.push(i))
     queue.push({
-      title: `还有 ${rest} 条新消息`, message: '点这里进消息中心查看',
+      title: `还有 ${rest} 条新消息`, message: '点击进入消息中心查看',
       duration: 4200,               // 合并那条给久一点
     })
   } else {
@@ -214,7 +214,7 @@ function enqueue(items) {
 
 function toastAggregate(n, viaSystem = false) {
   if (n <= 0) return
-  const payload = { title: `有 ${n} 条未读通知`, message: '点这里进消息中心查看' }
+  const payload = { title: `有 ${n} 条未读通知`, message: '点击进入消息中心查看' }
   if (viaSystem && systemNotify(payload)) return
   enqueue([{ ...payload, duration: 5000 }])   // 累计的给久一点，信息更多
 }

@@ -455,10 +455,22 @@ function drawScene(ctx, sc, p, pal, video, W, H) {
       drawPointer(lp, '左指针', '#7ee0ff')
       drawPointer(rp, '右指针', '#ffc372')
       // 计算气泡 + 批注
-      const lv = values[curMove.l ?? -1], rv = values[curMove.r ?? -1]
-      const sum = ((lv | 0) + (rv | 0))
+      //
+      // ⚠️ 原来是 `(lv | 0) + (rv | 0)` —— 位运算会把值**截断成 32 位整数**：
+      //    2.5 变 2、3.5 变 3，而下面显示用的是**原始值**，于是屏幕上会出现
+      //    「2.5 + 3.5 = 5」这种自相矛盾的画面。
+      //    `values` 是上面 `.map(Number)` 来的，本来就允许小数，直接相加即可。
+      //    （2026-10-16 省赛整改第 3 项）
+      const rawL = values[curMove.l ?? -1], rawR = values[curMove.r ?? -1]
+      const lv = Number(rawL), rv = Number(rawR)
+      const sum = (Number.isFinite(lv) ? lv : 0) + (Number.isFinite(rv) ? rv : 0)
       if (ff < 0.35 && curMove.l !== undefined && target !== undefined && isFinite(target)) {
-        const rolled = Math.floor(sum * Math.max(0, Math.min(1, ff / 0.35)))
+        // 整数就滚动计数（floor 让数字一位位跳，有"累加"的手感）；
+        // 小数保留一位 —— 否则 2.5+3.5 的滚动会一路显示 0,1,2,3,4,5，
+        // 和旁边标的两个小数对不上。
+        const t = Math.max(0, Math.min(1, ff / 0.35))
+        const rolled = Number.isInteger(sum) ? Math.floor(sum * t)
+                                             : Math.round(sum * t * 10) / 10
         const hit = sum === target
         ctx.fillStyle = 'rgba(12,16,28,.88)'
         roundRect(ctx, W * 0.5 - 250, H * 0.16, 500, 84, 16)
@@ -470,7 +482,10 @@ function drawScene(ctx, sc, p, pal, video, W, H) {
         ctx.fillStyle = '#fff'
         ctx.font = `900 ${Math.min(30, W * 0.026)}px sans-serif`
         ctx.textAlign = 'center'
-        ctx.fillText(`${lv ?? ''} + ${rv ?? ''} = ${rolled}${hit ? ' 中了!' : (sum > target ? ' 太大' : ' 太小')}`, W * 0.5, H * 0.16 + 46)
+        // ⚠️ 显示用 **rawL/rawR**（原值），不是 lv/rv。
+        //    lv/rv 是 Number() 过的，缺值时是 NaN 而不是 undefined，
+        //    `NaN ?? ''` 兜不住（?? 只认 null/undefined），屏幕上会出现「NaN + NaN」。
+        ctx.fillText(`${rawL ?? ''} + ${rawR ?? ''} = ${rolled}${hit ? ' 中了!' : (sum > target ? ' 太大' : ' 太小')}`, W * 0.5, H * 0.16 + 46)
       }
       if (curMove.note) {
         ctx.fillStyle = /中|成功|找到/.test(String(curMove.note)) ? '#9dffc2' : '#ffd9a1'

@@ -218,7 +218,7 @@
           </div>
 
           <!-- 自营视频库（2026-09-04）：知识点讲解 · 强相关排行 + 用户自选 -->
-          <div v-if="libVideos.length || libGenerating" class="video-section lib-section">
+          <div v-if="libVideos.length || libGenerating || libTimedOut" class="video-section lib-section">
             <div class="video-header">
               <span class="video-title">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -263,7 +263,22 @@
                   </div>
                 </div>
               </div>
-              <div v-if="libGenerating" class="lib-card generating">
+              <!-- 超时态：**明确说"没等到"并给重试**，不要默默消失。
+                   两种状态的措辞必须分开 —— 一个是"还在处理"，一个是"我们放弃了"。 -->
+              <div v-if="libTimedOut" class="lib-card generating lib-timeout"
+                   @click="retryLibVideos">
+                <div class="lib-poster generating">
+                  <svg class="lib-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M12 7v5l4 2"/>
+                  </svg>
+                </div>
+                <div class="lib-info">
+                  <div class="lib-name">讲解还没生成好</div>
+                  <div class="lib-meta">已等待约 40 秒 · 点击重试</div>
+                </div>
+              </div>
+              <div v-else-if="libGenerating" class="lib-card generating">
                 <div class="lib-poster generating">
                   <svg class="lib-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 20h9"/>
@@ -272,7 +287,9 @@
                 </div>
                 <div class="lib-info">
                   <div class="lib-name">讲解师正在写讲稿…</div>
-                  <div class="lib-meta">十几秒后刷新一下试试</div>
+                  <!-- ⚠️ 原来是「十几秒后刷新一下试试」—— 而页面本来就在自动轮询，
+                       让用户手动刷新既多余又像在推卸。改成如实说在自动等。 -->
+                  <div class="lib-meta">正在自动等待，最多约 40 秒</div>
                 </div>
               </div>
             </div>
@@ -504,6 +521,16 @@ import VideoPoster from '@/components/VideoPoster.vue'
 import { ElMessage } from 'element-plus'
 import { recordAction } from '@/api/career'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import { getToken } from '@/utils/storage'
+
+// 本页有几处代码沙箱调用用的是裸 fetch（不是 utils/request.js 那个 axios 实例），
+// 所以享受不到它的 Authorization 拦截器。
+// 后果：后端给 /subject-plan/code/* 补上鉴权之后，这几处会直接 401。
+// 统一走这个函数，别再各写各的头。
+function authHeaders() {
+  const token = getToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 const router = useRouter()
 const route = useRoute()
@@ -541,7 +568,7 @@ async function runUserCode() {
     const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
     const res = await fetch(`${baseUrl}/subject-plan/code/run`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ code: userAnswer.value || '', language: 'python', input: codeStdin.value || '' })
     })
     const d = await res.json()
@@ -558,7 +585,7 @@ async function submitProgramming() {
   const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
   const res = await fetch(`${baseUrl}/subject-plan/code/submit`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({
       user_id: authStore.user?.id || '',
       question_id: question.value.id,
@@ -602,6 +629,10 @@ const iframeLoading = ref(false)
 // ===== 自营视频库（2026-09-04）=====
 const libVideos = ref([])
 const libGenerating = ref(false)
+// 轮询跑满还没拿到视频 —— 单独一个状态，**不能和"正在生成"混为一谈**：
+// 一个是"还在处理"，一个是"我们放弃了，你可以重试"。
+// 默默把卡片藏掉是最糟的处理（用户不知道到底好了没有）。见 2026-10-16 整改第 2 项。
+const libTimedOut = ref(false)
 const libTriggered = ref(false)
 const libDialogVisible = ref(false)
 const libCurrent = ref(null)
@@ -800,26 +831,47 @@ async function loadLibraryVideos() {
 
   const count = await fetchLibVideos(key, subject, fp)
   // 还没生成完 → 显示「写讲稿」卡 + 轮询（最多 5 次 × 8s）
+  libTimedOut.value = false
   libGenerating.value = count === 0
   if (count === 0) scheduleLibPoll(key, subject, fp)
 }
 
+// 轮询上限：5 次 × 8 秒 = 40 秒。到点还没好就**明确告诉用户超时了**，不再等。
+const LIB_POLL_MAX = 5
+
 function scheduleLibPoll(key, subject, fp) {
   clearLibPoll()
   libPollTimer = setTimeout(async () => {
-    if (libPollTries >= 5) { libGenerating.value = false; return }
     libPollTries++
     const count = await fetchLibVideos(key, subject, fp)
-    if (count === 0 && libPollTries < 5) {
+    if (count === 0 && libPollTries < LIB_POLL_MAX) {
       scheduleLibPoll(key, subject, fp)
-    } else {
-      libGenerating.value = count === 0
+      return
     }
+    // ⚠️ 走到这里有两种情况，**都不该再显示「正在写讲稿」**：
+    //      · count > 0            → 生成好了
+    //      · count === 0 且试满 5 次 → 超时，放弃
+    //
+    //    原来这里写的是 `libGenerating.value = count === 0`，于是第 5 次
+    //    仍是 0 时会把它设成 **true 且不再排程** —— 卡片永远停在
+    //    「讲解师正在写讲稿…」。而函数开头那句 `if (libPollTries >= 5)
+    //    { libGenerating.value = false }` 的逃生口，只在下一次定时器里检查，
+    //    而下一次永远不会来 —— 等于死代码。（2026-10-16 省赛整改第 2 项）
+    libGenerating.value = false
+    libTimedOut.value = count === 0
   }, 8000)
 }
 
 function clearLibPoll() {
   if (libPollTimer) { clearTimeout(libPollTimer); libPollTimer = null }
+}
+
+// 超时后点卡片重试。走的是同一条 `loadLibraryVideos()` ——
+// 它会重置轮询计数、再调一次 ensure（**复用已有的生成任务，不会另起一个**），
+// 然后重新开始等待。
+function retryLibVideos() {
+  libTimedOut.value = false
+  loadLibraryVideos()
 }
 
 // ============================================================
@@ -1669,6 +1721,19 @@ onUnmounted(() => {
   flex: none;
 }
 .lib-card.generating { cursor: default; opacity: .85; }
+
+/* 超时态：**要能点**（重试），所以不能继承 generating 的 cursor:default，
+   也不该继续播"正在生成"的脉冲动画 —— 那会让它看起来还在跑。 */
+.lib-card.lib-timeout {
+  cursor: pointer;
+  opacity: 1;
+  border-style: dashed;
+  border-color: rgba(230, 162, 60, 0.35);
+}
+.lib-card.lib-timeout .lib-poster { animation: none; }
+.lib-card.lib-timeout .lib-poster::after { display: none; }
+.lib-card.lib-timeout .lib-pen { color: rgba(230, 162, 60, 0.9); }
+.lib-card.lib-timeout:hover { border-color: rgba(230, 162, 60, 0.7); }
 .lib-card.generating .lib-poster { animation: lib-pulse 1.6s ease-in-out infinite; }
 .lib-card.generating .lib-poster::after {
   content: "";

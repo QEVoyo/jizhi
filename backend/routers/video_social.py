@@ -8,13 +8,30 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends, Request
 from pydantic import BaseModel
 
 from config import settings
-from services.supabase import db
+from services.supabase import db, ilike_term
 from services import video_gen
 from logging_config import logger
+from utils.auth_middleware import get_current_user, verify_user_match_logged
+from utils.reputation_gate import ai_quota_gate
+from utils.reputation_gate import require_can_publish
+
+# ⚠️ 本文件的写操作曾经**全部**没有 token 校验，身份只认请求体/查询串里的 user_id
+#    （2026-10-15 前的状态）。后果不是"权限粒度粗"，是**任何人写一个别人的 id
+#    就能点赞、评论、举报、发布、重试，甚至删除别人的视频和评论**。
+#
+# 修法统一是两步：
+#   ① `user_id: str = Depends(get_current_user)` —— 身份以 token 为准
+#   ② `await verify_user_match_logged(自报的id, user_id, request, "动作名")`
+#      —— 请求里那个自报值仍然收（前端一直在发），但只用来做一致性校验；
+#         不一致就 403 并记一条 access.impersonation 事件。
+#
+# 为什么保留自报字段而不是直接删掉：
+#   删掉会同时改前端契约，而校验版本已经堵住了洞，且能留下攻击痕迹。
+#   前端契约的清理可以以后单独做。
 
 router = APIRouter(prefix="/video", tags=["视频库社交"])
 
@@ -62,7 +79,9 @@ async def video_square(
         eq["angle"] = angle
     or_ = None
     if q:
-        or_ = f"(title.ilike.%{q}%,knowledge_name.ilike.%{q}%)"
+        # 通配符用 `*` 不用 `%`，搜索词过 ilike_term —— 见 services/supabase.py 的说明
+        _t = ilike_term(q)
+        or_ = f"(title.ilike.*{_t}*,knowledge_name.ilike.*{_t}*)"
     resp = await db.select(
         "video_library",
         eq=eq,
@@ -201,11 +220,11 @@ async def _notify_video_owner(video_id: str, actor_id: str, notif_type: str,
 
 
 @router.post("/{video_id}/like")
-async def video_like(video_id: str, body: dict):
-    """点赞/取消（幂等 toggle）"""
-    user_id = str(body.get("user_id") or "").strip()
-    if not user_id:
-        raise HTTPException(status_code=400, detail="缺少 user_id")
+async def video_like(video_id: str, body: dict, request: Request,
+                     user_id: str = Depends(get_current_user)):
+    """点赞/取消（幂等 toggle）。身份以 token 为准。"""
+    await verify_user_match_logged(str(body.get("user_id") or "").strip(),
+                                   user_id, request, "video.like")
     result = await _toggle(video_id, user_id, "video_likes", "likes_count")
     # 只在**新点赞**时通知作者。取消点赞也发的话，点一下再取消就白弹一条。
     if result.get("active"):
@@ -214,11 +233,11 @@ async def video_like(video_id: str, body: dict):
 
 
 @router.post("/{video_id}/favorite")
-async def video_favorite(video_id: str, body: dict):
-    """收藏/取消（幂等 toggle）"""
-    user_id = str(body.get("user_id") or "").strip()
-    if not user_id:
-        raise HTTPException(status_code=400, detail="缺少 user_id")
+async def video_favorite(video_id: str, body: dict, request: Request,
+                         user_id: str = Depends(get_current_user)):
+    """收藏/取消（幂等 toggle）。身份以 token 为准。"""
+    await verify_user_match_logged(str(body.get("user_id") or "").strip(),
+                                   user_id, request, "video.favorite")
     return await _toggle(video_id, user_id, "video_favorites", "favorites_count")
 
 
@@ -235,11 +254,14 @@ async def video_comments(video_id: str, page: int = Query(1, ge=1), page_size: i
 
 
 @router.post("/{video_id}/comments")
-async def video_comment_create(video_id: str, body: dict):
-    user_id = str(body.get("user_id") or "").strip()
+async def video_comment_create(video_id: str, body: dict, request: Request,
+                               user_id: str = Depends(get_current_user),
+                               _can: str = Depends(require_can_publish)):
+    await verify_user_match_logged(str(body.get("user_id") or "").strip(),
+                                   user_id, request, "video.comment")
     content = str(body.get("content") or "").strip()
-    if not user_id or not content:
-        raise HTTPException(status_code=400, detail="缺少 user_id 或评论内容")
+    if not content:
+        raise HTTPException(status_code=400, detail="缺少评论内容")
     if len(content) > 500:
         raise HTTPException(status_code=400, detail="评论最长 500 字")
     row = {
@@ -264,13 +286,18 @@ async def video_comment_create(video_id: str, body: dict):
 
 
 @router.delete("/comment/{comment_id}")
-async def video_comment_delete(comment_id: str, user_id: str = Query("")):
-    """删评论（本人）；软删除并回减计数"""
+async def video_comment_delete(comment_id: str, request: Request,
+                               user_id: str = Query(""),
+                               token_user_id: str = Depends(get_current_user)):
+    """删评论（本人）；软删除并回减计数。身份以 token 为准。"""
+    await verify_user_match_logged(str(user_id or "").strip(),
+                                   token_user_id, request, "video.comment_delete")
     rows = _rows(await db.select("video_comments", eq={"id": comment_id}, use_service_role=True))
     if not rows:
         raise HTTPException(status_code=404, detail="评论不存在")
     row = rows[0]
-    if row.get("user_id") != user_id:
+    # 注释的归属仍然要比 —— token 有效不代表能删别人的评论
+    if row.get("user_id") != token_user_id:
         raise HTTPException(status_code=403, detail="只能删除自己的评论")
     await db.update("video_comments", eq={"id": comment_id}, data={"deleted": True},
                     use_service_role=True)
@@ -285,12 +312,14 @@ async def video_comment_delete(comment_id: str, user_id: str = Query("")):
 # ==================== 举报 ====================
 
 @router.post("/{video_id}/report")
-async def video_report(video_id: str, body: dict):
-    user_id = str(body.get("user_id") or "").strip()
+async def video_report(video_id: str, body: dict, request: Request,
+                       user_id: str = Depends(get_current_user)):
+    await verify_user_match_logged(str(body.get("user_id") or "").strip(),
+                                   user_id, request, "video.report")
     reason = str(body.get("reason") or "").strip()
     detail = str(body.get("detail") or "").strip()[:500]
-    if not user_id or not reason:
-        raise HTTPException(status_code=400, detail="缺少 user_id 或举报原因")
+    if not reason:
+        raise HTTPException(status_code=400, detail="缺少举报原因")
     await db.insert("video_reports", {
         "video_id": video_id, "user_id": user_id, "reason": reason, "detail": detail,
     }, use_service_role=True)
@@ -300,17 +329,21 @@ async def video_report(video_id: str, body: dict):
 # ==================== 我的 / 自己生成 ====================
 
 @router.get("/me/{user_id}")
-async def video_me(user_id: str):
-    """我的视频（全部状态按时间倒序）"""
-    resp = await db.select("video_library", eq={"owner_user_id": user_id},
+async def video_me(user_id: str, request: Request,
+                   token_user_id: str = Depends(get_current_user)):
+    """我的视频（全部状态按时间倒序）。只能看自己的 —— private 状态的视频也在里面。"""
+    await verify_user_match_logged(user_id.strip(), token_user_id, request, "video.me")
+    resp = await db.select("video_library", eq={"owner_user_id": token_user_id},
                            order="created_at.desc", limit=100, use_service_role=True)
     return {"items": _rows(resp)}
 
 
 @router.get("/me/{user_id}/favorites")
-async def video_me_favorites(user_id: str):
+async def video_me_favorites(user_id: str, request: Request,
+                             token_user_id: str = Depends(get_current_user)):
     """我的收藏"""
-    resp = await db.select("video_favorites", eq={"user_id": user_id},
+    await verify_user_match_logged(user_id.strip(), token_user_id, request, "video.me_favorites")
+    resp = await db.select("video_favorites", eq={"user_id": token_user_id},
                            order="created_at.desc", limit=100, use_service_role=True)
     favs = _rows(resp)
     items = []
@@ -323,7 +356,8 @@ async def video_me_favorites(user_id: str):
 
 
 @router.get("/me/{user_id}/pushes")
-async def video_me_pushes(user_id: str, limit: int = Query(80, ge=1, le=200)):
+async def video_me_pushes(user_id: str, request: Request, limit: int = Query(80, ge=1, le=200),
+                          token_user_id: str = Depends(get_current_user)):
     """「推送」分类（2026-10-01 新增）。
 
     题目/计划那边触发懒生成时，涉及的视频会被推送到**触发者**的视频库。
@@ -337,7 +371,8 @@ async def video_me_pushes(user_id: str, limit: int = Query(80, ge=1, le=200)):
        同一个知识点被 A 先触发时，B 拿到的就是 A 那条 ——
        「谁被推送过什么」必须单独记，否则 B 的推送列表永远是空的。
     """
-    resp = await db.select("user_video_pushes", eq={"user_id": user_id},
+    await verify_user_match_logged(user_id.strip(), token_user_id, request, "video.me_pushes")
+    resp = await db.select("user_video_pushes", eq={"user_id": token_user_id},
                            order="created_at.desc", limit=limit, use_service_role=True)
     items = []
     for p in _rows(resp):
@@ -351,13 +386,20 @@ async def video_me_pushes(user_id: str, limit: int = Query(80, ge=1, le=200)):
 
 
 @router.post("/generate-mine")
-async def video_generate_mine(body: dict):
-    """自己生成：模板引擎按用户指定（或随机）排产，作者 = 我，初始仅自留（private）"""
+async def video_generate_mine(body: dict, request: Request,
+                              user_id: str = Depends(get_current_user),
+                              _quota=Depends(ai_quota_gate("video_gen"))):
+    """自己生成：模板引擎按用户指定（或随机）排产，作者 = 我，初始仅自留（private）。
+
+    ⚠️ 这个接口一调就排一条真实的视频生成任务（约 4 分 14 秒的 LLM + TTS + 合成）。
+       加鉴权之前它是**匿名可打的**，等于对外开放了一次视频生成的开销。
+    """
+    await verify_user_match_logged(str(body.get("user_id") or "").strip(),
+                                   user_id, request, "video.generate_mine")
     subject = str(body.get("subject") or "").strip()
     knowledge_name = str(body.get("knowledge_name") or "").strip()
-    user_id = str(body.get("user_id") or "").strip()
-    if not subject or not knowledge_name or not user_id:
-        raise HTTPException(status_code=400, detail="缺少 subject / knowledge_name / user_id")
+    if not subject or not knowledge_name:
+        raise HTTPException(status_code=400, detail="缺少 subject / knowledge_name")
     knowledge_key = video_gen.make_knowledge_key(subject, knowledge_name)
     # 角度：未指定则随机
     angle = str(body.get("angle") or "").strip() or None
@@ -397,9 +439,12 @@ async def video_generate_mine(body: dict):
 
 
 @router.post("/{video_id}/publish")
-async def video_publish(video_id: str, body: dict):
+async def video_publish(video_id: str, body: dict, request: Request,
+                        user_id: str = Depends(get_current_user),
+                        _can: str = Depends(require_can_publish)):
     """发布到广场（本人，ready 才可发）→ 进入待审核"""
-    user_id = str(body.get("user_id") or "").strip()
+    await verify_user_match_logged(str(body.get("user_id") or "").strip(),
+                                   user_id, request, "video.publish")
     v = await _get_video(video_id)
     if not v:
         raise HTTPException(status_code=404, detail="视频不存在")
@@ -436,9 +481,11 @@ async def video_publish(video_id: str, body: dict):
 
 
 @router.post("/{video_id}/retry")
-async def video_retry(video_id: str, body: dict):
+async def video_retry(video_id: str, body: dict, request: Request,
+                      user_id: str = Depends(get_current_user)):
     """本人重试失败视频（复活进队列）"""
-    user_id = str(body.get("user_id") or "").strip()
+    await verify_user_match_logged(str(body.get("user_id") or "").strip(),
+                                   user_id, request, "video.retry")
     v = await _get_video(video_id)
     if not v:
         raise HTTPException(status_code=404, detail="视频不存在")
@@ -453,12 +500,16 @@ async def video_retry(video_id: str, body: dict):
 
 
 @router.delete("/{video_id}")
-async def video_delete(video_id: str, user_id: str = Query("")):
-    """删除自己的视频（含存储音轨尽力清理）"""
+async def video_delete(video_id: str, request: Request,
+                       user_id: str = Query(""),
+                       token_user_id: str = Depends(get_current_user)):
+    """删除自己的视频（含存储音轨尽力清理）。身份以 token 为准。"""
+    await verify_user_match_logged(str(user_id or "").strip(),
+                                   token_user_id, request, "video.delete")
     v = await _get_video(video_id)
     if not v:
         raise HTTPException(status_code=404, detail="视频不存在")
-    if v.get("owner_user_id") != user_id:
+    if v.get("owner_user_id") != token_user_id:
         raise HTTPException(status_code=403, detail="只能删除自己的视频")
     # 尽力删存储对象
     try:

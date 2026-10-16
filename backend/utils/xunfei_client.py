@@ -2,6 +2,7 @@ import json
 import base64
 import hashlib
 import hmac
+import time
 import wave
 import io
 from datetime import datetime, timezone
@@ -10,6 +11,12 @@ from urllib.parse import quote
 
 from config import settings
 from logging_config import logger
+from utils import gen_audit
+
+# 生成审计用的标识。讯飞是**按量计费**的，ASR 这条线又挂着 ai_quota_gate("asr")
+# —— 一直在扣用户配额，却到 2026-10-16 才接上审计，是当时最大的一处统计盲区。
+_PROVIDER = "xunfei"
+_ASR_MODEL = "iat"          # 语音听写 v2
 
 
 def _ws_module():
@@ -184,11 +191,13 @@ class XunfeiClient:
     # 语音识别（ASR）→ 返回识别文本
     # ============================================================
 
-    def speech_to_text(self, audio_data: bytes, format: str = "wav") -> Optional[str]:
+    def speech_to_text(self, audio_data: bytes, format: str = "wav",
+                       purpose: str = "unknown") -> Optional[str]:
         """
         语音转文字（ASR，讯飞语音听写 iat v2）
         :param audio_data: 音频字节。wav（RIFF 容器，任意采样率自动转 16k）或 raw（16k 16bit 单声道 PCM）
         :param format: "wav" 或 "raw"
+        :param purpose: 生成审计的用途标识，默认 unknown（**不影响计数**）
         :return: 识别文本，失败返回 None
         """
         if not audio_data:
@@ -212,6 +221,11 @@ class XunfeiClient:
             "aue": "raw",
             "vad_eos": 2000,
         }
+
+        # ⚠️ 埋点从**这里**开始，不是从函数开头。
+        #    上面那几条 return None（音频为空 / 转码失败 / websocket-client 没装）
+        #    是参数和依赖问题，根本没碰到讯飞 —— 记进去会把「AI 调用次数」灌水。
+        started = time.perf_counter()
 
         ws = None
         final_text = ""
@@ -240,7 +254,10 @@ class XunfeiClient:
                     }
                 }))
                 # 按官方节奏 40ms 一帧，避免缓冲溢出/vad 提前断句
-                import time
+                # ⚠️ 这里原来有一句局部 `import time` —— 它会让 time 在整个函数里
+                #    变成**局部变量**，于是函数顶部任何 `time.xxx()` 都报
+                #    UnboundLocalError（2026-10-16 加埋点计时时踩到）。
+                #    模块顶部已经 import 过了，直接用即可。
                 time.sleep(0.04)
 
             # 接收识别结果：rpl 帧渐进更新（最后一个 rpl 是完整文本），data.status=2 收尾
@@ -258,6 +275,12 @@ class XunfeiClient:
                     continue
                 if ctrl.get("code") not in (0, None):
                     logger.info(f"ASR 错误: {ctrl.get('code')} {ctrl.get('message')}")
+                    gen_audit.note_status(
+                        provider=_PROVIDER, model=_ASR_MODEL, purpose=purpose,
+                        started=started, status=gen_audit.STATUS_PROVIDER_ERROR,
+                        detail={"code": ctrl.get("code"),
+                                "message": str(ctrl.get("message"))[:200],
+                                "audio_bytes": len(audio_data or b"")})
                     return None
                 data = ctrl.get("data") or {}
                 result = data.get("result") or {}
@@ -276,10 +299,19 @@ class XunfeiClient:
 
             if not final_text:
                 logger.info("ASR 错误: 未识别到文本")
+                gen_audit.note_status(
+                    provider=_PROVIDER, model=_ASR_MODEL, purpose=purpose,
+                    started=started, status=gen_audit.STATUS_EMPTY_OUTPUT,
+                    detail={"audio_bytes": len(audio_data or b"")})
                 return None
+            gen_audit.note_ok(provider=_PROVIDER, model=_ASR_MODEL, purpose=purpose,
+                              started=started, output=final_text,
+                              detail={"audio_bytes": len(audio_data or b"")})
             return final_text
         except Exception as e:
             logger.info(f"ASR 异常: {e}")
+            gen_audit.note_fail(provider=_PROVIDER, model=_ASR_MODEL,
+                                purpose=purpose, started=started, error=e)
             return None
         finally:
             if ws is not None:

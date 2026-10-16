@@ -4,7 +4,62 @@ Supabase 服务层 - 封装所有 Supabase REST API 调用
 """
 import httpx
 from typing import Optional, Dict, Any, List
+from urllib.parse import quote
 from config import settings
+
+
+def ilike_term(raw: str) -> str:
+    """
+    把用户搜索词收拾成能安全塞进 `ilike.*X*` 的片段
+    （`or=(col.ilike.*X*,...)` 这种组合条件同样适用）。
+
+    做两件事，对应两类不同的坏法：
+
+    1. `,` `(` `)` 替换成空格 —— 它们会破坏 `or=` 的语法。
+       ⚠️ 这里**百分号编码救不了**：PostgREST 是先把整个 `or` 的值解码、
+          再按这些字符切分的，所以 `%2C` 解出来照样是分隔符。
+          （services/video_gen.py 早就这么处理了，这里把它推广开。）
+
+    2. 其余字符一律 `quote()` 编码，尤其是 `%`。
+       Supabase 边缘 worker 遇到非法的百分号转义会直接抛异常
+       （Cloudflare Error 1101 → HTTP 500）。2026-10-15 社区搜索整个是坏的
+       就是这个原因 —— 而且被 `!= 200 → 返回空列表` 吞掉，表现成"搜不到"。
+
+    ⚠️ 返回值**不含通配符**，调用方自己用 `*` 包起来。
+       不要用 `%` 当通配符 —— 那正是第 2 条要防的东西。
+
+    ⚠️ 这个函数**只给手工拼 URL 的调用方用**（db.select 的 or_、直接
+       `url += f"&col=ilike.*{...}*"`）。走 httpx `params=` 的要用
+       ilike_term_params() —— 两个混用会静默搜不到，见那个函数的说明。
+    """
+    cleaned = raw.replace(",", " ").replace("(", " ").replace(")", " ")
+    return quote(cleaned, safe="")
+
+
+def ilike_term_params(raw: str) -> str:
+    """
+    同样是 ilike 搜索词，但用于**走 httpx `params=`** 的调用方。
+
+    与 ilike_term() 的唯一区别：**不做 quote()**，百分号编码交给 httpx。
+
+    为什么必须分两个函数 —— 2026-10-16 在信誉列表上踩到的：
+    ilike_term() 已经把中文编成了 %E6%B5%8B%E8%AF%95，params= 里再被 httpx
+    编一次就成了 %25E6%25B5%258B...，服务端拿去当字面量匹配，结果
+    **搜什么都搜不到，而且还是 HTTP 200** —— 静默失败，最难查的那种。
+    实测（真库 profiles）：
+
+        走 ilike_term()        搜「测试」命中 0   搜「a%b」命中 0
+        走本函数               搜「测试」命中 2   搜「a%b」命中 1
+
+    第 1 条（`,()` 换空格）仍然保留，而且**编码救不了它**：
+    PostgREST 先把整个 or 的值解码、再按这些字符切分。
+    实测 `,` 不换直接 PGRST100：
+        {"code":"PGRST100","details":"unexpected \"*\" expecting letter, digit..."}
+    `(` `)` 更阴 —— 不报错，静默 0 命中。
+
+    ⚠️ 同样**不含通配符**，调用方自己用 `*` 包起来。
+    """
+    return raw.replace(",", " ").replace("(", " ").replace(")", " ")
 
 
 class SupabaseService:

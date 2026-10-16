@@ -124,9 +124,14 @@
 
           <!-- ② summary 昨日总结 —— 数字用卡片、知识点用标签、三段文字分开排 -->
           <template v-else-if="shape === 'summary'">
-            <div class="sum-stats">
-              <div class="sum-stat"><b>{{ sumStats.questions }}</b><span>完成题目</span></div>
-              <div class="sum-stat"><b>{{ sumStats.mastery }}<i>%</i></b><span>整体掌握度</span></div>
+            <div v-if="sumStats.length" class="sum-stats">
+              <div v-for="(s, i) in sumStats" :key="i" class="sum-stat">
+                <b>{{ s.value }}<i v-if="s.unit">{{ s.unit }}</i></b>
+                <span>{{ s.label }}</span>
+                <!-- 口径说明（如「仅统计已批改的 8 道」）。数字的来源要能看见，
+                     不然一个 30% 和一个 90% 看起来一样可信。 -->
+                <em v-if="s.hint">{{ s.hint }}</em>
+              </div>
             </div>
             <div v-if="sumWeak.length" class="sum-sec">
               <h5>需要加强</h5>
@@ -138,6 +143,17 @@
               <h5>掌握不错</h5>
               <div class="sum-tags">
                 <span v-for="t in sumStrong" :key="t" class="sum-tag strong">{{ t }}</span>
+              </div>
+            </div>
+            <!-- 学科计划链的知识点（EWMA）。与技术报告里的两条闭环链对应：
+                 上面 weak/strong 是资源库链的逐题评分，这里是计划链的累计掌握度。 -->
+            <div v-if="sumKp.length" class="sum-sec">
+              <h5>计划知识点</h5>
+              <div class="sum-tags">
+                <span v-for="k in sumKp" :key="k.name" class="sum-tag"
+                      :class="k.mastery >= 80 ? 'strong' : (k.mastery < 60 ? 'weak' : '')">
+                  {{ k.name }} {{ k.mastery }}%
+                </span>
               </div>
             </div>
             <p v-if="sumPayload.note" class="sum-note">{{ sumPayload.note }}</p>
@@ -201,7 +217,7 @@
 
         <div class="modal-foot">
           <button v-if="detail.is_todo" class="g-btn primary" @click="handleTodo">去处理</button>
-          <button v-else-if="detail.link" class="g-btn primary" @click="goTarget">去看看</button>
+          <button v-else-if="detail.link" class="g-btn primary" @click="goTarget">查看详情</button>
           <!-- ⚠️ 只在**还没读**的时候给这个按钮 —— `markRead()` 第一行就是
                `if (m.is_read) return`，已读时点了什么都不会发生，摆在那儿是死的。
                （非待办类型点开详情就已经自动标已读了，所以正常情况下它不出现。） -->
@@ -267,11 +283,33 @@ const shape = computed(() => {
 /** 聚合型的触发者名单（`notify()` 累积的，最多留最近 5 个） */
 const actors = computed(() => detail.value?.payload?.actors || [])
 
-// ===== 昨日学习总结：结构化 payload 的取用 =====
+// ===== 学习总结：结构化 payload 的取用 =====
 const sumPayload = computed(() => detail.value?.payload || {})
-const sumStats = computed(() => sumPayload.value.stats || { questions: 0, mastery: 0 })
+
+/** 数字卡片。**两种形状都要认**：
+ *    · 2026-10-16 起：[{label, value, unit, hint?}, ...] —— 卡片由后端决定放哪几张
+ *      （取不到的指标干脆不放，而不是填 0）
+ *    · 之前：{questions, mastery} —— 库里还留着 19 条老通知，不兼容的话点开一片空白
+ *
+ *  ⚠️ 老形状照原样显示、**不替它修饰**。那批数字是用错误口径算出来的
+ *     （mastery_score 的缺失值被当成 0 分平均），但它们是"当时发出去的内容"，
+ *     改显示等于改写历史。新发的都走新形状。
+ */
+const sumStats = computed(() => {
+  const s = sumPayload.value.stats
+  if (Array.isArray(s)) return s
+  if (s && typeof s === 'object') {
+    return [
+      { label: '完成题目', value: s.questions ?? 0, unit: '道' },
+      { label: '整体掌握度', value: s.mastery ?? 0, unit: '%' },
+    ]
+  }
+  return []
+})
 const sumWeak = computed(() => sumPayload.value.weak || [])
 const sumStrong = computed(() => sumPayload.value.strong || [])
+/** 学科计划链的知识点（EWMA 掌握度）。资源库链的薄弱/擅长走 weak/strong。 */
+const sumKp = computed(() => sumPayload.value.kp || [])
 
 /** 正文按**空行**分段。
  *  ⚠️ 以前直接 `{{ detail.content }}` 渲一整块，而 `.modal-text` 上没有
@@ -561,19 +599,28 @@ onMounted(async () => {
 
 /* ===== 昨日学习总结的结构化排版（2026-10-08）=====
    数字用卡片、知识点用标签、三段文字分开排 —— 改造前是一整块 150 字散文。 */
-.sum-stats { display: flex; gap: 10px; margin-bottom: 16px; }
+/* 卡片数量现在由后端决定（1~5 张），所以必须能换行 ——
+   原来写死两列不换行，多出来的卡会挤成一条。 */
+.sum-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
 .sum-stat {
-  flex: 1; padding: 14px 16px 12px; border-radius: 12px; text-align: center;
+  flex: 1 1 calc(50% - 5px); min-width: 110px;
+  padding: 14px 16px 12px; border-radius: 12px; text-align: center;
   background: color-mix(in srgb, var(--c1) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--c1) 18%, transparent);
 }
 .sum-stat b {
   display: block; font-size: 26px; font-weight: 700; line-height: 1.15;
   color: color-mix(in srgb, var(--c1) 78%, var(--text-primary));
-  font-variant-numeric: tabular-nums;   /* 数字等宽，两个卡片才对得齐 */
+  font-variant-numeric: tabular-nums;   /* 数字等宽，几个卡片才对得齐 */
 }
 .sum-stat b i { font-size: 15px; font-style: normal; margin-left: 1px; }
 .sum-stat span { font-size: 12px; color: var(--text-muted); }
+/* 口径说明（「仅统计已批改的 8 道」）。比正文小一档、更淡，
+   是注解不是内容 —— 但它必须看得见。 */
+.sum-stat em {
+  display: block; margin-top: 4px; font-style: normal;
+  font-size: 10px; line-height: 1.35; color: var(--text-muted); opacity: .75;
+}
 
 .sum-sec { margin-bottom: 14px; }
 .sum-sec h5 { margin: 0 0 8px; font-size: 12px; color: var(--text-muted); font-weight: 600; }

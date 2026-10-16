@@ -493,7 +493,7 @@ const slides = [
     featureDesc: '17 考纲 · AI 诊断 · 三阶段计划',
     deepDesc: '覆盖四六级、考研、法考、公务员等 17 个高频考试。摸底诊断后 AI 生成「基础 → 强化 → 冲刺」三阶段计划，每个任务带真实题目，可查可练。',
     points: ['17 个考纲任选，题库 19,000+ 随时练', '摸底诊断 → AI 生成三阶段专属计划', '知识点掌握度实时更新，薄弱点一目了然'],
-    cta: { label: '看看考纲', to: '/subject-plan' },
+    cta: { label: '查看考纲', to: '/subject-plan' },
   },
   {
     type: 'exam',

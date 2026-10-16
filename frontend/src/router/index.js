@@ -176,6 +176,14 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    // 「小基能带你去的地方」—— 以它为根的功能树，叶子是页面，不到题目。
+    // 入口在搜索页顶栏（见 XiaojiSearch.vue）。
+    path: '/xiaoji/tree',
+    name: 'XiaojiTree',
+    component: () => import('@/views/XiaojiTree.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/community',
     name: 'Community',
     component: () => import('@/views/Community.vue'),
@@ -351,6 +359,7 @@ const routes = [
     children: [
       { path: '', name: 'AdminDashboard', component: () => import('@/views/admin/AdminDashboard.vue') },
       { path: 'users', name: 'AdminUsers', component: () => import('@/views/admin/AdminUsers.vue') },
+      { path: 'plans', name: 'AdminPlans', component: () => import('@/views/admin/AdminPlans.vue') },
       // 举报 / 反馈 / Q&A 共用同一个组件（页内是三个标签），
       // 但**各有各的路径** —— 否则侧边栏点「反馈」时地址变了、页面却不动。
       // 组件内用 PATH_TAB 把路径映射成初始标签。
@@ -360,6 +369,7 @@ const routes = [
       { path: 'questions', name: 'AdminQuestions', component: () => import('@/views/admin/AdminQuestions.vue') },
       { path: 'announcements', name: 'AdminAnnouncements', component: () => import('@/views/admin/AdminAnnouncements.vue') },
       { path: 'videos', name: 'AdminVideos', component: () => import('@/views/admin/AdminVideos.vue') },
+      { path: 'security', name: 'AdminSecurity', component: () => import('@/views/admin/AdminSecurity.vue') },
       { path: 'logs', name: 'AdminLogs', component: () => import('@/views/admin/AdminLogs.vue') },
       { path: 'settings', name: 'AdminSettings', component: () => import('@/views/admin/AdminSettings.vue') },
     ]

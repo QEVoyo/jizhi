@@ -37,7 +37,7 @@
           <el-button type="primary" size="large" :disabled="applied" @click="apply">
             {{ applied ? '✓ 已应用' : '应用这份外观' }}
           </el-button>
-          <el-button size="large" @click="goApp">{{ applied ? '去设置里看看' : '暂不应用，进去逛逛' }}</el-button>
+          <el-button size="large" @click="goApp">{{ applied ? '前往设置查看' : '暂不应用，进入浏览' }}</el-button>
         </div>
         <p class="ts-hint">
           <template v-if="applied">

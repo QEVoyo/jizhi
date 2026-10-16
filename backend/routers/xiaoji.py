@@ -10,9 +10,11 @@ import jwt
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from utils import gen_audit
 from utils.xunfei_client import XunfeiClient
 from utils.qwen_tts_client import get_tts_audio, get_available_voices, QWEN_DEFAULT_VOICE, _strip_emoji
 from utils.auth_middleware import get_current_user, verify_user_match
+from utils.reputation_gate import ai_quota_gate
 from services import xiaoji_persona
 from logging_config import logger
 
@@ -84,7 +86,7 @@ class ASRRequest(BaseModel):
 
 # ===== 辅助函数 =====
 
-from services.supabase import get_supabase_headers, get_supabase_service_headers
+from services.supabase import get_supabase_headers, get_supabase_service_headers, ilike_term
 
 
 # ============================================================
@@ -324,8 +326,16 @@ async def get_xiaoji_daily(user_id: str, current_user: str = Depends(get_current
 # ============================================================
 
 @router.post("/tts")
-async def text_to_speech(data: TTSRequest):
-    """文字转语音（TTS）"""
+async def text_to_speech(data: TTSRequest, _user: str = Depends(get_current_user),
+                         _quota=Depends(ai_quota_gate("tts"))):
+    """
+    文字转语音（TTS）。
+
+    ⚠️ 2026-10-15 之前**不需要登录** —— 匿名可打的付费 TTS。
+       已核过调用方：网页端（api/xiaoji.js）和小程序（api/xiaoji.js）
+       都走各自的封装，都会带 token，且都在需要登录的页面里。
+       ASR 的 HTTP 版同理；WebSocket 版 /asr-ws 目前仍无凭证，是另一件事。
+    """
     logger.info(f"🔊 TTS 请求: {data.text[:50]}...")
 
     try:
@@ -362,8 +372,19 @@ async def text_to_speech(data: TTSRequest):
 # ============================================================
 
 @router.post("/asr")
-async def speech_to_text(data: ASRRequest):
-    """语音转文字（ASR）"""
+async def speech_to_text(data: ASRRequest, _user: str = Depends(get_current_user),
+                         _quota=Depends(ai_quota_gate("asr"))):
+    """
+    语音转文字（ASR）。
+
+    ⚠️ 2026-10-15 之前**不需要登录** —— 匿名可打的付费 ASR（讯飞按量计费）。
+       已核过：全仓没有任何调用点（网页端走的是 WebSocket /asr-ws），
+       所以补鉴权零风险。
+
+    ⚠️ WebSocket 版 /asr-ws 仍然是**无凭证**的，那是另一套机制
+       （浏览器 WS 不能自定义 Authorization 头，要改用 query 参数传 token，
+       前端也得跟着改）。见该端点的注释。
+    """
     logger.info(f"🎤 ASR 请求: 音频长度 {len(data.audio_base64)} 字符")
 
     try:
@@ -400,8 +421,10 @@ async def get_xiaoji_messages(
     url = f"{settings.SUPABASE_URL}/rest/v1/xiaoji_messages?user_id=eq.{user_id}&order=created_at.desc&limit={limit}&offset={offset}"
 
     if search:
-        # PostgREST 模糊匹配通配符是 *（会转成 SQL 的 %），不能用裸 %
-        url += f"&content=ilike.*{search}*"
+        # PostgREST 模糊匹配通配符是 *（会转成 SQL 的 %），不能用裸 %。
+        # 搜索词本身也要过 ilike_term —— 里面的 + & 空格会把 URL 拆坏
+        # （`+` 尤其阴：在 query string 里等于空格，服务端收到的是另一个词）。
+        url += f"&content=ilike.*{ilike_term(search)}*"
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         res = await client.get(url, headers=headers)
@@ -450,7 +473,23 @@ async def xiaoji_asr_websocket(websocket: WebSocket):
     """
     实时语音听写：浏览器持续发送 16k PCM 帧（{"status": 0|2, "audio": base64}），
     后端中转给讯飞 iat 流式识别，实时回传 {"text": 累计文本, "done": 是否最终}。
+
+    ⚠️ 2026-10-15 之前**完全不验凭证**：accept 之后直接转发讯飞。
+       讯飞 iat 是按量计费的 —— 这等于把一份实时语音识别挂在公网上任人使用。
+       现在跟 /call-ws 用同一套：token 走 query（浏览器 WS 不能自定义头）。
+
+    ⚠️ 已知残留风险（本次**没解决**，是权衡后的选择）：
+       token 放在 query 里会被 nginx 的访问日志记下来
+       （宝塔的 site_total 日志格式里有 "uri":"$request_uri"）。
+       要根治得改成「先用 HTTPS 换一张一次性短票据，再用票据连 WS」。
+       现有 /call-ws 已经是这个模式，本次先保持一致，不单独造第三种写法。
+       考虑到 JWT 有效期 30 天、而日志在自家服务器上，风险可接受但请知悉。
     """
+    # 先验签，不过就不 accept —— ASGI 下 accept 之前发 close 会变成 403
+    if not await _verify_ws_token(websocket.query_params.get("token") or ""):
+        await websocket.close(code=1008)   # 1008 = policy violation
+        return
+
     await websocket.accept()
 
     client = XunfeiClient()
@@ -575,7 +614,8 @@ async def xiaoji_asr_websocket(websocket: WebSocket):
 #    音频进 16k PCM16 → 千问 server_vad 断句/自动打断 → 音频出 24k PCM16 回传播放
 # ============================================================
 
-QWEN_REALTIME_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-audio-3.0-realtime-plus"
+QWEN_REALTIME_MODEL = "qwen-audio-3.0-realtime-plus"
+QWEN_REALTIME_URL = f"wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model={QWEN_REALTIME_MODEL}"
 QWEN_CALL_MAX_SECONDS = 1800   # 单次通话最长 30 分钟，防僵尸连接
 
 
@@ -737,6 +777,12 @@ async def xiaoji_call_websocket(websocket: WebSocket):
     call_id = await _save_call_log_start(user_id)
     call_turns = {"n": 0}
     call_started = time.monotonic()
+    # ⚠️ 审计用**另一个**时间基准：gen_audit 的 latency 算的是
+    #    time.perf_counter() 的差值，而上面那个是 time.monotonic()。
+    #    两者在 Windows 上纪元不同（monotonic 走 GetTickCount64，从开机算），
+    #    直接拿 monotonic 的值去减 perf_counter 会得到一个垃圾耗时 ——
+    #    可能是负数、也可能大得离谱，而且**不会报错**。
+    call_audit_started = time.perf_counter()
 
     # ── 连千问 realtime ──
     try:
@@ -747,6 +793,9 @@ async def xiaoji_call_websocket(websocket: WebSocket):
         )
     except Exception as e:
         logger.info(f"[xiaoji] 千问 realtime 连接失败: {e}")
+        # 生成审计：连都没连上，但云端那次握手已经发生过了
+        gen_audit.note_fail(provider="qwen", model=QWEN_REALTIME_MODEL,
+                            purpose="xiaoji_call", started=call_audit_started, error=e)
         await _save_call_log_end(call_id, 0, 0)
         try:
             await websocket.send_json({"type": "error", "message": "语音服务连接失败，请稍后重试"})
@@ -1020,6 +1069,15 @@ async def xiaoji_call_websocket(websocket: WebSocket):
             int(time.monotonic() - call_started),
             call_turns["n"],
         )
+        # 生成审计：一次通话记**一行**（不是一通电话里每轮记一行 ——
+        # 那会把「AI 调用次数」变成「对话轮数」，两个指标混在一起就没法看了）。
+        # 这里是长连接，latency_ms 记的是**通话时长**，跟别处的"单次请求耗时"
+        # 不是一个量纲，所以要靠 purpose 区分着读。
+        gen_audit.note_status(
+            provider="qwen", model=QWEN_REALTIME_MODEL, purpose="xiaoji_call",
+            started=call_audit_started, status=gen_audit.STATUS_OK,
+            detail={"duration_s": int(time.monotonic() - call_started),
+                    "turns": call_turns["n"]})
         try:
             await qwen_ws.close()
         except Exception:

@@ -125,6 +125,21 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...), curr
             selected_topics = [t["topic"] for t in mastery_data if t["mastery_score"] >= 80][:6]
             selected_achievements = [a["id"] for a in achievements][:8]
 
+        # ── 信誉值（2026-10-15）──
+        # 和上面那个 points **是两个不同的东西**，别混：
+        #   points  = 只增不减的成长分（做题、打卡攒出来的段位）
+        #   reputation = 可增可减的风控分（违规会掉，清白会自己回来）
+        # 展示上要能被区分开，否则用户看到分数掉了会以为是学习分被扣了。
+        #
+        # ⚠️ 查询失败**不能让整个资料卡 404** —— 它只是卡片上的一块。
+        #    失败时返回 None，前端那一格不渲染（而不是显示成 0 分）。
+        reputation = None
+        try:
+            from utils.reputation_gate import tier_summary
+            reputation = await tier_summary(user_id)
+        except Exception as e:
+            logger.warning(f"资料卡·信誉值查询失败 user={user_id}: {e}")
+
         return {
             "profile": profile,
             "points": points,
@@ -137,7 +152,8 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...), curr
             "achievements": achievements,
             "activities": activities,
             "selected_topics": selected_topics,
-            "selected_achievements": selected_achievements
+            "selected_achievements": selected_achievements,
+            "reputation": reputation,
         }
 
 

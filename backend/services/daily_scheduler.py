@@ -33,8 +33,20 @@ arq 的全局 cron 一样得退化成轮询 —— 那就没必要多引入一�
 `daily_generator.deliver()` 里判，本模块只负责「什么时候去看一眼」。
 """
 import asyncio
+from datetime import datetime, timedelta, timezone
 
 from logging_config import logger
+
+# 自然日按北京时间算，与 utils/reputation.py 的口径一致（那边判"今天"的额度、
+# 这边判"新的一天到了没"，两处必须同源，否则会出现跨零点前后恢复错位）。
+_BJ = timezone(timedelta(hours=8))
+
+# 上次跑信誉恢复的日期（北京时间 YYYY-MM-DD）。
+# 为什么需要它：这个循环每 10 分钟醒一次，而恢复是**每天一次**的事。
+# 不挡的话每个用户每天要被查 144 次用量、发 144 次候选请求 ——
+# 虽然 once_per_day 保证只发一次，但那是白烧掉的查询。
+# 进程重启会丢掉这个值 → 重跑一次，无害（once_per_day 兜着）。
+_last_recovery_day = ""
 
 # 一轮间隔。10 分钟 = 用户设的分钟级时间最多晚 10 分钟送到，
 # 换来的是「不用为每个用户建独立的定时器」。
@@ -78,9 +90,36 @@ async def run_due_once() -> dict:
     return {"users": len(users), "detail": tally}
 
 
+async def run_recovery_if_new_day() -> dict | None:
+    """
+    跨过北京时间的零点后，跑一轮信誉自然恢复。同一天内重复调用直接返回 None。
+
+    为什么用「日期变了没」而不是「距离上次多久」：
+        恢复的语义是**每个自然日一次**（streak_3/7/14/30 都是按天数的档位）。
+        用间隔计时的话，服务器在 23:50 重启、次日 00:05 再重启，
+        会连发两天的量，而用户的清白天数其实没走满。
+    """
+    global _last_recovery_day
+    today = datetime.now(_BJ).strftime("%Y-%m-%d")
+    if today == _last_recovery_day:
+        return None
+    _last_recovery_day = today
+
+    from utils.reputation import run_recovery_sweep
+    stats = await run_recovery_sweep()
+    if stats.get("scanned"):
+        logger.info(f"[reputation] 自然恢复扫描：{stats}")
+    return stats
+
+
 async def _loop() -> None:
     await asyncio.sleep(STARTUP_DELAY)
     while True:
+        try:
+            await run_recovery_if_new_day()
+        except Exception as e:                                  # noqa: BLE001
+            # 与下面同理：恢复失败不能带崩整个循环
+            logger.warning(f"[reputation] 恢复扫描异常（下一轮继续）: {e}")
         try:
             await run_due_once()
         except Exception as e:                                  # noqa: BLE001

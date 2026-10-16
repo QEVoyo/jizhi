@@ -5,7 +5,7 @@ from datetime import datetime
 from config import settings
 import httpx, uuid, re, json
 from collections import defaultdict
-from utils.sensitive_words import check_content_safety
+from utils.sensitive_words import check_and_penalize
 from utils.email import send_report_email
 from utils.auth_middleware import get_current_user, verify_user_match
 from utils.notification import notify, NotifyError
@@ -149,7 +149,8 @@ async def send_private_message(user_id: str, data: PrivateMessageCreate, current
     verify_user_match(user_id, current_user)
     # ✅ 内容安全过滤
     if data.content:
-        safe, reason = check_content_safety(data.content)
+        safe, reason = await check_and_penalize(data.content, current_user,
+                                                field="content", endpoint="/community/message")
         if not safe:
             raise HTTPException(status_code=400, detail=f"消息包含敏感信息：{reason}")
 
