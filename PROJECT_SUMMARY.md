@@ -1,6 +1,31 @@
 # 基智学习助手（Jizhi Learn）— 项目总结
 
-> 更新日期：2026-10-16 · 相关文档：[PROJECT_LOG.md](./PROJECT_LOG.md)（总日志）· [SYSTEM_MANUAL.md](./SYSTEM_MANUAL.md)（系统说明书）· [WORKFLOW_STANDARD.md](./WORKFLOW_STANDARD.md)（工作流程）· [logs/](./logs/)（每日日志）
+> 更新日期：2026-10-17 · 相关文档：[PROJECT_LOG.md](./PROJECT_LOG.md)（总日志）· [SYSTEM_MANUAL.md](./SYSTEM_MANUAL.md)（系统说明书）· [WORKFLOW_STANDARD.md](./WORKFLOW_STANDARD.md)（工作流程）· [logs/](./logs/)（每日日志）
+
+> ## 2026-10-17 更新要点
+>
+> **主线是「把视频当成视频来理解」和「把首屏当回事」。**
+>
+> - **协议与合规**：新增公开页 `/agreement`、`/privacy`（设置 → 关于、落地页 footer、注册页入口）；
+>   注册页勾选门禁默认不勾，未勾选不发验证码；网页版与小程序共用同一套协议口径
+> - **首屏性能**：Element Plus 改为按需加载（落地页不加载），入口 **1.2MB → 72KB JS**
+>   （375→25KB gzip）、**466→94KB CSS**；移除重复 cdnjs FontAwesome；压缩 logo/小基图；
+>   加首屏骨架；通知/快捷键/readByRoute/下载信息改空闲加载；`vercel.json` 加 immutable 缓存头
+> - **小基视频分析**：1 秒 1 帧（单次 ≤2 分钟/120 帧，每日 5 分钟/300 帧）；后端每 10 帧一批
+>   做**有序多图理解 + 滚动摘要**，最后整体综合（不逐帧罗列）；北京时间零点重置、
+>   `user_actions` 记账、用户级 `asyncio.Lock`、3 次/分钟限流；全段失败 502、部分失败提示
+> - **视频留存**：原视频上传 Supabase Storage（`chat-images` 桶，≤50MB），`image_url` 存首帧
+>   缩略图、`video_url` 存原视频；聊天里显示缩略图并可点击播放；上传失败/>50MB 仍可分析，
+>   但明确标记「视频未留存」；需执行 `backend/sql/add_xiaoji_video_url.sql`
+> - **接口审计**：前端调用对线上 OpenAPI 比对；修复 `QAPage` 相对 `/api` 与 `DoQuestion`
+>   不存在的 `mistake-status`；清理 14 个死 API 导出；补登录后的 redirect 回跳
+> - **PII**：内部日志/脚本中的真实用户 ID、邮箱、昵称已脱敏或改环境变量；协议运营者信息
+>   按合规保留；技术报告封面团队名称/编号按报名信息保留
+> - **上传文件名**：Supabase Storage 不接受中文 object key，统一走 `safeStorageName()` 转 ASCII
+>
+> 测试：后端新增 `test_video_limits.py` 通过；前端 `npm run build` 通过；技术报告
+> （八）3 新增视频分析/留存，PDF 已重生成。**⚠️ 这一批仍未部署**（线上 OpenAPI 252 条路径，
+> 开发 253 条，多 `/community/xiaoji/video-quota`）。
 
 > ## 2026-10-16 更新要点
 >
@@ -235,8 +260,9 @@ node _devtools/webcheck/run.mjs --target=prod  # 线上（桌面壳实际加载�
 
 | 线上路由数 | 对应版本 |
 |---|---|
-| **240** | **10-11（当前线上）** |
-| 252 | 开发仓库当前状态（含 10-15 的安全中心与生成审计、10-16 的 `/admin/plans`） |
+| 240 | 10-11 版 |
+| **252** | **线上当前（2026-10-17 实测；含 10-15 的安全中心与生成审计、10-16 的 `/admin/plans`）** |
+| 253 | 开发仓库当前（10-17 新增 `/community/xiaoji/video-quota`，尚未部署） |
 
 **前端端到端检查集**（10-16 新增，`_devtools/webcheck/`，零依赖）：
 
@@ -317,7 +343,7 @@ node _devtools/webcheck/run.mjs --target=prod  # 线上（桌面壳实际加载�
 - [ ] `CareerSidebar` / `CommunitySidebar` 仍在打旧的 `/community/sidebar-badges`，角标与消息中心对不上
 - [ ] 其余 14 个「没有事件源」的消息点
 - [ ] `XiaojiCall.vue` 的 `previewImage`、`Sidebar.vue` 的意见反馈弹窗（两个既有 bug）
-- [ ] 桌面壳版本号 `0.1.0` → `0.1.1`
+- [x] ~~桌面壳版本号 `0.1.0` → `0.1.1`~~ —— **2026-10-17 已发布**。同时修掉了「关闭窗口后点图标打不开、必须去任务管理器杀进程」的幽灵进程问题（修复 10-01 就写好了，但安装包停在 09-30，16 天没被编译进去）。详见 SYSTEM_MANUAL §18.9
 - [ ] **域名 ICP 备案未完成**（备案后页脚填号；小程序 API 域名同步依赖）
 - [ ] 小程序提审；Flutter 手机端对齐（当前约 8/56 页）
 - [ ] **#6 视频库题目匹配**：15 条里只修好 4 条，剩 11 条是**知识点粒度问题**（AI 细粒度名 vs 题库粗粒度 `kp_id`），需产品/数据决策

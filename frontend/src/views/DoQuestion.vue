@@ -1008,14 +1008,11 @@ async function handleSubmit() {
     const fromMistake = sessionStorage.getItem('from_mistake_book')
     if (fromMistake === 'true' && result.mastery_score >= 60) {
       try {
-        await fetch(`${import.meta.env.VITE_BACKEND_URL}/questions/${question.value.id}/mistake-status`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authStore.token}`
-          },
-          body: JSON.stringify({ status: 'conquered' })
-        })
+        // ⚠️ 这里原来还有一条 PUT /questions/{id}/mistake-status —— 后端没有这个路由，
+        //    线上必然 404（try/catch 吞掉了，用户只看到「已攻克」）。
+        //    实际上 evaluateAnswer 的后端逻辑已经会按 mastery_score 写 is_mistake /
+        //    mistake_status（questions.py 的「保存掌握度 + 错题本逻辑」），
+        //    这条补写既无效又多余，2026-10-17 删除。
         sessionStorage.removeItem('from_mistake_book')
         // 学程埋点（2026-10-01）：攻克错题。
         // `conquer_mistake` 从 2026-07-13 起没人发过 —— 挂在它上面的

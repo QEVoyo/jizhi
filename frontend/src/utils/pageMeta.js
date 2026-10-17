@@ -45,6 +45,8 @@ export const STATIC_PAGES = [
   { title: '新手引导', path: '/onboarding', aliases: ['引导', '新手', '第一次'], initials: 'xsyd', group: '我的', desc: '第一次进来时的引导：填学习阶段与目标', wire: 'form' },
   { title: '计划预览', path: '/plan-preview', aliases: ['预览', '计划'], initials: 'jhtl', group: '学习', desc: '生成好的学习计划预览，确认后再落地', wire: 'timeline' },
   { title: '使用指引',      path: '/guide',                   aliases: ['说明书', '使用说明', '指南', 'guide', 'manual'],           initials: 'syzy' , group: '帮助' , desc: '使用说明书：从选考纲到每日任务怎么走' , wire: 'detail' },
+  { title: '用户服务协议',  path: '/agreement',               aliases: ['用户协议', '服务协议', '协议', 'agreement', 'terms'],      initials: 'yhxy' , group: '帮助' , desc: '使用基智前需要阅读并同意的服务条款' , wire: 'detail' },
+  { title: '隐私政策',      path: '/privacy',                 aliases: ['隐私', '个人信息', '个人信息保护', 'privacy'],              initials: 'yszc' , group: '帮助' , desc: '我们收集哪些信息、如何使用与保护' , wire: 'detail' },
 ]
 
 // 管理后台（仅管理员可见）

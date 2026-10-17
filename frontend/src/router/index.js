@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { readByRoute } from '@/api/messages'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
-import CommunityFriends from '@/components/community/CommunityFriends.vue'
 import { isDesktop } from '@/desktop'
 
 const routes = [
@@ -197,7 +196,7 @@ const routes = [
       {
         path: 'friends',
         name: 'CommunityFriends',
-        component: CommunityFriends
+        component: () => import('@/components/community/CommunityFriends.vue')
       },
       {
         path: 'rank',
@@ -319,6 +318,21 @@ const routes = [
     name: 'Guide',
     component: () => import('@/views/Guide.vue'),
     meta: { requiresAuth: true }
+  },
+  // ===== 法律文件（公开页，注册前也能读）=====
+  {
+    path: '/agreement',
+    name: 'UserAgreement',
+    component: () => import('@/views/LegalDoc.vue'),
+    props: { type: 'service' },
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/privacy',
+    name: 'PrivacyPolicy',
+    component: () => import('@/views/LegalDoc.vue'),
+    props: { type: 'privacy' },
+    meta: { requiresAuth: false }
   },
   {
     path: '/open-source',
@@ -461,9 +475,10 @@ router.afterEach((to) => {
     const uid = auth.user?.id
     if (!uid) return
     const url = to.fullPath
-    setTimeout(() => {
-      readByRoute(uid, url).catch(() => {})
-    }, 400)   // 等页面渲染完再发，避免和目标页的首屏请求抢带宽
+    // 等页面渲染完、浏览器空闲再发，避免和目标页的首屏请求抢带宽
+    const markRead = () => readByRoute(uid, url).catch(() => {})
+    if (window.requestIdleCallback) window.requestIdleCallback(markRead, { timeout: 2500 })
+    else setTimeout(markRead, 1200)
   } catch { /* 静默：标记已读失败不该影响导航 */ }
 })
 

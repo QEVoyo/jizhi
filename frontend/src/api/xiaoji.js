@@ -27,11 +27,18 @@ export function xiaojiVision(data) {
   }).then(res => res.data)
 }
 
-/** 视频分析（2026-09-05）：前端本地抽帧 → 后端逐帧识图 + 汇总 */
+/** 视频分析（2026-10-17 限额版）：前端每 3 秒抽 1 帧 → 后端逐帧识图 + 汇总 */
 export function xiaojiVideoAnalyze(data) {
   return request.post('/community/xiaoji/video-analyze', data, {
     params: { user_id: data.user_id },
     timeout: 180000
+  }).then(res => res.data)
+}
+
+/** 今日视频分析额度（北京时间零点重置，每天 5 分钟） */
+export function getVideoQuota(userId) {
+  return request.get('/community/xiaoji/video-quota', {
+    params: { user_id: userId }
   }).then(res => res.data)
 }
 
@@ -90,10 +97,3 @@ export function xiaojiTts(text, opts = {}) {
   }).then(res => res.data)
 }
 
-// ===== 语音识别（讯飞 ASR，audio_base64 为 16k 16bit 单声道 PCM） =====
-export function xiaojiAsr(audioBase64, format = 'raw') {
-  return request.post('/community/xiaoji/asr', {
-    audio_base64: audioBase64,
-    format
-  }).then(res => res.data)
-}

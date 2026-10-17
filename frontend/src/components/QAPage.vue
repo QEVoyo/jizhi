@@ -64,7 +64,7 @@
           <img :src="uploadedImage" alt="上传图片预览" />
           <el-button size="small" circle @click="removeImage"><i class="fas fa-times"></i></el-button>
         </div>
-        <div class="ask-hint">{{ authStore.isLoggedIn ? '问题将发送到管理员邮箱，我们会尽快回复你（支持图片上传）' : '登录后提问可收到邮件回复，当前将以访客身份提交' }}</div>
+        <div class="ask-hint">{{ authStore.isLoggedIn ? '问题将发送到管理员邮箱，我们会尽快回复你（支持图片上传）' : '登录后才能提问，登录后可通过邮件收到回复' }}</div>
       </div>
 
       <div v-if="showAskHistory" class="ask-history">
@@ -87,6 +87,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
+import request from '@/utils/request'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -639,22 +640,35 @@ function removeImage() { uploadedImage.value = null; if (uploadRef.value) upload
 
 async function submitAsk() {
   if (!askContent.value.trim() && !uploadedImage.value) { ElMessage.warning('请先输入问题或上传图片'); return }
+  // 后端 /qa/submit 要求登录（verify_user_match），访客提交一定会 401。
+  // 这里先拦下并引导登录，别等请求发出去再被弹回登录页。
+  if (!authStore.isLoggedIn) {
+    ElMessage.warning('请先登录后再提问')
+    router.push({ path: '/login', query: { redirect: '/qa' } })
+    return
+  }
   askSubmitting.value = true
   try {
-    const res = await fetch('/api/qa/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: authStore.user?.id || '', user_email: authStore.user?.email || '', user_nickname: authStore.user?.nickname || '用户', question: askContent.value.trim() || '（图片提问）', has_image: !!uploadedImage.value, image_data: uploadedImage.value || null }),
+    // 用统一 request 实例：会自动带 Authorization；相对路径 /api/qa/submit
+    // 在线上会打到 Vercel 静态站（不可用），必须走 BACKEND_URL + /qa/submit。
+    const res = await request.post('/qa/submit', {
+      user_id: authStore.user?.id || '',
+      user_email: authStore.user?.email || '',
+      user_nickname: authStore.user?.nickname || '用户',
+      question: askContent.value.trim() || '（图片提问）',
+      has_image: !!uploadedImage.value,
+      image_data: uploadedImage.value || null,
     })
-    if (res.ok) {
+    if (res.data?.success !== false) {
       askHistory.value.unshift({ id: askHistory.value.length + 1, question: askContent.value.trim() || '（含图片提问）', status: '待回复', time: new Date().toISOString().slice(0, 10) })
       ElMessage.success('问题已发送，我们会通过邮件回复你')
       askContent.value = ''; removeImage()
     } else {
-      const d = await res.json(); ElMessage.error(d.message || '发送失败')
+      ElMessage.error(res.data?.message || '发送失败')
     }
-  } catch { ElMessage.error('网络错误，请稍后重试') }
-  finally { askSubmitting.value = false }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || '网络错误，请稍后重试')
+  } finally { askSubmitting.value = false }
 }
 </script>
 

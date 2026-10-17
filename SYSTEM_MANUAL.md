@@ -1,8 +1,8 @@
 # 基智学习助手 (Jizhi Learn) — 系统说明书
 
-> **文档版本** `2.2` · **最后更新** 2026-09-29
+> **文档版本** `2.3` · **最后更新** 2026-10-17
 >
-> **维护者** QEVoyo · **许可证** 未指定
+> **维护者** 基智开发团队 · **许可证** 未指定
 >
 > 基于 FastAPI + Vue 3 + Supabase + DeepSeek 的全栈 AI 学习平台
 
@@ -152,6 +152,12 @@
      - 5.19.1 [pageMeta 是页面清单的唯一数据源](#5191-utilspagemetajs-是页面清单的唯一数据源)
      - 5.19.2 [功能树 /xiaoji/tree](#5192-功能树-xiaojitree)
      - 5.19.3 [前端端到端检查集](#5193-前端端到端检查集-_devtoolswebcheck)
+     - 5.19.4 [法律文件页与注册协议门禁](#5194-法律文件页与注册协议门禁2026-10-17-新增)
+   - 5.20 [首屏性能与接口审计](#520-首屏性能与接口审计2026-10-17-新增)
+     - 5.20.1 [Element Plus 按需加载](#5201-element-plus-按需加载)
+     - 5.20.2 [Vercel 缓存头](#5202-vercel-缓存头)
+     - 5.20.3 [接口审计规则](#5203-接口审计规则)
+     - 5.20.4 [渐进式图片 ProgressiveImage](#5204-渐进式图片-progressiveimage2026-10-17-新增)
 6. [后端 API 参考](#6-后端-api-参考)
    - 6.1 [学科计划 API](#61-学科计划-api)
    - 6.2 [认证 API](#62-认证-api)
@@ -235,6 +241,7 @@
     - 18.6 [开发配置：tauri.dev.conf.json 是死文件](#186--开发配置tauridevconfjson-是死文件)
     - 18.7 [打包与发布](#187-打包与发布)
     - 18.8 [已知未验证项](#188-已知未验证项)
+    - 18.9 [关闭行为：幽灵进程与「修复未编译」的教训](#189-关闭行为幽灵进程与修复未编译的教训2026-10-17)
 19. [附录](#19-附录)
     - 19.1 [环境变量完整参考](#191-环境变量完整参考)
     - 19.2 [考纲配置规范](#192-考纲配置规范)
@@ -1275,6 +1282,7 @@ else:
 |------|------|------|
 | 文字聊天 | `POST /community/xiaoji/chat` | 千问 qwen-flash（`settings.QWEN_CHAT_MODEL`），temperature=0.8，最近 10 条消息为上下文 |
 | 图片理解 | `POST /community/xiaoji/vision` | 千问 qwen3.8-flash（`settings.QWEN_VISION_MODEL`；**2026-10-11 由已下线的 qwen3-vl-flash 换过来**） |
+| 视频分析 | `POST /community/xiaoji/video-analyze` | 前端每 1 秒抽 1 帧、单次 ≤2 分钟（≤120 帧）；后端每 10 帧一批做有序多图理解（带上一段滚动摘要），最后整体综合；每日 5 分钟（300 帧），北京时间零点重置；原视频留存到 Supabase Storage（≤50MB），`image_url` 存首帧缩略图、`video_url` 存原视频，聊天里可点击播放；`GET /community/xiaoji/video-quota` 查今日剩余 |
 | 语音合成 | 浏览器 `SpeechSynthesis` API | 中文 (zh-CN)，可开关 |
 | 语音输入 | 浏览器 `SpeechRecognition` API | 中文识别 → 自动发送 |
 | 题目评估 | `POST /community/xiaoji/evaluate-question` | 4 步 Agent 流水线 |
@@ -4083,7 +4091,7 @@ node _devtools/webcheck/run.mjs --only=D --login   # 只跑某一组
 
 | 组 | 内容 |
 |---|---|
-| A 路由可达性 | 65 条 × **未登录/已登录两阶段**。按每条路由自己的 `meta.requiresAuth` 判：公开页被重定向 = 失败；受保护页**没**被重定向 = 守卫失效 |
+| A 路由可达性 | 67 条 × **未登录/已登录两阶段**。按每条路由自己的 `meta.requiresAuth` 判：公开页被重定向 = 失败；受保护页**没**被重定向 = 守卫失效 |
 | B 桌面壳配置 | 三处版本号一致、前端 invoke 的命令 Rust 都注册了、窗口方法都在 capabilities 里授权了、`remote.urls` 覆盖实际地址 |
 | C 桌宠窗口 | `pet.html` 能否独立渲染、图片有没有裂 |
 | D canvas 页面 | **采样画布像素** —— 图表画在 canvas 上，`innerText` 一个字读不到，只查文本等于空过 |
@@ -4096,15 +4104,56 @@ node _devtools/webcheck/run.mjs --only=D --login   # 只跑某一组
 > 跳转页（文本长度都是 42），64/64 全绿但什么都没测到。扫描类用例还要加
 > 「扫到的数量 > 0」的自检 —— 空集合恒满足任何 all() 断言。
 
+#### 5.19.4 法律文件页与注册协议门禁（2026-10-17 新增）
+
+- 正文唯一数据源：`frontend/src/utils/legalDocs.js`（改协议只改这一份）
+- 公开路由：`/agreement`（用户服务协议）、`/privacy`（隐私政策），均为 `requiresAuth: false`
+- 渲染：`views/LegalDoc.vue`（整页，带目录）+ `components/LegalContent.vue`（正文）；登录页用 `components/LegalDialog.vue` 弹窗
+- 入口：设置 → 关于、落地页 footer、注册页协议链接
+- 注册门禁：`agreed` 默认 `false`；未勾选时 `handleSendCode` / `handleRegister` 直接返回，**不请求** `/auth/send-code`；点「获取验证码」会把勾选框滚到视线内
+- 桌面端：Tauri 主窗口加载线上站点，网页版部署后自动同步，桌面壳无需改动
+- ⚠️ 当前是**前端门禁**（与小程序现有实现一致）。若要做服务端强制，需要在 `/auth/send-code` / `/auth/register` 增加 `agreed` 参数，并同步 Flutter/小程序等其他客户端
+
+### 5.20 首屏性能与接口审计（2026-10-17 新增）
+
+#### 5.20.1 Element Plus 按需加载
+
+- `main.js` **不再**静态 `import` Element Plus；`plugins/element.js` 的 `ensureElementPlus(app)` 只加载一次
+- `main.js` 的 `LIGHT_ROUTES` 必须覆盖所有**不使用 `el-*`** 的公开页（当前 `/`、`/agreement`、`/privacy`）
+- 新增公开页时先判断是否需要 Element Plus：不需要就加进 `LIGHT_ROUTES`，否则登录/应用页的懒加载白做
+- 入口从 1.2MB JS + 466KB CSS 降到 72KB + 94KB（gzip 25KB + 25KB）；Element Plus 变成登录/应用页的独立 chunk
+- 落地页图片：`logo.png` 512px/141KB、小基两张 43KB；新增图片先压缩再放进 `public/`
+
+#### 5.20.2 Vercel 缓存头
+
+- `frontend/vercel.json` 给 `/assets/*` 设 `max-age=31536000, immutable`；`/images/*`、`/logo.png`、`/favicon.png` 7 天
+- 部署仓库如果也有一份 `vercel.json`，**必须同步**；HTML 不设长缓存
+- 原图以 `*-full.png` 放在 `public/`，占位图是 `logo.png` / `xiaoji_*.png`；不要把原图换回占位图路径
+
+#### 5.20.3 接口审计规则
+
+- 前端调用必须走 `BACKEND_URL` + 统一 `request`；**禁止相对路径 `/api/...`**（线上会打到 Vercel 静态站，返回 HTML）
+- 新增/删除接口后跑一次「前端调用 vs 线上 `openapi.json`」对账；2026-10-17 审出并修复 2 处：
+  - `QAPage` 的 `fetch('/api/qa/submit')` → 登录后 `request.post('/qa/submit')`
+  - `DoQuestion` 的 `PUT /questions/{id}/mistake-status` → 后端无此路由，删除（评卷接口已写错题状态）
+- 未使用的 API 导出已清 14 个；新增导出前先确认有调用方
+
+#### 5.20.4 渐进式图片 ProgressiveImage（2026-10-17 新增）
+
+- `components/ProgressiveImage.vue`：`placeholder` 先显示；进入视口 + 浏览器空闲后才加载 `src`（`fetchPriority='low'`），onload 原地替换
+- 通过 `$attrs` 透传 class/alt/loading/@click，原有 CSS 选择器不用改
+- 落地页：`logo.png`（256px/43KB）→ `logo-full.png`（原图 1.05MB）；小基 `xiaoji_*.png`（160px/43KB）→ `*-full.png`（210/217KB）
+- 未进入视口的图（轮播其它 slide、footer）不会提前下载原图，滚动到附近才加载
+- 新增图片时：小图用普通文件名，原图放 `*-full.png`，页面用 `ProgressiveImage`；`og:image` 用 full 版
+
 ---
 
 ## 6. 后端 API 参考
 
 > 全部端点挂 `https://api.jizhi-learn.com`。
 >
-> **生产共 240 条路由**（2026-10-11 版；`curl https://api.jizhi-learn.com/openapi.json` 可查）。
-> **开发仓库当前是 252 条** —— 多出来的是 10-15 那批安全中心与生成审计的端点、
-> 以及 10-16 的 `/admin/plans`，**尚未部署**。
+> **线上路由数**：2026-10-17 实测 `openapi.json` 为 **252 条路径**。
+> **开发仓库当前是 253 条** —— 新增 10-17 的 `/community/xiaoji/video-quota`，**尚未部署**。
 > 路由数是判断线上跑的是哪个版本最快的办法。
 >
 > 除公开端点外都需要 JWT，身份校验在 FastAPI 层（`verify_user_match`）。
@@ -4491,7 +4540,20 @@ POST /community/xiaoji/evaluate-question   # 单题 AI 批改
 POST /community/xiaoji/evaluate-set        # 题集 AI 评估
 POST /community/xiaoji/evaluate-question-stream  # 流式批改 (SSE)
 POST /community/xiaoji/tts / asr           # 语音合成/识别 (讯飞)
+POST /community/xiaoji/video-analyze       # 视频分析 (有序多图：每 10 帧一批 + 滚动摘要；单次 ≤2 分钟/120 帧，每日 5 分钟/300 帧)
+GET  /community/xiaoji/video-quota         # 今日视频额度 (北京时间零点重置)
 ```
+
+> 视频分析限额：单次 ≤120 秒、每 1 秒 1 帧（≤120 帧）；每用户每天 300 秒（300 帧）。
+> 理解方式：后端按时间顺序每 10 帧一批送入多图视觉模型，每批带上一段滚动摘要，
+> 要求当作连续视频理解、不逐帧描述；最后整体综合，不逐段复述。
+> 服务端按帧数计量（每帧 1 秒），不信任客户端上报时长；用量写 `user_actions`
+> （`action_type=xiaoji_video_analyze`，`metadata.seconds/frames/duration`），同一用户用
+> `asyncio.Lock` 串行检查+记账。全部分段失败返回 502；部分失败返回 `frames_ok/frames_total`；
+> 只有分析成功才记额度。
+> 视频留存：用户消息存 `image_url`（首帧 WebP 缩略图）和 `video_url`（Supabase Storage 原视频），
+> 聊天里显示缩略图并可点击播放；上传失败或 >50MB 时标记「视频未留存」。
+> 需先执行 `backend/sql/add_xiaoji_video_url.sql`，并确认 `chat-images` 桶允许视频 MIME/≥50MB。
 
 前缀 `/xiaoji`（`backend/routers/xiaoji.py`，兼容层；清空记录等端点仍被前端使用）：
 
@@ -5228,8 +5290,38 @@ async def get_current_super_admin(current_user = Depends(get_current_user)) -> s
 |---|---|---|---|---|
 | `excellent` | 90-100 | 不限 | 否 | 是 |
 | `normal` | 70-89 | 100/天 | 否 | 是 |
-| `restricted` | 40-69 | 10/天 | **是** | 是 |
-| `high_risk` | 0-39 | 0 | 是 | **否** |
+| `restricted` | 40-69 | 10/天 | **是** ⚠️ | 是 |
+| `high_risk` | 0-39 | 0 | 是 ⚠️ | **否** |
+
+> ### ⚠️ 当前状态（2026-10-17）：`content_needs_review` 已在生产库改为 `false`
+>
+> **`restricted` / `high_risk` 两档的「先审后发」当前不生效。** 上表标 ⚠️ 的两格是
+> **功能设计**，不是当前线上行为。
+>
+> **为什么关**：后台审核页面尚未开发（全前端搜 `content-review` 零命中，
+> 只有视频审核页 `AdminVideos.vue`，那是另一套）。开着的话，信誉分掉到 69 以下的用户
+> 新发的内容会以 `status='pending'` 落库、**只有他自己看得到，而管理员没有界面能放行**；
+> 前端还会照样弹「发布成功」（`CommunityFeed.vue:230` 写死），驳回通知也发不出去
+> （`system.content_rejected` 没在 `notification_registry` 登记）。
+>
+> **怎么关的**（不用重打包 —— 档位是库里的数据，`needs_review()` → `get_tier()` →
+> `load_rules()` 读的就是 `reputation_tiers` 表）：
+>
+> ```sql
+> UPDATE public.reputation_tiers SET content_needs_review = FALSE
+> WHERE code IN ('restricted', 'high_risk');
+> ```
+>
+> ⚠️ `load_rules()` 有 **5 分钟缓存**（`_RULES_TTL = 300.0`），全项目无任何地方调
+> `load_rules(force=True)` —— 改完最多 5 分钟生效，重启后端则立即生效。
+>
+> **`can_publish` 故意没动**：`high_risk` 发内容会当场收到 403，而那条文案本身就把
+> 分数、档位、恢复办法说清楚了（`reputation_gate.py:154-159`），属于「明确拒绝」而非「卡住」。
+>
+> **恢复步骤**：补上 `AdminContentReview.vue`（API 早就有：`/admin/content-review/pending`、
+> `/stats`、`POST /{kind}/{id}`）→ 把上面两句改成 `TRUE` → **并把 `restricted` 的
+> `perks_text` 改回**「AI 生成每天限 10 次 · 新发内容需先经过审核」。
+> 脚本见 `_devtools/pause-content-review.sql`。
 
 **恢复是一条加速曲线**（不是固定值，四档全在 `reputation_rules` 里）：
 
@@ -5254,6 +5346,10 @@ async def get_current_super_admin(current_user = Depends(get_current_user)) -> s
 （要审计生成行为，那是网关的活，见 9.10，不该靠这张表兼职）。
 
 ### 9.9 内容可见性与先审后发（2026-10-15）
+
+> ⚠️ **本节描述的开关当前是关闭的**（2026-10-17 起，生产库 `content_needs_review = false`）——
+> 低信誉用户的内容**不会**进待审队列，`status` 一律按 `published` 落库。
+> 原因与恢复步骤见上方档位表后的状态标注。下方描述的是**功能设计**。
 
 `sql/content_review_queue.sql` 给 `posts` / `comments` 加：
 
@@ -6467,6 +6563,10 @@ app.mixin({ onShow() { useThemeStore(pinia).syncChrome() } })
 > （2026-09-28 定），若主窗口关了而进程还活着，用户就**再也找不回来**了。
 > （此前窗口状态一直存不下来（`%APPDATA%\com.jizhi.desktop` 恒空），也正是因为
 > 进程从来是被强杀的、没优雅退出过。）
+>
+> ⚠️ **这段退出逻辑直到 2026-10-17（v0.1.1）才真正到达用户** —— 它写于 **10-01**，
+> 而安装包停在 **09-30**，整整 16 天没被编译进去。在此之前，线上客户端跑的正是
+> 本节描述的「幽灵进程」状态。完整时间线与排查手法见 **§18.9**。
 
 #### 交互：悬停轮盘（2026-09-29 定稿）
 
@@ -6605,8 +6705,67 @@ npm run build   # 产出 src-tauri/target/release/bundle/nsis/JIZHI_x.y.z_x64-se
 | 桌宠的行为验证 | 09-29 实测了：轮盘展开/收起、中心不动、贴边夹取、滚轮选择、换表情实时预览、缩放联动。**语音面板（按住说话 → TTS）未实测** |
 | 语音输入 | 用浏览器自带 `SpeechRecognition`（WebView2），**不是**服务端 ASR（服务器缺 `websocket-client`，`/xiaoji/asr` 一直 500） |
 | 开机自启 | 用 `tauri-plugin-autostart`，开关状态**问壳要**（注册表 Run 项才是真相）。**未实际重启验证过** |
-| 打包安装包 | 现存安装包是 **09-27** 的，**不含桌宠**（桌宠 09-28 才做）。要重打 |
+| 打包安装包 | ~~现存安装包是 09-27 的，不含桌宠~~ —— **2026-10-17 已重打为 0.1.1**（含桌宠与幽灵进程修复）。详见 §18.9 |
 | 真机验收 | 只在本机跑过 |
+
+### 18.9 关闭行为：幽灵进程与「修复未编译」的教训（2026-10-17）
+
+**用户报的现象**：「每次关闭之后，要在任务管理器结束任务才能再次打开」。
+症状出在**启动**，病根在**退出** —— 这是整件事最容易查错方向的地方。
+
+#### 幽灵进程是怎么来的
+
+`pet` 窗口在 `tauri.conf.json` 里是 `visible: false` 建出来的 ——
+**看不见，但它是被真实创建出来的**。而 Tauri 的默认退出条件是「所有窗口都关闭」：
+
+1. 点关闭 → 前端 `winClose()` → `getCurrentWindow().close()` → 主窗口被**销毁**
+2. `pet` 还在 → 进程不退出 → 留下一个**没有可见窗口的进程**（任务栏没有、桌宠也看不见）
+3. 再点桌面图标 → `tauri-plugin-single-instance` 把新进程拦下（**新进程自己退了**），
+   转而在**老进程**里跑回调，想把 `main` 拉回前台
+4. 可 `main` 已经没了，`get_webview_window("main")` 返回 `None` → 回调什么都没做
+5. 用户看到「点了没反应」，只能去任务管理器
+
+#### 🎯 真正的教训：修复 10-01 就写好了，16 天没被编译进安装包
+
+| | 时间 |
+|---|---|
+| 安装包 `JIZHI_0.1.0_x64-setup.exe` | 09-30 12:42 |
+| `D:\JIZHI\jizhi.exe`（用户在跑的） | 09-30 12:42 |
+| `src-tauri/src/main.rs`（含修复） | **10-01 14:33** |
+
+→ **报「修好了但没用」时，第一件事是比对构建产物的 mtime 和源码的 mtime**，
+比读代码猜快一个数量级。`find -newermt` 确认 09-30 12:42 之后整个桌面工程
+**只有 `main.rs` 一个文件动过**，所以重建一次就够，不会有别的东西跟着变。
+
+#### 排查手法（可复用）：看进程的窗口标题
+
+拿到可疑进程后，看它的**窗口标题**即可确诊：
+
+- 幽灵进程只剩 `single-instance` 的 IPC 辅助窗口，标题是 **`com.jizhi.desktop-siw`**
+  （`siw` = single instance window）
+- 应用真正的主窗口标题是 **`JIZHI`**（`tauri.conf.json` 里配的）
+
+**只剩 `-siw`、没有 `JIZHI` = 确诊幽灵。** 这比翻代码快得多，而且能直接判定
+「这个进程还有没有救」——有 `JIZHI` 就是活着的正常窗口，别杀。
+
+#### 顺带修好的两件事
+
+都是「进程从来没优雅退出过」的后果：
+
+- **窗口大小/位置从来没被记住** —— `window-state` 插件只在**优雅退出**时落盘，
+  所以 `%APPDATA%\com.jizhi.desktop` 一直是空的
+- **强杀会丢最近的 localStorage 写入** —— WebView2 没机会刷盘
+
+#### ⚠️ 版本号必须提，不能只重打包
+
+`routers/download.py` 的 `_parse_version()` 是**从安装包文件名里正则抠版本号**的
+（`JIZHI_(\d+\.\d+)_x64-setup.exe`），目录里**没有任何别的元数据**。
+版本号不变的话，已装 0.1.0 的人永远收不到更新提示（比对结果恒为 0）。
+
+另注：`_latest_installer()` 取包是 `max(files, key=mtime)` —— **按修改时间，不是按版本号**。
+所以 `backend/static/downloads/` 里最好只留一个 exe；留着旧的虽然眼下 mtime 更老不会被选中，
+但以后手工拷文件、或从别处覆盖过来很容易把 mtime 弄错，结果线上发出旧版本。
+换包时把旧的删掉。
 
 ---
 

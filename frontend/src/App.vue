@@ -19,13 +19,15 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import GlobalSearch from '@/components/GlobalSearch.vue'
-import DesktopWindowControls from '@/desktop/DesktopWindowControls.vue'
-import DesktopContextMenu from '@/desktop/ContextMenu.vue'
 import { isDesktop } from '@/desktop'
-import { startNotifications } from '@/composables/useNotifications'
+
+// 这些组件首屏都不渲染：GlobalSearch 只在登录后的页面出现，
+// 桌面窗口控件/右键菜单只在桌面壳里出现。异步加载，别让它们进首屏 entry。
+const GlobalSearch = defineAsyncComponent(() => import('@/components/GlobalSearch.vue'))
+const DesktopWindowControls = defineAsyncComponent(() => import('@/desktop/DesktopWindowControls.vue'))
+const DesktopContextMenu = defineAsyncComponent(() => import('@/desktop/ContextMenu.vue'))
 
 const route = useRoute()
 const router = useRouter()
@@ -89,7 +91,16 @@ onMounted(() => {
   // 未读角标 + 桌面通知：**全站唯一**的轮询点（2026-10-08）。
   // 挂在这里而不是各页面里 —— 弹窗要跨路由存活，而且改造前
   // Sidebar / EdgeNavDock / XiaojiCall 各自起计时器，首页就是 3 份重复请求。
-  startNotifications()
+  //
+  // 2026-10-17：改成空闲时再动态加载 —— 这个模块会带进 axios，
+  // 而首屏（尤其落地页）并不需要它。等首屏画完再拉，别和主包抢带宽。
+  const startNotificationsLater = () => {
+    import('@/composables/useNotifications')
+      .then(m => m.startNotifications())
+      .catch(() => {})
+  }
+  if (window.requestIdleCallback) window.requestIdleCallback(startNotificationsLater, { timeout: 2000 })
+  else setTimeout(startNotificationsLater, 800)
 })
 </script>
 

@@ -7,12 +7,13 @@ import httpx, uuid, re, json
 import asyncio
 from collections import defaultdict
 from utils.xunfei_client import XunfeiClient
-from agents.qwen_client import call_qwen, call_qwen_stream, call_qwen_vision
+from agents.qwen_client import call_qwen, call_qwen_stream, call_qwen_vision, call_qwen_vision_sequence
 from agents.intent_router import route_intent
 from utils.auth_middleware import get_current_user, verify_user_match
 from utils.reputation_gate import ai_quota_gate
+from utils.rate_limit import check_rate_limit
 from utils.sensitive_words import check_and_penalize
-from services.supabase import get_supabase_headers, ilike_term
+from services.supabase import get_supabase_headers, get_supabase_service_headers, ilike_term
 from services import xiaoji_memory
 from services import xiaoji_persona
 from logging_config import logger
@@ -23,6 +24,77 @@ router = APIRouter(prefix="/community", tags=["社区-小基"])
 # ============================================================
 # 小基（AI好友）相关接口
 # ============================================================
+
+# ===== 视频分析限额（2026-10-17 用户定）=====
+# 单次 ≤2 分钟；每 1 秒抽 1 帧（最多 120 帧）；每天共 5 分钟（300 帧）。
+# ⚠️ 额度按**帧数**算（每帧代表 1 秒），不信任客户端上报的时长：
+#    前端抽帧后上传，服务端拿不到原视频，无法验证真实时长；
+#    帧数上限 + 每日帧额是成本边界，不是防作弊的硬边界。
+BEIJING = timezone(timedelta(hours=8))
+VIDEO_MAX_SECONDS = 120
+VIDEO_FRAME_INTERVAL = 1
+VIDEO_MAX_FRAMES = VIDEO_MAX_SECONDS // VIDEO_FRAME_INTERVAL  # 120
+VIDEO_DAILY_SECONDS = 300
+VIDEO_VISION_BATCH = 10   # 一次多图请求放 10 帧（约 10 秒），批间带上一段摘要
+_video_quota_locks: dict[str, asyncio.Lock] = {}
+
+
+def _video_day_start_iso() -> str:
+    """北京时间今天 00:00 的 ISO 字符串（带 +08:00）"""
+    start = datetime.now(BEIJING).replace(hour=0, minute=0, second=0, microsecond=0)
+    return start.isoformat()
+
+
+async def _video_used_today(user_id: str) -> int:
+    """查询用户今天已使用的视频分析秒数（user_actions.metadata.seconds）"""
+    # 额度是服务端内部账本，用 service role 读写，避免 user_actions 的 RLS 策略影响记账
+    headers = get_supabase_service_headers()
+    params = {
+        "user_id": f"eq.{user_id}",
+        "action_type": "eq.xiaoji_video_analyze",
+        "action_at": f"gte.{_video_day_start_iso()}",
+        "select": "metadata",
+        "limit": "2000",
+    }
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/user_actions",
+            headers=headers, params=params,
+        )
+    if res.status_code != 200:
+        logger.warning(f"视频额度查询失败: {res.status_code} {res.text[:200]}")
+        raise HTTPException(status_code=503, detail="视频额度服务暂时不可用，请稍后重试")
+    total = 0
+    for row in res.json() or []:
+        meta = row.get("metadata") or {}
+        try:
+            total += max(0, int(meta.get("seconds") or 0))
+        except (TypeError, ValueError):
+            continue
+    return total
+
+
+async def _record_video_usage(user_id: str, seconds: int, frames: int, duration: float):
+    """记一笔视频分析用量（复用 user_actions，不新建表）"""
+    headers = get_supabase_service_headers()
+    payload = {
+        "user_id": user_id,
+        "action_type": "xiaoji_video_analyze",
+        "metadata": {
+            "seconds": seconds,
+            "frames": frames,
+            "duration": round(float(duration), 1) if duration else seconds,
+            "at": datetime.now(BEIJING).isoformat(),
+        },
+    }
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        res = await client.post(
+            f"{settings.SUPABASE_URL}/rest/v1/user_actions",
+            headers=headers, json=payload,
+        )
+    if res.status_code not in (200, 201):
+        logger.error(f"视频额度记录失败: {res.status_code} {res.text[:200]}")
+        raise HTTPException(status_code=503, detail="视频额度记录失败，请稍后重试")
 
 async def _save_xiaoji_message(user_id: str, role: str, content: str, kind: str = "chat", extra: dict = None):
     """保存小基消息到数据库"""
@@ -521,61 +593,190 @@ async def xiaoji_vision(
     return {"reply": response}
 
 
+@router.get("/xiaoji/video-quota")
+async def get_xiaoji_video_quota(
+        user_id: str = Query(...),
+        current_user: str = Depends(get_current_user)
+):
+    """今日视频分析额度（北京时间零点重置）。"""
+    verify_user_match(user_id, current_user)
+    used = await _video_used_today(user_id)
+    return {
+        "limit_seconds": VIDEO_DAILY_SECONDS,
+        "used_seconds": used,
+        "remaining_seconds": max(0, VIDEO_DAILY_SECONDS - used),
+        "frame_interval": VIDEO_FRAME_INTERVAL,
+        "max_seconds_per_video": VIDEO_MAX_SECONDS,
+    }
+
+
 @router.post("/xiaoji/video-analyze")
 async def xiaoji_video_analyze(
         user_id: str = Query(...),
         data: dict = Body(...),
         current_user: str = Depends(get_current_user)
 ):
-    """小基视频分析（2026-09-05）：前端本地抽帧(3-5 张 jpeg data URL) →
-    逐帧并行识图 → 汇总成一条分析回复（不入库截图，走 xiaoji_messages kind=video）"""
+    """小基视频分析（2026-10-17 限额 + 连贯理解版）。
+
+    前端本地抽帧：每 1 秒 1 帧、单次 ≤2 分钟（最多 120 帧）→
+    按时间顺序每 10 帧一批送入多图视觉模型，每批附带上一段的滚动摘要，
+    要求模型当作连续视频理解（不逐帧描述）→ 最后整体综合成一条分析回复。
+    额度：每用户每天 5 分钟（300 帧），北京时间零点重置。
+    ⚠️ 服务端按帧数计量（每帧 1 秒），因为拿不到原视频、无法验证真实时长；
+    帧数上限 + 每日帧额是成本边界。
+    """
     verify_user_match(user_id, current_user)
 
-    frames = [f for f in (data.get("frames") or []) if isinstance(f, str) and f][:5]
-    question = str(data.get("question") or "").strip() or "分析这个视频讲了什么"
-    if not frames:
-        raise HTTPException(status_code=400, detail="请先上传视频")
-
-    async def describe_one(i: int, f: str) -> str:
-        try:
-            desc = await asyncio.to_thread(
-                call_qwen_vision, f,
-                f"这是视频的第 {i + 1} 帧画面。请简短描述画面内容：人物/场景/文字/图表/关键信息（≤80字）。",
-                temperature=0.5,
-            )
-            return f"第{i + 1}帧：{desc}"
-        except Exception:
-            return f"第{i + 1}帧：识别失败"
-
-    descs = await asyncio.gather(*[describe_one(i, f) for i, f in enumerate(frames)])
-    joined = "\n".join(descs)
-    prompt = (
-        f"下面是用户上传的一个视频的抽帧画面描述（共 {len(descs)} 帧）：\n{joined}\n\n"
-        f"用户的问题：{question}\n"
-        "请依据抽帧内容回答：这个视频在讲什么、有哪些要点。可以是内容总结、题目讲解或学习建议。"
-        "用中文作答，300 字以内，口语一点，不要用 markdown。"
-    )
-    try:
-        response = await asyncio.to_thread(
-            call_qwen, [{"role": "user", "content": prompt}], temperature=0.7, model=settings.QWEN_REASON_MODEL
-        )
-    except Exception as e:
-        logger.info(f"视频分析失败: {e}")
-        raise HTTPException(status_code=500, detail=f"视频分析失败: {str(e)}")
-
-    headers = get_supabase_headers()
-    to_save = [
-        {"user_id": user_id, "role": "user", "content": question or "[视频]", "kind": "video"},
-        {"user_id": user_id, "role": "assistant", "content": response, "kind": "video"},
+    # 只接受图片 data URL 或 http(s) 图片地址；单帧上限 1.5MB，防止把大文件/奇怪协议塞进消息表
+    raw_frames = [
+        f for f in (data.get("frames") or [])
+        if isinstance(f, str) and f
+        and (f.startswith("data:image/") or f.startswith("http://") or f.startswith("https://"))
+        and len(f) <= 1_500_000
     ]
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        for m in to_save:
-            try:
-                await client.post(f"{settings.SUPABASE_URL}/rest/v1/xiaoji_messages", headers=headers, json=m)
-            except Exception:
-                pass
+    if not raw_frames:
+        raise HTTPException(status_code=400, detail="请先上传视频")
+    if len(raw_frames) > VIDEO_MAX_FRAMES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"单次视频最长 {VIDEO_MAX_SECONDS} 秒（每 {VIDEO_FRAME_INTERVAL} 秒 1 帧，最多 {VIDEO_MAX_FRAMES} 帧）",
+        )
 
-    return {"reply": response}
+    try:
+        duration = float(data.get("duration")) if data.get("duration") is not None else len(raw_frames) * VIDEO_FRAME_INTERVAL
+    except (TypeError, ValueError):
+        duration = len(raw_frames) * VIDEO_FRAME_INTERVAL
+    if duration <= 0 or duration > VIDEO_MAX_SECONDS + 0.5:
+        raise HTTPException(status_code=400, detail=f"视频时长不能超过 {VIDEO_MAX_SECONDS} 秒（2 分钟）")
+
+    # 额度以帧数计量：每帧 1 秒；120 帧 = 120 秒
+    seconds = min(VIDEO_MAX_SECONDS, len(raw_frames) * VIDEO_FRAME_INTERVAL)
+    # 用户原文单独留一份：为空时消息里就什么都不显示（不再塞「[视频]」占位符）；
+    # 模型提示词仍用默认问题兜底。
+    user_question = str(data.get("question") or "").strip()
+    question = user_question or "分析这个视频讲了什么"
+
+    # 原视频留存 URL（前端上传到 Supabase Storage 后传回）；只接受 http(s)，防奇怪协议
+    video_url = str(data.get("video_url") or "").strip()
+    if video_url and not (video_url.startswith("http://") or video_url.startswith("https://")):
+        video_url = ""
+    if len(video_url) > 2048:
+        video_url = ""
+
+    check_rate_limit(
+        f"video_analyze:{user_id}",
+        max_requests=3,
+        window_seconds=60,
+        error_message="视频分析请求过于频繁，请稍后再试",
+    )
+
+    lock = _video_quota_locks.get(user_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _video_quota_locks[user_id] = lock
+
+    # 同一用户串行：额度检查与记账之间不能被并发请求插队
+    async with lock:
+        used = await _video_used_today(user_id)
+        if used + seconds > VIDEO_DAILY_SECONDS:
+            remaining = max(0, VIDEO_DAILY_SECONDS - used)
+            raise HTTPException(
+                status_code=429,
+                detail=f"今日视频分析额度不足（每天 {VIDEO_DAILY_SECONDS // 60} 分钟，剩余 {remaining} 秒）",
+                headers={"Retry-After": "3600"},
+            )
+
+        # 有序多图序列理解：每 10 帧一批（约 10 秒），批间串行并携带上一段的滚动摘要。
+        # 模型看到的是「按时间排列的一段连续画面 + 前文」，而不是 120 张互不相干的图片。
+        batch_size = VIDEO_VISION_BATCH
+        segments = []
+        ok_count = 0
+        running = ""
+
+        for start in range(0, len(raw_frames), batch_size):
+            batch = raw_frames[start:start + batch_size]
+            t0 = int((start + 0.5) * VIDEO_FRAME_INTERVAL)
+            t1 = int((start + len(batch) - 0.5) * VIDEO_FRAME_INTERVAL)
+            labels = [
+                f"约 {int((start + j + 0.5) * VIDEO_FRAME_INTERVAL)} 秒："
+                for j in range(len(batch))
+            ]
+            batch_prompt = (
+                f"这是一个视频按时间顺序抽取的连续画面（每 {VIDEO_FRAME_INTERVAL} 秒 1 帧）。"
+                f"当前是第 {t0} 到 {t1} 秒这一段（共 {len(batch)} 张，已按时间先后排列）。\n"
+                f"上一段的理解：{running or '这是视频开头。'}\n"
+                "请把这几张图当作同一段视频的连续画面来理解，写一段连贯的叙述（120 字以内）："
+                "这一段发生了什么、画面/人物/文字如何变化；如果上一段有内容，说明如何衔接；"
+                "不要逐帧罗列，不要写“第1帧/第2帧/第N张”。"
+            )
+            try:
+                seg = await asyncio.to_thread(
+                    call_qwen_vision_sequence,
+                    batch, batch_prompt, labels, 0.5, "xiaoji_video_batch",
+                )
+            except Exception as e:
+                logger.warning(f"视频分段 {t0}-{t1}s 识别失败: {e}")
+                continue
+            seg = str(seg or "").strip()
+            if not seg:
+                continue
+            segments.append(seg)
+            running = "\n".join(segments)
+            ok_count += len(batch)
+
+        if ok_count == 0 or not segments:
+            # 所有分段都失败：不要拿空内容去喂汇总模型
+            raise HTTPException(status_code=502, detail="视频画面识别失败：视觉模型暂时不可用，请稍后重试")
+
+        joined = "\n".join(segments)
+        prompt = (
+            "下面是对同一段视频按时间顺序做的分段理解：\n"
+            f"{joined}\n\n"
+            f"用户的问题：{question}\n"
+            "请把这段视频当作一个整体来回答：视频整体讲了什么、过程如何推进、"
+            "前后有什么变化或因果、关键结论是什么。不要逐段复述，不要写“第N段/第N帧”，"
+            "用连贯的段落回答。300 字以内，中文，口语一点，不要用 markdown。"
+        )
+        try:
+            response = await asyncio.to_thread(
+                call_qwen, [{"role": "user", "content": prompt}], temperature=0.7, model=settings.QWEN_REASON_MODEL
+            )
+        except Exception as e:
+            logger.info(f"视频分析失败: {e}")
+            raise HTTPException(status_code=500, detail=f"视频分析失败: {str(e)}")
+
+        # 只有分析成功才记账：模型挂掉时不扣用户额度
+        await _record_video_usage(user_id, seconds, len(raw_frames), duration)
+
+        headers = get_supabase_headers()
+        # 视频消息留存：image_url 存首帧缩略图，video_url 存原视频公共 URL。
+        # 非视频消息这两个字段为 NULL；video_url 需要先执行 sql/add_xiaoji_video_url.sql。
+        to_save = [
+            {
+                "user_id": user_id, "role": "user", "content": user_question,
+                "kind": "video", "image_url": raw_frames[0], "video_url": video_url or None,
+            },
+            {"user_id": user_id, "role": "assistant", "content": response, "kind": "video"},
+        ]
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            for m in to_save:
+                try:
+                    res = await client.post(f"{settings.SUPABASE_URL}/rest/v1/xiaoji_messages",
+                                            headers=headers, json=m)
+                    if res.status_code not in (200, 201):
+                        # 最常见：video_url 列还没加（sql/add_xiaoji_video_url.sql）
+                        logger.warning(f"小基视频消息保存失败: {res.status_code} {res.text[:200]}")
+                except Exception as e:
+                    logger.warning(f"小基视频消息保存异常: {e}")
+
+        return {
+            "reply": response,
+            "frames_ok": ok_count,
+            "frames_total": len(raw_frames),
+            "duration": round(duration, 1),
+            "used_seconds": used + seconds,
+            "remaining_seconds": max(0, VIDEO_DAILY_SECONDS - used - seconds),
+        }
 
 
 @router.get("/xiaoji/config")

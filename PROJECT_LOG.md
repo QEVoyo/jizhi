@@ -1,6 +1,6 @@
 # 基智学习助手 (Jizhi Learn) — 项目总日志
 
-> 架构演进 / 关键决策 / 文件索引 · 最后更新：2026-10-15
+> 架构演进 / 关键决策 / 文件索引 · 最后更新：2026-10-17
 > 每日变更记录见：[logs/](./logs/)
 > 系统说明书见：[SYSTEM_MANUAL.md](./SYSTEM_MANUAL.md)
 
@@ -1987,7 +1987,7 @@ super_admin (超级管理员)
 - 三个可重跑的脚本落在 `_devtools/`：`check_security_selftest.py`（残留检查，只读）、`verify_reputation_reads.py`（读路径 24 项）、`verify_reputation_writes.py`（**会真写**，29 项）
 - **写路径的做法值得记**：每条记录打唯一标签 `wv_tag`，清理**先按 id 删、再按标签兜底扫**，最后拿快照逐项比对「和开跑前是否一致」。第一版只按 id 删，而 id 列表因为是空查询拿到空数组 → **漏删了一行**，正是靠最后那步比对才发现的
 - 结果：读路径 + 5 个写入点（`_ensure_row` / `_cas_write` / `_write_log` / `_record_ai_use` / `security_log`）全部在真库上验过
-- ⚠️ **上一轮留下的测试数据是这样找到的**：10-15 白天那次自测把**一个真实用户**（`8767a4f0`，`2752102168@qq.com`，22 个真实用户之一）的信誉分扣到 97 且**没留流水**。日志里把它记成「profiles 里第一条账号」，看着像测试号 —— **实际不是**。已改回 100
+- ⚠️ **上一轮留下的测试数据是这样找到的**：10-15 白天那次自测把**一个真实用户**（用户 ID 与邮箱已脱敏，22 个真实用户之一）的信誉分扣到 97 且**没留流水**。日志里把它记成「profiles 里第一条账号」，看着像测试号 —— **实际不是**。已改回 100
 
 ### 184. 前端读一个**后端从没返回过**的字段 → 恒显示 0，且不报错（2026-10-16）
 - 后台主面板「题库总量」长期是 0，而 `/settings` 里同一个数是 19338（对的）。差别只在：
@@ -2134,3 +2134,132 @@ super_admin (超级管理员)
 - 修法：收成 `lib.mjs` 一份；判定改成**「能不能进受保护页」**（`/home` 会不会被弹回）；凭据走环境变量
 - 另一处同源：CDP 里 `el.value = x; dispatchEvent(new Event('input'))` **骗不过 Element Plus 的 el-input** —— 表单看着填好了、按钮也点得动，但**请求压根不发**。改用 `Input.insertText` + 回车提交
 - 🎯 一般规律：**「看起来成功了」和「真的成功了」之间要有一条可观测的判据**，否则假通过会比失败更费时间
+
+### 197. 用户协议与隐私政策接入网页版/桌面端（2026-10-17）
+- 新增两个公开页 `/agreement`、`/privacy`，正文统一在 `frontend/src/utils/legalDocs.js`；
+  `LegalDoc.vue`（整页 + 目录）与 `LegalContent.vue`（正文）负责排版，登录页用 `LegalDialog.vue` 弹窗
+- 内容按网页版/桌面端重写：邮箱 + 验证码注册、Tauri WebView 桌面壳、localStorage、QQ 邮箱 SMTP、Supabase 东京区域、AI/语音第三方
+- 设置 → 关于新增两个入口；落地页 footer 也补了链接
+- 注册页门禁：勾选框默认不勾，放在**确认密码下面**；未勾选时 `handleSendCode` 与 `handleRegister` 直接返回，
+  一个 `/auth/send-code` 请求都不发；点「获取验证码」会把勾选框滚到视线内
+- 桌面端 Tauri 主窗口加载线上站点，网页版部署后自动同步，桌面壳无需改动
+- 验证：`npm run build` 通过；本机 Chrome 实测未勾选时无 send-code 请求、协议弹窗可打开、
+  「我已阅读并同意」会自动勾选；两份协议各 11 节、目录 11 条
+- ⚠️ 当前是**前端门禁**，与小程序一致；服务端强制需要给 `/auth/send-code`、`/auth/register` 增加 `agreed` 参数并同步其他端
+
+### 198. 首屏性能治理与接口审计（2026-10-17）
+- 首屏慢的两个真因：① 入口包 1.2MB JS（375KB gzip）+ 466KB CSS；② 线上缓存头是
+  `max-age=0, must-revalidate`，所有 hashed 资源每次都要重新验证
+- 落地页不用 Element Plus：`main.js` 去掉静态 import，改 `plugins/element.js` 的
+  `ensureElementPlus(app)`，由全局守卫在非 `/`、`/agreement`、`/privacy` 路由渲染前 await 一次。
+  入口 JS 1.2MB→72KB（375→25KB gzip），CSS 466→94KB（74→25KB gzip）；
+  Element Plus 变成登录/应用页的独立 chunk（291+42KB gzip JS + 47KB CSS）
+- 删掉 `index.html` 里重复的 cdnjs FontAwesome（本地包已打包）；favicon 换成 64px；
+  `logo.png` 2048px/1MB → 512px/141KB；小基两张 214/221KB → 43KB；图片加 lazy/decoding
+- 首屏骨架（inline CSS）先于 JS 显示；通知轮询、快捷键同步、`readByRoute`、落地页下载信息
+  改为 `requestIdleCallback` 后再跑；落地页 `.magnet` 鼠标处理改成缓存列表 + 每帧最多一次
+- `vercel.json` 加缓存头：`/assets/*` immutable 1 年，`/images/*`、logo、favicon 7 天
+- 接口审计：前端 236 个调用对线上 OpenAPI 比对，修复 2 个确定问题：
+  ① `QAPage` 的 `fetch('/api/qa/submit')` 在线上会打到 Vercel 静态站（改为登录后
+  `request.post('/qa/submit')`）；② `DoQuestion` 的 `PUT /questions/{id}/mistake-status`
+  后端根本没有这个路由（删除，评卷接口已经写错题状态）。另清掉 14 个未使用的 API 导出
+- 验证：build 通过；本地 preview 实测落地页不加载 Element Plus、无 console error；
+  登录页正常加载 chunk；QAPage 未登录点发送会跳登录，且不发 `/qa/submit`
+- ⚠️ 生产站仍在 Vercel sin1；本机测到冷缓存 TTFB 17.8s、资源下载 28–34s，热缓存 HTML
+  TTFB 0.7s。代码侧已尽量减重，真要在国内稳定快，建议把静态站迁到国内 CDN/对象存储
+
+### 199. 图片改渐进式加载：先占位，后台换原图（2026-10-17）
+- 用户要求：首屏先显示压缩版，完整原图在后台加载，加载好后替换压缩图
+- 新增 `components/ProgressiveImage.vue`：`placeholder` 先渲染；IntersectionObserver
+  进入视口 + `requestIdleCallback` 后再 `new Image()` 加载 `src`，`fetchPriority='low'`；
+  onload 后把 img.src 换成原图；class/alt/loading/@click 通过 `$attrs` 落到 `<img>`，
+  原有 CSS 选择器（`.hero-logo-img`、`.mu-xiaoji-img` 等）不用改
+- 落地页 logo/nav/hero/footer/小基两张全部接入：占位图 43KB/42KB/43KB；
+  原图 `logo-full.png` 1.05MB、小基 full 210/217KB
+- 轮播里未进入视口的图保持占位（实测两个 slide 仍是小图）；已进入视口的
+  hero/nav/companion 在约 300–600ms 换成原图（naturalWidth 2048/418），无 console error
+- 删除 `_image_backup`（原图已以 `*-full.png` 放进 `public/`）；`vercel.json` 给
+  `logo-full.png` 加 7 天缓存头；`og:image` 指向 `logo-full.png`
+
+### 200. 小基视频分析加限额：2 分钟/次、3 秒/帧、5 分钟/天（2026-10-17）
+- 前端：视频时长 >2 分钟直接拒绝；每 3 秒抽 1 帧（≤40 帧）；>20 帧用 320px/0.5，
+  ≤20 帧用 480px/0.62（避免 40 帧请求体撞反向代理 body 上限）；预览显示时长、帧数、
+  今日剩余额度；点视频按钮先查额度，超额直接提示
+- 后端：`/community/xiaoji/video-analyze` 校验帧数（≤40）与上报时长（≤120s）；
+  额度按帧数计量（每帧 3 秒），每天 300 秒（100 帧），北京时间零点重置；
+  用量写 `user_actions`（`action_type=xiaoji_video_analyze`，
+  `metadata.seconds/frames/duration`）；同一用户用 `asyncio.Lock` 串行检查+记账；
+  接口限流 3 次/分钟
+- 新增 `GET /community/xiaoji/video-quota` 返回今日剩余；前端提交成功后用返回的
+  `remaining_seconds` 更新显示
+- 失败可见：全帧失败返回 502（不再拿「识别失败」喂汇总模型产假总结）；部分失败返回
+  `frames_ok/frames_total`，前端提示「N 帧识别失败，结论可能不完整」；只有分析成功才记额度
+- ⚠️ 服务端拿不到原视频，无法验证真实时长；按帧数计量是**成本边界**，不是硬防作弊
+- 技术报告 `_competition/content.py` 新增（八）3 节并重生成 PDF：33→34 页
+- 验证：后端 `py_compile`、前端 `npm run build` 通过；PDF 文本含「小基视频分析 /
+  3 秒抽 1 帧 / 每日 5 分钟 / 320px / frames_ok」
+
+### 201. PII 扫描与脱敏（2026-10-17）
+- 扫描范围：技术报告源/PDF、项目文档、保留日志、`_devtools` 脚本、前端协议、小程序协议、桌面配置
+- 报告正文/PDF：**未发现真实人名**；PDF Author 元数据为空；封面团队名称与参赛编号按报名信息保留
+- 内部日志/脚本：真实用户 ID、邮箱、管理员昵称改为占位符或 `JZ_*` 环境变量
+  （`check_security_selftest.py`、`publish_announcement.py`、`seed_security_demo.py`、
+  `verify_reputation_reads.py`、`verify_reputation_writes.py`）；维护者展示名改为“基智开发团队”
+- 协议/隐私政策：运营者真实姓名与联系邮箱按备案/隐私合规要求保留（用户确认）
+- 私密 `.env` / env 备份中的发信邮箱保留（SMTP 验证码需要），不属于公开材料
+
+### 202. 小基视频分析改为连贯多图序列理解（2026-10-17）
+- 旧版逐帧独立识图再拼接 → 模型看到的是散图，回答容易退化成「第 1 帧/第 2 帧」清单
+- 改为：按时间顺序每 6 帧一批送入多图视觉模型（qwen3.8-flash 已实测支持一次多图），
+  每批附上上一段的滚动摘要和每帧时间戳，要求把整组图当作连续视频理解、不逐帧描述；
+  批间串行，保证后一批能读到前一批的理解；最后把分段摘要 + 用户问题交给文本模型
+  做整体综合，要求不逐段复述
+- 前端抽帧/2 分钟/每日 5 分钟额度/失败可见逻辑不变；全部分段失败返回 502，
+  部分失败返回 `frames_ok/frames_total` 并在前端提示
+- `WORKFLOW_STANDARD.md`、`SYSTEM_MANUAL.md` 的视频分析口径同步更新；
+  技术报告（八）3 重写并重新生成 PDF
+
+### 203. 视频抽帧改为 1 秒 1 帧（2026-10-17）
+- 单次 ≤2 分钟 → 最多 120 帧；每日 5 分钟 → 300 帧（额度仍按帧数=秒数计量）
+- 批次改为每 10 帧一次（实测 qwen3.8-flash 支持一次 10 图）；帧编码改用 WebP
+  （实测支持），>60 帧用 240px/0.55、21~60 帧用 320px/0.6、≤20 帧用 480px/0.7，
+  避免 120 帧请求体撞反向代理 body 上限
+- 前端抽帧提示、额度计算、视频预览、后端常量与文档同步；
+  技术报告（八）3 与 WORKFLOW_STANDARD/SYSTEM_MANUAL 的数字全部更新，PDF 重生成
+- ⚠️ 120 帧约 12 批串行，后端耗时约 1 分钟量级；部署时确认 Nginx
+  `proxy_read_timeout` 不低于前端 180s 的超时（建议 300s）
+
+### 204. 小基视频消息留存与缩略图（2026-10-17）
+- `xiaoji_messages` 新增 `video_url` 列；`image_url` 存首帧 WebP 缩略图。
+  SQL：`backend/sql/add_xiaoji_video_url.sql`（部署前先在 Supabase 执行）
+- 前端选视频后后台把原视频上传到 Supabase Storage（复用 `chat-images` 桶，单文件 ≤50MB）；
+  发送时等上传结束，消息带 `video_url`。聊天里显示缩略图 + 播放按钮，点击打开视频播放器。
+  上传失败或 >50MB 时仍可分析，但消息明确标记「视频未留存」
+- 后端用户消息保存 `image_url=首帧`、`video_url=原视频`；保存失败会写 warning
+  （最常见原因是 `video_url` 列还没加）
+- 验证：前端 build、后端 py_compile/test 通过；真实上传/播放需要在登录账号与桶权限下实测
+- ⚠️ 确认 `chat-images` 桶允许 `video/*` 且文件大小上限 ≥50MB；否则视频留存会失败（分析仍可用）
+
+### 205. 视频上传 InvalidKey + previewImage 未定义（2026-10-17）
+- 现象：`屏幕录制_2025_11_14_230107.mp4` 上传报 `InvalidKey`。根因：Supabase Storage 的
+  object key 不接受中文，`uploadImage`/`uploadVideo` 之前都保留了中文文件名
+- 修法：统一走 `safeStorageName()`，只保留 ASCII 字母/数字/下划线/短横线，保留扩展名；
+  纯中文名回退为 `image`/`video`，并加时间戳+随机前缀防重名
+- 连带修复：`XiaojiCall.vue` 里 `previewImage()` 函数从未定义，图片点击和视频「未留存」
+  兜底点击都会报 `TypeError`。补上该函数
+- 验证：前端 build 通过；文件名 sanitize 单测（中文/空格/括号 → ASCII）；真实上传需部署后复测
+
+### 206. 去掉视频消息的 [视频] 占位符（2026-10-17）
+- 有视频缩略图卡片后，`[视频]` 文本是冗余的
+- 前端 userMsg.content 在用户没写问题时为空；后端把「用户原文」和「模型默认提示词」分开：
+  `user_question` 存库（可为空），`question` 仍用「分析这个视频讲了什么」兜底
+- 历史/新消息在无提问时只显示视频卡，不再显示占位文字；build/test 通过
+- 已存在的旧视频消息如果 content 仍是 `[视频]`，需要单独清理库数据才会消失
+
+### 207. 小基「发送题目」题库 Tab 默认不显示（2026-10-17）
+- 现象：点小基输入栏「发送题目」→「题库」Tab 一片空白；「生成历史」正常
+- 根因：`doBankSearch()` 在关键词为空时直接 `return`，而考纲下拉 `bankSyllabusNames`
+  又只在搜索响应后才填充 —— 刚打开弹窗时关键词和考纲都是空的，所以什么都不查、什么都不显示
+- 修法：`openSendQuestion()` 先 `listSyllabi()` 填考纲下拉、默认选中第一个考纲并拉前 20 题；
+  输入关键词才走模糊搜索；清空关键词回到该考纲默认列表
+- 验证：frontend build 通过；需要登录后实点一次确认默认考纲符合预期
