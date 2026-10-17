@@ -70,6 +70,11 @@ class Settings:
     EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
     EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
 
+    # 阿里云 DirectMail SMTP（2026-10-17 切换）
+    EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "基智")
+    EMAIL_REPLY_TO = os.getenv("EMAIL_REPLY_TO", "")
+    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "1").lower() in ("1", "true", "yes")
+
     # ===== 科大讯飞语音 =====
     XUNFEI_APPID = os.getenv("XUNFEI_APPID")
     XUNFEI_API_KEY = os.getenv("XUNFEI_API_KEY")

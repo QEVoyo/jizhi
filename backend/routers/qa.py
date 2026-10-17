@@ -24,58 +24,53 @@ class QASubmitRequest(BaseModel):
 
 
 def send_qa_email_with_image(nickname: str, email: str, question: str, image_base64: str = None):
-    """发送Q&A邮件（带图片附件）"""
-    import smtplib
+    """发送 Q&A 邮件（HTML + 图片内嵌，发到管理员邮箱；Reply-To 指回提问人）"""
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
     from email.mime.image import MIMEImage
+    from utils.email import smtp_send_to_admins, render_admin_email, admin_plain
 
-    msg = MIMEMultipart()
-    msg["Subject"] = f"【Q&A提问】来自 {nickname}"
-    msg["From"] = settings.EMAIL_USER
-    msg["To"] = settings.EMAIL_RECEIVER
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    rows = [
+        ("提问人", nickname or "用户"),
+        ("邮箱", email or "（未填写）"),
+        ("提交时间", now),
+    ]
+    image_cid = "question_image" if image_base64 else None
+    notice = "用户正在等待答复，请尽快登录管理后台处理。"
+    action_url = "https://www.jizhi-learn.com/admin/qa"
+    html_body = render_admin_email(
+        "新的 Q&A 提问", "用户通过帮助中心提交", rows, question, "问题内容",
+        image_cid=image_cid,
+        accent="#7c5cff", icon="💬", badge="待回复", notice=notice,
+        action_url=action_url, action_label="前往回复用户",
+    )
+    text_body = admin_plain("新的 Q&A 提问", rows, question, "问题内容",
+                            notice=notice, action_url=action_url, action_label="前往回复用户")
 
-    body = f"""
-收到新的Q&A提问：
+    msg = MIMEMultipart("related")
+    msg["Subject"] = f"【基智·待处理】新的 Q&A 提问 · 来自 {nickname or '用户'}"
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(text_body, "plain", "utf-8"))
+    alt.attach(MIMEText(html_body, "html", "utf-8"))
+    msg.attach(alt)
 
-提问人：{nickname}
-邮箱：{email}
-用户ID：{''}
-时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-问题内容：
-{question}
-
-{'📎 附带了图片（见附件）' if image_base64 else ''}
-
----
-请回复此邮件解答用户问题。
-"""
-    msg.attach(MIMEText(body, "plain", "utf-8"))
-
-    # 如果有图片，解码并作为附件添加
+    # 图片内嵌（HTML 里用 cid:question_image 引用），同时也保留附件形态
     if image_base64:
         try:
-            # 去掉 data:image/png;base64, 前缀
             if "," in image_base64:
                 image_base64 = image_base64.split(",")[1]
 
             image_data = base64.b64decode(image_base64)
             image = MIMEImage(image_data)
-            image.add_header('Content-Disposition', 'attachment', filename='提问图片.png')
+            image.add_header('Content-ID', '<question_image>')
+            image.add_header('Content-Disposition', 'inline', filename='提问图片.png')
             msg.attach(image)
         except Exception as e:
             logger.info(f"图片附件添加失败: {e}")
 
-    try:
-        with smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
-            server.starttls()
-            server.login(settings.EMAIL_USER, settings.EMAIL_PASSWORD)
-            server.sendmail(settings.EMAIL_USER, settings.EMAIL_RECEIVER, msg.as_string())
-        return True
-    except Exception as e:
-        logger.info(f"发送邮件失败: {e}")
-        return False
+    reply_to = email if email and "@" in email else None
+    return smtp_send_to_admins(msg, reply_to=reply_to)
 
 
 @router.post("/submit")
