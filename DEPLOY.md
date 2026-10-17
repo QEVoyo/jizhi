@@ -13,6 +13,24 @@ project1 那三份是本地开发用的（localhost、本地密钥、生产缺�
 
 ---
 
+## 2026-10-17 增量部署（邮件 + 视频 + 前端）
+
+- 后端用桌面 `jizhi-backend-20261017-2046.zip`，解压覆盖 `/www/wwwroot/`；
+  不要再传 2032 / 2040 / 1801 的旧包。
+- 服务器 `backend/.env` 需确认以下邮件配置（**不要用本地 `.env` 覆盖**）：
+  `EMAIL_HOST=smtpdm.aliyun.com`、`EMAIL_PORT=465`、`EMAIL_USE_SSL=1`、
+  `EMAIL_USER=notice@jizhi-learn.com`、`EMAIL_FROM_NAME=基智`、
+  `EMAIL_REPLY_TO=<管理员邮箱>`、`EMAIL_RECEIVER=<兜底管理员邮箱>`。
+- `backend/config.py` 新增 `EMAIL_FROM_NAME` / `EMAIL_REPLY_TO` / `EMAIL_USE_SSL`，包内已带。
+- 管理员通知会从 `profiles` 读取全部 `admin` / `super_admin` 并逐个发送，
+  依赖 `SUPABASE_SERVICE_ROLE_KEY`；数据库查询失败时回落 `EMAIL_RECEIVER`。
+- 上传后执行 `pip install -r requirements.txt` 并重启 uvicorn。前端 `dist` 已在部署仓库构建，
+  无需重新构建。
+- 仍未执行：`backend/sql/add_xiaoji_video_url.sql`。Nginx 需 `proxy_read_timeout >= 300s`、
+  `client_max_body_size >= 5m`；`chat-images` 桶需允许 `video/*` 且单文件上限 ≥50MB。
+
+---
+
 ## 一、本次（09-30）与历次未部署的改动
 
 从 09-22 起累计六轮改动全压在本地，这是一次性补齐：

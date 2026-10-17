@@ -84,6 +84,7 @@
      - 5.8.8 [详情：七种形态](#588-详情七种形态2026-10-08)
      - 5.8.9 [桌面通知](#589-桌面通知2026-10-08)
      - 5.8.10 [帮助中心 Q&A](#5810-帮助中心-qa)
+     - 5.8.11 [邮件通知（2026-10-17 改版）](#5811-邮件通知2026-10-17-改版)
    - 5.9 [工具箱](#59-工具箱)
      - 5.9.0 [整体架构](#590-整体架构)
      - 5.9.1 [打卡](#591-打卡)
@@ -360,7 +361,7 @@
 | **AI** | DeepSeek V4.1 Flash (OpenAI SDK) | `deepseek-flash`, 8K tokens，思考模式默认关；文本与识图同一模型 |
 | **代码沙箱** | `subprocess.run()` + MinGW GCC/G++ + **仓库内置 OpenJDK 17** | 本地编译执行；Java 走 `backend/utils/jdk/`，不依赖系统安装 |
 | **二维码** | ~~qrcode 7.x + Pillow~~ **2026-09-28 起不再需要** | 原用于微信扫码登录（该功能已移除） |
-| **邮箱** | SMTP (QQ 邮箱) | 验证码发送 |
+| **邮件** | 阿里云 DirectMail（SMTP SSL 465） | 验证码、反馈/举报/Q&A 管理员通知；发件人「基智」，HTML + 纯文本备用 |
 | **语音** | 千问 TTS + 科大讯飞 ASR | 08-25 起 TTS 收编千问，讯飞只留 ASR |
 
 ### 2.3 关键设计决策
@@ -432,12 +433,15 @@ SUPABASE_URL=https://xxxxxxxxxxxxxxx.supabase.co
 SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...        # anon / public key
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6... # service_role key (绕过 RLS)
 
-# ===== 邮箱验证码 (QQ 邮箱) =====
-EMAIL_HOST=smtp.qq.com
-EMAIL_PORT=587
-EMAIL_USER=your_qq_number@qq.com
-EMAIL_PASSWORD=xxxxxxxxxxxxxxx    # QQ邮箱 → 设置 → 账户 → POP3/SMTP → 授权码
-EMAIL_RECEIVER=your_qq_number@qq.com
+# ===== 邮件通知（阿里云 DirectMail） =====
+EMAIL_HOST=smtpdm.aliyun.com
+EMAIL_PORT=465
+EMAIL_USER=notice@jizhi-learn.com
+EMAIL_PASSWORD=xxxxxxxxxxxxxxx    # DirectMail 发信密码（控制台设置）
+EMAIL_RECEIVER=admin@example.com  # 数据库查询管理员失败时的兜底收件人
+EMAIL_FROM_NAME=基智
+EMAIL_REPLY_TO=admin@example.com
+EMAIL_USE_SSL=1
 
 # ===== 微信登录 (可选，公众号测试号免费获取) =====
 # 获取地址: https://mp.weixin.qq.com/debug/cgi-bin/sandbox?t=sandbox/login
@@ -687,7 +691,7 @@ project1/
 │   │   ├── auth_middleware.py         # JWT 双模认证中间件
 │   │   ├── admin_middleware.py        # 三级角色鉴权 + 审计日志写入
 │   │   ├── code_runner.py            # ★ 代码沙箱 (334行)
-│   │   ├── email.py                  # SMTP 邮件发送
+│   │   ├── email.py                  # SMTP 邮件发送（阿里云 DirectMail；管理员通知模板）
 │   │   ├── notification.py           # 站内通知
 │   │   ├── rate_limit.py             # 内存速率限制（认证接口用）
 │   │   ├── security_middleware.py    # 全局限流（纯 ASGI）
@@ -1884,7 +1888,7 @@ levelProgress = min(100, currentProgress / currentNeeded × 100)%
 | 收藏 | `POST /community/post/{id}/collect` → `collect_count++` | 🔖 橙色高亮 |
 | 取消收藏 | `DELETE /community/post/{id}/collect` | 🔖 灰色 |
 | 评论 | `POST /community/post/{id}/comment`（支持 `parent_id` 嵌套回复） | 展开评论区 |
-| 举报 | 选择原因 → `POST /community/report` → 写入 `reports` 表 + 发邮件给管理员 | — |
+| 举报 | 选择原因 → `POST /community/report` → 写入 `reports` 表 + 逐个通知全部管理员 | — |
 | 删除 | 仅自己帖子 → `DELETE /community/post/{id}` → `ElMessageBox` 确认 | — |
 
 **PostCard 组件**：统一卡片样式——头像(点击→用户主页) / 昵称 / 相对时间("3分钟前"/"2天前") / 更多菜单(举报/删除) / 标题 / 正文(pre-wrap) / #标签(可点击) / 图片缩略图(100×100→点击放大 via `el-image-viewer`) / 互动栏(赞数+评论数+收藏数)。
@@ -2031,23 +2035,19 @@ def sort_key(stat):
 sorted_stats = sorted(stats, key=sort_key, reverse=True)
 ```
 
-**举报邮件通知**：
+**举报邮件通知**（2026-10-17 改版）：
 ```python
 # 用户举报 → 后端处理:
 # 1. 写入 content_reports 表
-# 2. 异步发送邮件给管理员
-asyncio.create_task(
-    send_email(
-        to=settings.EMAIL_RECEIVER,
-        subject=f"[举报] {reporter_name} 举报了 {target_type}",
-        body=f"举报人: {reporter_name}\n"
-             f"举报类型: {target_type}\n"
-             f"举报原因: {reason}\n"
-             f"投诉对象ID: {target_id}\n"
-             f"处理链接: {FRONTEND_URL}/admin/reports"
-    )
+# 2. get_admin_emails() 从 profiles 解析全部 admin/super_admin
+#    （过滤停用、按邮箱去重；查询失败回落 EMAIL_RECEIVER）
+# 3. 逐个发送 HTML 通知（红色主题、24 小时处理提醒、/admin/reports 直达按钮）
+# 4. 单个收件人失败只记日志，不影响举报提交，也不影响其余管理员
+from utils.email import send_report_email
+send_report_email(
+    reporter_nickname, target_type, target_id, reason,
+    target_content, target_author,
 )
-# 邮件发送失败不影响举报提交
 ```
 
 所有用户内容经 `sensitive_words.check_content_safety()` 过滤。
@@ -2720,7 +2720,23 @@ await notify(to_user, notif_type, *, actor_id, actor_name, source_id,
 - 入门指南(4) / 学科计划(7) / 资源库(6) / 学程(6) / 社区(5) / 账号(4) / API(4)
 - 每 FAQ 含标题 + 分步解答 + 跳转按钮
 - 搜索过滤（匹配标题+内容）
-- 底部在线提问表单 → 图片上传 → `POST /qa/submit` → 邮件通知管理员
+- 底部在线提问表单 → 图片上传 → `POST /qa/submit` → 邮件通知全部管理员（紫色主题、图片内嵌、Reply-To 指向提问人）
+
+#### 5.8.11 邮件通知（2026-10-17 改版）
+
+- 统一入口：`backend/utils/email.py`；SMTP_SSL 465（阿里云 DirectMail `smtpdm.aliyun.com`），
+  发件人显示「基智」，默认 Reply-To 为管理员邮箱。
+- 验证码：`send_verification_code_email()`，HTML 验证码卡片 + 纯文本备用。
+- 管理员通知：反馈青 `#0f9f8f`、举报红 `#e5484d`、Q&A 紫 `#7c5cff` 三套 HTML；
+  含处理提醒、状态徽章、键值信息卡、正文块与后台直达按钮；Q&A 图片以 CID 内嵌。
+- 收件人：`get_admin_emails()` 从 `profiles` 取 `role in (admin, super_admin)` 或
+  `is_admin=true` 且未停用的账号，按邮箱去重后逐个发送；数据库查询失败回落
+  `EMAIL_RECEIVER`。反馈/举报走 `send_email_to_admins()`，Q&A 走
+  `smtp_send_to_admins()` 复用同一 MIME 消息。
+- 安全与兼容：用户输入全部 HTML 转义；纯文本备用版包含提醒和后台链接；浅色底使用
+  实色混色而非 `rgba()`，兼容不支持 `rgba` 的邮件客户端。
+- 2026-10-17 实测：三类通知 × 3 名管理员 **9/9** 成功；公告邮件 **13/13** 唯一真实
+  邮箱成功；站内公告广播 **23/23** 用户。
 
 ---
 
@@ -6231,13 +6247,13 @@ main ──── 主分支 (当前工作分支)
 | ~~微信扫码无法回调~~ | 该功能 2026-09-28 已整条移除 | 保留此行仅作历史 |
 | 前端 401 不断跳转登录 | localStorage token 过期 | 清除 Application → Local Storage → 重新登录 |
 | npm run dev 报错 | node_modules 不完整 | `rm -rf node_modules && npm install` |
-| 邮件验证码收不到 | QQ 邮箱 SMTP 授权码问题 | QQ邮箱 → 设置 → 账户 → POP3/SMTP → 开启并获取授权码 |
+| 邮件验证码收不到 | 阿里云 DirectMail 配置 / 发信地址未验证 / 进入垃圾箱 | 检查 `.env` 的 `EMAIL_HOST=smtpdm.aliyun.com`、`EMAIL_PORT=465`、`EMAIL_USE_SSL=1`；DirectMail 控制台确认发信地址可用；检查垃圾箱与 SPF/DKIM |
 
 ---
 
 ## 16. 已知问题与解决方案
 
-以下内容来自 `PROJECT_LOG.md`（**183 条**已解决问题），此处仅列重要项。
+以下内容来自 `PROJECT_LOG.md`（**212 条**已解决问题），此处仅列重要项。
 **要查某个具体问题的根因和修法，去 `PROJECT_LOG.md` 按条目号找，那儿才是完整版：**
 
 | # | 问题 | 根因 | 修复 | 影响文件 |
@@ -6780,11 +6796,14 @@ npm run build   # 产出 src-tauri/target/release/bundle/nsis/JIZHI_x.y.z_x64-se
 | `SUPABASE_URL` | ✅ | — | Supabase 项目 URL |
 | `SUPABASE_KEY` | ✅ | — | Supabase anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | — | Supabase service_role key |
-| `EMAIL_HOST` | ✅ | — | SMTP 服务器地址 |
-| `EMAIL_PORT` | ❌ | `587` | SMTP 端口 |
-| `EMAIL_USER` | ✅ | — | 邮箱地址 |
-| `EMAIL_PASSWORD` | ✅ | — | SMTP 授权码 |
-| `EMAIL_RECEIVER` | ❌ | — | 默认收件人 |
+| `EMAIL_HOST` | ✅ | — | SMTP 服务器地址（阿里云 `smtpdm.aliyun.com`） |
+| `EMAIL_PORT` | ❌ | `465` | SMTP 端口（SSL） |
+| `EMAIL_USER` | ✅ | — | 发信地址（`notice@jizhi-learn.com`） |
+| `EMAIL_PASSWORD` | ✅ | — | DirectMail 发信密码 |
+| `EMAIL_RECEIVER` | ❌ | — | 兜底收件人（数据库查询管理员失败时） |
+| `EMAIL_FROM_NAME` | ❌ | `基智` | 收件箱显示的发件人名称 |
+| `EMAIL_REPLY_TO` | ❌ | — | 默认 Reply-To |
+| `EMAIL_USE_SSL` | ❌ | `1` | 465 端口走 SSL |
 | `WECHAT_WEB_APPID` | ❌ | — | 公众号测试号 appID |
 | `WECHAT_WEB_SECRET` | ❌ | — | 公众号测试号 appsecret |
 | `WECHAT_MP_APPID` | ❌ | `wx6db1f1a6e3f3969c` | 小程序 appID |
