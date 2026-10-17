@@ -141,6 +141,17 @@
                 prefix-icon="Lock"
               />
             </el-form-item>
+            <el-form-item class="agree-form-item">
+              <div class="agree-row" :class="{ warn: agreeWarn }">
+                <el-checkbox v-model="agreed" @change="agreeWarn = false" />
+                <span class="agree-text">我已阅读并同意</span>
+                <button type="button" class="agree-link" @click="openLegal('service')">《用户服务协议》</button>
+                <span class="agree-text">和</span>
+                <button type="button" class="agree-link" @click="openLegal('privacy')">《隐私政策》</button>
+              </div>
+              <div class="agree-hint">勾选后才能获取验证码</div>
+              <div v-if="agreeWarn" class="agree-warn">请先阅读并勾选同意两份协议，再获取验证码</div>
+            </el-form-item>
             <el-button
               type="primary"
               size="large"
@@ -156,6 +167,8 @@
         </el-tab-pane>
       </el-tabs>
     </div>
+
+    <LegalDialog v-model="legalVisible" :type="legalType" @agree="onLegalAgree" />
   </div>
 </template>
 
@@ -166,6 +179,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
 import { ElMessage } from 'element-plus'
 import BubbleBackground from '@/components/BubbleBackground.vue'
+import LegalDialog from '@/components/LegalDialog.vue'
 import { recordAction } from '@/api/career'
 import { isDesktop } from '@/desktop'
 
@@ -183,6 +197,29 @@ const adminError = ref('')
 const registerError = ref('')
 const registerMsg = ref('')
 const userRememberMe = ref(false)
+
+// 注册协议：必须由用户主动勾选（默认不勾选，合规红线，勿改为 true）
+const agreed = ref(false)
+const agreeWarn = ref(false)
+const legalVisible = ref(false)
+const legalType = ref('service')
+
+function openLegal(type) {
+  legalType.value = type
+  legalVisible.value = true
+}
+
+function onLegalAgree() {
+  agreed.value = true
+  agreeWarn.value = false
+}
+
+// 登录后回到守卫记下的目标页（如 /qa 提问被拦下来的场景）。
+// 只接受站内绝对路径，拒绝 //evil.com 这类协议相对地址。
+function postLoginTarget() {
+  const r = route.query.redirect
+  return typeof r === 'string' && r.startsWith('/') && !r.startsWith('//') ? r : '/home'
+}
 
 // 验证码相关
 const sendingCode = ref(false)
@@ -214,6 +251,14 @@ async function handleSendCode() {
   const email = registerForm.email.trim()
   if (!email) { ElMessage.warning('请先填写邮箱'); return }
   if (!email.includes('@')) { ElMessage.warning('邮箱格式不正确'); return }
+  // 协议是获取验证码的前置条件：没勾选就一个请求都不发
+  if (!agreed.value) {
+    agreeWarn.value = true
+    ElMessage.warning('请先阅读并勾选同意《用户服务协议》和《隐私政策》')
+    // 勾选框挪到了确认密码下面，点验证码时把它滚到视线里
+    document.querySelector('.agree-form-item')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    return
+  }
 
   sendingCode.value = true
   try {
@@ -254,7 +299,7 @@ async function handleUserLogin() {
     sessionStore.createSession('新对话')
     try { await recordAction(result.user?.id || authStore.user?.id, 'login') } catch (e) {}
     ElMessage.success('登录成功！')
-    router.push('/home')
+    router.push(postLoginTarget())
   } else {
     userError.value = result?.message || '登录失败'
   }
@@ -290,6 +335,11 @@ async function handleAdminLogin() {
 
 async function handleRegister() {
   const { email, password, confirmPassword, code } = registerForm
+  if (!agreed.value) {
+    agreeWarn.value = true
+    registerError.value = '请先阅读并勾选同意《用户服务协议》和《隐私政策》'
+    return
+  }
   if (!email || !password || !code) {
     registerError.value = '请填写完整信息'
     return
@@ -325,6 +375,8 @@ async function handleRegister() {
     registerForm.password = ''
     registerForm.confirmPassword = ''
     registerForm.code = ''
+    agreed.value = false
+    agreeWarn.value = false
     // 切换到登录 Tab
     setTimeout(() => {
       activeTab.value = 'user'
@@ -347,11 +399,11 @@ onUnmounted(() => {
 .login-page {
   height: calc(100vh - var(--jz-top, 0px));
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  overflow: hidden;
 }
 
 .login-container {
@@ -493,6 +545,45 @@ onUnmounted(() => {
   margin-top: 10px;
   text-align: center;
 }
+
+/* ===== 注册协议勾选（默认不勾选） ===== */
+.agree-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  width: 100%;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.agree-row :deep(.el-checkbox) {
+  margin-right: 0;
+  height: auto;
+}
+.agree-row.warn { color: #f56c6c; }
+.agree-text { color: var(--text-secondary); }
+.agree-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--brand);
+  font: inherit;
+}
+.agree-link:hover { text-decoration: underline; }
+.agree-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.agree-warn {
+  font-size: 12px;
+  color: #f56c6c;
+  margin-top: 3px;
+}
+.agree-form-item { margin-bottom: 12px; }
+.agree-form-item :deep(.el-form-item__content) { line-height: 1.6; }
 
 /* ✅ 验证码行 */
 .captcha-row {

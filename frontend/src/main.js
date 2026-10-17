@@ -1,8 +1,5 @@
 import { createApp, watch } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
-import 'element-plus/dist/index.css'
 import App from './App.vue'
 import router from './router'
 import './styles/global.css'
@@ -21,6 +18,7 @@ import { loadLocalBindings, syncFromAccount, resetToLocalOnly } from './shortcut
 import { useNavStore } from './stores/nav'
 import { useAuthStore } from './stores/auth'
 import { useThemeStore } from './stores/theme'
+import { ensureElementPlus } from './plugins/element'
 import './desktop/desktop.css'
 
 // 桌面版：屏蔽网页专属行为（右键菜单、Ctrl+滚轮缩放、F5 等）+ 窄窗口等比缩放。
@@ -41,6 +39,7 @@ if (isDesktop) {
   setTimeout(async () => {
     try {
       const { checkUpdate, openExternal } = await import('./desktop')
+      const { ElNotification } = await import('element-plus')
       const r = await checkUpdate()
       if (!r?.hasUpdate) return
       ElNotification({
@@ -58,11 +57,6 @@ if (isDesktop) {
 }
 
 const app = createApp(App)
-
-// 注册所有图标
-for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
-  app.component(key, component)
-}
 
 const pinia = createPinia()
 app.use(pinia)
@@ -109,13 +103,33 @@ const _auth = useAuthStore()
 watch(
   () => _auth.user?.id,
   (uid, old) => {
-    if (uid) syncFromAccount(uid)
-    else if (old) resetToLocalOnly()
+    if (uid) {
+      // 快捷键绑定不是首屏必需，等空闲再拉，别和首屏请求抢带宽
+      const run = () => syncFromAccount(uid)
+      if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 2000 })
+      else setTimeout(run, 800)
+    } else if (old) {
+      resetToLocalOnly()
+    }
   },
   { immediate: true },
 )
+// ===== Element Plus 按需加载 =====
+// 落地页和两个协议页不用任何 el-* 组件，先不加载 Element Plus；
+// 其它路由在渲染前 await 一次（只加载一次），避免首屏白等 340KB gzip。
+const LIGHT_ROUTES = new Set(['/', '/agreement', '/privacy'])
+router.beforeEach(async (to, from, next) => {
+  if (LIGHT_ROUTES.has(to.path)) return next()
+  try {
+    await ensureElementPlus(app)
+    next()
+  } catch (e) {
+    console.error('[element] 加载失败，继续渲染（页面可能缺少组件样式）:', e)
+    next()
+  }
+})
+
 app.use(router)
-app.use(ElementPlus)
 
 // 桌面版：主动初始化主题 store。
 // Pinia 的 store 是懒创建的，而 useThemeStore() 原本只在两处被调用 ——

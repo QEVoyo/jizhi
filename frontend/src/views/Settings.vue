@@ -642,6 +642,18 @@
               <span class="link-desc">技术架构与开源说明</span>
               <svg class="link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
             </router-link>
+            <router-link to="/agreement" class="link-card">
+              <span class="link-icon">📜</span>
+              <span class="link-label">用户服务协议</span>
+              <span class="link-desc">使用基智前请阅读</span>
+              <svg class="link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </router-link>
+            <router-link to="/privacy" class="link-card">
+              <span class="link-icon">🔐</span>
+              <span class="link-label">隐私政策</span>
+              <span class="link-desc">我们如何收集与保护信息</span>
+              <svg class="link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </router-link>
           </div>
         </div>
       </div>

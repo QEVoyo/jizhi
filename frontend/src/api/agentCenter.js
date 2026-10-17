@@ -29,10 +29,6 @@ export function getAgentTuning(agentKey, userId) {
   return request.get(`/agent-center/agents/${agentKey}/tuning`, { params: { user_id: userId } }).then(res => res.data)
 }
 
-export function postAgentTuning(agentKey, userId, item) {
-  return request.post(`/agent-center/agents/${agentKey}/tuning`, item, { params: { user_id: userId } }).then(res => res.data)
-}
-
 // 立即执行磨合规则评估（返回实际调整列表）
 export function postRunTuning(userId) {
   return request.post('/agent-center/tuning/run', null, { params: { user_id: userId } }).then(res => res.data)

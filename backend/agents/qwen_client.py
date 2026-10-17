@@ -124,3 +124,41 @@ def call_qwen_vision(image_url, prompt="请描述这张图片的内容", tempera
     gen_audit.note_ok(provider=_PROVIDER, model=used, purpose=purpose,
                       started=started, output=content)
     return content
+
+
+def call_qwen_vision_sequence(images, prompt, labels=None, temperature=0.5,
+                              purpose="xiaoji_video_sequence"):
+    """有序多图识图：把一组按时间排列的帧当作一段连续画面来理解。
+
+    和 call_qwen_vision 的区别：
+      · 一次请求里放多张图，模型看得到前后顺序，而不是逐张独立识图；
+      · labels 在每张图前插入时间戳（如「约 12 秒：」），但不写「第 N 帧」，
+        避免模型把回答写成逐帧清单；
+      · 调用方按时间段分批，并把上一段的滚动摘要放进 prompt，
+        批与批之间保持上下文连续。
+    """
+    used = settings.QWEN_VISION_MODEL
+    started = time.perf_counter()
+    content = [{"type": "text", "text": prompt}]
+    for i, url in enumerate(images):
+        if labels and i < len(labels):
+            content.append({"type": "text", "text": labels[i]})
+        content.append({"type": "image_url", "image_url": {"url": url}})
+    try:
+        client = _client()
+        response = client.chat.completions.create(
+            model=used,
+            messages=[{"role": "user", "content": content}],
+            temperature=temperature,
+            stream=False,
+            timeout=55.0,
+            max_tokens=2048,
+        )
+    except Exception as e:
+        gen_audit.note_fail(provider=_PROVIDER, model=used, purpose=purpose,
+                            started=started, error=e)
+        raise
+    out = response.choices[0].message.content
+    gen_audit.note_ok(provider=_PROVIDER, model=used, purpose=purpose,
+                      started=started, output=out)
+    return out

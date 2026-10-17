@@ -4,7 +4,7 @@
       <!-- ===== 顶部导航 ===== -->
       <div class="landing-nav">
         <div class="nav-left" @click="onLogoClick">
-          <img src="/logo.png" alt="基智" class="nav-logo" />
+          <ProgressiveImage placeholder="/logo.png" src="/logo-full.png" alt="基智" class="nav-logo" />
           <span class="nav-brand">基智</span>
         </div>
         <div class="nav-actions">
@@ -24,7 +24,7 @@
         <Starfield ref="starfieldRef" />
         <div class="hero">
           <div class="hero-logo">
-            <img src="/logo.png" alt="基智" class="hero-logo-img" @click="onLogoClick" />
+            <ProgressiveImage placeholder="/logo.png" src="/logo-full.png" alt="基智" class="hero-logo-img" fetchpriority="high" @click="onLogoClick" />
             <div class="hero-logo-text">
               <span class="hero-logo-main">基智</span>
               <span class="hero-logo-sub">学习助手</span>
@@ -155,7 +155,7 @@
                   <!-- ===== 小基：形象 + 聊天气泡 ===== -->
                   <div v-else-if="slide.type === 'xiaoji'" class="mockup mockup-xiaoji">
                     <div class="mu-xiaoji-wrap">
-                      <img src="/images/xiaoji/xiaoji_idle.png" alt="小基" class="mu-xiaoji-img" />
+                      <ProgressiveImage placeholder="/images/xiaoji/xiaoji_idle.png" src="/images/xiaoji/xiaoji_idle-full.png" alt="小基" class="mu-xiaoji-img" loading="lazy" decoding="async" />
                       <div class="mu-xiaoji-ring"></div>
                     </div>
                     <div class="mu-bubble-stack">
@@ -376,7 +376,7 @@
             <!-- 小基 -->
             <div v-else-if="slide.type === 'xiaoji'" class="fv-inner fv-row">
               <div class="mu-xiaoji-wrap fv-xiaoji">
-                <img src="/images/xiaoji/xiaoji_idle.png" alt="小基" class="mu-xiaoji-img" />
+                <ProgressiveImage placeholder="/images/xiaoji/xiaoji_idle.png" src="/images/xiaoji/xiaoji_idle-full.png" alt="小基" class="mu-xiaoji-img" loading="lazy" decoding="async" />
                 <div class="mu-xiaoji-ring"></div>
               </div>
               <div class="mu-bubble-stack fv-bubbles">
@@ -434,7 +434,7 @@
 
       <!-- ===== 小基伴游 ===== -->
       <button class="xiaoji-companion" @click="goRegister" aria-label="小基">
-        <img src="/images/xiaoji/xiaoji_happy.png" alt="" />
+        <ProgressiveImage placeholder="/images/xiaoji/xiaoji_happy.png" src="/images/xiaoji/xiaoji_happy-full.png" alt="" decoding="async" />
         <span class="xiaoji-bubble">注册后就能和我聊天啦</span>
       </button>
 
@@ -445,7 +445,7 @@
       <div class="landing-footer">
         <div class="footer-top">
           <div class="footer-brand">
-            <img src="/logo.png" alt="基智" class="footer-logo" />
+            <ProgressiveImage placeholder="/logo.png" src="/logo-full.png" alt="基智" class="footer-logo" loading="lazy" decoding="async" />
             <div>
               <b>基智学习助手</b>
               <p>选一门考试，AI 陪你学到上岸</p>
@@ -454,6 +454,8 @@
           <div class="footer-links">
             <router-link to="/qa">帮助中心</router-link>
             <router-link to="/open-source">开源文档</router-link>
+            <router-link to="/agreement">用户协议</router-link>
+            <router-link to="/privacy">隐私政策</router-link>
             <a href="#" @click.prevent="scrollTo('faq')">常见问题</a>
           </div>
         </div>
@@ -471,6 +473,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import WaterBackground from '@/components/WaterBackground.vue'
 import Starfield from '@/components/Starfield.vue'
+import ProgressiveImage from '@/components/ProgressiveImage.vue'
 import { useThemeStore } from '@/stores/theme'
 import { BACKEND_URL } from '@/utils/constants'
 
@@ -694,19 +697,30 @@ function glowLoop() {
 }
 
 // --- 磁性按钮 ---
+// 缓存 .magnet 列表 + 每帧最多算一次：原来每个 mousemove 都 querySelectorAll
+// 再逐个 getBoundingClientRect，鼠标一动就是一轮布局读取。
+let magnetEls = []
+let magnetRaf = null
+let magnetX = 0, magnetY = 0
 function onMagnetMove(e) {
-  document.querySelectorAll('.magnet').forEach((el) => {
-    const r = el.getBoundingClientRect()
-    const cx = r.left + r.width / 2
-    const cy = r.top + r.height / 2
-    const dx = e.clientX - cx
-    const dy = e.clientY - cy
-    const dist = Math.hypot(dx, dy)
-    if (dist < 120 && dist > 0) {
-      const f = (1 - dist / 120) * 10
-      el.style.transform = `translate(${(dx / dist) * f}px, ${(dy / dist) * f}px)`
-    } else {
-      el.style.transform = ''
+  magnetX = e.clientX
+  magnetY = e.clientY
+  if (magnetRaf) return
+  magnetRaf = requestAnimationFrame(() => {
+    magnetRaf = null
+    for (const el of magnetEls) {
+      const r = el.getBoundingClientRect()
+      const cx = r.left + r.width / 2
+      const cy = r.top + r.height / 2
+      const dx = magnetX - cx
+      const dy = magnetY - cy
+      const dist = Math.hypot(dx, dy)
+      if (dist < 120 && dist > 0) {
+        const f = (1 - dist / 120) * 10
+        el.style.transform = `translate(${(dx / dist) * f}px, ${(dy / dist) * f}px)`
+      } else {
+        el.style.transform = ''
+      }
     }
   })
 }
@@ -743,6 +757,7 @@ function onLogoClick() {
 function initSciFi() {
   if (!reducedMotion) {
     if (finePointer) {
+      magnetEls = Array.from(document.querySelectorAll('.magnet'))
       window.addEventListener('mousemove', onGlowMove, { passive: true })
       window.addEventListener('mousemove', onMagnetMove, { passive: true })
       glowRaf = requestAnimationFrame(glowLoop)
@@ -758,6 +773,7 @@ function initSciFi() {
 function cleanupSciFi() {
   if (typeTimer) clearTimeout(typeTimer)
   if (glowRaf) cancelAnimationFrame(glowRaf)
+  if (magnetRaf) cancelAnimationFrame(magnetRaf)
   if (scrollRaf) cancelAnimationFrame(scrollRaf)
   window.removeEventListener('mousemove', onGlowMove)
   window.removeEventListener('mousemove', onMagnetMove)
@@ -766,7 +782,10 @@ function cleanupSciFi() {
 
 onMounted(() => {
   resetAutoPlay()
-  loadDownloadInfo()
+  // 下载信息不是首屏必需：等浏览器空闲再问，别和主包/首图抢带宽
+  const loadDlLater = () => loadDownloadInfo()
+  if (window.requestIdleCallback) window.requestIdleCallback(loadDlLater, { timeout: 2500 })
+  else setTimeout(loadDlLater, 1000)
 
   revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((e) => {

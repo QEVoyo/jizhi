@@ -1,9 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-        <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/logo.png" />
+    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>基智学习助手 - AI 备考规划与真题练习平台</title>
     <meta name="description" content="基智学习助手：17 大考试考纲、19,000+ 题库、12 套国家考试真题。AI 摸底诊断生成三阶段备考计划，每日任务+真题冲刺，助你高效上岸。" />
@@ -11,10 +9,45 @@
     <meta property="og:title" content="基智学习助手 - AI 备考规划与真题练习平台" />
     <meta property="og:description" content="17 大考纲 · 19,000+ 题库 · 12 套真题。AI 生成三阶段备考计划，每天跟着任务学。" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/logo.png" />
+    <meta property="og:image" content="/logo-full.png" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="preload" as="image" href="/logo.png" fetchpriority="high" />
+    <!--
+      ⚠️ 不要在这里引第三方 FontAwesome CDN。
+      本地 `@fortawesome/fontawesome-free` 已经在 main.js 里打包，
+      cdnjs 那条是重复的、且是 render-blocking 的外部依赖（大陆网络尤其慢）。
+      2026-10-17 已移除。要加回图标请用本地包。
+    -->
+    <style>
+      /* 首屏骨架：HTML 一解析就显示，不等 JS/CSS。Vue 挂载后会整体替换 #app。 */
+      html, body { margin: 0; background: #f7f9fd; }
+      #app { min-height: 100vh; }
+      .jz-boot {
+        min-height: 100vh;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 10px;
+        font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+        color: #16233a;
+      }
+      .jz-boot-spin {
+        width: 34px; height: 34px; border-radius: 50%;
+        border: 3px solid #dbe3f2; border-top-color: #3556d8;
+        animation: jz-boot-spin .8s linear infinite;
+      }
+      .jz-boot-title { font-size: 22px; font-weight: 700; letter-spacing: 2px; }
+      .jz-boot-sub { font-size: 13px; color: #94a3b8; }
+      @keyframes jz-boot-spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="jz-boot">
+        <div class="jz-boot-spin"></div>
+        <div class="jz-boot-title">基智</div>
+        <div class="jz-boot-sub">正在加载…</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

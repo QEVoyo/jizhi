@@ -11,10 +11,6 @@ export function getPost(postId, userId) {
   return request.get(`/community/post/${postId}`, { params: { user_id: userId } }).then(res => res.data)
 }
 
-export function getPostComments(postId) {
-  return request.get(`/community/post/${postId}/comments`).then(res => res.data)
-}
-
 export function getPosts(params) {
   return request.get('/community/posts', { params }).then(res => res.data)
 }
@@ -159,22 +155,8 @@ export function xiaojiVision(data) {
 }
 // ===== 消息中心 =====
 
-export function getUnreadSummary(userId) {
-  return request.get('/community/messages/unread/summary', { params: { user_id: userId } })
-    .then(res => res.data)
-}
-
-export function markMessagesRead(userId, friendId) {
-  return request.put(`/community/messages/read/${friendId}`, null, { params: { user_id: userId } })
-    .then(res => res.data)
-}
-
 export function getFriendsRank(userId) {
   return request.get('/community/friends/rank', { params: { user_id: userId } }).then(res => res.data)
-}
-
-export function markAllRead(userId, msgType = 'all') {
-  return request.put('/community/messages/read-all', null, { params: { user_id: userId, msg_type: msgType } }).then(res => res.data)
 }
 
 export function clearMessages(userId, msgType = 'all') {
@@ -183,12 +165,4 @@ export function clearMessages(userId, msgType = 'all') {
 
 export function getSidebarBadges(userId) {
   return request.get('/community/sidebar-badges', { params: { user_id: userId } }).then(res => res.data)
-}
-
-export function getNotificationSettings(userId) {
-  return request.get('/community/notification-settings', { params: { user_id: userId } }).then(res => res.data)
-}
-
-export function updateNotificationSettings(data) {
-  return request.put('/community/notification-settings', data.data, { params: { user_id: data.user_id } }).then(res => res.data)
 }

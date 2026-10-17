@@ -162,8 +162,20 @@
                   <span class="agent-badge-tag">{{ fellowMeta(msg.agent)?.tagline || '' }}</span>
                 </div>
 
+                <!-- ===== 视频：缩略图 + 点击播放 ===== -->
+                <div
+                  v-if="msg.video_url || msg.is_video || (msg.kind === 'video' && msg.role === 'user')"
+                  class="message-video"
+                  @click="msg.video_url ? previewVideo(msg.video_url) : previewImage(msg.image_url)"
+                >
+                  <img v-if="msg.image_url" :src="msg.image_url" alt="视频缩略图" />
+                  <div v-else class="message-video-placeholder"><i class="fas fa-video"></i></div>
+                  <span class="message-video-play"><i class="fas fa-play"></i></span>
+                  <span class="message-video-label">{{ msg.video_url ? '点击播放' : '视频未留存' }}</span>
+                </div>
+
                 <!-- ===== 图片显示 ===== -->
-                <div v-if="msg.image_url" class="message-image" @click="previewImage(msg.image_url)">
+                <div v-else-if="msg.image_url" class="message-image" @click="previewImage(msg.image_url)">
                   <img :src="msg.image_url" alt="图片" />
                 </div>
 
@@ -384,7 +396,7 @@
         <button class="tool-btn" @click="triggerImageUpload" title="上传图片">
           <i class="fas fa-image"></i>
         </button>
-        <button class="tool-btn" :class="{ active: videoFrames.length }" @click="triggerVideoUpload" title="分析视频（本地抽帧识图）">
+        <button class="tool-btn" :class="{ active: videoFrames.length }" @click="triggerVideoUpload" title="分析视频（每 1 秒 1 帧，单次 ≤2 分钟，每日 5 分钟）">
           <i class="fas fa-video"></i>
         </button>
         <button class="tool-btn" @click="openSendQuestion" title="发送题目">
@@ -444,11 +456,17 @@
 
       <div v-if="videoFrames.length" class="image-preview video-preview">
         <span class="video-preview-tag">
-          <i class="fas fa-video"></i> {{ videoFileName }} · {{ videoFrames.length }} 帧已就绪
+          <i class="fas fa-video"></i> {{ videoFileName }} · {{ formatVideoTime(videoDuration) }} · {{ videoFrames.length }} 帧已就绪
+          <span v-if="videoUploading"> · 留存上传中…</span>
+          <span v-else-if="videoUrl"> · 已留存</span>
+          <span v-else> · 未留存</span>
         </span>
         <button class="remove-image" @click="removeVideo">
           <i class="fas fa-times"></i>
         </button>
+      </div>
+      <div v-if="videoFrames.length" class="video-quota-hint">
+        每 1 秒 1 帧 · 单次 ≤2 分钟 · {{ videoQuotaText }}
       </div>
     </div>
       </div><!-- /call-main -->
@@ -635,9 +653,9 @@
                 v-model="bankSyllabus"
                 size="small"
                 style="width: 170px"
-                placeholder="全部考纲"
+                placeholder="选择考纲"
                 clearable
-                @change="doBankSearch"
+                @change="onBankSyllabusChange"
               >
                 <el-option
                   v-for="(name, id) in bankSyllabusNames"
@@ -658,11 +676,10 @@
               </el-input>
             </div>
             <div v-loading="bankSearching" class="bank-results">
-              <div v-if="!bankKeyword.trim()" class="empty-tip">
-                输入关键词模糊搜索题库（如「细胞」「函数」「四级词汇」），或先选考纲再搜
-              </div>
-              <div v-else-if="!bankResults.length" class="empty-tip">
-                未找到相关题目，请更换关键词重试
+              <div v-if="!bankSearching && !bankResults.length" class="empty-tip">
+                {{ bankKeyword.trim()
+                  ? '未找到相关题目，请更换关键词重试'
+                  : (bankSyllabus ? '该考纲暂无题目' : '请选择考纲，或输入关键词搜索') }}
               </div>
               <div
                 v-for="q in bankResults"
@@ -795,6 +812,11 @@
     <el-dialog v-model="imagePreviewVisible" width="80%" class="image-preview-dialog" destroy-on-close>
       <img :src="previewImageUrl" alt="预览" class="preview-image" />
     </el-dialog>
+
+    <!-- ===== 视频播放 ===== -->
+    <el-dialog v-model="videoPlayerVisible" width="80%" class="image-preview-dialog" destroy-on-close>
+      <video v-if="videoPlayerUrl" :src="videoPlayerUrl" controls autoplay playsinline class="preview-video" />
+    </el-dialog>
   </div>
 </template>
 
@@ -807,6 +829,7 @@ import {
   getXiaojiMessages,
   xiaojiVision,
   xiaojiVideoAnalyze,
+  getVideoQuota,
   clearXiaojiMessages,
   evaluateQuestion,
   evaluateSet,
@@ -817,8 +840,14 @@ import {
   agentGenerate,
   routeIntent
 } from '@/api/xiaoji'
+import { uploadVideo } from '@/api/upload'
 import { getGenerationHistory, getQuestionSets, getQuestionDetail, generateQuestion, saveGenerationHistory } from '@/api/questions'
-import { searchBankQuestions as searchBankQuestionsApi, runCode } from '@/api/subjectPlan'
+import {
+  searchBankQuestions as searchBankQuestionsApi,
+  getQuestions as getSyllabusQuestions,
+  listSyllabi,
+  runCode,
+} from '@/api/subjectPlan'
 import { recordAction } from '@/api/career'
 import { createPlan } from '@/api/learningPlan'
 import { agents as agentMetaList } from '@/utils/mockAgents'
@@ -1180,6 +1209,45 @@ const previewImageUrl = ref('')
 const videoInputRef = ref(null)
 const videoFrames = ref([])
 const videoFileName = ref('')
+const videoDuration = ref(0)
+const videoRemaining = ref(null)
+const videoUrl = ref('')          // 原视频留存 URL
+const videoThumb = ref('')        // 首帧缩略图
+const videoUploading = ref(false)
+const videoPlayerVisible = ref(false)
+const videoPlayerUrl = ref('')
+let videoUploadPromise = null
+let videoUploadToken = 0
+
+function previewImage(url) {
+  if (!url) return
+  previewImageUrl.value = url
+  imagePreviewVisible.value = true
+}
+
+function previewVideo(url) {
+  if (!url) {
+    ElMessage.warning('这段视频没有留存，无法播放')
+    return
+  }
+  videoPlayerUrl.value = url
+  videoPlayerVisible.value = true
+}
+
+function formatVideoTime(sec) {
+  const s = Math.max(0, Math.round(sec || 0))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+function videoCostSeconds(duration) {
+  // 每 1 秒 1 帧；额度按帧数算，1 帧 = 1 秒
+  const frames = Math.max(1, Math.min(120, Math.floor(duration || 0)))
+  return Math.min(120, frames)
+}
+const videoQuotaText = computed(() => {
+  if (videoRemaining.value == null) return '每日 5 分钟额度'
+  const s = Math.max(0, Math.floor(videoRemaining.value))
+  return `今日剩余 ${Math.floor(s / 60)} 分 ${s % 60} 秒`
+})
 
 const isHover = ref(false)
 const showDialog = ref(false)
@@ -1999,10 +2067,20 @@ async function sendMessage(opts = {}) {
   const text = inputText.value.trim()
   const image = uploadedImage.value
   const video = videoFrames.value.length ? [...videoFrames.value] : null
+  const videoDurationSnapshot = videoDuration.value
 
   if (!text && !image && !video) {
     ElMessage.warning('请输入内容、上传图片或视频')
     return
+  }
+
+  // 视频留存上传可能还在跑：发送前等它结束，消息里才能带 video_url。
+  // 上传失败时 promise 会 resolve(null)，不影响分析和缩略图。
+  let videoUrlSnapshot = videoUrl.value
+  const videoThumbSnapshot = videoThumb.value || (video ? video[0] : '')
+  if (video && videoUploadPromise) {
+    try { await videoUploadPromise } catch { /* 上传链路已提示 */ }
+    videoUrlSnapshot = videoUrl.value
   }
 
   inputText.value = ''
@@ -2014,8 +2092,9 @@ async function sendMessage(opts = {}) {
 
   const userMsg = {
     role: 'user',
-    content: text || (video ? '[视频]' : '图片'),
-    image_url: image || null,
+    content: text || (video ? '' : '图片'),
+    image_url: video ? (videoThumbSnapshot || null) : (image || null),
+    video_url: video ? (videoUrlSnapshot || null) : null,
     is_question: false,
     is_set: false,
     is_video: !!video,
@@ -2056,8 +2135,14 @@ async function sendMessage(opts = {}) {
       const res = await xiaojiVideoAnalyze({
         user_id: authStore.user.id,
         frames: currentVideo,
-        question: text || '分析这个视频讲了什么'
+        question: text,
+        duration: videoDurationSnapshot,
+        video_url: videoUrlSnapshot || undefined,
       })
+      if (res.remaining_seconds != null) videoRemaining.value = res.remaining_seconds
+      if (res.frames_ok != null && res.frames_total != null && res.frames_ok < res.frames_total) {
+        ElMessage.warning(`${res.frames_total - res.frames_ok} 帧识别失败，结论可能不完整`)
+      }
       reply = res.reply || '视频分析失败，请重试'
       setSpeaking()
       await pushAssistantMessage(reply)
@@ -2078,7 +2163,8 @@ async function sendMessage(opts = {}) {
 
   } catch (error) {
     console.error('发送失败:', error)
-    ElMessage.error('发送失败，请重试')
+    // 后端的额度不足 / 视觉模型不可用等 detail 要露出来，别一律「发送失败」
+    ElMessage.error(error.response?.data?.detail || '发送失败，请重试')
     setIdle()
   } finally {
     sending.value = false
@@ -2464,6 +2550,23 @@ async function openSendQuestion() {
   showQuestionDialog.value = true
   expandedSetId.value = null
   setQuestionsMap.value = {}
+  bankKeyword.value = ''
+
+  // 题库先加载：不要求用户先输关键词，打开弹窗就能看到学科计划的题目。
+  // 先拿考纲列表（下拉选项），再默认选中第一个考纲并拉前 20 题。
+  try {
+    const res = await listSyllabi(authStore.user.id)
+    const syllabi = (res?.syllabi || []).filter(s => s.question_bank !== false)
+    const names = {}
+    for (const s of syllabi) names[s.id] = s.name
+    bankSyllabusNames.value = names
+    if (bankSyllabus.value && !names[bankSyllabus.value]) bankSyllabus.value = ''
+    if (!bankSyllabus.value && syllabi.length) bankSyllabus.value = syllabi[0].id
+    await loadBankQuestions()
+  } catch {
+    await loadBankQuestions()
+  }
+
   try {
     const res = await getGenerationHistory(authStore.user.id)
     historyQuestions.value = res || []
@@ -2486,17 +2589,22 @@ const bankSyllabusNames = ref({})
 const bankSearching = ref(false)
 let bankSearchTimer = null
 
-async function doBankSearch() {
+async function loadBankQuestions() {
   const kw = bankKeyword.value.trim()
-  if (!kw) {
-    bankResults.value = []
-    return
-  }
   bankSearching.value = true
   try {
-    const res = await searchBankQuestionsApi(kw, bankSyllabus.value, 20)
-    bankResults.value = res.questions || []
-    if (res.syllabus_names) bankSyllabusNames.value = res.syllabus_names
+    if (kw) {
+      const res = await searchBankQuestionsApi(kw, bankSyllabus.value, 20)
+      bankResults.value = res.questions || []
+      if (res.syllabus_names) bankSyllabusNames.value = res.syllabus_names
+    } else if (bankSyllabus.value) {
+      // 无关键词：直接列该考纲前 20 题（与「学科计划 → 题库」同一数据源）
+      const res = await getSyllabusQuestions(bankSyllabus.value, { limit: 20 })
+      const name = bankSyllabusNames.value[bankSyllabus.value] || ''
+      bankResults.value = (res.questions || []).map(q => ({ ...q, syllabus_name: name }))
+    } else {
+      bankResults.value = []
+    }
   } catch {
     bankResults.value = []
   } finally {
@@ -2504,9 +2612,13 @@ async function doBankSearch() {
   }
 }
 
+function onBankSyllabusChange() {
+  loadBankQuestions()
+}
+
 function onBankSearchInput() {
   clearTimeout(bankSearchTimer)
-  bankSearchTimer = setTimeout(doBankSearch, 300)
+  bankSearchTimer = setTimeout(loadBankQuestions, 300)
 }
 
 function bankQuestionTitle(q) {
@@ -2548,33 +2660,59 @@ function removeImage() {
 }
 
 // ===== 视频分析（2026-09-05 用户定调：小基读视频内容并分析）=====
-function triggerVideoUpload() {
+async function triggerVideoUpload() {
+  // 先用后端查一次今日剩余额度；查不到就放行，真正提交时后端还会再拦一次
+  try {
+    const q = await getVideoQuota(authStore.user.id)
+    videoRemaining.value = q?.remaining_seconds ?? null
+    if (videoRemaining.value != null && videoRemaining.value <= 0) {
+      ElMessage.warning('今日视频分析额度已用完（每天 5 分钟），请明天再试')
+      return
+    }
+  } catch {
+    videoRemaining.value = null
+  }
   videoInputRef.value?.click()
 }
 
-function pickVideoFrames(file, count = 4) {
+function pickVideoFrames(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
     const v = document.createElement('video')
     v.muted = true; v.playsInline = true; v.preload = 'auto'
     const done = () => URL.revokeObjectURL(url)
-    v.onerror = () => { done(); reject(new Error('视频读取失败')) }
+    v.onerror = () => { done(); reject(new Error('视频读取失败，请换一个浏览器支持的 MP4 格式')) }
     v.onloadedmetadata = async () => {
       try {
-        const dur = v.duration || 1
-        const n = Math.max(2, Math.min(count, Math.floor(dur * 2)))
+        const dur = Number(v.duration)
+        if (!Number.isFinite(dur) || dur <= 0) {
+          throw new Error('无法读取视频时长，请换一个视频')
+        }
+        if (dur > 120.5) {
+          throw new Error(`视频不能超过 2 分钟（当前 ${formatVideoTime(dur)}）`)
+        }
+        if (!v.videoWidth || !v.videoHeight) {
+          throw new Error('视频画面读取失败')
+        }
+        // 每 1 秒 1 帧，单次最多 120 帧（2 分钟）
+        const n = Math.max(1, Math.min(120, Math.floor(dur)))
+        // 帧多时主动降分辨率/质量，避免 120 帧的请求体撞上 Nginx 的 body 上限；
+        // 用 WebP（模型实测支持）比同质量 JPEG 更小。
+        // 少于 20 帧时保留更高清晰度，保证题目/课件文字可读。
+        const wMax = n > 60 ? 240 : n > 20 ? 320 : 480
+        const quality = n > 60 ? 0.55 : n > 20 ? 0.6 : 0.7
         const frames = []
         for (let i = 0; i < n; i++) {
-          const t = (dur * (i + 0.6)) / n
+          const t = Math.min(Math.max(0.05, dur - 0.05), (i + 0.5) * 1)
           await new Promise(res => { v.onseeked = res; v.currentTime = t })
           const canvas = document.createElement('canvas')
-          const w = Math.min(480, v.videoWidth || 640)
+          const w = Math.min(wMax, v.videoWidth || 640)
           canvas.width = w
           canvas.height = Math.round(w * (v.videoHeight / (v.videoWidth || 1)))
           canvas.getContext('2d').drawImage(v, 0, 0, canvas.width, canvas.height)
-          frames.push(canvas.toDataURL('image/jpeg', 0.62))
+          frames.push(canvas.toDataURL('image/webp', quality))
         }
-        resolve(frames)
+        resolve({ frames, duration: dur })
       } catch (e) {
         reject(e)
       } finally {
@@ -2589,23 +2727,72 @@ async function handleVideoSelect(event) {
   const file = event.target.files[0]
   event.target.value = ''
   if (!file) return
-  const loadingMsg = ElMessage({ message: '正在抽取视频画面…', duration: 0 })
+  // 新文件：作废上一段视频的留存任务/URL
+  videoUploadToken++
+  videoUploadPromise = null
+  videoUploading.value = false
+  videoUrl.value = ''
+  videoThumb.value = ''
+  const loadingMsg = ElMessage({ message: '正在抽取视频画面（1 秒 1 帧）…', duration: 0 })
   try {
-    videoFrames.value = await pickVideoFrames(file, 4)
+    const { frames, duration } = await pickVideoFrames(file)
+    const cost = Math.max(3, videoCostSeconds(duration))
+    if (videoRemaining.value != null && cost > videoRemaining.value) {
+      ElMessage.warning(`今日剩余 ${formatVideoTime(videoRemaining.value)}，这段视频需要 ${formatVideoTime(cost)}`)
+      videoFrames.value = []
+      videoDuration.value = 0
+      videoFileName.value = ''
+      return
+    }
+    videoFrames.value = frames
+    videoDuration.value = duration
     videoFileName.value = file.name
-    ElMessage.success(`已抽取 ${videoFrames.value.length} 帧，输入想了解的问题后发送`)
+    videoThumb.value = frames[0] || ''
+
+    // 原视频留存：后台传到 Supabase Storage；发送时等它完成再带上 video_url
+    const uploadToken = ++videoUploadToken
+    if (file.size <= 50 * 1024 * 1024) {
+      videoUploading.value = true
+      videoUploadPromise = uploadVideo(file)
+        .then(url => {
+          if (uploadToken === videoUploadToken) videoUrl.value = url
+          return url
+        })
+        .catch(e => {
+          console.error('视频留存失败:', e)
+          if (uploadToken === videoUploadToken) videoUrl.value = ''
+          ElMessage.warning('视频留存失败，本次仍可分析，但不能在聊天里回放原视频')
+          return null
+        })
+        .finally(() => {
+          if (uploadToken === videoUploadToken) videoUploading.value = false
+        })
+    } else {
+      videoUploadPromise = null
+      ElMessage.warning('视频超过 50MB，本次只分析不留存原视频；如需回放请压缩到 50MB 以内')
+    }
+
+    ElMessage.success(`已抽取 ${frames.length} 帧（每 1 秒 1 帧，时长 ${formatVideoTime(duration)}），输入问题后发送`)
   } catch (e) {
     console.error('抽帧失败:', e)
-    ElMessage.error('视频读取失败，请更换视频')
+    ElMessage.error(e.message || '视频读取失败，请更换视频')
     videoFrames.value = []
+    videoDuration.value = 0
+    videoFileName.value = ''
   } finally {
     loadingMsg.close()
   }
 }
 
 function removeVideo() {
+  videoUploadToken++
+  videoUploadPromise = null
+  videoUploading.value = false
+  videoUrl.value = ''
+  videoThumb.value = ''
   videoFrames.value = []
   videoFileName.value = ''
+  videoDuration.value = 0
   if (videoInputRef.value) videoInputRef.value.value = ''
 }
 
@@ -3428,6 +3615,68 @@ onUnmounted(() => {
   object-fit: cover;
 }
 
+/* ===== 视频消息：缩略图 + 播放按钮 ===== */
+.message-video {
+  position: relative;
+  max-width: 220px;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  margin-bottom: 6px;
+  background: #000;
+}
+.message-video img {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 180px;
+  object-fit: cover;
+}
+.message-video-placeholder {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 28px;
+  background: #1f2937;
+}
+.message-video-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.message-video-play i {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 3px;
+}
+.message-video-label {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  font-size: 11px;
+  color: #fff;
+  background: rgba(0, 0, 0, .55);
+  padding: 2px 7px;
+  border-radius: 8px;
+}
+.preview-video {
+  width: 100%;
+  max-height: 75vh;
+  display: block;
+  border-radius: 8px;
+  background: #000;
+}
+
 .message-card {
   padding: 12px 16px;
   border-radius: 12px;
@@ -3799,6 +4048,12 @@ onUnmounted(() => {
   max-width: 600px;
 }
 .video-preview { display: flex; align-items: center; }
+.video-quota-hint {
+  margin: 4px 2px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
 .video-preview-tag {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 12px; border-radius: 999px;
