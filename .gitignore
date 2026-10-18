@@ -4,3 +4,13 @@ __pycache__/
 venv/
 *.pyc
 .DS_Store
+
+# 内部文档与工作日志，不公开
+PROJECT_SUMMARY.md
+PROJECT_LOG.md
+SYSTEM_MANUAL.md
+WORKFLOW_STANDARD.md
+AGENT_AUDIT.md
+agent_center_design.md
+message_center_design.md
+logs/

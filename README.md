@@ -27,13 +27,6 @@
 - 后端：同一套 FastAPI 服务
 - 微信小程序与 Flutter 手机端仍在开发中，不计入本次交付
 
-## 文档
-
-- [项目总结](./PROJECT_SUMMARY.md)
-- [系统使用说明书](./SYSTEM_MANUAL.md)
-- [工作流程标准](./WORKFLOW_STANDARD.md)
-- [项目日志](./PROJECT_LOG.md)
-
 ## 作者
 
 **欧阳嘉誉**（GitHub：[@QEVoyo](https://github.com/QEVoyo) · 团队：KFC）
