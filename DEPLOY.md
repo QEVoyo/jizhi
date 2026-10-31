@@ -13,6 +13,23 @@ project1 那三份是本地开发用的（localhost、本地密钥、生产缺�
 
 ---
 
+## 2026-10-31 增量部署（多智能体编排 / 上传出题 / 实时与性能）
+
+- 后端用桌面 `jizhi-backend-20261031-1419.zip`（178 文件，7.8MB，**含
+  `backend/config.py` 与 `backend/.env`**）；解压覆盖 `/www/wwwroot/`，
+  包内自带 `backend/` 顶层目录。
+- ⚠️ 不能部署不含 `config.py` 的包：缺它会直接
+  `ModuleNotFoundError: No module named 'config'`，整个后端起不来。
+- 服务器上已有 `.env` 时**先备份再覆盖**（可能手工加过配置）。
+- 本轮新增依赖 `pymupdf` / `pypdf` / `python-docx` / `python-pptx` / `openpyxl`，
+  用实际运行 uvicorn 的解释器安装：
+  `python3.11 -m pip install -r requirements.txt`。
+- 新增 SQL 尚未执行：`backend/sql/agent_orchestration.sql`。
+- 验证：`/health` 正常；`/openapi.json` 应出现 `/agents`、`/xiaoji/upload`、
+  `/community/ws`。
+
+---
+
 ## 2026-10-17 增量部署（邮件 + 视频 + 前端）
 
 - 后端用桌面 `jizhi-backend-20261017-2046.zip`，解压覆盖 `/www/wwwroot/`；
