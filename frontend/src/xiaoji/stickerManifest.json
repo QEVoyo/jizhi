@@ -1,0 +1,142 @@
+{
+  "anim": [
+    {
+      "src": "/stickers/anim/xiaoji_idle.gif",
+      "label": "发呆"
+    },
+    {
+      "src": "/stickers/anim/xiaoji_happy.gif",
+      "label": "开心"
+    },
+    {
+      "src": "/stickers/anim/xiaoji_thinking.gif",
+      "label": "思考"
+    },
+    {
+      "src": "/stickers/anim/xiaoji_speaking.gif",
+      "label": "说话"
+    },
+    {
+      "src": "/stickers/anim/xiaoji_sleeping.gif",
+      "label": "睡觉"
+    },
+    {
+      "src": "/stickers/anim/xiaoji_idle_sway.gif",
+      "label": "摇摆"
+    },
+    {
+      "src": "/stickers/anim/xiaoji_happy_shake.gif",
+      "label": "撒欢"
+    },
+    {
+      "src": "/stickers/anim/xiaoji_thinking_nod.gif",
+      "label": "点头"
+    },
+    {
+      "src": "/stickers/anim/xiaoji_speaking_nod.gif",
+      "label": "念念有词"
+    }
+  ],
+  "static": [
+    {
+      "src": "/stickers/static/xiaoji_idle.png",
+      "label": "发呆"
+    },
+    {
+      "src": "/stickers/static/xiaoji_idle_zaide.png",
+      "label": "在的"
+    },
+    {
+      "src": "/stickers/static/xiaoji_idle_laila.png",
+      "label": "来啦"
+    },
+    {
+      "src": "/stickers/static/xiaoji_idle_moyu.png",
+      "label": "摸鱼中"
+    },
+    {
+      "src": "/stickers/static/xiaoji_idle_dengni.png",
+      "label": "等你"
+    },
+    {
+      "src": "/stickers/static/xiaoji_happy.png",
+      "label": "开心"
+    },
+    {
+      "src": "/stickers/static/xiaoji_happy_haoye.png",
+      "label": "好耶！"
+    },
+    {
+      "src": "/stickers/static/xiaoji_happy_taibangle.png",
+      "label": "太棒了"
+    },
+    {
+      "src": "/stickers/static/xiaoji_happy_kaixin.png",
+      "label": "开心"
+    },
+    {
+      "src": "/stickers/static/xiaoji_happy_jiayou.png",
+      "label": "加油鸭"
+    },
+    {
+      "src": "/stickers/static/xiaoji_thinking.png",
+      "label": "思考"
+    },
+    {
+      "src": "/stickers/static/xiaoji_thinking_xiangxiang.png",
+      "label": "想想"
+    },
+    {
+      "src": "/stickers/static/xiaoji_thinking_youdaoli.png",
+      "label": "有道理"
+    },
+    {
+      "src": "/stickers/static/xiaoji_thinking_kangkang.png",
+      "label": "让我康康"
+    },
+    {
+      "src": "/stickers/static/xiaoji_thinking_en.png",
+      "label": "嗯？"
+    },
+    {
+      "src": "/stickers/static/xiaoji_speaking.png",
+      "label": "说话"
+    },
+    {
+      "src": "/stickers/static/xiaoji_speaking_shoudao.png",
+      "label": "收到！"
+    },
+    {
+      "src": "/stickers/static/xiaoji_speaking_haode.png",
+      "label": "好的"
+    },
+    {
+      "src": "/stickers/static/xiaoji_speaking_enenn.png",
+      "label": "嗯嗯"
+    },
+    {
+      "src": "/stickers/static/xiaoji_speaking_zaiting.png",
+      "label": "在听"
+    },
+    {
+      "src": "/stickers/static/xiaoji_sleeping.png",
+      "label": "睡觉"
+    },
+    {
+      "src": "/stickers/static/xiaoji_sleeping_wanan.png",
+      "label": "晚安"
+    },
+    {
+      "src": "/stickers/static/xiaoji_sleeping_kunle.png",
+      "label": "困了"
+    },
+    {
+      "src": "/stickers/static/xiaoji_sleeping_shuile.png",
+      "label": "睡了"
+    },
+    {
+      "src": "/stickers/static/xiaoji_sleeping_biechao.png",
+      "label": "别吵"
+    }
+  ]
+}

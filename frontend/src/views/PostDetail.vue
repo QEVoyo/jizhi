@@ -94,24 +94,39 @@ async function load() {
   }
 }
 
-async function toggleLike() {
+let likeBusy = false
+let collectBusy = false
+
+function toggleLike() {
   const uid = authStore.user?.id
-  if (!uid) return
-  try {
-    if (post.value.is_liked) { await unlikePost(post.value.id, uid); post.value.like_count-- }
-    else { await likePost(post.value.id, uid); post.value.like_count++ }
-    post.value.is_liked = !post.value.is_liked
-  } catch { ElMessage.error('操作失败') }
+  if (!uid || !post.value || likeBusy) return
+  likeBusy = true
+  const wasLiked = !!post.value.is_liked
+  const prevCount = post.value.like_count || 0
+  post.value.is_liked = !wasLiked
+  post.value.like_count = Math.max(0, prevCount + (wasLiked ? -1 : 1))
+  const req = wasLiked ? unlikePost(post.value.id, uid) : likePost(post.value.id, uid)
+  req.catch(() => {
+    post.value.is_liked = wasLiked
+    post.value.like_count = prevCount
+    ElMessage.error('操作失败')
+  }).finally(() => { likeBusy = false })
 }
 
-async function toggleCollect() {
+function toggleCollect() {
   const uid = authStore.user?.id
-  if (!uid) return
-  try {
-    if (post.value.is_collected) { await uncollectPost(post.value.id, uid); post.value.collect_count-- }
-    else { await collectPost(post.value.id, uid); post.value.collect_count++ }
-    post.value.is_collected = !post.value.is_collected
-  } catch { ElMessage.error('操作失败') }
+  if (!uid || !post.value || collectBusy) return
+  collectBusy = true
+  const wasCollected = !!post.value.is_collected
+  const prevCount = post.value.collect_count || 0
+  post.value.is_collected = !wasCollected
+  post.value.collect_count = Math.max(0, prevCount + (wasCollected ? -1 : 1))
+  const req = wasCollected ? uncollectPost(post.value.id, uid) : collectPost(post.value.id, uid)
+  req.catch(() => {
+    post.value.is_collected = wasCollected
+    post.value.collect_count = prevCount
+    ElMessage.error('操作失败')
+  }).finally(() => { collectBusy = false })
 }
 
 async function submitComment() {

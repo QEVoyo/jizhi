@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 from config import settings
+import asyncio
 import httpx, uuid, re, json
 from collections import defaultdict
 from utils.auth_middleware import get_current_user, verify_user_match
@@ -249,15 +250,15 @@ async def get_friends_rank(user_id: str = Query(...), current_user: str = Depend
         if not friend_ids:
             return {"rank": []}
 
-        # 3. 查询 profiles
+        # 3/4. profiles 和 user_stats 互不依赖，并发拿（原来串行两次往返）
         ids_str = ",".join([f"\"{id}\"" for id in friend_ids])
         profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=in.({ids_str})&select=id,nickname,avatar_url,user_account"
-        profile_res = await client.get(profile_url, headers=headers)
-        profiles = {p["id"]: p for p in (profile_res.json() if profile_res.status_code == 200 else [])}
-
-        # 4. 查询 user_stats
         stats_url = f"{settings.SUPABASE_URL}/rest/v1/user_stats?user_id=in.({ids_str})&select=user_id,points,rank,sub_rank"
-        stats_res = await client.get(stats_url, headers=headers)
+        profile_res, stats_res = await asyncio.gather(
+            client.get(profile_url, headers=headers),
+            client.get(stats_url, headers=headers),
+        )
+        profiles = {p["id"]: p for p in (profile_res.json() if profile_res.status_code == 200 else [])}
         stats = {s["user_id"]: s for s in (stats_res.json() if stats_res.status_code == 200 else [])}
 
         # 5. 组装数据

@@ -35,3 +35,17 @@ export function getTaskProgress(userId) {
   }
   return request.get(`/career/task-progress/${userId}`).then(res => res.data)
 }
+
+/** 领取单个学程任务（种子 / 每日 / 长期） */
+export function claimCareerTask(userId, taskId, taskType) {
+  return request.post('/career/task/claim', {
+    user_id: userId,
+    task_id: taskId,
+    task_type: taskType,
+  }).then(res => res.data)
+}
+
+/** 领取每日全部完成奖励 */
+export function claimCareerBonus(userId) {
+  return request.post('/career/bonus/claim', { user_id: userId }).then(res => res.data)
+}

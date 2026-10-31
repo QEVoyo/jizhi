@@ -13,3 +13,12 @@ qrcode
 websocket-client
 websockets>=13
 arq>=0.26           # 异步任务队列（视频生成等长任务走 Redis，见 services/task_queue.py）
+
+# 上传文件生成题目（2026-10-30）：文档解析。
+# ⚠️ 服务器缺可选依赖是本项目常见病根 —— 这几行必须进 requirements，
+#    并在启动自检里检查；缺了只影响上传功能，不能拖垮其他接口。
+pymupdf>=1.28       # PDF 文本/渲染（扫描件走视觉 OCR）
+pypdf>=6.16         # PDF 文本层兜底
+python-docx>=1.2    # Word 解析
+python-pptx>=1.0    # PPT 解析
+openpyxl>=3.1       # Excel 解析

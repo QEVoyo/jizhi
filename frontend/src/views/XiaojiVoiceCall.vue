@@ -106,13 +106,14 @@ const statusText = computed(() => {
 })
 
 const avatarUrl = computed(() => {
+  // 2026-10-30：与主页/页驻/桌宠共用同一套透明动画 WebP
   const map = {
-    connecting: '/images/xiaoji/xiaoji_sleeping.png',
-    listening: '/images/xiaoji/xiaoji_idle.png',
-    thinking: '/images/xiaoji/xiaoji_thinking.png',
-    speaking: '/images/xiaoji/xiaoji_speaking.png'
+    connecting: '/xiaoji/xiaoji_sleeping_loop.webp',
+    listening: '/xiaoji/xiaoji_idle_loop.webp',
+    thinking: '/xiaoji/xiaoji_thinking_loop.webp',
+    speaking: '/xiaoji/xiaoji_speaking_loop.webp'
   }
-  return map[state.value] || '/images/xiaoji/xiaoji_idle.png'
+  return map[state.value] || '/xiaoji/xiaoji_idle_loop.webp'
 })
 
 // ===== 音频与 WS =====

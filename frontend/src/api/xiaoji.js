@@ -86,6 +86,47 @@ export function routeIntent(text, deep = false) {
   return request.post('/community/xiaoji/route', { text, deep }, { timeout: 15000 }).then(res => res.data)
 }
 
+// ===== 上传文件生成题目（2026-10-30） =====
+// 流程：upload → 轮询 job（解析/画像/可出题点）→ confirm（唯一生成入口）→ generate → result
+export function uploadQuestionFile(userId, file) {
+  const form = new FormData()
+  form.append('file', file)
+  // ⚠️ axios 实例在 utils/request.js 里默认写了 `Content-Type: application/json`。
+  //    不覆盖它，FormData 会被当成 JSON 发出去，后端 FastAPI 收不到 file 字段
+  //    → 422 {"loc":["body","file"],"msg":"Field required"}（2026-10-30 实测）。
+  //    显式写 multipart，浏览器/axios 会自己补 boundary。
+  return request.post('/xiaoji/upload', form, {
+    params: { user_id: userId },
+    timeout: 120000,
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(res => res.data)
+}
+
+export function getUploadJob(jobId, userId) {
+  return request.get(`/xiaoji/upload/${jobId}`, { params: { user_id: userId } }).then(res => res.data)
+}
+
+export function confirmUpload(jobId, userId, data) {
+  return request.post(`/xiaoji/upload/${jobId}/confirm`, data, {
+    params: { user_id: userId },
+  }).then(res => res.data)
+}
+
+export function generateUpload(jobId, userId) {
+  return request.post(`/xiaoji/upload/${jobId}/generate`, null, {
+    params: { user_id: userId },
+    timeout: 120000,
+  }).then(res => res.data)
+}
+
+export function getUploadResult(jobId, userId) {
+  return request.get(`/xiaoji/upload/${jobId}/result`, { params: { user_id: userId } }).then(res => res.data)
+}
+
+export function deleteUpload(jobId, userId) {
+  return request.delete(`/xiaoji/upload/${jobId}`, { params: { user_id: userId } }).then(res => res.data)
+}
+
 // ===== 语音合成（千问 TTS，返回 audio_base64 + format） =====
 export function xiaojiTts(text, opts = {}) {
   return request.post('/xiaoji/tts', {

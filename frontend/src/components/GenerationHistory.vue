@@ -28,12 +28,26 @@
       </div>
     </div>
 
+    <!-- 来源筛选（2026-10-30） -->
+    <div class="source-filter">
+      <button
+        v-for="s in sourceOptions"
+        :key="s.value"
+        :class="{ on: sourceFilter === s.value }"
+        @click="sourceFilter = s.value"
+      >{{ s.label }}</button>
+    </div>
+
     <div v-if="filteredHistory.length">
       <div v-for="h in filteredHistory" :key="h.id || h.created_at" class="history-item">
         <div class="history-info">
-          <div class="history-title">{{ h.title }}</div>
+          <div class="history-title">
+            {{ h.title }}
+            <span v-if="h.source === 'upload'" class="src-badge">上传</span>
+          </div>
           <div class="history-meta">
             {{ getTypeDisplay(h.question_type) }} · {{ h.category || '未分类' }} · {{ h.topic || '' }}
+            <span v-if="h.file_name" class="src-file"> · 来自《{{ h.file_name }}》</span>
           </div>
         </div>
         <div class="history-right">
@@ -65,6 +79,12 @@ const searchQuery = ref('')
 const typeFilter = ref('all')
 const filterMenuVisible = ref(false)
 const filterRef = ref(null)
+const sourceFilter = ref('all')
+const sourceOptions = [
+  { value: 'all', label: '全部' },
+  { value: 'manual', label: '手动生成' },
+  { value: 'upload', label: '上传' },
+]
 
 const filterOptions = [
   { value: 'all', label: '全部' },
@@ -96,6 +116,11 @@ const filteredHistory = computed(() => {
   }
   if (typeFilter.value !== 'all') {
     result = result.filter(h => h.question_type === typeFilter.value)
+  }
+  if (sourceFilter.value === 'upload') {
+    result = result.filter(h => h.source === 'upload')
+  } else if (sourceFilter.value === 'manual') {
+    result = result.filter(h => h.source !== 'upload')
   }
   return result
 })
@@ -332,6 +357,24 @@ onUnmounted(() => {
 [data-theme="dark"] .history-item:hover {
   border-color: var(--line-soft);
 }
+
+/* 来源筛选（2026-10-30） */
+.source-filter { display: flex; gap: 6px; margin: 10px 0 12px; }
+.source-filter button {
+  padding: 4px 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
+  font-family: inherit; border: 1px solid var(--border-color);
+  background: transparent; color: var(--text-secondary); transition: all .2s ease;
+}
+.source-filter button.on {
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  color: var(--brand-bright); font-weight: 600;
+}
+.src-badge {
+  margin-left: 8px; font-size: 10.5px; padding: 1px 7px; border-radius: 7px;
+  color: #d48806; background: rgba(250, 178, 25, .12); font-weight: 600;
+}
+.src-file { color: var(--text-muted); }
 
 @media (max-width: 640px) {
   .history-item {

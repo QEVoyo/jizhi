@@ -1,20 +1,21 @@
 <template>
-  <div class="rank-page">
-    <div class="rank-header">
-      <h2>🏆 好友排行榜</h2>
-      <span class="rank-subtitle">查看学习进度排名</span>
-    </div>
+  <div class="rank-page" :class="{ embedded }">
+    <template v-if="!embedded">
+      <div class="rank-header">
+        <h2>🏆 好友排行榜</h2>
+        <span class="rank-subtitle">查看学习进度排名</span>
+      </div>
 
-    <el-divider />
+      <el-divider />
+    </template>
 
-    <div v-if="loading" class="loading-state">
-      <i class="fas fa-spinner fa-spin"></i> 加载中...
-    </div>
+    <SkeletonScreen v-if="loading" variant="list" :count="4" />
 
     <div v-else-if="!rankList.length" class="empty-state">
       <i class="fas fa-trophy" style="font-size: 48px; opacity: 0.3;"></i>
       <p>暂无好友</p >
       <span>添加好友后，这里会显示排行榜</span>
+      <el-button size="small" class="add-friend-btn" @click="goFriends">去加好友</el-button>
     </div>
 
     <div v-else class="rank-list">
@@ -62,12 +63,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import { getFriendsRank } from '@/api/community'
 import { RANK_ICONS, RANK_COLORS, SUB_SYMBOLS } from '@/utils/constants'
+import SkeletonScreen from '@/components/SkeletonScreen.vue'
+
+const props = defineProps({
+  // 嵌进「登攀」页时不要自己的大标题和分割线
+  embedded: { type: Boolean, default: false },
+})
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -87,30 +94,49 @@ function getSubSymbol(subRank) {
   return SUB_SYMBOLS[subRank] || '○'
 }
 
-async function loadRank() {
-  loading.value = true
+async function loadRank(silent = false) {
+  if (!silent) loading.value = true
   try {
     const res = await getFriendsRank(authStore.user.id)
     rankList.value = res.rank || []
   } catch {
-    ElMessage.error('加载排行榜失败')
+    if (!silent) ElMessage.error('加载排行榜失败')
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
+}
+
+function handleTaskClaimed() {
+  loadRank(true)
 }
 
 function goUserProfile(userId) {
   router.push(`/community/user/${userId}`)
 }
 
+function goFriends() {
+  router.push('/community/friends')
+}
+
 onMounted(() => {
   loadRank()
+  window.addEventListener('task-claimed', handleTaskClaimed)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('task-claimed', handleTaskClaimed)
 })
 </script>
 
 <style scoped>
 .rank-page {
   padding: 0 4px;
+}
+.rank-page.embedded {
+  padding: 0;
+}
+.add-friend-btn {
+  margin-top: 12px;
 }
 
 .rank-header {

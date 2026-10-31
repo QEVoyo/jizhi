@@ -5,7 +5,9 @@
         <CommunitySidebar />
       </template>
       <template #main>
-        <router-view />
+        <!-- key 不能省：/community/chat/A → chat/B 是同一个路由记录，
+             Vue 会复用组件；不加 key 的话聊天记录和 WS 连接都会停在上一个好友。 -->
+        <router-view :key="$route.fullPath" />
       </template>
     </AppLayout>
   </div>

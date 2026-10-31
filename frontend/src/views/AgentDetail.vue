@@ -206,6 +206,9 @@
       </div>
     </section>
 
+    <!-- ===== 调参日记（2026-10-30）：这一次为什么这么调 ===== -->
+    <DecisionTimeline ref="decisionRef" :user-id="authStore.user?.id || ''" />
+
     <p class="ad-footnote">以上数据由你的真实学习行为汇总而成 · 参数调整与磨合记录都会自动保存</p>
   </div>
   <p v-else class="ad-loading">数据加载中…</p>
@@ -219,6 +222,7 @@ import * as echarts from 'echarts'
 import { useAuthStore } from '@/stores/auth'
 import { agents as agentsMeta, agentDetails as agentsDef, makeTrendDates } from '@/utils/mockAgents'
 import { getAgentDetail, getAgentPrefs, saveAgentPrefs, getAgentTuning, postRunTuning } from '@/api/agentCenter'
+import DecisionTimeline from '@/components/DecisionTimeline.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -234,6 +238,7 @@ const detail = ref(null)
 const prefs = ref([])
 const tuning = ref([])
 const loading = ref(false)
+const decisionRef = ref(null)
 
 const trendDates = computed(() => makeTrendDates(detail.value?.trend?.length || 30))
 
@@ -274,6 +279,7 @@ async function runTuning() {
   try {
     const res = await postRunTuning(authStore.user.id)
     await loadTuning()
+    decisionRef.value?.reload()
     if (res.applied?.length) {
       ElMessage.success(`磨合规则自动调整了 ${res.applied.length} 项参数`)
     } else {

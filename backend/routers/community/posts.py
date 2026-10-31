@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 from config import settings
+import asyncio
 import httpx, uuid, re, json
 from collections import defaultdict
 from utils.sensitive_words import check_and_penalize
@@ -211,32 +212,29 @@ async def get_posts(
             #    而且没有任何报错。改用 service_role（本端点已 verify_user_match 鉴权）。
             svc = get_supabase_service_headers()
 
-            # ✅ 批量查询点赞（1 次查询替代 N 次）
-            likes_res = await client.get(
-                f"{settings.SUPABASE_URL}/rest/v1/post_likes?post_id=in.({ids_filter})&user_id=eq.{user_id}&select=post_id",
-                headers=svc
+            # 点赞 / 收藏 / 评论三张表互不依赖，并发查（原来串行 3 次往返）
+            likes_url = (f"{settings.SUPABASE_URL}/rest/v1/post_likes"
+                         f"?post_id=in.({ids_filter})&user_id=eq.{user_id}&select=post_id")
+            collects_url = (f"{settings.SUPABASE_URL}/rest/v1/post_collects"
+                            f"?post_id=in.({ids_filter})&user_id=eq.{user_id}&select=post_id")
+            comments_url = (f"{settings.SUPABASE_URL}/rest/v1/comments?post_id=in.({ids_filter})"
+                            f"&is_deleted=eq.false"
+                            f"&or=(status.eq.published,user_id.eq.{user_id})"
+                            f"&order=created_at.desc&select=*,profiles!user_id(nickname,avatar_url)")
+
+            likes_res, collects_res, comments_res = await asyncio.gather(
+                client.get(likes_url, headers=svc),
+                client.get(collects_url, headers=svc),
+                client.get(comments_url, headers=svc),
             )
             if likes_res.status_code not in (200, 206):
                 logger.error(f"❌ 查询点赞状态失败 {likes_res.status_code}: {likes_res.text[:200]}")
             liked_ids = {like["post_id"] for like in (likes_res.json() if likes_res.status_code in (200, 206) else [])}
 
-            # ✅ 批量查询收藏（1 次查询替代 N 次）
-            collects_res = await client.get(
-                f"{settings.SUPABASE_URL}/rest/v1/post_collects?post_id=in.({ids_filter})&user_id=eq.{user_id}&select=post_id",
-                headers=svc
-            )
             if collects_res.status_code not in (200, 206):
                 logger.error(f"❌ 查询收藏状态失败 {collects_res.status_code}: {collects_res.text[:200]}")
             collected_ids = {col["post_id"] for col in (collects_res.json() if collects_res.status_code in (200, 206) else [])}
 
-            # ✅ 批量查询评论（1 次查询替代 N 次）
-            comments_res = await client.get(
-                f"{settings.SUPABASE_URL}/rest/v1/comments?post_id=in.({ids_filter})"
-                f"&is_deleted=eq.false"
-                f"&or=(status.eq.published,user_id.eq.{user_id})"
-                f"&order=created_at.desc&select=*,profiles!user_id(nickname,avatar_url)",
-                headers=svc
-            )
             if comments_res.status_code not in (200, 206):
                 logger.error(f"❌ 查询评论失败 {comments_res.status_code}: {comments_res.text[:200]}")
             all_comments = comments_res.json() if comments_res.status_code in (200, 206) else []

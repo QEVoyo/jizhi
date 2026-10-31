@@ -3,7 +3,7 @@
     <div class="set-detail-container">
       <el-button text @click="goBack">← 返回</el-button>
 
-      <LoadingSpinner v-if="loading" variant="pulse-ring" :count-end="100" text="正在加载题集内容..." />
+      <SkeletonScreen v-if="loading" variant="list" :count="3" />
 
       <div v-if="setData" class="set-header">
         <h2>📁 {{ setData.name }}</h2>
@@ -53,7 +53,7 @@ import { useAuthStore } from '@/stores/auth'
 import { getQuestionSetDetail, removeQuestionFromSet, getQuestionDetail } from '@/api/questions'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
-import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import SkeletonScreen from '@/components/SkeletonScreen.vue'
 
 const router = useRouter()
 const route = useRoute()

@@ -152,6 +152,11 @@ async def notify(
                 f"写入通知失败 [{res.status_code}] type={notif_type} "
                 f"to={to_user}: {res.text[:300]}"
             )
+        # ⚠️ 201 可能带空 body（PostgREST / 代理的某些组合）——
+        #    直接 res.json() 会抛 "Expecting value: line 1 column 1"。
+        #    通知已经写进去了，这里返回 None 即可，不能把成功当失败。
+        if not (res.text or "").strip():
+            return None
         body = res.json()
         return body[0]["id"] if isinstance(body, list) and body else None
 

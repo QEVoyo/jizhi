@@ -11,8 +11,12 @@
         </el-avatar>
         <div class="chat-user-info">
           <span class="chat-username">{{ chatPartner?.name || '用户' }}</span>
-          <span class="chat-status" :class="{ online: chatPartner?.status === 'online' }">
+          <span
+            class="chat-status"
+            :class="{ online: chatPartner?.status === 'online' || (chatConnected && !isXiaoji) }"
+          >
             {{ chatPartner?.status === 'online' ? '在线' : '离线' }}
+            <template v-if="chatConnected && !isXiaoji"> · 实时</template>
           </span>
         </div>
         <span v-if="isXiaoji" class="xiaoji-badge">AI</span>
@@ -61,24 +65,42 @@
           </div>
 
           <div class="message-content-wrapper">
-            <!-- 图片 -->
-        <div v-if="msg.image_url" class="message-image" @click="previewImage(msg.image_url)">
-        <img
-            :src="msg.image_url"
-            alt="图片"
-            @error="msg.image_url = '/images/placeholder.png'"
-        />
-        <span v-if="msg.content && msg.content !== '[图片]'" class="image-caption">{{ msg.content }}</span>
-        </div>
-            <!-- 题目卡片 -->
+            <!-- 表情包（GIF 走 public/stickers，不落库文件本身，只存路径） -->
+            <div
+              v-if="isSticker(msg)"
+              class="message-sticker"
+              @click="previewImage(messageImage(msg))"
+            >
+              <img :src="messageImage(msg)" alt="表情" loading="lazy" decoding="async" />
+            </div>
+            <!-- 图片：2026-10-30 起落库字段是 media_url，旧的 image_url 仅作兼容 -->
+            <div v-else-if="messageImage(msg)" class="message-image" @click="previewImage(messageImage(msg))">
+              <img :src="messageImage(msg)" alt="图片" loading="lazy" decoding="async" @error="onImageError" />
+              <span v-if="imageCaption(msg)" class="image-caption">{{ imageCaption(msg) }}</span>
+            </div>
+            <!-- 题集卡片 -->
+            <div v-else-if="msg.question_set_id" class="message-card set-card" @click="openSetCard(msg)">
+              <div class="card-header">
+                <span class="card-icon">📚</span>
+                <span class="card-title">{{ setInfo(msg).name }}</span>
+                <span class="card-badge">题集</span>
+              </div>
+              <div class="card-body">
+                <span class="card-preview">{{ setInfo(msg).summary }}</span>
+              </div>
+              <div class="card-footer">
+                <span class="card-hint">点击查看题集 →</span>
+              </div>
+            </div>
+            <!-- 题目卡片：优先读 question_data（后端私有消息已带 jsonb） -->
             <div v-else-if="msg.question_id" class="message-card question-card" @click="goDoQuestion(msg)">
               <div class="card-header">
                 <span class="card-icon">📝</span>
-                <span class="card-title">{{ msg.question_title || '题目' }}</span>
-                <span class="card-badge">{{ msg.question_type || '题目' }}</span>
+                <span class="card-title">{{ questionTitle(msg) }}</span>
+                <span class="card-badge">{{ questionTypeName(msg) }}</span>
               </div>
               <div class="card-body">
-                <span class="card-preview">{{ msg.question_content || msg.question_title || '点击查看题目详情' }}</span>
+                <span class="card-preview">{{ questionPreview(msg) }}</span>
               </div>
               <div class="card-footer">
                 <span class="card-hint">点击去做题 →</span>
@@ -141,6 +163,10 @@
                     <i class="fas fa-chevron-down"></i>
                   </el-icon>
                 </div>
+                <div class="set-actions" @click.stop>
+                  <el-button size="small" text @click="openSetPreview(s)">预览</el-button>
+                  <el-button size="small" type="primary" @click="sendQuestionSet(s)">发送题集</el-button>
+                </div>
               </div>
               <div v-if="expandedSetId === s.id" class="set-questions-list">
                 <div v-if="setQuestionsMap[s.id] === null" class="loading-tip">
@@ -183,7 +209,7 @@
         <div class="preview-set">
           <p><strong>题集名称：</strong>{{ previewSetData?.name }}</p>
           <p><strong>描述：</strong>{{ previewSetData?.description || '无描述' }}</p>
-          <p><strong>题目数量：</strong>{{ previewSetData?.question_ids?.length || 0 }}</p>
+          <p><strong>题目数量：</strong>{{ previewSetQuestions.length || previewSetData?.question_ids?.length || 0 }}</p>
           <div v-if="previewSetQuestions.length > 0" class="set-questions-list">
             <p><strong>包含题目：</strong></p>
             <div v-for="(q, idx) in previewSetQuestions" :key="idx" class="set-question-item">
@@ -198,9 +224,13 @@
 
     <div class="chat-input-wrapper">
       <div v-if="uploadedImage" class="image-preview-thumb">
-        <div class="thumb-wrapper" @click="previewImage(uploadedImage)">
+        <div class="thumb-wrapper" :class="{ uploading: uploadingImage }" @click="!uploadingImage && previewImage(uploadedImage)">
           <img :src="uploadedImage" alt="待发送图片" />
+          <span v-if="uploadingImage" class="thumb-uploading">
+            <i class="fas fa-spinner fa-spin"></i>
+          </span>
         </div>
+        <span v-if="uploadingImage" class="thumb-hint">上传中…</span>
         <button class="remove-image-btn" @click="removeImage">
           <i class="fas fa-times"></i>
         </button>
@@ -214,15 +244,63 @@
           <button class="tool-btn" @click="triggerImageUpload">
             <i class="fas fa-image"></i>
           </button>
-          <button class="tool-btn" @click="openSendQuestion">
+          <el-popover
+            v-if="!isXiaoji"
+            v-model:visible="showStickerPanel"
+            placement="top-start"
+            :width="336"
+            :popper-style="{ padding: '10px' }"
+            :show-arrow="false"
+            trigger="click"
+            popper-class="sticker-popper"
+          >
+            <template #reference>
+              <button class="tool-btn" :class="{ active: showStickerPanel }" title="表情包">
+                <i class="fas fa-face-smile"></i>
+              </button>
+            </template>
+            <div class="sticker-popup">
+              <div class="sticker-panel-head">
+                <button
+                  class="sticker-tab"
+                  :class="{ active: stickerTab === 'anim' }"
+                  @click="stickerTab = 'anim'"
+                >动态</button>
+                <button
+                  class="sticker-tab"
+                  :class="{ active: stickerTab === 'static' }"
+                  @click="stickerTab = 'static'"
+                >静态</button>
+                <span class="sticker-count">{{ stickerGroups[stickerTab].length }}</span>
+              </div>
+              <div class="sticker-panel-grid">
+                <button
+                  v-for="s in stickerGroups[stickerTab]"
+                  :key="s.src"
+                  class="sticker-cell"
+                  :title="s.label"
+                  @click="sendSticker(s)"
+                >
+                  <img :src="s.src" :alt="s.label" loading="lazy" />
+                </button>
+              </div>
+            </div>
+          </el-popover>
+          <button v-if="!isXiaoji" class="tool-btn" @click="openSendQuestion">
             <i class="fas fa-paper-plane"></i>
           </button>
           <input ref="fileInputRef" type="file" accept="image/*" style="display: none" @change="handleImageSelect" />
         </div>
 
         <div class="chat-input-field">
-          <input v-model="inputContent" :placeholder="isXiaoji ? '给小基发消息...' : '输入消息...'" class="input-field" @keyup.enter="handleSendMessage" />
-          <button class="send-btn" :disabled="sending" @click="handleSendMessage">
+          <input
+            v-model="inputContent"
+            :placeholder="isXiaoji ? '给小基发消息...' : '输入消息...'"
+            class="input-field"
+            @focus="showStickerPanel = false"
+            @keyup.enter="handleSendMessage"
+          />
+          <button class="send-btn" :disabled="sending || uploadingImage" @click="handleSendMessage">
             <i v-if="!sending" class="fas fa-paper-plane"></i>
             <i v-else class="fas fa-spinner fa-spin"></i>
           </button>
@@ -233,19 +311,24 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import {
   getMessages,
   sendMessage,
-  sendXiaojiMessage,
   xiaojiVision,
   getXiaojiMessages,
-  getFriends
+  getFriends,
+  markPrivateRead
 } from '@/api/community'
+import { BACKEND_URL } from '@/utils/constants'
 import { getGenerationHistory, getQuestionSets, getQuestionDetail } from '@/api/questions'
+import { uploadImage } from '@/api/upload'
+import { useLiveAsr } from '@/composables/useLiveAsr'
+import { useChatSocket } from '@/composables/useChatSocket'
+import stickerManifest from '@/xiaoji/stickerManifest.json'
 
 const router = useRouter()
 const route = useRoute()
@@ -253,6 +336,9 @@ const authStore = useAuthStore()
 
 const friendId = route.params.friendId
 const isXiaoji = computed(() => friendId === 'xiaoji')
+
+// 社区表情包：清单由 _devtools/xiaoji_anim/make_transparent_assets.py 生成
+const stickerGroups = stickerManifest
 
 // ===== 好友信息 =====
 const chatPartner = ref({
@@ -266,14 +352,16 @@ const messages = ref([])
 const inputContent = ref('')
 const loading = ref(false)
 const sending = ref(false)
-const voiceInputActive = ref(false)
 const voiceEnabled = ref(true)
 const fileInputRef = ref(null)
 const messageListRef = ref(null)
-const uploadedImage = ref(null)
+const uploadedImage = ref(null)      // 本地预览（blob: URL），发送前就被 uploadImage 换成公网地址
+const uploadedImageUrl = ref(null)   // Supabase Storage 公共地址，真正落库的是它
+const uploadingImage = ref(false)
+const showStickerPanel = ref(false)
+const stickerTab = ref('anim')
 const imagePreviewVisible = ref(false)
 const previewImageUrl = ref('')
-const recognition = ref(null)
 
 // ===== 发送题目 =====
 const showQuestionDialog = ref(false)
@@ -285,6 +373,49 @@ const setQuestionsMap = ref({})
 const showPreviewDialog = ref(false)
 const previewSetData = ref(null)
 const previewSetQuestions = ref([])
+
+// ===== 语音输入（同 XiaojiCall：16k PCM → /xiaoji/asr-ws，逐字回填） =====
+const {
+  isRecording: voiceInputActive,
+  start: startVoiceInput,
+  stop: stopVoiceInput,
+} = useLiveAsr({
+  getBaseText: () => inputContent.value.trim(),
+  onText: (text) => { inputContent.value = text },
+  onError: (msg) => ElMessage.warning(msg),
+})
+
+// ===== 私聊实时推送（一个聊天框一条连接，只订阅当前好友）=====
+let readMarkTimer = null
+function scheduleMarkRead() {
+  if (readMarkTimer) clearTimeout(readMarkTimer)
+  readMarkTimer = setTimeout(() => {
+    readMarkTimer = null
+    markPrivateRead(authStore.user.id, friendId).catch(() => {})
+  }, 300)
+}
+
+const { connected: chatConnected } = useChatSocket({
+  peerId: isXiaoji.value ? '' : String(friendId),
+  enabled: !isXiaoji.value,
+  onMessage: (msg) => {
+    if (!msg || msg.sender_id !== friendId) return
+    if (msg.id && messages.value.some(m => m.id === msg.id)) return
+    const stick = isNearBottom()
+    messages.value.push(msg)
+    if (stick) nextTick(scrollToBottom)
+    // 聊天框正开着，收到就算已读（连续来消息时合并成一次请求）
+    scheduleMarkRead()
+  },
+  // 断线重连成功后补拉一次，把断线期间的消息补齐
+  onReconnect: () => loadMessages(),
+})
+
+function isNearBottom() {
+  const el = document.getElementById('messageList')
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 80
+}
 
 // ===== 加载好友信息 =====
 async function loadPartnerInfo() {
@@ -328,6 +459,65 @@ function getTypeName(type) {
   return map[type] || type || '题目'
 }
 
+// ===== 富消息：字段归一化（私有消息的 question_data 是 jsonb，老数据可能是字符串） =====
+function parseMaybeJson(v) {
+  if (!v) return null
+  if (typeof v === 'object') return v
+  try { return JSON.parse(v) } catch { return null }
+}
+
+function questionData(msg) {
+  return parseMaybeJson(msg.question_data)
+}
+
+function questionTitle(msg) {
+  const qd = questionData(msg)
+  return qd?.title || msg.question_title || (msg.question_content || '').slice(0, 30) || '题目'
+}
+
+function questionTypeName(msg) {
+  const qd = questionData(msg)
+  return getTypeName(qd?.question_type || msg.question_type)
+}
+
+function questionPreview(msg) {
+  const qd = questionData(msg)
+  return qd?.question_content || msg.question_content || questionTitle(msg)
+}
+
+function messageImage(msg) {
+  return msg.media_url || msg.image_url || ''
+}
+
+function isSticker(msg) {
+  // message_type 可能被库里的约束/旧数据抹成 image，路径也认一遍
+  return msg.message_type === 'sticker' ||
+    /^\/stickers\/(anim|static)\/.+\.(gif|png|webp)$/i.test(messageImage(msg))
+}
+
+function imageCaption(msg) {
+  if (!msg.content || msg.content === '[图片]' || msg.content === '[表情]') return ''
+  return msg.content
+}
+
+function onImageError(e) {
+  e.target.src = '/images/placeholder.png'
+  e.target.onerror = null
+}
+
+function setInfo(msg) {
+  const d = questionData(msg) || {}
+  const ids = Array.isArray(d.question_ids) ? d.question_ids : []
+  const questions = Array.isArray(d.questions) ? d.questions : []
+  const n = ids.length || questions.length
+  return {
+    name: d.name || msg.question_set_name || '题集',
+    summary: d.description || (n ? `${n} 道题` : '点击查看题集'),
+    question_ids: ids,
+    questions,
+  }
+}
+
 function goBack() {
   router.push('/community/friends')
 }
@@ -350,8 +540,9 @@ function goCall() {
 
 function goDoQuestion(msg) {
   // 如果消息里带了完整的题目数据，通过 URL 参数传递
-  if (msg.question_data) {
-    const encoded = encodeURIComponent(JSON.stringify(msg.question_data))
+  const qd = questionData(msg)
+  if (qd) {
+    const encoded = encodeURIComponent(JSON.stringify(qd))
     router.push(`/do-question/${msg.question_id}?data=${encoded}`)
   } else if (msg.question_id) {
     // 兼容旧数据：只有 ID，没有完整数据
@@ -404,7 +595,12 @@ async function loadMessages() {
 }
 
 function removeImage() {
+  if (uploadedImage.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(uploadedImage.value)
+  }
   uploadedImage.value = null
+  uploadedImageUrl.value = null
+  uploadingImage.value = false
   if (fileInputRef.value) {
     fileInputRef.value.value = ''
   }
@@ -414,17 +610,33 @@ function triggerImageUpload() {
   fileInputRef.value?.click()
 }
 
-import { uploadImage } from '@/api/upload'  // 文件顶部加上
-
-function handleImageSelect(event) {
-  const file = event.target.files[0]
-  if (!file) return
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    uploadedImage.value = e.target.result
-  }
-  reader.readAsDataURL(file)
+// 选图即上传：本地只留 objectURL 预览，落库和发送用的都是 Supabase 公共地址。
+// 之前存 base64 直接进 media_url，一条图就是几百 KB 的 JSON，列表一拉就卡。
+async function handleImageSelect(event) {
+  const file = event.target.files?.[0]
   event.target.value = ''
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('请选择图片文件')
+    return
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    ElMessage.warning('图片不能超过 10MB')
+    return
+  }
+
+  removeImage()
+  uploadedImage.value = URL.createObjectURL(file)
+  uploadingImage.value = true
+  try {
+    uploadedImageUrl.value = await uploadImage(file)
+  } catch (e) {
+    console.error('图片上传失败:', e)
+    ElMessage.error('图片上传失败，请重试')
+    removeImage()
+  } finally {
+    uploadingImage.value = false
+  }
 }
 
 // ===== 发送题目 =====
@@ -446,27 +658,107 @@ async function openSendQuestion() {
   }
 }
 
+async function loadQuestionsForSet(setId, ids) {
+  if (setQuestionsMap.value[setId] !== undefined && setQuestionsMap.value[setId] !== null) {
+    return setQuestionsMap.value[setId]
+  }
+  setQuestionsMap.value[setId] = null
+  const qs = []
+  for (const id of ids || []) {
+    try {
+      const q = await getQuestionDetail(id)
+      if (q) qs.push(q)
+    } catch (e) {}
+  }
+  setQuestionsMap.value[setId] = qs
+  return qs
+}
+
 async function toggleSetExpand(setId) {
   if (expandedSetId.value === setId) {
     expandedSetId.value = null
     return
   }
   expandedSetId.value = setId
-  if (setQuestionsMap.value[setId] !== undefined) return
-  setQuestionsMap.value[setId] = null
   const s = questionSets.value.find(item => item.id === setId)
-  if (s) {
-    const ids = s.question_ids || []
-    const qs = []
-    for (const id of ids) {
-      try {
-        const q = await getQuestionDetail(id)
-        if (q) qs.push(q)
-      } catch (e) {}
-    }
-    setQuestionsMap.value[setId] = qs
-  } else {
-    setQuestionsMap.value[setId] = []
+  await loadQuestionsForSet(setId, s?.question_ids || [])
+}
+
+// ===== 题集预览 / 发送题集 =====
+function openSetPreview(s) {
+  previewSetData.value = s
+  previewSetQuestions.value = setQuestionsMap.value[s.id] || []
+  showPreviewDialog.value = true
+  if (setQuestionsMap.value[s.id] === undefined) {
+    loadQuestionsForSet(s.id, s.question_ids || []).then(qs => {
+      if (previewSetData.value?.id === s.id) previewSetQuestions.value = qs
+    })
+  }
+}
+
+async function openSetCard(msg) {
+  const info = setInfo(msg)
+  const d = questionData(msg) || {}
+  previewSetData.value = {
+    id: msg.question_set_id,
+    name: info.name,
+    description: d.description || '',
+    question_ids: info.question_ids,
+  }
+  previewSetQuestions.value = info.questions
+  showPreviewDialog.value = true
+  if (!info.questions.length && info.question_ids.length) {
+    const qs = await loadQuestionsForSet(msg.question_set_id, info.question_ids)
+    if (previewSetData.value?.id === msg.question_set_id) previewSetQuestions.value = qs
+  }
+}
+
+async function sendQuestionSet(s) {
+  showQuestionDialog.value = false
+  expandedSetId.value = null
+
+  const loaded = setQuestionsMap.value[s.id] || []
+  const snapshot = {
+    kind: 'question_set',
+    id: s.id,
+    name: s.name,
+    description: s.description || '',
+    question_ids: s.question_ids || [],
+    questions: loaded.map(q => ({
+      id: q.id,
+      title: q.title || q.question_content || '未命名题目',
+      question_type: q.question_type || 'choice',
+    })),
+  }
+  const content = `📚 题集《${s.name}》`
+
+  const userMsg = {
+    id: Date.now().toString(),
+    sender_id: authStore.user.id,
+    content,
+    message_type: 'set',
+    question_set_id: s.id,
+    question_data: snapshot,
+    created_at: new Date().toISOString(),
+  }
+  messages.value.push(userMsg)
+  await nextTick()
+  scrollToBottom()
+
+  sending.value = true
+  try {
+    await sendMessage(authStore.user.id, {
+      receiver_id: friendId,
+      message_type: 'set',
+      content,
+      question_set_id: s.id,
+      question_data: snapshot,
+    })
+  } catch {
+    ElMessage.error('发送失败')
+    messages.value = messages.value.filter(m => m.id !== userMsg.id)
+  } finally {
+    sending.value = false
   }
 }
 
@@ -526,18 +818,123 @@ async function sendQuestionToFriend(q) {
   }
 }
 
+// ===== 表情包 =====
+async function sendSticker(sticker) {
+  if (sending.value) return
+  showStickerPanel.value = false
+
+  const userMsg = {
+    id: Date.now().toString(),
+    sender_id: authStore.user.id,
+    content: '[表情]',
+    message_type: 'sticker',
+    media_url: sticker.src,
+    created_at: new Date().toISOString()
+  }
+  messages.value.push(userMsg)
+  await nextTick()
+  scrollToBottom()
+
+  sending.value = true
+  try {
+    await sendMessage(authStore.user.id, {
+      receiver_id: friendId,
+      message_type: 'sticker',
+      content: '[表情]',
+      media_url: sticker.src,
+    })
+  } catch {
+    ElMessage.error('发送失败')
+    messages.value = messages.value.filter(m => m.id !== userMsg.id)
+  } finally {
+    sending.value = false
+  }
+}
+
+// ===== 小基文字聊天：流式收字 + 50ms 批量刷 UI =====
+// 后端按块吐字；如果每个 chunk 都写一次响应式 content，Vue 会被重绘打爆。
+// force_chat=true 是因为社区聊天框没有「派活卡片」，固定走闲聊链路。
+async function streamXiaojiReply(text) {
+  const response = await fetch(
+    `${BACKEND_URL}/community/xiaoji/chat-stream?user_id=${encodeURIComponent(authStore.user.id)}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authStore.token}`,
+      },
+      body: JSON.stringify({ content: text, force_chat: true }),
+    }
+  )
+  if (!response.ok) {
+    const err = await response.json().catch(() => null)
+    throw new Error(err?.detail || `HTTP ${response.status}`)
+  }
+
+  const replyMsg = {
+    id: `local-${Date.now()}-xiaoji`,
+    sender_id: 'xiaoji',
+    content: '',
+    created_at: new Date().toISOString(),
+  }
+  messages.value.push(replyMsg)
+  await nextTick()
+  scrollToBottom()
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let full = ''
+  let flushTimer = null
+  let lastFlush = 0
+
+  const flush = () => {
+    flushTimer = null
+    if (replyMsg.content === full) return
+    replyMsg.content = full
+    lastFlush = performance.now()
+    nextTick(scrollToBottom)
+  }
+  const scheduleFlush = () => {
+    if (flushTimer) return
+    const wait = Math.max(0, 50 - (performance.now() - lastFlush))
+    flushTimer = setTimeout(flush, wait)
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    full += decoder.decode(value, { stream: true })
+    scheduleFlush()
+  }
+  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
+  flush()
+
+  if (!full.trim()) {
+    messages.value = messages.value.filter(m => m !== replyMsg)
+    throw new Error('空回复')
+  }
+  return full
+}
+
 // ===== 发送消息 =====
 async function handleSendMessage() {
   const content = inputContent.value.trim()
-  const image = uploadedImage.value
+  const imagePreview = uploadedImage.value
+  const imageUrl = uploadedImageUrl.value
 
-  if (!content && !image) {
+  if (!content && !imagePreview) {
     ElMessage.warning('请输入内容或选择图片')
     return
   }
+  // 选图即上传：没拿到公网地址就不让发，避免又把 base64 塞进 media_url
+  if (imagePreview && !imageUrl) {
+    ElMessage.warning(uploadingImage.value ? '图片还在上传，稍等一下' : '图片上传失败，请重新选择')
+    return
+  }
+  if (voiceInputActive.value) stopVoiceInput()
 
   const currentContent = content
-  const currentImage = image
+  const currentImage = imageUrl
 
   let displayContent = currentContent
   if (currentImage && currentContent) {
@@ -550,7 +947,8 @@ async function handleSendMessage() {
     id: Date.now().toString(),
     sender_id: authStore.user.id,
     content: displayContent,
-    image_url: currentImage || null,
+    message_type: currentImage ? 'image' : 'text',
+    media_url: currentImage || null,
     created_at: new Date().toISOString()
   }
   messages.value.push(userMsg)
@@ -588,22 +986,11 @@ async function handleSendMessage() {
 
     sending.value = true
     try {
-      const res = await sendXiaojiMessage({
-        user_id: authStore.user.id,
-        content: currentContent
-      })
-      const reply = res.reply || '嗯嗯，我在听~'
-      messages.value.push({
-        id: (Date.now() + 1).toString(),
-        sender_id: 'xiaoji',
-        content: reply,
-        created_at: new Date().toISOString()
-      })
-      await nextTick()
-      scrollToBottom()
+      const reply = await streamXiaojiReply(currentContent)
       if (voiceEnabled.value) speakText(reply)
-    } catch {
-      ElMessage.error('发送失败')
+    } catch (e) {
+      console.error('小基流式回复失败:', e)
+      ElMessage.error(e?.message || '发送失败')
       messages.value = messages.value.filter(m => m.id !== userMsg.id)
     } finally {
       sending.value = false
@@ -615,8 +1002,7 @@ async function handleSendMessage() {
         receiver_id: friendId,
         message_type: currentImage ? 'image' : 'text',
         content: currentContent || '[图片]',
-        media_url: currentImage || null,  // ← currentImage 本身没问题
-        // 但你要确保 currentImage 存的是 URL，而不是 Base64
+        media_url: currentImage || null,
       })
     } catch {
       ElMessage.error('发送失败')
@@ -648,52 +1034,21 @@ function toggleVoiceInput() {
     stopVoiceInput()
   } else {
     startVoiceInput()
+    ElMessage.info('请说话，说完自动结束（再点一次可提前结束）')
   }
-}
-
-function startVoiceInput() {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    ElMessage.warning('当前浏览器不支持语音输入')
-    return
-  }
-
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-  recognition.value = new SpeechRecognition()
-  recognition.value.lang = 'zh-CN'
-  recognition.value.continuous = false
-  recognition.value.interimResults = false
-
-  recognition.value.onresult = (event) => {
-    const result = event.results[0][0].transcript
-    inputContent.value = result
-    voiceInputActive.value = false
-    handleSendMessage()
-  }
-
-  recognition.value.onerror = () => {
-    ElMessage.warning('语音识别失败，请重试')
-    voiceInputActive.value = false
-  }
-
-  recognition.value.onend = () => {
-    voiceInputActive.value = false
-  }
-
-  recognition.value.start()
-  voiceInputActive.value = true
-  ElMessage.info('请说话...')
-}
-
-function stopVoiceInput() {
-  if (recognition.value) {
-    recognition.value.stop()
-  }
-  voiceInputActive.value = false
 }
 
 onMounted(() => {
   loadPartnerInfo()
   loadMessages()
+})
+
+onUnmounted(() => {
+  if (readMarkTimer) { clearTimeout(readMarkTimer); readMarkTimer = null }
+  if (voiceInputActive.value) stopVoiceInput()
+  if (uploadedImage.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(uploadedImage.value)
+  }
 })
 </script>
 
@@ -948,6 +1303,99 @@ onMounted(() => {
   text-align: left;
 }
 
+/* 表情包：只走 public/stickers，消息里存路径 */
+.message-sticker {
+  cursor: pointer;
+  line-height: 0;
+}
+.message-sticker img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  display: block;
+}
+.message-item.sent .message-sticker img {
+  margin-left: auto;
+}
+
+/* 表情包小弹窗：锚定在表情按钮上方，浮层盖在消息上，不挤压聊天区 */
+.sticker-popup {
+  width: 316px;
+}
+.sticker-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.sticker-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.sticker-tab:hover {
+  color: var(--text-primary);
+}
+.sticker-tab.active {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  font-weight: 600;
+}
+.sticker-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+.sticker-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  max-height: 224px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.sticker-panel-grid::-webkit-scrollbar {
+  width: 3px;
+}
+.sticker-panel-grid::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.2);
+  border-radius: 2px;
+}
+
+/* popover 内容被 teleport 到 body，样式要提成全局的 */
+:global(.sticker-popper.el-popover) {
+  background: var(--surface, #ffffff) !important;
+  border: 1px solid rgba(128, 128, 128, 0.14) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14) !important;
+  max-width: calc(100vw - 24px);
+}
+.sticker-cell {
+  border: none;
+  background: transparent;
+  border-radius: 12px;
+  padding: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sticker-cell:hover {
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  transform: translateY(-1px);
+}
+.sticker-cell img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
 /* ===== 题目卡片 ===== */
 .message-card {
   padding: 12px 16px;
@@ -1026,6 +1474,7 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 .thumb-wrapper {
+  position: relative;
   width: 48px;
   height: 48px;
   border-radius: 8px;
@@ -1038,6 +1487,23 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.thumb-wrapper.uploading {
+  cursor: progress;
+}
+.thumb-uploading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 14px;
+}
+.thumb-hint {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 .remove-image-btn {
   width: 22px;
@@ -1277,6 +1743,12 @@ onMounted(() => {
 .set-expand-icon.expanded {
   transform: rotate(180deg);
 }
+.set-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
 
 .set-questions-list {
   margin-top: 4px;
@@ -1382,6 +1854,14 @@ onMounted(() => {
   }
   .message-image {
     max-width: 140px;
+  }
+  .message-sticker img {
+    width: 84px;
+    height: 84px;
+  }
+  .sticker-panel-grid {
+    max-height: 200px;
+    gap: 3px;
   }
   .chat-input-row {
     gap: 6px;

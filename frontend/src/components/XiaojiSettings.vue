@@ -232,12 +232,13 @@ const voiceList = [
 ]
 
 // ===== 形象轮播 =====
+// 2026-10-30：换成带 alpha 的动画 WebP（与主页/页驻小基/桌宠同一套）
 const avatarStates = [
-  { key: 'idle', label: '待命 · 在线', image: '/images/xiaoji/xiaoji_idle.png' },
-  { key: 'thinking', label: '思考中', image: '/images/xiaoji/xiaoji_thinking.png' },
-  { key: 'speaking', label: '输出中', image: '/images/xiaoji/xiaoji_speaking.png' },
-  { key: 'happy', label: '已完成', image: '/images/xiaoji/xiaoji_happy.png' },
-  { key: 'sleeping', label: '休眠', image: '/images/xiaoji/xiaoji_sleeping.png' }
+  { key: 'idle', label: '待机 · 会随机做小动作', image: '/xiaoji/xiaoji_idle_loop.webp' },
+  { key: 'thinking', label: '思考中', image: '/xiaoji/xiaoji_thinking_loop.webp' },
+  { key: 'speaking', label: '说话中', image: '/xiaoji/xiaoji_speaking_loop.webp' },
+  { key: 'happy', label: '开心', image: '/xiaoji/xiaoji_happy_loop.webp' },
+  { key: 'sleeping', label: '打盹', image: '/xiaoji/xiaoji_sleeping_loop.webp' }
 ]
 
 const currentSlide = ref(0)

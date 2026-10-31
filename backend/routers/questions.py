@@ -1,6 +1,6 @@
 import sys
 import asyncio
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from config import settings
@@ -200,13 +200,17 @@ async def create_question_set(user_id: str, data: QuestionSetCreate, current_use
 
 
 @router.get("/set/list/{user_id}")
-async def list_question_sets(user_id: str, current_user: str = Depends(get_current_user)):
+async def list_question_sets(user_id: str, source: Optional[str] = Query(None),
+                             current_user: str = Depends(get_current_user)):
+    """题集列表。source=manual|generated|upload 时按来源筛选（资源库用）。"""
     verify_user_match(user_id, current_user)
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}"
     }
     url = f"{settings.SUPABASE_URL}/rest/v1/question_sets?user_id=eq.{user_id}&order=created_at.desc"
+    if source in ("manual", "generated", "upload"):
+        url += f"&source=eq.{source}"
     async with httpx.AsyncClient() as client:
         res = await client.get(url, headers=headers)
         if res.status_code == 200:
@@ -567,7 +571,10 @@ async def generate_question(data: dict, current_user: str = Depends(get_current_
     #    「用户提示词里有违禁词必须禁止生成」这条要求仍然成立 ——
     #    只是执行点从这儿移到了网关的入闸。
 
-    user_id = data.get("user_id")
+    # 身份一律以 token 为准；请求体不带 user_id 时用 current_user 兜底
+    # （2026-10-30 修：generate_question_core 里原来引用了一个不存在的
+    #  模块级 current_user，队友出题链路会 NameError）
+    user_id = data.get("user_id") or current_user
     category = data.get("category", "通用")
     topic = data.get("topic", "")
     question_type = data.get("question_type", "选择题")
@@ -657,7 +664,10 @@ async def generate_question_core(user_id, category, topic, question_type, diffic
         result = await generate(
             purpose="question_gen",
             messages=[{"role": "user", "content": prompt}],
-            user_id=current_user,
+            # ⚠️ 这里原来写的是 current_user —— 它是端点函数的局部变量，
+            #    在这个模块级函数里并不存在，队友出题到这一步会 NameError。
+            #    用入参 user_id（调用方保证有值）。
+            user_id=user_id,
             temperature=0.9,
             expect_json=True,
             input_texts={"topic": topic, "extra": extra},
@@ -1111,14 +1121,19 @@ async def save_generation_history(data: dict):
 
 
 @router.get("/history/{user_id}")
-async def get_generation_history(user_id: str, limit: int = 50, current_user: str = Depends(get_current_user)):
+async def get_generation_history(user_id: str, limit: int = 50,
+                                 source: Optional[str] = Query(None),
+                                 current_user: str = Depends(get_current_user)):
+    """获取生成历史。source=generate|upload|vocab 时按来源筛选（资源库用）。"""
     verify_user_match(user_id, current_user)
-    """获取生成历史"""
     headers = {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}"
     }
-    url = f"{settings.SUPABASE_URL}/rest/v1/generation_history?user_id=eq.{user_id}&order=created_at.desc&limit={limit}"
+    url = (f"{settings.SUPABASE_URL}/rest/v1/generation_history"
+           f"?user_id=eq.{user_id}&order=created_at.desc&limit={limit}")
+    if source in ("generate", "upload", "vocab"):
+        url += f"&source=eq.{source}"
     async with httpx.AsyncClient() as client:
         res = await client.get(url, headers=headers)
         if res.status_code == 200:

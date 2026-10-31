@@ -17,11 +17,8 @@
         </div>
       </div>
 
-      <!-- 加载 -->
-      <div v-if="loading" class="sp-loading">
-        <div class="loading-pulse"></div>
-        <span>准备题目中...</span>
-      </div>
+      <!-- 加载：骨架屏，先占住题干/选项的位置 -->
+      <SkeletonScreen v-if="loading" variant="question" />
 
       <!-- 题目卡片 -->
       <div v-else-if="question" class="q-card glass-panel" :class="{ 'pgm-split': question.question_type === 'programming' }">
@@ -298,6 +295,7 @@ import { recordTaskAnswer } from '@/api/learningPlan'
 import { getVideoRelated, ensureVideoLib } from '@/api/video'
 import { knowledgeKey, ANGLE_LABELS } from '@/utils/videoLib'
 import VideoLessonPlayer from '@/components/VideoLessonPlayer.vue'
+import SkeletonScreen from '@/components/SkeletonScreen.vue'
 import { ElMessage } from 'element-plus'
 import { recordAction } from '@/api/career'
 import request from '@/utils/request'

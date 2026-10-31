@@ -44,6 +44,12 @@
       </div>
     </div>
 
+    <!-- ===== 工作流编排（2026-10-30）：团队/DAG/轨迹/dry-run ===== -->
+    <WorkflowPanel :user-id="authStore.user?.id || ''" />
+
+    <!-- ===== 分层记忆（2026-10-30）：薄弱点/偏好/有效做法，可删可纠 ===== -->
+    <MemoryPanel :user-id="authStore.user?.id || ''" />
+
     <!-- ===== 学习协作闭环 ===== -->
     <section v-if="ov" class="ac-card">
       <div class="card-head">
@@ -162,6 +168,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { agents as agentsMeta } from '@/utils/mockAgents'
 import { getOverview } from '@/api/agentCenter'
+import WorkflowPanel from '@/components/WorkflowPanel.vue'
+import MemoryPanel from '@/components/MemoryPanel.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

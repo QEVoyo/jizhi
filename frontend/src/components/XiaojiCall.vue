@@ -69,8 +69,11 @@
         @mouseenter="onAvatarHover(true)"
         @mouseleave="onAvatarHover(false)"
       >
+        <!-- 两侧流动声波：细线、长线、曲线揉动；说话时幅度变大 -->
+        <XiaojiWaves v-if="chatMode === 'bubble'" :active="displayStatus === 'speaking'" />
         <div class="xiaoji-shadow"></div>
-        <img :src="avatarUrl" alt="小基" class="xiaoji-image" :class="{ hover: isHover }" />
+        <!-- 完美 alpha 的透明 WebP：直接抠图，不要 3D 球 -->
+        <img :src="avatarWebpUrl" alt="小基" class="xiaoji-image" :class="{ hover: isHover }" />
         <div class="xiaoji-status-area">
           <el-tag :type="statusTagType" size="default" effect="plain" class="status-tag">
             {{ statusText }}
@@ -545,6 +548,9 @@
           </div>
         </section>
 
+        <!-- 主动巡检（2026-10-30）：后台发现该复习/该休息 → 小基在这里提醒 -->
+        <PatrolInbox :user-id="authStore.user?.id || ''" />
+
         <!-- 使用日志 -->
         <section class="side-card log-card">
           <div class="side-card-head"><span class="side-card-ic cyan"><i class="fas fa-history"></i></span>使用日志</div>
@@ -852,6 +858,8 @@ import { recordAction } from '@/api/career'
 import { createPlan } from '@/api/learningPlan'
 import { agents as agentMetaList } from '@/utils/mockAgents'
 import VocabCard from '@/components/VocabCard.vue'
+import PatrolInbox from '@/components/PatrolInbox.vue'
+import XiaojiWaves from '@/components/XiaojiWaves.vue'
 import EdgeNavDock from '@/components/EdgeNavDock.vue'
 import { useXiaojiAvatar } from '@/composables/useXiaojiAvatar'
 import { useNotifications } from '@/composables/useNotifications'
@@ -863,11 +871,17 @@ const route = useRoute()
 const authStore = useAuthStore()
 const {
   avatarUrl,
+  avatarWebpUrl,
+  displayStatus,
   statusText,
   statusTagType,
   stage,
   stagePercent,
   isProcessing,
+  startIdleActions,
+  stopIdleActions,
+  speakFor,
+  stopSpeech,
   setThinking,
   setStage,
   setSpeaking,
@@ -1769,31 +1783,41 @@ async function showDialogBubble(text, addToChat = true) {
   }
 
   if (dialogTimer.value) clearTimeout(dialogTimer.value)
-  // 展示时长按文本长度自适应（3s 起步，最长 15s），长回复能看完
+  // 展示时长按文本长度自适应（3s 起步，最长 15s），长回复能看完。
+  // 说话动画跟气泡同寿：气泡还在（没读完）就一直说，气泡消失才结束 ——
+  // 不再用固定 3s 计时把动画提前掐掉。
   const duration = Math.min(15000, Math.max(3000, (text || '').length * 150))
+  speakFor(duration)
   dialogTimer.value = setTimeout(() => {
     showDialog.value = false
+    stopSpeech()
   }, duration)
 }
 
 // ===== 交互 =====
+function safeSpeak(msg) {
+  // 气泡/说话动画已经由 showDialogBubble 驱动；TTS 失败不能把它们带走
+  try {
+    const p = speakText(msg)
+    if (p && typeof p.catch === 'function') p.catch(() => {})
+  } catch (e) {
+    console.warn('[xiaoji] TTS 失败（气泡/动画不受影响）:', e)
+  }
+}
+
 async function onAvatarClick() {
-  // 配置未加载完时先等配置：避免默认音色与你设置的音色不一致
-  if (!voiceConfigLoaded) await loadVoiceConfig()
+  // 先出气泡/动画，再等音色配置 —— 点击反馈不该被网络拖慢
   const msg = randomPick(clickPhrases)
   showDialogBubble(msg, true)
-  speakText(msg)
-  setHappy()
-  setTimeout(() => setIdle(), 1500)
+  if (!voiceConfigLoaded) await loadVoiceConfig()
+  safeSpeak(msg)
 }
 
 async function onAvatarDoubleClick() {
-  if (!voiceConfigLoaded) await loadVoiceConfig()
   const msg = randomPick(doubleClickPhrases)
   showDialogBubble(msg, true)
-  speakText(msg)
-  setHappy()
-  setTimeout(() => setIdle(), 1500)
+  if (!voiceConfigLoaded) await loadVoiceConfig()
+  safeSpeak(msg)
 }
 
 function onAvatarHover(val) {
@@ -2214,16 +2238,35 @@ async function streamXiaojiChat(text, opts = {}) {
   await nextTick()
   forceScrollToBottom()
 
+  // 流式渲染节流（2026-10-30）：模型按块吐字，DOM 每 50ms 合并更新一次；
+  // TTS 仍然逐块喂 —— 断句检测要即时，不能等显示。
+  let flushTimer = null
+  let lastFlush = 0
+  const flushVisual = () => {
+    flushTimer = null
+    assistantMsg.content = full
+    lastFlush = performance.now()
+    forceScrollToBottom()
+    setTimeout(updateScale, 50)
+  }
+  const scheduleVisual = () => {
+    if (flushTimer) return
+    const wait = Math.max(0, 50 - (performance.now() - lastFlush))
+    flushTimer = setTimeout(flushVisual, wait)
+  }
+
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
     const chunk = decoder.decode(value, { stream: true })
     full += chunk
-    assistantMsg.content = full
     feedSpeakStream(chunk)
-    forceScrollToBottom()
-    setTimeout(updateScale, 50)
+    scheduleVisual()
   }
+  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
+  assistantMsg.content = full
+  forceScrollToBottom()
+  setTimeout(updateScale, 50)
   flushSpeakStream()
 
   if (!full) {
@@ -2867,12 +2910,15 @@ function onVisible() {
 onMounted(() => {
   loadVoiceConfig().then(() => loadMessages()).then(() => handleHighlight())
   loadDaily()
+  startIdleActions()
   window.addEventListener('resize', handleResize)
   document.addEventListener('visibilitychange', onVisible)
   // 未读角标**不在这里轮询** —— 全站只有 App.vue 起的那一个计时器
 })
 
 onUnmounted(() => {
+  stopIdleActions()
+  stopSpeech()
   window.removeEventListener('resize', handleResize)
   document.removeEventListener('visibilitychange', onVisible)
   if (isRecording.value) stopRecording()
@@ -3280,6 +3326,7 @@ onUnmounted(() => {
   100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
+
 .xiaoji-click-area {
   position: relative;
   display: flex;
@@ -3298,16 +3345,19 @@ onUnmounted(() => {
 
 .xiaoji-shadow {
   position: absolute;
+  z-index: 1;
   bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
   width: 50%;
   height: 12px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(0,0,0,0.12) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(0, 0, 0, .12) 0%, transparent 70%);
   pointer-events: none;
 }
 .xiaoji-image {
+  position: relative;
+  z-index: 2;
   width: 130px;
   height: 130px;
   object-fit: contain;
@@ -3321,6 +3371,8 @@ onUnmounted(() => {
 }
 
 .xiaoji-status-area {
+  position: relative;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;

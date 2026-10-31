@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Any
 from datetime import datetime, timedelta, timezone
-import httpx, json, uuid, random, re
+import asyncio, httpx, json, uuid, random, re
 from pathlib import Path
 from config import settings
 from services.supabase import get_supabase_headers, get_supabase_service_headers
@@ -1439,6 +1439,16 @@ async def submit_answer(plan_id: str, data: AnswerSubmit, current_user: str = De
                         logger.warning(f"掌握度首次写入失败 [{ins.status_code}]: {ins.text[:200]}")
         except Exception as e:
             logger.warning(f"更新掌握度失败: {e}")
+
+    # M3 语义记忆：把这次作答沉淀为薄弱点证据（2026-10-30）。
+    # fire-and-forget：记忆写失败绝不影响判分/记录 —— 记录已经落库了。
+    if q:
+        try:
+            from services import agent_memory
+            asyncio.create_task(agent_memory.record_weakness(
+                data.user_id, kp, is_correct, data.question_id))
+        except Exception as e:
+            logger.info(f"[memory] 薄弱点记忆未写入（不影响作答）: {e}")
 
     return {
         "is_correct": is_correct,

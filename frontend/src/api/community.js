@@ -93,6 +93,12 @@ export function getMessages(userId, friendId) {
   return request.get(`/community/messages/${friendId}`, { params: { user_id: userId } }).then(res => res.data)
 }
 
+/** WS 收到新私信后把该好友的未读一次性标掉 */
+export function markPrivateRead(userId, friendId) {
+  return request.put(`/community/messages/${friendId}/read`, null, { params: { user_id: userId } })
+    .then(res => res.data)
+}
+
 // ============================================================
 // 5. 举报
 // ============================================================

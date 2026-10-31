@@ -37,11 +37,24 @@
       class="search-input"
     />
 
+    <!-- 来源筛选（2026-10-30）：上传题集与手动题集分开看 -->
+    <div class="source-filter">
+      <button
+        v-for="s in sourceOptions"
+        :key="s.value"
+        :class="{ on: sourceFilter === s.value }"
+        @click="sourceFilter = s.value"
+      >{{ s.label }}</button>
+    </div>
+
     <!-- 题集列表 -->
     <div v-if="sets.length" class="set-list">
       <div v-for="set in filteredSets" :key="set.id" class="set-item">
         <div class="set-info">
-          <div class="set-name">{{ set.name }}</div>
+          <div class="set-name">
+            {{ set.name }}
+            <span v-if="isUpload(set)" class="src-badge">上传</span>
+          </div>
           <div class="set-meta">{{ set.description || '无描述' }} · 📅 {{ formatDate(set.created_at) }} · 📝 {{ set.question_ids?.length || 0 }} 道题</div>
           <el-progress
             :percentage="set.avg_mastery || 0"
@@ -86,10 +99,25 @@ const createOpen = ref(false)
 const newSetName = ref('')
 const newSetDesc = ref('')
 const searchQuery = ref('')
+const sourceFilter = ref('all')
+const sourceOptions = [
+  { value: 'all', label: '全部' },
+  { value: 'manual', label: '手动' },
+  { value: 'upload', label: '上传' },
+]
+
+function isUpload(set) {
+  return set?.source === 'upload' || set?.set_type === 'upload'
+}
 
 const filteredSets = computed(() => {
-  if (!searchQuery.value) return sets.value
-  return sets.value.filter(s => s.name.toLowerCase().includes(searchQuery.value.toLowerCase()))
+  let result = sets.value
+  if (sourceFilter.value === 'upload') result = result.filter(isUpload)
+  else if (sourceFilter.value === 'manual') result = result.filter(s => !isUpload(s))
+  if (searchQuery.value) {
+    result = result.filter(s => (s.name || '').toLowerCase().includes(searchQuery.value.toLowerCase()))
+  }
+  return result
 })
 
 function formatDate(date) {
@@ -364,6 +392,23 @@ onMounted(loadSets)
 }
 [data-theme="dark"] .set-item:hover {
   border-color: var(--line-soft);
+}
+
+/* 来源筛选（2026-10-30） */
+.source-filter { display: flex; gap: 6px; margin-bottom: 12px; }
+.source-filter button {
+  padding: 4px 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
+  font-family: inherit; border: 1px solid var(--border-color);
+  background: transparent; color: var(--text-secondary); transition: all .2s ease;
+}
+.source-filter button.on {
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  color: var(--brand-bright); font-weight: 600;
+}
+.src-badge {
+  margin-left: 8px; font-size: 10.5px; padding: 1px 7px; border-radius: 7px;
+  color: #d48806; background: rgba(250, 178, 25, .12); font-weight: 600;
 }
 
 @media (max-width: 640px) {

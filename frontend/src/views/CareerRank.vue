@@ -10,12 +10,7 @@
           <p class="subtitle">学如登山，步步高升</p>
           <el-divider />
 
-          <LoadingSpinner
-            v-if="loading"
-            variant="orbit"
-            :size="80"
-            :flow-steps="['正在查询好友数据...', '正在计算段位排名...', '正在生成排行榜单...']"
-          />
+          <SkeletonScreen v-if="loading" variant="cards" :count="3" />
 
           <!-- ===== 当前段位 ===== -->
           <div class="rank-card">
@@ -61,6 +56,13 @@
               <span class="hint">距离 Lv.{{ userLevel + 1 }} 还需 {{ nextLevelPoints }} 分</span>
             </div>
           </div>
+
+          <el-divider />
+
+          <!-- ===== 好友排行（2026-10-30：登攀页不再只有自己） ===== -->
+          <h3>🏆 好友排行</h3>
+          <p class="rank-subtitle-inline">和好友比一比，登攀路上不孤单</p>
+          <Rank embedded />
 
           <el-divider />
 
@@ -200,7 +202,8 @@ import AppLayout from '@/components/AppLayout.vue'
 import CareerSidebar from '@/components/CareerSidebar.vue'
 import { getUserStats } from '@/api/career'
 import { RANK_ICONS, RANK_COLORS, RANK_ORDER, SUB_SYMBOLS } from '@/utils/constants'
-import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import SkeletonScreen from '@/components/SkeletonScreen.vue'
+import Rank from '@/components/community/Rank.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -317,6 +320,11 @@ h1 {
   color: var(--text-secondary);
   font-size: 14px;
   opacity: 0.6;
+}
+.rank-subtitle-inline {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0 0 12px;
 }
 
 /* ===== 段位卡片 ===== */

@@ -25,7 +25,7 @@
         <span class="legend-hint">薄弱 &lt;60%</span>
       </div>
 
-      <LoadingSpinner v-if="loadingMastery" variant="breathe" :flow-steps="['正在整理学习空间...', '正在同步最新数据...', '马上就好...']" />
+      <SkeletonScreen v-if="loadingMastery" variant="cards" :count="4" class="mastery-skeleton" />
       <div v-else-if="weakPoints.length" class="mastery-cards">
         <div
           v-for="(wp, idx) in weakPoints.slice(0, 4)"
@@ -77,7 +77,7 @@ import MistakeBook from '@/components/MistakeBook.vue'
 import GenerationHistory from '@/components/GenerationHistory.vue'
 import { getMastery } from '@/api/questions'
 import { ElMessage } from 'element-plus'
-import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import SkeletonScreen from '@/components/SkeletonScreen.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

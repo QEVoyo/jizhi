@@ -979,11 +979,18 @@ function goAchievements() {
   router.push('/career/achievements')
 }
 
+function onExternalClaim() {
+  // 页面驻扎小基在气泡里代领奖励后，刷新本页任务列表
+  loadData()
+}
+
 onMounted(() => {
   loadData()
+  window.addEventListener('xiaoji-claimed-tasks', onExternalClaim)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('xiaoji-claimed-tasks', onExternalClaim)
   if (animId) cancelAnimationFrame(animId)
   if (burstAnimId) cancelAnimationFrame(burstAnimId)
   if (timer) clearTimeout(timer)

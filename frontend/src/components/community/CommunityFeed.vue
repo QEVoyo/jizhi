@@ -105,10 +105,8 @@
 
     <!-- ===== 动态列表（此处用 PostCard 循环渲染，所有格式由 PostCard 控制） ===== -->
     <div class="post-list">
-      <!-- 加载状态 -->
-      <div v-if="loading" class="loading-state">
-        <i class="fas fa-spinner fa-spin"></i> 加载中...
-      </div>
+      <!-- 加载状态：骨架屏，不再转圈 -->
+      <SkeletonScreen v-if="loading" variant="list" :count="3" />
 
       <!-- 空状态 -->
       <div v-else-if="!posts.length" class="empty-state">
@@ -147,6 +145,7 @@ import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { recordAction } from '@/api/career'
 import PostCard from './PostCard.vue'
+import SkeletonScreen from '@/components/SkeletonScreen.vue'
 import {
   getPosts,
   createPost,
@@ -290,37 +289,54 @@ function handleSearch() {
   loadPosts(true)
 }
 
-async function handleLike(post) {
-  try {
-    if (post.is_liked) {
-      await unlikePost(post.id, authStore.user.id)
-      post.is_liked = false
-      post.like_count = Math.max(0, (post.like_count || 0) - 1)
-    } else {
-      await likePost(post.id, authStore.user.id)
-      post.is_liked = true
-      post.like_count = (post.like_count || 0) + 1
-    }
-  } catch (error) {
-    console.error('操作失败:', error)
+// 乐观更新：先改 UI，失败再回滚。连点用 busy 集合挡住，避免同一篇反复发请求。
+const likeBusy = new Set()
+const collectBusy = new Set()
+
+function handleLike(post) {
+  if (likeBusy.has(post.id)) return
+  likeBusy.add(post.id)
+  const wasLiked = !!post.is_liked
+  const prevCount = post.like_count || 0
+
+  post.is_liked = !wasLiked
+  post.like_count = Math.max(0, prevCount + (wasLiked ? -1 : 1))
+
+  const req = wasLiked
+    ? unlikePost(post.id, authStore.user.id)
+    : likePost(post.id, authStore.user.id)
+
+  req.catch((error) => {
+    console.error('点赞失败:', error)
+    post.is_liked = wasLiked
+    post.like_count = prevCount
     ElMessage.error('操作失败')
-  }
+  }).finally(() => {
+    likeBusy.delete(post.id)
+  })
 }
 
-async function handleCollect(post) {
-  try {
-    if (post.is_collected) {
-      await uncollectPost(post.id, authStore.user.id)
-      post.is_collected = false
-      post.collect_count--
-    } else {
-      await collectPost(post.id, authStore.user.id)
-      post.is_collected = true
-      post.collect_count++
-    }
-  } catch (error) {
+function handleCollect(post) {
+  if (collectBusy.has(post.id)) return
+  collectBusy.add(post.id)
+  const wasCollected = !!post.is_collected
+  const prevCount = post.collect_count || 0
+
+  post.is_collected = !wasCollected
+  post.collect_count = Math.max(0, prevCount + (wasCollected ? -1 : 1))
+
+  const req = wasCollected
+    ? uncollectPost(post.id, authStore.user.id)
+    : collectPost(post.id, authStore.user.id)
+
+  req.catch((error) => {
+    console.error('收藏失败:', error)
+    post.is_collected = wasCollected
+    post.collect_count = prevCount
     ElMessage.error('操作失败')
-  }
+  }).finally(() => {
+    collectBusy.delete(post.id)
+  })
 }
 
 function toggleComment(postId) {

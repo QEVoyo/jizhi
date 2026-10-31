@@ -9,7 +9,7 @@
         <h2>📝 练习</h2>
       </div>
 
-      <LoadingSpinner v-if="loading" variant="typewriter" :flow-steps="['正在分析题目考点...', '正在匹配难度等级...', '正在组织题目结构...']" />
+      <SkeletonScreen v-if="loading" variant="question" />
 
       <div v-else>
         <!-- 题目信息 -->
@@ -521,6 +521,7 @@ import VideoPoster from '@/components/VideoPoster.vue'
 import { ElMessage } from 'element-plus'
 import { recordAction } from '@/api/career'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import SkeletonScreen from '@/components/SkeletonScreen.vue'
 import { getToken } from '@/utils/storage'
 
 // 本页有几处代码沙箱调用用的是裸 fetch（不是 utils/request.js 那个 axios 实例），

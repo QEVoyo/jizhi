@@ -15,19 +15,56 @@
 
     <!-- 桌面版右键菜单（网页版不挂 —— 浏览器该有自己的菜单） -->
     <DesktopContextMenu v-if="isDesktop" />
+
+    <!-- ===== 全局拖拽上传（2026-10-30）=====
+         文件拖到窗口任意位置 → 小基小窗接手；不改变各页面自己的上传逻辑 -->
+    <Transition name="drop-fade">
+      <div v-if="isDragging" class="drag-overlay">
+        <div class="drag-card">
+          <div class="drag-icon">📄</div>
+          <p>松手，让小基看看这份资料</p>
+          <span>PDF · PPTX · DOCX · XLSX · 图片 · TXT / MD</span>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 小基上传 / 确认 / 小窗做题 -->
+    <XiaojiUploadPopup />
+
+    <!-- 页面驻扎小基（2026-10-30）：业务页右下角，与 /home 全屏小基、桌宠三形态切割 -->
+    <XiaojiPageHost v-if="showPageAgent" :route-path="route.path" />
   </div>
 </template>
 
 <script setup>
-import { computed, ref, onMounted, defineAsyncComponent } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { isDesktop } from '@/desktop'
+import { openXiaojiPopup, popupState } from '@/xiaoji/popupStore'
 
 // 这些组件首屏都不渲染：GlobalSearch 只在登录后的页面出现，
 // 桌面窗口控件/右键菜单只在桌面壳里出现。异步加载，别让它们进首屏 entry。
 const GlobalSearch = defineAsyncComponent(() => import('@/components/GlobalSearch.vue'))
 const DesktopWindowControls = defineAsyncComponent(() => import('@/desktop/DesktopWindowControls.vue'))
 const DesktopContextMenu = defineAsyncComponent(() => import('@/desktop/ContextMenu.vue'))
+const XiaojiUploadPopup = defineAsyncComponent(() => import('@/components/XiaojiUploadPopup.vue'))
+const XiaojiPageHost = defineAsyncComponent(() => import('@/components/XiaojiPageHost.vue'))
+
+const UPLOAD_OK = ['.pdf', '.pptx', '.docx', '.xlsx', '.csv', '.txt', '.md',
+                   '.png', '.jpg', '.jpeg', '.webp', '.bmp']
+
+// ⚠️ 不要静态 import element-plus：App.vue 在 entry chunk 里，
+// 静态引一次就会把整个 Element Plus 拖进首屏 —— LIGHT_ROUTES 的按需加载就白做了。
+// 这里只有拖拽上传的两种错误提示要用，按需动态取。
+function warnLater(msg) {
+  // 落地页没走 ensureElementPlus，连样式也要一起按需补上，否则提示框是裸的
+  Promise.all([
+    import('element-plus'),
+    import('element-plus/dist/index.css'),
+  ])
+    .then(([{ ElMessage }]) => ElMessage.warning(msg))
+    .catch(() => {})
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -36,6 +73,16 @@ const showGlobalSearch = computed(() =>
   !!route.meta.requiresAuth &&
   !route.path.startsWith('/admin') &&
   route.path !== '/onboarding'
+)
+
+// 页面驻扎小基：登录后的业务页才出现；主页已经是全屏小基，不再叠一个。
+// 协议/隐私/引导/登录页不打扰；管理后台默认不挂。
+const showPageAgent = computed(() =>
+  !!route.meta.requiresAuth &&
+  !route.path.startsWith('/admin') &&
+  !route.path.startsWith('/xiaoji/') &&   // 小基专属页已有完整形象，不叠一个
+  route.path !== '/home' &&
+  !['/onboarding', '/login', '/agreement', '/privacy'].includes(route.path)
 )
 
 // ==================== 过渡兜底（2026-10-01）====================
@@ -61,6 +108,52 @@ const STUCK_SUFFIXES = ['enter-from', 'enter-active', 'enter-to',
 const TRANSITION_PREFIXES = ['page-fade', 'page-slide']
 
 const viewRef = ref(null)
+
+// ==================== 全局拖拽上传（2026-10-30）====================
+// 只拦截「文件」拖拽；页面内部自己的拖拽（排序、图表）不受影响。
+// 小窗打开时交给小窗自己的 drop 区，避免一次拖拽开两次。
+const isDragging = ref(false)
+let dragDepth = 0
+
+function hasFiles(e) {
+  return Array.from(e.dataTransfer?.types || []).includes('Files')
+}
+
+function onWindowDragEnter(e) {
+  if (popupState.open || !hasFiles(e)) return
+  dragDepth += 1
+  isDragging.value = true
+}
+
+function onWindowDragOver(e) {
+  if (popupState.open || !hasFiles(e)) return
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+}
+
+function onWindowDragLeave() {
+  dragDepth = Math.max(0, dragDepth - 1)
+  if (!dragDepth) isDragging.value = false
+}
+
+function onWindowDrop(e) {
+  dragDepth = 0
+  isDragging.value = false
+  if (popupState.open || e.defaultPrevented) return
+  const f = e.dataTransfer?.files?.[0]
+  if (!f) return
+  e.preventDefault()
+  const ext = (f.name.match(/\.[^.]+$/) || [''])[0].toLowerCase()
+  if (!UPLOAD_OK.includes(ext)) {
+    warnLater('视频/音频/压缩包暂时不支持；可以上传截图、讲义或 PDF。')
+    return
+  }
+  if (f.size > 20 * 1024 * 1024) {
+    warnLater('文件超过 20MB，请拆分后再传。')
+    return
+  }
+  openXiaojiPopup({ mode: 'upload', file: f })
+}
 
 function unstickTransition() {
   const el = viewRef.value?.$el
@@ -88,6 +181,12 @@ onMounted(() => {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) setTimeout(unstickTransition, 80)
   })
+  // 全局拖拽上传
+  window.addEventListener('dragenter', onWindowDragEnter)
+  window.addEventListener('dragover', onWindowDragOver)
+  window.addEventListener('dragleave', onWindowDragLeave)
+  window.addEventListener('drop', onWindowDrop)
+  window.addEventListener('dragend', onWindowDragLeave)
   // 未读角标 + 桌面通知：**全站唯一**的轮询点（2026-10-08）。
   // 挂在这里而不是各页面里 —— 弹窗要跨路由存活，而且改造前
   // Sidebar / EdgeNavDock / XiaojiCall 各自起计时器，首页就是 3 份重复请求。
@@ -101,6 +200,14 @@ onMounted(() => {
   }
   if (window.requestIdleCallback) window.requestIdleCallback(startNotificationsLater, { timeout: 2000 })
   else setTimeout(startNotificationsLater, 800)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('dragenter', onWindowDragEnter)
+  window.removeEventListener('dragover', onWindowDragOver)
+  window.removeEventListener('dragleave', onWindowDragLeave)
+  window.removeEventListener('drop', onWindowDrop)
+  window.removeEventListener('dragend', onWindowDragLeave)
 })
 </script>
 
@@ -273,4 +380,27 @@ html.jz-desktop .app-container {
   background: color-mix(in srgb, var(--text-muted) 20%, transparent);
   color: var(--text-primary);
 }
+
+/* ===== 全局拖拽上传（2026-10-30）===== */
+.drag-overlay {
+  position: fixed; inset: 0; z-index: 10010; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 16, 30, .38);
+  backdrop-filter: blur(4px);
+}
+.drag-card {
+  padding: 30px 42px; border-radius: 20px; text-align: center;
+  background: color-mix(in srgb, var(--surface, #ffffff) 92%, transparent);
+  border: 1.5px dashed color-mix(in srgb, var(--brand) 55%, transparent);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .26);
+}
+[data-theme="dark"] .drag-card {
+  background: color-mix(in srgb, var(--surface, #161b26) 92%, transparent);
+}
+.drag-icon { font-size: 36px; }
+.drag-card p { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 8px 0 4px; }
+.drag-card span { font-size: 12px; color: var(--text-muted); }
+.drop-fade-enter-active, .drop-fade-leave-active { transition: opacity .18s ease; }
+.drop-fade-enter-from, .drop-fade-leave-to { opacity: 0; }
+
 </style>

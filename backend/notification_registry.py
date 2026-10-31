@@ -176,6 +176,14 @@ TYPES = {
                                    payload_schema="daily_summary"),
     # 词条本：按遗忘曲线到期待复习（`wordbook_lookup` 是既有埋点）
     "learning.wordbook_review": _t("learning", "词条该复习了", link="/wordbook"),
+    # 主动巡检（2026-10-30）：后台发现「该复习/该休息/计划落后」等信号后由 patrol 投递。
+    # 按天聚合成一条 —— 多条规则同时命中时逐条发就是刷屏。
+    "learning.proactive_reminder": _t("learning", "小基的主动提醒", aggregate=True,
+                                      link="/home"),
+    # 上传文件生成题目（2026-10-30）：source_id 传 question_set id，点开直接进题集
+    "learning.upload_ready":       _t("learning", "上传题目已生成",
+                                      link="/set-detail?id={source_id}"),
+    "learning.upload_failed":      _t("learning", "上传文件处理失败", priority="high"),
 
     # ============ plan 计划提醒（4）============
     "plan.daily_tasks":     _t("plan", "今日任务已下发", link="/learning-plan"),
@@ -193,6 +201,9 @@ TYPES = {
     # 详情里列出每项改了什么、为什么（前端以竖线标注调整点与指标变化）。
     "evaluation.engine_tuning": _t("evaluation", "磨合引擎调整了参数", aggregate=True,
                                    link="/evaluation-center"),
+    # 多智能体团队 run 校验通过率过低（2026-10-30）：如实告知，不假装成功。
+    "evaluation.team_run_failed": _t("evaluation", "团队任务质检未通过", aggregate=True,
+                                     link="/agent-center"),
 
     # ============ career 学程（13）============
     # 学程有四类任务：播种（首次体验 24）· 施肥（每日 47）· 发芽（阶段性 36）· 丰收（拾贝 25）

@@ -176,7 +176,9 @@ async def _collect(user_id: str, since: str) -> Dict[str, Any]:
             }),
             get("question_records", {
                 "user_id": f"eq.{user_id}",
-                "select": "question_id,is_correct,ai_feedback,created_at", "limit": "5000",
+                # time_spent 给调参日记判断「是题太难还是不想学」用（2026-10-30）
+                "select": "question_id,is_correct,ai_feedback,time_spent,created_at",
+                "limit": "5000",
             }),
             get("exam_paper_records", {
                 "user_id": f"eq.{user_id}", "select": "id,question_results,created_at",
@@ -935,8 +937,170 @@ async def post_tuning(agent_key: str, user_id: str = Query(...),
 @router.post("/tuning/run")
 async def run_tuning(user_id: str = Query(...),
                      current_user: str = Depends(get_current_user)):
-    """立即执行一次磨合规则评估（详情页「立即评估」按钮）"""
+    """立即执行一次磨合规则评估（详情页「立即评估」按钮）。
+
+    2026-10-30 起返回里多一个 `decision`：本次调整的诊断/证据/日记。
+    没有触发任何规则时 `applied=[]`、`decision=null`，不生成空日记。
+    """
     verify_user_match(user_id, current_user)
     from agents.tuning import run_tuning_for_user
-    applied = await run_tuning_for_user(user_id)
-    return {"success": True, "applied": applied}
+    result = await run_tuning_for_user(user_id)
+    if isinstance(result, dict):
+        return {"success": True, **result}
+    # 兼容旧返回（list）
+    return {"success": True, "applied": result, "decision": None}
+
+
+# ============================================================
+# 调参日记（agent_decisions，2026-10-30）
+# ============================================================
+
+@router.get("/decisions")
+async def list_decisions(user_id: str = Query(...),
+                         days: int = Query(30, ge=1, le=365),
+                         limit: int = Query(50, ge=1, le=200),
+                         current_user: str = Depends(get_current_user)):
+    """调参日记列表。表未建时返回 []，前端显示空态而不是报错。"""
+    verify_user_match(user_id, current_user)
+    return await _get("agent_decisions", {
+        "user_id": f"eq.{user_id}",
+        "created_at": f"gte.{_since_iso(days)}",
+        "select": ("id,run_id,signal,evidence,diagnosis,confidence,changes,actions,"
+                   "rejected,diary,model,status,agrees,suggestion,feedback,outcome,"
+                   "review_at,fallback,created_at"),
+        "order": "created_at.desc",
+        "limit": str(limit),
+    })
+
+
+@router.get("/decisions/{decision_id}")
+async def get_decision(decision_id: str, user_id: str = Query(...),
+                       current_user: str = Depends(get_current_user)):
+    verify_user_match(user_id, current_user)
+    rows = await _get("agent_decisions", {
+        "id": f"eq.{decision_id}", "user_id": f"eq.{user_id}", "limit": "1",
+    })
+    if not rows:
+        raise HTTPException(status_code=404, detail="调参日记不存在")
+    return rows[0]
+
+
+class DecisionFeedback(BaseModel):
+    action: str  # agree / disagree / lock
+    note: str = ""
+
+
+@router.post("/decisions/{decision_id}/feedback")
+async def decision_feedback(decision_id: str, user_id: str = Query(...),
+                            data: DecisionFeedback = Body(...),
+                            current_user: str = Depends(get_current_user)):
+    """用户对一条调参日记的反馈。
+
+    - agree    ：认同，记录正样本
+    - disagree ：不认同，记录负样本（不自动回滚；回滚走 /revert）
+    - lock     ：别再自动改这次涉及的参数 → 把对应 agent_prefs.auto_managed 关掉
+    """
+    verify_user_match(user_id, current_user)
+    if data.action not in ("agree", "disagree", "lock"):
+        raise HTTPException(status_code=400, detail="action 只能是 agree / disagree / lock")
+
+    rows = await _get("agent_decisions", {
+        "id": f"eq.{decision_id}", "user_id": f"eq.{user_id}",
+        "select": "id,changes,feedback", "limit": "1",
+    })
+    if not rows:
+        raise HTTPException(status_code=404, detail="调参日记不存在")
+    decision = rows[0]
+    feedback = decision.get("feedback") or []
+    if not isinstance(feedback, list):
+        feedback = []
+    feedback.append({
+        "action": data.action,
+        "note": data.note[:200],
+        "at": _now_iso(),
+    })
+
+    headers = {**_headers(), "Prefer": "return=minimal"}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        res = await client.patch(
+            f"{settings.SUPABASE_URL}/rest/v1/agent_decisions?id=eq.{decision_id}",
+            headers=headers, json={"feedback": feedback})
+        if res.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"反馈保存失败: {res.text[:120]}")
+
+        locked = 0
+        if data.action == "lock":
+            for ch in (decision.get("changes") or []):
+                agent_key = ch.get("agent_key")
+                param_key = ch.get("param_key")
+                if not agent_key or not param_key:
+                    continue
+                r = await client.patch(
+                    f"{settings.SUPABASE_URL}/rest/v1/agent_prefs"
+                    f"?user_id=eq.{user_id}&agent_key=eq.{agent_key}"
+                    f"&param_key=eq.{param_key}",
+                    headers=headers, json={"auto_managed": False})
+                if r.status_code < 300:
+                    locked += 1
+    return {"success": True, "locked": locked}
+
+
+@router.post("/decisions/{decision_id}/revert")
+async def revert_decision(decision_id: str, user_id: str = Query(...),
+                          current_user: str = Depends(get_current_user)):
+    """回滚一条调参日记：把本次改过的参数恢复成 old_value，并暂停自动托管。
+
+    ⚠️ 只回滚这条 decision 记录的 changes；不碰用户后来手动改过的值
+    （回滚前先比对当前值是否仍等于这条 decision 的 new_value）。
+    """
+    verify_user_match(user_id, current_user)
+    rows = await _get("agent_decisions", {
+        "id": f"eq.{decision_id}", "user_id": f"eq.{user_id}",
+        "select": "id,changes,status", "limit": "1",
+    })
+    if not rows:
+        raise HTTPException(status_code=404, detail="调参日记不存在")
+    decision = rows[0]
+    if decision.get("status") == "reverted":
+        return {"success": True, "reverted": 0, "already": True}
+
+    headers = {**_headers(), "Prefer": "return=minimal"}
+    reverted = 0
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for ch in (decision.get("changes") or []):
+            agent_key = ch.get("agent_key")
+            param_key = ch.get("param_key")
+            old_value = ch.get("old_value")
+            new_value = ch.get("new_value")
+            if not agent_key or not param_key:
+                continue
+            cur = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/agent_prefs"
+                f"?user_id=eq.{user_id}&agent_key=eq.{agent_key}"
+                f"&param_key=eq.{param_key}&select=id,param_value",
+                headers=_headers())
+            if cur.status_code != 200 or not cur.json():
+                continue
+            row = cur.json()[0]
+            if row.get("param_value") != new_value:
+                continue  # 用户后来手动改过，不覆盖
+            r = await client.patch(
+                f"{settings.SUPABASE_URL}/rest/v1/agent_prefs?id=eq.{row['id']}",
+                headers=headers,
+                json={"param_value": old_value, "auto_managed": False,
+                      "updated_at": _now_iso()})
+            if r.status_code < 300:
+                reverted += 1
+                # 留一条手动磨合记录，时间线能看到「用户回滚」
+                await client.post(
+                    f"{settings.SUPABASE_URL}/rest/v1/agent_tuning_log",
+                    headers=_headers(),
+                    json={"user_id": user_id, "agent_key": agent_key,
+                          "param_key": param_key, "old_value": new_value,
+                          "new_value": old_value,
+                          "reason": "用户回滚调参日记", "source": "manual",
+                          "decision_id": decision_id, "created_at": _now_iso()})
+        await client.patch(
+            f"{settings.SUPABASE_URL}/rest/v1/agent_decisions?id=eq.{decision_id}",
+            headers=headers, json={"status": "reverted"})
+    return {"success": True, "reverted": reverted}

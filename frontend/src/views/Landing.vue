@@ -4,7 +4,7 @@
       <!-- ===== 顶部导航 ===== -->
       <div class="landing-nav">
         <div class="nav-left" @click="onLogoClick">
-          <ProgressiveImage placeholder="/logo.png" src="/logo-full.png" alt="基智" class="nav-logo" />
+          <ProgressiveImage placeholder="/logo.png" src="/logo-full.webp" alt="基智" class="nav-logo" />
           <span class="nav-brand">基智</span>
         </div>
         <div class="nav-actions">
@@ -24,7 +24,7 @@
         <Starfield ref="starfieldRef" />
         <div class="hero">
           <div class="hero-logo">
-            <ProgressiveImage placeholder="/logo.png" src="/logo-full.png" alt="基智" class="hero-logo-img" fetchpriority="high" @click="onLogoClick" />
+            <ProgressiveImage placeholder="/logo.png" src="/logo-full.webp" alt="基智" class="hero-logo-img" fetchpriority="high" @click="onLogoClick" />
             <div class="hero-logo-text">
               <span class="hero-logo-main">基智</span>
               <span class="hero-logo-sub">学习助手</span>
@@ -445,7 +445,7 @@
       <div class="landing-footer">
         <div class="footer-top">
           <div class="footer-brand">
-            <ProgressiveImage placeholder="/logo.png" src="/logo-full.png" alt="基智" class="footer-logo" loading="lazy" decoding="async" />
+            <ProgressiveImage placeholder="/logo.png" src="/logo-full.webp" alt="基智" class="footer-logo" loading="lazy" decoding="async" />
             <div>
               <b>基智学习助手</b>
               <p>选一门考试，AI 陪你学到上岸</p>

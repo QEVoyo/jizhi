@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query, Body, Path, Depends
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from config import settings
+import asyncio
 import httpx, uuid, re, json
 from collections import defaultdict
 from utils.sensitive_words import check_and_penalize
@@ -12,6 +13,8 @@ from utils.notification import notify, NotifyError
 from services.supabase import get_supabase_headers, get_supabase_service_headers
 from logging_config import logger
 from .models import *
+from .realtime import hub
+
 router = APIRouter(prefix="/community", tags=["社区-消息"])
 # ============================================================
 # 4.5 消息中心（未读消息汇总）
@@ -179,6 +182,27 @@ async def send_private_message(user_id: str, data: PrivateMessageCreate, current
 
         logger.info(f"=== 消息保存成功: {res.status_code} ===")
 
+        # ===== 1.5 WebSocket 实时推送（失败不影响发送结果）=====
+        # 只推给接收方；发送方本地已经乐观上屏，再推会重复。
+        try:
+            await hub.push(data.receiver_id, {
+                "type": "chat.message",
+                "message": {
+                    "sender_id": user_id,
+                    "receiver_id": data.receiver_id,
+                    "message_type": data.message_type,
+                    "content": data.content,
+                    "media_url": data.media_url,
+                    "question_id": data.question_id,
+                    "question_set_id": data.question_set_id,
+                    "question_data": data.question_data,
+                    "is_read": False,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+            }, from_user=user_id)
+        except Exception as e:                              # noqa: BLE001
+            logger.warning(f"[community] WS 推送失败 to={data.receiver_id}: {e}")
+
         # ===== 2. 获取发送者信息 =====
         profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=nickname"
         profile_res = await client.get(profile_url, headers=headers)
@@ -221,8 +245,14 @@ async def get_private_messages(
     """获取与某好友的聊天记录"""
     verify_user_match(user_id, current_user)
     headers = get_supabase_headers()
-    # 👇 加上 question_data
-    url = f"{settings.SUPABASE_URL}/rest/v1/private_messages?or=(sender_id.eq.{user_id},receiver_id.eq.{user_id})&order=created_at.asc&select=*,question_data"
+    # 只查双方之间的消息。改造前是「把我和所有人的消息全拉回来再在 Python 里筛」，
+    # 聊天越多越慢，而且每次都把无关私信传一遍。
+    url = (
+        f"{settings.SUPABASE_URL}/rest/v1/private_messages"
+        f"?or=(and(sender_id.eq.{user_id},receiver_id.eq.{friend_id}),"
+        f"and(sender_id.eq.{friend_id},receiver_id.eq.{user_id}))"
+        f"&order=created_at.asc&select=*"
+    )
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         res = await client.get(url, headers=headers)
@@ -230,21 +260,57 @@ async def get_private_messages(
             return {"messages": []}
 
         messages = res.json()
-        filtered = [
-            m for m in messages
-            if (m["sender_id"] == user_id and m["receiver_id"] == friend_id) or
-               (m["sender_id"] == friend_id and m["receiver_id"] == user_id)
-        ]
 
-        for m in filtered:
-            if m["sender_id"] == friend_id and not m["is_read"]:
-                await client.patch(
-                    f"{settings.SUPABASE_URL}/rest/v1/private_messages?id=eq.{m['id']}",
-                    headers=headers,
-                    json={"is_read": True}
-                )
+        # 一次性标记这个好友发来的未读，不再逐条 PATCH（原先是 N+1）；
+        # 同时把消息中心的 chat.message 通知标掉，侧边栏红点才不会留在那里
+        await asyncio.gather(
+            client.patch(
+                f"{settings.SUPABASE_URL}/rest/v1/private_messages"
+                f"?receiver_id=eq.{user_id}&sender_id=eq.{friend_id}&is_read=eq.false",
+                headers=headers,
+                json={"is_read": True},
+            ),
+            client.patch(
+                f"{settings.SUPABASE_URL}/rest/v1/notifications"
+                f"?user_id=eq.{user_id}&type=eq.chat.message&source_id=eq.{friend_id}&is_read=eq.false",
+                headers=headers,
+                json={"is_read": True},
+            ),
+        )
 
-        return {"messages": filtered}
+        return {"messages": messages}
+
+
+@router.put("/messages/{friend_id}/read")
+async def mark_private_messages_read(
+    user_id: str = Query(...),
+    friend_id: str = Path(..., description="好友ID"),
+    current_user: str = Depends(get_current_user)
+):
+    """把某个好友发来的私信一次性标为已读（WS 收到新消息时调用）。"""
+    verify_user_match(user_id, current_user)
+    headers = get_supabase_headers()
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        # 私信本身 + 消息中心的 chat.message 通知一起标掉，聊天框开着侧边栏不该还挂红点
+        msg_res, notif_res = await asyncio.gather(
+            client.patch(
+                f"{settings.SUPABASE_URL}/rest/v1/private_messages"
+                f"?receiver_id=eq.{user_id}&sender_id=eq.{friend_id}&is_read=eq.false",
+                headers=headers,
+                json={"is_read": True},
+            ),
+            client.patch(
+                f"{settings.SUPABASE_URL}/rest/v1/notifications"
+                f"?user_id=eq.{user_id}&type=eq.chat.message&source_id=eq.{friend_id}&is_read=eq.false",
+                headers=headers,
+                json={"is_read": True},
+            ),
+        )
+    if msg_res.status_code not in (200, 204):
+        raise HTTPException(status_code=400, detail="标记已读失败")
+    if notif_res.status_code not in (200, 204):
+        logger.warning(f"[community] chat.message 通知标记已读失败: {notif_res.status_code}")
+    return {"success": True}
 
 
 # ============================================================
@@ -517,19 +583,37 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...), curr
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
-        profile_res = await client.get(profile_url, headers=headers)
-        if not profile_res.json():
+        topics_url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&select=topic,mastery_score"
+        ach_url = f"{settings.SUPABASE_URL}/rest/v1/achievements?user_id=eq.{user_id}&done=eq.true&select=id,name,icon,theme_color"
+        activities_url = (f"{settings.SUPABASE_URL}/rest/v1/user_actions?user_id=eq.{user_id}"
+                          f"&select=action_type,action_at&order=action_at.desc&limit=5")
+        settings_url = f"{settings.SUPABASE_URL}/rest/v1/profile_card_settings?user_id=eq.{user_id}&select=selected_topics,selected_achievements"
+        friend_check_url = f"{settings.SUPABASE_URL}/rest/v1/friendships?status=eq.accepted&or=(user_id.eq.{current_user_id},friend_id.eq.{current_user_id})"
+        request_check_url = f"{settings.SUPABASE_URL}/rest/v1/friendships?user_id=eq.{current_user_id}&friend_id=eq.{user_id}&status=eq.pending"
+
+        # 七个查询互不依赖，一起发。原来串行 8 次往返，资料卡要等好几秒才出来。
+        # questions 表原先查了两遍（总值 + 分主题），这里合并成一次，前端字段不变。
+        (
+            profile_res, topics_res, ach_res, act_res,
+            settings_res, friend_res, request_res,
+        ) = await asyncio.gather(
+            client.get(profile_url, headers=headers),
+            client.get(topics_url, headers=headers),
+            client.get(ach_url, headers=headers),
+            client.get(activities_url, headers=headers),
+            client.get(settings_url, headers=headers),
+            client.get(friend_check_url, headers=headers),
+            client.get(request_check_url, headers=headers),
+        )
+
+        if profile_res.status_code != 200 or not profile_res.json():
             raise HTTPException(status_code=404, detail="用户不存在")
         profile = profile_res.json()[0]
 
-        stats_url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&select=mastery_score"
-        stats_res = await client.get(stats_url, headers=headers)
-        questions = stats_res.json() if stats_res.status_code == 200 else []
-        avg_mastery = round(sum(q.get("mastery_score", 0) for q in questions) / len(questions)) if questions else 0
-
-        topics_url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&select=topic,mastery_score"
-        topics_res = await client.get(topics_url, headers=headers)
         all_questions = topics_res.json() if topics_res.status_code == 200 else []
+        avg_mastery = round(
+            sum(q.get("mastery_score", 0) for q in all_questions) / len(all_questions)
+        ) if all_questions else 0
         topic_map = {}
         for q in all_questions:
             t = q.get("topic", "未分类")
@@ -542,16 +626,11 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...), curr
             for t, v in topic_map.items()
         ]
 
-        ach_url = f"{settings.SUPABASE_URL}/rest/v1/achievements?user_id=eq.{user_id}&done=eq.true&select=id,name,icon,theme_color"
-        ach_res = await client.get(ach_url, headers=headers)
         achievements = ach_res.json() if ach_res.status_code == 200 else []
 
         # 表名修正：activities 表从未建过（PostgREST 直接 401）→ 资料卡「近期动态」恒为空。
         # 平台真实行为记录在 user_actions(action_type, action_at)，形状与 /profile-card 对齐。
         from routers.profile_card import ACTION_LABELS
-        activities_url = (f"{settings.SUPABASE_URL}/rest/v1/user_actions?user_id=eq.{user_id}"
-                          f"&select=action_type,action_at&order=action_at.desc&limit=5")
-        act_res = await client.get(activities_url, headers=headers)
         activities = []
         if act_res.status_code == 200:
             for i, a in enumerate(act_res.json()):
@@ -563,9 +642,6 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...), curr
                     "created_at": a.get("action_at"),
                 })
 
-        # ===== 获取用户资料卡设置 =====
-        settings_url = f"{settings.SUPABASE_URL}/rest/v1/profile_card_settings?user_id=eq.{user_id}&select=selected_topics,selected_achievements"
-        settings_res = await client.get(settings_url, headers=headers)
         selected_topics = []
         selected_achievements = []
         if settings_res.status_code == 200 and settings_res.json():
@@ -573,10 +649,7 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...), curr
             selected_topics = settings_data.get("selected_topics", [])
             selected_achievements = settings_data.get("selected_achievements", [])
 
-        friend_check_url = f"{settings.SUPABASE_URL}/rest/v1/friendships?status=eq.accepted&or=(user_id.eq.{current_user_id},friend_id.eq.{current_user_id})"
-        friend_res = await client.get(friend_check_url, headers=headers)
         friendships = friend_res.json() if friend_res.status_code == 200 else []
-
         is_friend = False
         for f in friendships:
             if (f["user_id"] == current_user_id and f["friend_id"] == user_id) or \
@@ -584,9 +657,7 @@ async def get_profile_card(user_id: str, current_user_id: str = Query(...), curr
                 is_friend = True
                 break
 
-        request_check_url = f"{settings.SUPABASE_URL}/rest/v1/friendships?user_id=eq.{current_user_id}&friend_id=eq.{user_id}&status=eq.pending"
-        request_res = await client.get(request_check_url, headers=headers)
-        request_status = "pending" if len(request_res.json()) > 0 else "none"
+        request_status = "pending" if (request_res.status_code == 200 and request_res.json()) else "none"
 
         return {
             "profile": profile,

@@ -25,9 +25,13 @@ from routers import vocab
 from routers import download
 from routers import message_center
 from routers import daily_learn
+from routers import agents
+from routers import upload_questions
+from routers import patrol
 from agents.tuning import start_background_tuning
 from services.video_gen import start_video_worker
 from services.daily_scheduler import start_daily_scheduler
+from services.patrol_scheduler import start_patrol_scheduler
 from utils.security_middleware import SecurityMiddleware, startup_checks
 from utils import security_log
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -45,10 +49,13 @@ async def lifespan(app):
     # 每日推荐 / 每日总结：每 10 分钟醒来一次，把到点且今天还没生成的用户挑出来
     #（2026-10-08）。发不发由用户自己的开关 + 时间决定，见 services/daily_scheduler.py
     daily_task = start_daily_scheduler()
+    # 主动巡检 Self-Loop（2026-10-30）：每 10 分钟跑一轮信号 → 打分 → 投递
+    patrol_task = start_patrol_scheduler()
     yield
     tuning_task.cancel()
     video_task.cancel()
     daily_task.cancel()
+    patrol_task.cancel()
     # 先把队列里没写完的安全事件刷下去，再退出。
     # 不刷的话进程一停，最后几条（往往正是出事时那几条）就没了。
     await security_log.shutdown()
@@ -113,6 +120,12 @@ app.include_router(download.router)
 # 消息中心（2026-10-07）：前缀就是 /messages，唯一的一套读接口
 app.include_router(message_center.router)
 app.include_router(daily_learn.router)
+# 多智能体编排（2026-10-30）：run / 轨迹 / SSE / 工作流 / 团队定义
+app.include_router(agents.router, prefix="/agents")
+# 主动巡检 Self-Loop（2026-10-30）：inbox / act / dismiss / snooze / metrics
+app.include_router(patrol.router, prefix="/patrol")
+# 上传文件生成题目（2026-10-30）：解析 → 画像 → 可出题点 → 用户确认
+app.include_router(upload_questions.router, prefix="/xiaoji")
 
 @app.get("/")
 def root():
