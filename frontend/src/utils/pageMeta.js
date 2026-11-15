@@ -40,7 +40,7 @@ export const STATIC_PAGES = [
   { title: '主题分享', path: '/theme', aliases: ['主题', '配色', '外观'], initials: 'ztfx', group: '我的', desc: '换主题、导出配色，看别人分享的主题', wire: 'board' },
   { title: '语音通话', path: '/xiaoji/call', aliases: ['通话', '打电话'], initials: 'yyth', group: '小基', desc: '和小基实时语音通话的独立界面', wire: 'call' },
   { title: '功能树', path: '/xiaoji/tree', aliases: ['地图', '全部页面', '能去哪'], initials: 'gns', group: '小基', desc: '就是这一页：小基能带你去的地方，一眼看全', wire: 'tree' },
-  { title: '2D 校园', path: '/campus', aliases: ['校园', '2D', '学院', '魔法学院', '魔法地图', '超大地图', '龙之城堡', 'campus'], initials: 'xy', group: '小基', desc: '龙之城堡超大地图：小基带你去今日任务 / 薄弱点 / 资源库', wire: 'board' },
+  { title: '校园 · 龙之城堡', path: '/campus', aliases: ['校园', '2D', '游戏', '学院', '魔法学院', '超大地图', '龙之城堡', 'campus'], initials: 'xy', group: '小基', desc: '桌面版直接启动《龙之城堡》2D 游戏；网页端下载桌面版', wire: 'board' },
   { title: '动画演示', path: '/animation-demo', aliases: ['动画', '演示'], initials: 'dhm', group: '帮助', desc: '题目动画的渲染演示页', wire: 'detail' },
   { title: '视频渲染调试', path: '/vlp-debug', aliases: ['调试', '渲染'], initials: 'sprd', group: '帮助', desc: '视频渲染调试页（排产与帧检查）', wire: 'detail' },
   { title: '新手引导', path: '/onboarding', aliases: ['引导', '新手', '第一次'], initials: 'xsyd', group: '我的', desc: '第一次进来时的引导：填学习阶段与目标', wire: 'form' },

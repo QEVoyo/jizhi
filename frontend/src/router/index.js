@@ -30,8 +30,7 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    // 2D 校园（2026-11-15）：替换原 3D 预览，地图取自《龙之城堡》当前超大地图；
-    // 公开可看，登录后才按真实学习数据推荐
+    // 校园（2026-11-15）：桌面版启动《龙之城堡》游戏本体；网页端只做说明/下载
     path: '/campus',
     name: 'Campus',
     component: () => import('@/views/Campus.vue'),
