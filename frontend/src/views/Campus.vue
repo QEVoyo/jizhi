@@ -15,7 +15,6 @@
           :class="{
             recommended: h.id === recommendedId,
             'is-hover': hoverId === h.id,
-            'is-locked': h.locked,
           }"
           :style="{ left: h.x + '%', top: h.y + '%', '--hotspot': h.color }"
           @click="openHotspot(h.id)"
@@ -35,7 +34,7 @@
       <div class="campus-brand">
         <span class="campus-mark">✦</span>
         <div class="campus-brand-text">
-          <b>基智学院 · 一楼大地图</b>
+          <b>基智学院 · 超大地图</b>
           <em>{{ guest ? '预览模式' : '按你的学习状态推荐' }}</em>
         </div>
       </div>
@@ -56,7 +55,7 @@
       <button class="campus-guide-go" @click="openHotspot(recommendedId)">带我去</button>
     </aside>
 
-    <div class="campus-hint">点击地图上的区域 · Esc 回书桌</div>
+    <div class="campus-hint">点击地图上的传送点 · Esc 回书桌</div>
 
     <!-- 窄屏不塞小标签，改成区域卡片列表 -->
     <div class="campus-mobile-grid">
@@ -64,7 +63,7 @@
         v-for="h in hotspots"
         :key="'m-' + h.id"
         class="campus-mobile-card"
-        :class="{ recommended: h.id === recommendedId, 'is-locked': h.locked }"
+        :class="{ recommended: h.id === recommendedId }"
         :style="{ '--hotspot': h.color }"
         @click="openHotspot(h.id)"
       >
@@ -96,8 +95,8 @@
     <Transition name="campus-fade">
       <div v-if="loading" class="campus-loading">
         <div class="campus-loading-mark">✦</div>
-        <b>正在铺开地图…</b>
-        <span>地图取自《龙之城堡》一楼大地图</span>
+        <b>正在铺开超大地图…</b>
+        <span>地图取自《龙之城堡》当前超大地图</span>
       </div>
     </Transition>
 
@@ -143,14 +142,12 @@ const guideLine = computed(() => {
 
 const panelKicker = computed(() => {
   if (!panel.value) return ''
-  if (panel.value.locked) return '游戏内开放'
-  return panel.value.id === recommendedId.value ? '小基推荐' : '学院角落'
+  return panel.value.id === recommendedId.value ? '小基推荐' : '传送点'
 })
 
 const panelNote = computed(() => {
   if (guest.value) return '预览模式：登录后会按你的真实学习数据推荐'
-  if (panel.value?.locked) return '这个区域在《龙之城堡》桌面版里开放；网页端先做导览'
-  return '地图取自《龙之城堡》一楼大地图，学习入口回到基智'
+  return '地图取自《龙之城堡》当前超大地图，学习入口回到基智'
 })
 
 function onXiaojiError() {
@@ -231,7 +228,9 @@ onBeforeUnmount(() => {
   height: calc(100vh - var(--jz-top, 0px));
   min-height: 560px;
   overflow: hidden;
-  background: #050814;
+  background:
+    linear-gradient(180deg, rgba(3, 6, 14, .5), rgba(3, 6, 14, .72)),
+    url('/images/campus/campus_home_bg.webp') center / cover no-repeat;
   color: #eef3ff;
   font-family: inherit;
   user-select: none;
@@ -249,9 +248,9 @@ onBeforeUnmount(() => {
 .campus-map {
   position: relative;
   width: 100%;
-  max-width: calc((100vh - var(--jz-top, 0px)) * 1280 / 624);
+  max-width: calc((100vh - var(--jz-top, 0px)) * 16 / 9);
   max-height: 100%;
-  aspect-ratio: 1280 / 624;
+  aspect-ratio: 16 / 9;
   background-size: 100% 100%;
   background-repeat: no-repeat;
   opacity: 0;
@@ -534,7 +533,9 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 8px;
   text-align: center;
-  background: radial-gradient(circle at 50% 40%, #0b1430, #04070f 70%);
+  background:
+    linear-gradient(180deg, rgba(3, 6, 14, .55), rgba(3, 6, 14, .82)),
+    url('/images/campus/campus_home_bg.webp') center / cover no-repeat;
   color: rgba(230, 240, 255, .85);
 }
 .campus-loading-mark {

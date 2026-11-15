@@ -482,7 +482,7 @@
           <div class="side-greeting-text">
             <div class="side-greeting-title">{{ greetingText() }}<span class="side-greeting-name">，{{ authStore.user?.nickname || '同学' }}</span></div>
             <div class="side-greeting-sub">{{ greetingSub() }}</div>
-            <button class="side-campus-btn" title="一楼大地图预览" @click="router.push('/campus')">
+            <button class="side-campus-btn" title="超大地图预览" @click="router.push('/campus')">
               <i class="fas fa-compass"></i> 去 2D 校园
             </button>
           </div>
