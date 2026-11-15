@@ -64,34 +64,48 @@ async def login(req: LoginRequest, request: Request):
         data = {"email": email, "password": req.password}
     else:
         search_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?user_account=eq.{req.login_input}"
-        async with httpx.AsyncClient() as client:
-            search_res = await client.get(search_url, headers=headers)
-            if search_res.status_code != 200 or not search_res.json():
-                raise HTTPException(status_code=401, detail="账号不存在")
-            email = search_res.json()[0].get("email")
-            if not email:
-                raise HTTPException(status_code=401, detail="账号未绑定邮箱")
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                search_res = await client.get(search_url, headers=headers)
+        except httpx.RequestError as e:
+            logger.warning(f"[auth] 登录查账号时连不上 Supabase: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="认证服务暂时连不上，请检查网络后重试（当前网络可能拦截了 Supabase）",
+            )
+        if search_res.status_code != 200 or not search_res.json():
+            raise HTTPException(status_code=401, detail="账号不存在")
+        email = search_res.json()[0].get("email")
+        if not email:
+            raise HTTPException(status_code=401, detail="账号未绑定邮箱")
         url = f"{settings.SUPABASE_URL}/auth/v1/token?grant_type=password"
         data = {"email": email, "password": req.password}
 
-    async with httpx.AsyncClient() as client:
-        res = await client.post(url, headers=headers, json=data)
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            res = await client.post(url, headers=headers, json=data)
 
-        if res.status_code != 200:
-            error_msg = res.text
-            if "Invalid login credentials" in error_msg:
-                raise HTTPException(status_code=401, detail="账号或密码错误")
-            if "Email not confirmed" in error_msg:
-                raise HTTPException(status_code=401, detail="邮箱尚未验证")
-            raise HTTPException(status_code=401, detail="登录失败")
+            if res.status_code != 200:
+                error_msg = res.text
+                if "Invalid login credentials" in error_msg:
+                    raise HTTPException(status_code=401, detail="账号或密码错误")
+                if "Email not confirmed" in error_msg:
+                    raise HTTPException(status_code=401, detail="邮箱尚未验证")
+                raise HTTPException(status_code=401, detail="登录失败")
 
-        user_data = res.json()
-        user = user_data.get("user", {})
-        user_id = user.get("id")
-        access_token = user_data.get("access_token")
+            user_data = res.json()
+            user = user_data.get("user", {})
+            user_id = user.get("id")
+            access_token = user_data.get("access_token")
 
-        profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
-        profile_res = await client.get(profile_url, headers=headers)
+            profile_url = f"{settings.SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
+            profile_res = await client.get(profile_url, headers=headers)
+    except httpx.RequestError as e:
+        logger.warning(f"[auth] 登录时连不上 Supabase: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="认证服务暂时连不上，请检查网络后重试（当前网络可能拦截了 Supabase）",
+        )
 
         user_account = None
         nickname = None

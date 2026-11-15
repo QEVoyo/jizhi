@@ -551,6 +551,9 @@ async def persist_node(ctx, node) -> dict:
     paper["name"] = title or (f"{syllabus.get('name') or syllabus_id} · "
                               f"AI 仿真卷（{datetime.now():%m-%d %H:%M}）")
     paper["generated_at"] = datetime.now(timezone.utc).isoformat()
+    # 资源库「试卷」按用户筛生成卷；真题没有 created_by，所有人可见。
+    if getattr(ctx, "user_id", None):
+        paper["created_by"] = ctx.user_id
 
     EXAM_DIR.mkdir(parents=True, exist_ok=True)
     path = EXAM_DIR / f"{paper['paper_id']}.json"

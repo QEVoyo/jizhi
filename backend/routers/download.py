@@ -24,10 +24,30 @@ DOWNLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "downloads"
 
 
 def _latest_installer() -> Optional[Path]:
-    """目录里最新的一个 .exe（按修改时间）。没有则返回 None。"""
+    """目录里最新的桌面壳安装包（JIZHI_*.exe，按修改时间）。"""
     if not DOWNLOAD_DIR.is_dir():
         return None
-    files = [p for p in DOWNLOAD_DIR.glob("*.exe") if p.is_file()]
+    files = [
+        p for p in DOWNLOAD_DIR.glob("JIZHI_*.exe")
+        if p.is_file() and not _is_game_file(p)
+    ]
+    if not files:
+        return None
+    return max(files, key=lambda p: p.stat().st_mtime)
+
+
+def _is_game_file(path: Path) -> bool:
+    """游戏本体：`jizhi-game-*.exe` 或 `龙之城堡*.exe`。和桌面壳共用目录，必须显式区分。"""
+    name = path.name
+    return name.startswith("jizhi-game") or name.startswith("龙之城堡")
+
+
+def _latest_game() -> Optional[Path]:
+    """目录里最新的游戏本体 exe。没有则返回 None。"""
+    if not DOWNLOAD_DIR.is_dir():
+        return None
+    files = [p for p in DOWNLOAD_DIR.glob("*.exe")
+             if p.is_file() and _is_game_file(p)]
     if not files:
         return None
     return max(files, key=lambda p: p.stat().st_mtime)
@@ -60,18 +80,48 @@ def _parse_version(filename: str) -> Optional[str]:
     return m.group(1) if m else None
 
 
+@router.api_route("/game.exe", methods=["GET", "HEAD"])
+async def download_game():
+    """只下载《龙之城堡》游戏本体（不含桌面壳）。"""
+    game = _latest_game()
+    if game is None:
+        raise HTTPException(status_code=404, detail="游戏本体尚未上传")
+    return FileResponse(
+        game,
+        media_type="application/octet-stream",
+        filename=game.name,
+    )
+
+
 @router.get("/latest")
 async def latest_info():
     installer = _latest_installer()
-    if installer is None:
+    game = _latest_game()
+    if installer is None and game is None:
         return {"available": False}
-    size = installer.stat().st_size
-    return {
-        "available": True,
-        "filename": installer.name,
-        # 桌面端拿它和自己的版本比；落地页也可以显示「最新版 v0.1.0」
-        "version": _parse_version(installer.name),
-        "size": size,
-        "size_mb": round(size / 1048576, 2),
+
+    payload = {
+        "available": installer is not None,
         "url": "/download/JIZHI-setup.exe",
     }
+    if installer is not None:
+        size = installer.stat().st_size
+        payload.update({
+            "filename": installer.name,
+            # 桌面端拿它和自己的版本比；落地页也可以显示「最新版 v0.1.0」
+            "version": _parse_version(installer.name),
+            "size": size,
+            "size_mb": round(size / 1048576, 2),
+        })
+    if game is not None:
+        game_size = game.stat().st_size
+        payload["game"] = {
+            "available": True,
+            "filename": game.name,
+            "size": game_size,
+            "size_mb": round(game_size / 1048576, 2),
+            "url": "/download/game.exe",
+        }
+    else:
+        payload["game"] = {"available": False}
+    return payload

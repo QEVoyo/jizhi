@@ -10,13 +10,14 @@ import re
 import asyncio
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from fastapi import APIRouter, Query, Header
+from fastapi import APIRouter, Query, Header, Depends
 from pydantic import BaseModel
 from typing import Optional
 import httpx
 
 from config import settings
 from logging_config import logger
+from utils.auth_middleware import get_current_user, verify_user_match
 
 router = APIRouter(prefix="/subject-plan", tags=["真题套卷"])
 
@@ -63,6 +64,8 @@ def _scan_papers() -> dict[str, dict]:
                 "syllabus_id": p["syllabus_id"],
                 "name": p["name"],
                 "paper_type": p.get("paper_type", "real"),
+                "generated_at": p.get("generated_at"),
+                "created_by": p.get("created_by"),
                 "year": p.get("year"),
                 "month": p.get("month"),
                 "total_score": p.get("total_score"),
@@ -138,6 +141,57 @@ async def list_exam_papers(syllabus_id: str, user_id: Optional[str] = Query(None
         "papers": syllabi_papers,
         "total": len(syllabi_papers),
     }
+
+
+# ==================== 1.5 全部试卷（资源库「试卷」页签） ====================
+
+@router.get("/exam-papers")
+async def list_all_exam_papers(
+    kind: str = Query("all", description="all / real / simulation"),
+    user_id: Optional[str] = Query(None),
+    current_user: str = Depends(get_current_user),
+):
+    """真题 + 用户自己生成的 AI 仿真卷，供资源库「试卷」页签使用。
+
+    生成卷写 `created_by`；老生成卷没有该字段时，按无主处理，不冒充别人的卷。
+    """
+    if user_id:
+        verify_user_match(user_id, current_user)
+
+    papers = list(_scan_papers().values())
+
+    if kind == "real":
+        papers = [p for p in papers if p.get("paper_type") != "simulation"]
+    elif kind == "simulation":
+        papers = [p for p in papers if p.get("paper_type") == "simulation"]
+        if user_id:
+            papers = [p for p in papers if p.get("created_by") == user_id]
+    else:
+        # 有 user_id 时：真题全给，生成卷只给自己的；没 user_id 时只给真题。
+        papers = [
+            p for p in papers
+            if p.get("paper_type") != "simulation"
+            or (user_id and p.get("created_by") == user_id)
+        ]
+
+    syllabus_names = {
+        s.get("id"): s.get("name") for s in _load_syllabi() if s.get("id")
+    }
+    for p in papers:
+        sid = p.get("syllabus_id") or ""
+        p["syllabus_name"] = syllabus_names.get(sid) or sid
+        p["link"] = (
+            f"/subject-plan/{sid}/exam/{p['paper_id']}"
+            f"?syllabus_id={sid}&mode=practice"
+        )
+
+    def sort_key(p: dict):
+        is_sim = 1 if p.get("paper_type") == "simulation" else 0
+        return (is_sim, str(p.get("generated_at") or ""),
+                p.get("year") or 0, p.get("month") or 0)
+
+    papers.sort(key=sort_key, reverse=True)
+    return {"papers": papers, "total": len(papers)}
 
 
 # ==================== 2. 获取套卷详情 ====================
