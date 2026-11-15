@@ -11,12 +11,14 @@ export const popupState = reactive({
   open: false,
   mode: 'upload',      // upload | chat | practice
   file: null,
+  files: [],           // 多文件批量出题（2026-10-31）
   jobId: '',
   autoStart: false,
 })
 
 export function openXiaojiPopup(payload = {}) {
   if (payload.file) popupState.file = payload.file
+  if (payload.files) popupState.files = payload.files
   if (payload.mode) popupState.mode = payload.mode
   if (payload.jobId) popupState.jobId = payload.jobId
   popupState.autoStart = !!payload.autoStart
@@ -26,6 +28,7 @@ export function openXiaojiPopup(payload = {}) {
 export function closeXiaojiPopup() {
   popupState.open = false
   popupState.file = null
+  popupState.files = []
   popupState.jobId = ''
   popupState.autoStart = false
 }

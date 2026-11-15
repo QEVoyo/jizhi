@@ -185,9 +185,16 @@
             </button>
 
             <!-- 真题套卷 -->
-            <div v-if="(syllabus.exam_papers || []).length" class="ov-exam-section">
-              <div class="ov-section-title">真题套卷</div>
-              <button v-for="ep in (syllabus.exam_papers || [])" :key="ep.name"
+            <div v-if="(syllabus.exam_papers || []).length || syllabus.has_question_bank" class="ov-exam-section">
+              <div class="ov-section-title-row">
+                <div class="ov-section-title">真题套卷</div>
+                <button v-if="syllabus.has_question_bank" class="ov-ai-paper-btn"
+                  :disabled="generatingPaper" @click="handleGeneratePaper">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                  {{ generatingPaper ? 'AI 出卷中…' : 'AI 出卷' }}
+                </button>
+              </div>
+              <button v-for="ep in (syllabus.exam_papers || [])" :key="ep.paper_id || ep.name"
                 class="ov-btn exam-btn" :class="{ grey: ep.grey }"
                 @click="goExamPaper(ep)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -571,7 +578,11 @@ import { getVideoRelated, ensureVideoLib, getVideoStatus } from '@/api/video'
 import { knowledgeKey, ANGLE_LABELS } from '@/utils/videoLib'
 import VideoLessonPlayer from '@/components/VideoLessonPlayer.vue'
 import { ElMessage } from 'element-plus'
+import { createRun, getRun } from '@/api/agents'
+import { openAgentPanel } from '@/stores/agentPanel'
+import { refresh as refreshRuns, startRunPolling } from '@/stores/runStore'
 import { recordAction } from '@/api/career'
+import { emitXiaoji } from '@/xiaoji/bus'
 
 const route = useRoute()
 const router = useRouter()
@@ -791,6 +802,7 @@ function playTaskVideo(v) { playingVideo.value = v }
 onUnmounted(() => {
   clearTimeout(taskPollTimer)
   clearInterval(taskElapsedTimer)
+  stopPaperPolling()
 })
 // 今日完成度（后端按 question_records 当天记录数算的，见 get_today_tasks）
 const todayTotal = ref(0)
@@ -1086,13 +1098,18 @@ function startPlanFromDiagnosis() {
 async function generatePlanFromPaper(p) {
   if (!p.completed || generatingFromPaper.value) return
   generatingFromPaper.value = true
+  emitXiaoji('plan:generate:start', { data: { source: 'syllabus' } })
   try {
     const res = await submitExamPlan(p.paper_id, {
       user_id: authStore.user?.id || '',
       period_days: 30,
       daily_minutes: 60
     })
-    if (res.error) { alert(res.error); return }
+    if (res.error) {
+      emitXiaoji('plan:generate:error', { data: { source: 'syllabus' } })
+      alert(res.error)
+      return
+    }
     if (res.already_exists) {
       const doReplace = confirm(`你已有一个计划「${res.plan_name || ''}」，是否删除旧计划并用本次答卷重新生成？`)
       if (doReplace) {
@@ -1102,7 +1119,11 @@ async function generatePlanFromPaper(p) {
           period_days: 30,
           daily_minutes: 60
         })
-        if (res2.error || res2.already_exists) { alert('重建失败: ' + (res2.error || '请稍后再试')); return }
+        if (res2.error || res2.already_exists) {
+          emitXiaoji('plan:generate:error', { data: { source: 'syllabus' } })
+          alert('重建失败: ' + (res2.error || '请稍后再试'))
+          return
+        }
       } else {
         showPlanPicker.value = false
         await loadSyllabus()
@@ -1110,12 +1131,14 @@ async function generatePlanFromPaper(p) {
         return
       }
     }
+    emitXiaoji('plan:generate:done', { data: { source: 'syllabus' } })
     showPlanPicker.value = false
     // 回到考纲页，切换到每日任务 Tab（和诊断流程一致）
     await loadSyllabus()
     activeTab.value = 'tasks'
     if (plan.value) { loadTabData('tasks'); loadQuestionStates() }
   } catch (e) {
+    emitXiaoji('plan:generate:error', { data: { source: 'syllabus' } })
     alert('生成计划失败: ' + (e.response?.data?.detail || e.message))
   } finally {
     generatingFromPaper.value = false
@@ -1139,6 +1162,83 @@ async function doDeletePlan() {
     await loadSyllabus()
   } catch (e) { alert('删除失败: ' + (e.response?.data?.detail || e.message)) }
 }
+// ===== AI 出考卷（2026-11-15）：真实 exam_gen run + 悬浮协作面板 =====
+const generatingPaper = ref(false)
+let paperTimer = null
+let paperFails = 0
+let paperTries = 0
+
+function stopPaperPolling() {
+  if (paperTimer) { clearInterval(paperTimer); paperTimer = null }
+}
+
+async function handleGeneratePaper() {
+  if (generatingPaper.value) return
+  const uid = authStore.user?.id
+  if (!uid) { ElMessage.warning('请先登录'); return }
+  if (!confirm('用 AI 团队为这个考纲生成一份 100 分仿真卷吗？\n约 20 题，从题库选题组卷，耗时几十秒。')) return
+  generatingPaper.value = true
+  paperFails = 0
+  paperTries = 0
+  try {
+    const created = await createRun({
+      workflow_key: 'exam_gen',
+      mode: 'team',
+      input: { syllabus_id: syllabusId.value, count: 20 },
+    }, uid)
+    const runId = created?.run_id
+    if (!runId) throw new Error('任务创建失败：没有返回 run_id')
+    startRunPolling(uid)
+    await refreshRuns()
+    openAgentPanel(runId)
+    ElMessage.success('AI 已开始出卷，右下角可看协作进度')
+    stopPaperPolling()
+    paperTimer = setInterval(() => pollPaperRun(runId), 2500)
+    pollPaperRun(runId)
+  } catch (e) {
+    generatingPaper.value = false
+    ElMessage.error('出卷失败：' + (e.response?.data?.detail || e.message))
+  }
+}
+
+async function pollPaperRun(runId) {
+  const uid = authStore.user?.id
+  if (!uid) { stopPaperPolling(); generatingPaper.value = false; return }
+  paperTries += 1
+  if (paperTries > 120) {
+    stopPaperPolling(); generatingPaper.value = false
+    ElMessage.error('出卷等待超时（约 5 分钟），请到任务列表查看结果')
+    return
+  }
+  let bundle
+  try {
+    bundle = await getRun(runId, uid)
+    paperFails = 0
+  } catch (e) {
+    paperFails += 1
+    if (paperFails >= 5) {
+      stopPaperPolling(); generatingPaper.value = false
+      ElMessage.error('出卷状态查询失败，请到任务列表查看')
+    }
+    return
+  }
+  const run = bundle?.run || {}
+  if (!['completed', 'failed', 'cancelled'].includes(run.status)) return
+  stopPaperPolling()
+  generatingPaper.value = false
+  if (run.status !== 'completed') {
+    ElMessage.error(run.error || (run.status === 'cancelled' ? '出卷已取消' : '出卷失败'))
+    return
+  }
+  const paperId = run.output?.paper_id
+  await loadSyllabus()
+  if (paperId) {
+    ElMessage.success('AI 仿真卷已生成，已加入下方套卷列表')
+  } else {
+    ElMessage.warning('任务完成，但没有返回卷子')
+  }
+}
+
 async function loadSyllabus() {
   try {
     const r = await getSyllabusDetail(syllabusId.value, authStore.user?.id || '')
@@ -1222,7 +1322,12 @@ onMounted(async () => {
 .ov-exam-tag { font-size: 12px; padding: 4px 12px; border-radius: 8px; background: rgba(245,158,11,.08); color: color-mix(in srgb, #f59e0b 70%, var(--text-primary)); border: 1px solid rgba(245,158,11,.15); }
 .ov-exam-tag.grey { background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); color: var(--text-muted); border-color: rgba(255,255,255,.04); }
 .ov-exam-section { display: flex; flex-direction: column; gap: 8px; }
-.ov-section-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .1em; padding: 8px 4px 0; }
+.ov-section-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 4px 0; }
+.ov-section-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .1em; }
+.ov-ai-paper-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent); background: color-mix(in srgb, var(--brand) 10%, transparent); color: var(--brand); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s; font-family: inherit; }
+.ov-ai-paper-btn svg { width: 13px; height: 13px; }
+.ov-ai-paper-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--brand) 18%, transparent); }
+.ov-ai-paper-btn:disabled { opacity: .55; cursor: not-allowed; }
 .ov-btn.exam-btn { opacity: .7; }
 .ov-btn.exam-btn:not(.grey) { opacity: 1; border-color: rgba(255,107,107,.15); }
 .ov-btn.exam-btn:not(.grey):hover { opacity: 1; border-color: rgba(255,107,107,.3); }

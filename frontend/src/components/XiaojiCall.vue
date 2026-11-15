@@ -482,6 +482,9 @@
           <div class="side-greeting-text">
             <div class="side-greeting-title">{{ greetingText() }}<span class="side-greeting-name">，{{ authStore.user?.nickname || '同学' }}</span></div>
             <div class="side-greeting-sub">{{ greetingSub() }}</div>
+            <button class="side-campus-btn" title="一楼大地图预览" @click="router.push('/campus')">
+              <i class="fas fa-compass"></i> 去 2D 校园
+            </button>
           </div>
         </div>
 
@@ -3019,6 +3022,18 @@ onUnmounted(() => {
 }
 .side-greeting-name { color: color-mix(in srgb, #c4b5fd 60%, var(--text-primary)); }
 .side-greeting-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+.side-campus-btn {
+  margin-top: 6px; padding: 4px 8px; border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
+  background: color-mix(in srgb, var(--brand) 7%, transparent);
+  color: var(--text-secondary); font-family: inherit; font-size: 10.5px;
+  cursor: pointer; transition: all .18s ease;
+}
+.side-campus-btn:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--brand) 48%, transparent);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+}
 
 /* 分区卡片 */
 .side-card {

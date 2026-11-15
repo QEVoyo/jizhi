@@ -40,16 +40,36 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-async def _get_one(user_id: str, scope: str, kind: str, key: str) -> Optional[dict]:
+class MemoryReadError(RuntimeError):
+    """读记忆失败（网络 / 数据库不可用），调用方需要区分「没有数据」和「读不到」。"""
+
+
+async def _get_one_strict(user_id: str, scope: str, kind: str,
+                          key: str) -> Optional[dict]:
+    """和 _get_one 一样，但失败会抛错——策略台账不能把读失败当成 0 样本。"""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             res = await client.get(_base("agent_memory"), headers=_headers(), params={
                 "user_id": f"eq.{user_id}", "scope": f"eq.{scope}",
                 "kind": f"eq.{kind}", "key": f"eq.{key}", "limit": "1",
             })
-        if res.status_code == 200 and isinstance(res.json(), list) and res.json():
-            return res.json()[0]
     except Exception as e:
+        raise MemoryReadError(str(e)) from e
+    if res.status_code != 200:
+        raise MemoryReadError(f"HTTP {res.status_code}")
+    try:
+        rows = res.json()
+    except ValueError as e:
+        raise MemoryReadError("返回不是 JSON") from e
+    if not isinstance(rows, list):
+        raise MemoryReadError("返回结构不是数组")
+    return rows[0] if rows else None
+
+
+async def _get_one(user_id: str, scope: str, kind: str, key: str) -> Optional[dict]:
+    try:
+        return await _get_one_strict(user_id, scope, kind, key)
+    except MemoryReadError as e:
         logger.info(f"[memory] 读单条失败: {e}")
     return None
 
@@ -149,10 +169,25 @@ async def record_preference(user_id: str, dimension: str, value: Any,
     )
 
 
+def _num(v) -> Optional[float]:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 async def record_strategy(user_id: str, workflow_key: str, ok: bool,
                           confidence: Optional[float] = None,
-                          run_id: str = "") -> bool:
-    """记录一次工作流结果（M4）。用于「这个做法对该用户有没有效」。"""
+                          run_id: str = "",
+                          *, pass_ratio: Optional[float] = None,
+                          latency_ms: Optional[int] = None,
+                          cost: Optional[float] = None,
+                          repaired: int = 0, dropped: int = 0) -> bool:
+    """记录一次工作流结果（M4）。用于「这个做法对该用户有没有效」。
+
+    2026-11-13 扩展：不只记「有没有跑完」，还记质检通过率、修复数、丢弃数、
+    延迟与成本 —— 这是策略路由（quick vs team）的奖励信号，不是装饰。
+    """
     scope = f"workflow:{workflow_key}"
     key = "outcome"
     old = await _get_one(user_id, scope, "strategy", key)
@@ -161,15 +196,65 @@ async def record_strategy(user_id: str, workflow_key: str, ok: bool,
         old_val = {}
     runs = int(old_val.get("runs") or 0) + 1
     completed = int(old_val.get("completed") or 0) + (1 if ok else 0)
+
+    pass_n = int(old_val.get("pass_n") or 0)
+    pass_sum = _num(old_val.get("pass_sum")) or 0.0
+    if pass_ratio is not None:
+        pass_n += 1
+        pass_sum += max(0.0, min(1.0, float(pass_ratio)))
+
+    lat_n = int(old_val.get("latency_n") or 0)
+    lat_sum = _num(old_val.get("latency_sum")) or 0.0
+    if latency_ms is not None:
+        lat_n += 1
+        lat_sum += max(0, int(latency_ms))
+
+    cost_n = int(old_val.get("cost_n") or 0)
+    cost_sum = _num(old_val.get("cost_sum")) or 0.0
+    if cost is not None:
+        cost_n += 1
+        cost_sum += max(0.0, float(cost))
+
     value = {
         "runs": runs, "completed": completed,
         "success_rate": round(completed / runs, 3),
+        "pass_n": pass_n,
+        "pass_sum": round(pass_sum, 4),
+        "pass_avg": round(pass_sum / pass_n, 4) if pass_n else None,
+        "latency_n": lat_n,
+        "latency_sum": round(lat_sum, 1),
+        "latency_avg": round(lat_sum / lat_n, 1) if lat_n else None,
+        "cost_n": cost_n,
+        "cost_sum": round(cost_sum, 6),
+        "cost_avg": round(cost_sum / cost_n, 6) if cost_n else None,
+        "repaired_total": int(old_val.get("repaired_total") or 0) + max(0, int(repaired)),
+        "dropped_total": int(old_val.get("dropped_total") or 0) + max(0, int(dropped)),
         "last_confidence": confidence,
+        "last_run_at": _now(),
     }
     return await upsert_memory(
         user_id, scope, "strategy", key, value, 0.7,
         evidence=[{"run_id": run_id, "ok": ok, "at": _now()}],
     )
+
+
+async def get_strategy(user_id: str, workflow_key: str) -> dict:
+    """读某个工作流的 M4 策略台账（策略路由用）。读不到时返回 {}。"""
+    value = await _read_strategy(user_id, workflow_key, strict=False)
+    return value
+
+
+async def get_strategy_strict(user_id: str, workflow_key: str) -> dict:
+    """读策略台账；网络/数据库失败时抛 MemoryReadError，不伪装成 0 样本。"""
+    return await _read_strategy(user_id, workflow_key, strict=True)
+
+
+async def _read_strategy(user_id: str, workflow_key: str, strict: bool) -> dict:
+    scope = f"workflow:{workflow_key}"
+    row = await (_get_one_strict(user_id, scope, "strategy", "outcome")
+                 if strict else _get_one(user_id, scope, "strategy", "outcome"))
+    value = (row or {}).get("value") or {}
+    return value if isinstance(value, dict) else {}
 
 
 # ============================================================

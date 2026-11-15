@@ -973,6 +973,30 @@ async def list_decisions(user_id: str = Query(...),
     })
 
 
+@router.post("/debate/run")
+async def debate_run(user_id: str = Query(...),
+                     body: dict = Body(default={}),
+                     current_user: str = Depends(get_current_user)):
+    """手动开一场调参圆桌（演示 / 用户主动复诊）。
+
+    真正的执行仍走 `tuning_debate` 工作流与同一个 DAG 执行器；
+    这里只负责「同一用户不重复开、复用已有运行」。
+    """
+    verify_user_match(user_id, current_user)
+    from agents.runtime import store
+    from routers.agents import start_workflow_run
+
+    active = await store.list_runs(
+        user_id, limit=5, workflow_key="tuning_debate", active_only=True)
+    if active:
+        return {"run_id": active[0]["id"], "status": active[0]["status"], "reused": True}
+    run_id = await start_workflow_run(
+        user_id, "tuning_debate",
+        {"signal": (body or {}).get("signal") or "manual"},
+        title="调参圆桌")
+    return {"run_id": run_id, "status": "queued", "reused": False}
+
+
 @router.get("/decisions/{decision_id}")
 async def get_decision(decision_id: str, user_id: str = Query(...),
                        current_user: str = Depends(get_current_user)):
@@ -1050,8 +1074,8 @@ async def revert_decision(decision_id: str, user_id: str = Query(...),
                           current_user: str = Depends(get_current_user)):
     """回滚一条调参日记：把本次改过的参数恢复成 old_value，并暂停自动托管。
 
-    ⚠️ 只回滚这条 decision 记录的 changes；不碰用户后来手动改过的值
-    （回滚前先比对当前值是否仍等于这条 decision 的 new_value）。
+    实现已抽到 `agents.tuning.revert_decision`，与 7 天复盘自动回滚共用；
+    ⚠️ 只回滚这条 decision 记录的 changes，不碰用户后来手动改过的值。
     """
     verify_user_match(user_id, current_user)
     rows = await _get("agent_decisions", {
@@ -1060,47 +1084,24 @@ async def revert_decision(decision_id: str, user_id: str = Query(...),
     })
     if not rows:
         raise HTTPException(status_code=404, detail="调参日记不存在")
-    decision = rows[0]
-    if decision.get("status") == "reverted":
-        return {"success": True, "reverted": 0, "already": True}
+    from agents import tuning
+    result = await tuning.revert_decision(user_id, rows[0])
+    return {"success": True, **result}
 
-    headers = {**_headers(), "Prefer": "return=minimal"}
-    reverted = 0
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        for ch in (decision.get("changes") or []):
-            agent_key = ch.get("agent_key")
-            param_key = ch.get("param_key")
-            old_value = ch.get("old_value")
-            new_value = ch.get("new_value")
-            if not agent_key or not param_key:
-                continue
-            cur = await client.get(
-                f"{settings.SUPABASE_URL}/rest/v1/agent_prefs"
-                f"?user_id=eq.{user_id}&agent_key=eq.{agent_key}"
-                f"&param_key=eq.{param_key}&select=id,param_value",
-                headers=_headers())
-            if cur.status_code != 200 or not cur.json():
-                continue
-            row = cur.json()[0]
-            if row.get("param_value") != new_value:
-                continue  # 用户后来手动改过，不覆盖
-            r = await client.patch(
-                f"{settings.SUPABASE_URL}/rest/v1/agent_prefs?id=eq.{row['id']}",
-                headers=headers,
-                json={"param_value": old_value, "auto_managed": False,
-                      "updated_at": _now_iso()})
-            if r.status_code < 300:
-                reverted += 1
-                # 留一条手动磨合记录，时间线能看到「用户回滚」
-                await client.post(
-                    f"{settings.SUPABASE_URL}/rest/v1/agent_tuning_log",
-                    headers=_headers(),
-                    json={"user_id": user_id, "agent_key": agent_key,
-                          "param_key": param_key, "old_value": new_value,
-                          "new_value": old_value,
-                          "reason": "用户回滚调参日记", "source": "manual",
-                          "decision_id": decision_id, "created_at": _now_iso()})
-        await client.patch(
-            f"{settings.SUPABASE_URL}/rest/v1/agent_decisions?id=eq.{decision_id}",
-            headers=headers, json={"status": "reverted"})
-    return {"success": True, "reverted": reverted}
+
+@router.post("/decisions/{decision_id}/review")
+async def review_decision(decision_id: str, user_id: str = Query(...),
+                          current_user: str = Depends(get_current_user)):
+    """立即复盘一条调参决策（不等 7 天定时任务）。
+
+    演示与用户主动复诊共用：拉当前 7 天指标与决策时的基线对比，
+    变差则自动回滚并写 outcome；数据不足时只记录「样本不足」。
+    """
+    verify_user_match(user_id, current_user)
+    rows = await _get("agent_decisions", {
+        "id": f"eq.{decision_id}", "user_id": f"eq.{user_id}", "limit": "1",
+    })
+    if not rows:
+        raise HTTPException(status_code=404, detail="调参日记不存在")
+    from services import decision_review
+    return await decision_review.review_decision(user_id, rows[0], force=True)

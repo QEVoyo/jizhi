@@ -10,171 +10,255 @@
     <div class="ac-header">
       <div class="ac-header-left">
         <h1 class="ac-title">智能体中心</h1>
-        <p class="ac-subtitle">5 个 AI 学习伙伴如何协同工作 · 点击卡片进入单个智能体的细节调节</p>
+        <p class="ac-subtitle">任务、团队与调参 · 一次 run 就是一次任务</p>
       </div>
-      <!-- 数据范围筛选（一行，作用于下方所有内容） -->
-      <div class="ac-filter">
-        <button
-          v-for="r in rangeOptions"
-          :key="r.value"
-          class="range-btn"
-          :class="{ active: range === r.value }"
-          @click="range = r.value"
-        >{{ r.label }}</button>
+      <div class="ac-header-right">
+        <span v-if="activeRuns.length" class="ac-live-chip">
+          <i class="ac-live-dot"></i>{{ activeRuns.length }} 个任务未结束
+        </span>
+        <button class="ac-quick" @click="quickUpload">＋ 传资料出题</button>
       </div>
     </div>
 
-    <!-- ===== 加载 / 错误 ===== -->
-    <p v-if="loading" class="ac-loading">数据加载中…</p>
-    <p v-else-if="error" class="ac-loading">{{ error }}</p>
-
-    <!-- ===== KPI 行 ===== -->
-    <div v-if="ov" class="kpi-row">
-      <div class="kpi-tile" v-for="k in kpis" :key="k.label">
-        <span class="kpi-label">{{ k.label }}</span>
-        <div class="kpi-value-row">
-          <span class="kpi-value">{{ k.value }}</span>
-          <span v-if="k.delta" class="kpi-delta" :class="k.up ? 'up' : 'down'">{{ k.delta }}</span>
-        </div>
-        <svg v-if="k.spark" class="kpi-spark" viewBox="0 0 120 32" aria-hidden="true">
-          <polyline :points="k.spark" fill="none" stroke="var(--viz-muted)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
-          <circle :cx="k.endX" :cy="k.endY" r="3.5" fill="var(--viz-s1)" stroke="var(--viz-surface)" stroke-width="2" />
-        </svg>
-        <span v-else class="kpi-note">{{ k.note }}</span>
-      </div>
-    </div>
-
-    <!-- ===== 工作流编排（2026-10-30）：团队/DAG/轨迹/dry-run ===== -->
-    <WorkflowPanel :user-id="authStore.user?.id || ''" />
-
-    <!-- ===== 分层记忆（2026-10-30）：薄弱点/偏好/有效做法，可删可纠 ===== -->
-    <MemoryPanel :user-id="authStore.user?.id || ''" />
-
-    <!-- ===== 学习协作闭环 ===== -->
-    <section v-if="ov" class="ac-card">
-      <div class="card-head">
-        <h2 class="card-title">学习协作闭环</h2>
-        <span class="card-head-note">近 30 天 · 5 智能体协作</span>
-      </div>
-      <p class="card-desc">你的学习在这条链路上流转——每个环节由一个智能体主导</p>
-      <div class="loop-flow">
-        <template v-for="(l, i) in collab.loop" :key="l.step">
-          <div class="loop-node" :style="{ '--loop-c': agentColor(l.agent_key) }">
-            <span class="loop-step">{{ l.step }}</span>
-            <strong class="loop-text">{{ l.text }}</strong>
-            <span class="loop-sub">{{ l.sub }}</span>
-          </div>
-          <div v-if="i < collab.loop.length - 1" class="loop-arrow">→</div>
-        </template>
-      </div>
-      <p class="loop-note">{{ collab.xiaoji_line.text }} <span class="source-tag">数据源：{{ collab.xiaoji_line.source }}</span></p>
-    </section>
-
-    <!-- ===== 协同增益 ===== -->
-    <section v-if="ov" class="ac-card">
-      <div class="card-head">
-        <h2 class="card-title">协同增益</h2>
-        <span class="card-head-note">跨表联合分析</span>
-      </div>
-      <p class="card-desc">一个智能体的介入，如何改变另一个智能体的效果</p>
-      <p class="analysis-summary">{{ collab.synergy_summary }}</p>
-      <div class="syn-list">
-        <div class="syn-row" v-for="s in collab.synergy" :key="s.metric + s.note">
-          <span class="syn-pair">
-            <b class="syn-chip" :style="{ color: agentColor(s.pair[0]) }">{{ agentName(s.pair[0]) }}</b>
-            <span class="syn-x">×</span>
-            <b class="syn-chip muted">{{ agentName(s.pair[1]) }}</b>
-          </span>
-          <span class="syn-metric">{{ s.metric }}</span>
-          <span class="syn-bars">
-            <span class="syn-bar-group">
-              <span class="syn-bar-track"><span class="syn-bar base" :style="{ width: synBarW(s.base, s) }"></span></span>
-              <span class="syn-bar-label">{{ fmtNum(s.base, s.unit) }}</span>
-            </span>
-            <span class="syn-bar-group">
-              <span class="syn-bar-track"><span class="syn-bar boost" :style="{ width: synBarW(s.boost, s), background: agentColor(s.pair[0]) }"></span></span>
-              <span class="syn-bar-label boost">{{ fmtNum(s.boost, s.unit) }}</span>
-            </span>
-          </span>
-          <span v-if="s.delta != null" class="syn-delta">▲ {{ s.delta }}{{ s.unit }}</span>
-          <span class="syn-note">{{ s.note }} · {{ s.source }}</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== 对话路由转化 ===== -->
-    <section v-if="ov" class="ac-card">
-      <div class="card-head">
-        <h2 class="card-title">对话路由转化</h2>
-        <span class="card-head-note">找瓶颈链路</span>
-      </div>
-      <p class="card-desc">对话 Agent 分流出去的请求，落地成了什么</p>
-      <p class="analysis-summary">{{ collab.routing_summary }}</p>
-      <div class="route-list">
-        <div class="route-row" v-for="r in collab.routing" :key="r.agent_key">
-          <img :src="agentImg(r.agent_key)" alt="" class="bar-icon">
-          <span class="route-name">分流 {{ agentName(r.agent_key) }}</span>
-          <span class="route-count">{{ r.uses }} 次</span>
-          <span class="route-arrow">→</span>
-          <span class="route-output">{{ r.output || '聊天内产出未独立记录' }}</span>
-          <span v-if="r.rate != null" class="route-rate" :class="{ warn: r.warn }">{{ r.rate }}{{ r.rate_unit }}</span>
-          <span class="route-source">{{ r.note }}</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== 智能体入口卡（压缩版，详情见细节调节页） ===== -->
-    <section v-if="ov" class="agent-grid">
-      <article
-        v-for="a in agents"
-        :key="a.key"
-        class="ac-card agent-card clickable"
-        :class="'agent-' + a.key"
-        @click="goDetail(a.key)"
+    <!-- ===== 分页：任务 / 智能体 / 记忆 / 数据 ===== -->
+    <nav class="ac-tabs">
+      <button
+        v-for="t in tabs"
+        :key="t.value"
+        class="ac-tab"
+        :class="{ active: tab === t.value }"
+        @click="tab = t.value"
       >
-        <div class="agent-head">
-          <div class="agent-badge" :style="{ background: a.grad }"><img :src="a.img" alt="" class="agent-badge-img"></div>
-          <div class="agent-id">
-            <div class="agent-name-row">
-              <h3 class="agent-name">{{ a.name }}</h3>
-            </div>
-            <span class="fit-chip" :style="{ color: a.color }">{{ a.tagline }}</span>
-          </div>
-        </div>
-        <div class="agent-metric">
-          <div class="metric-left">
-            <span class="mini-label">{{ a.metric?.label }}</span>
-            <div class="metric-val-row">
-              <span class="mini-value">{{ fmtNum(a.metric?.value, a.metric?.unit) }}</span>
-              <span v-if="a.metric?.delta" class="mini-delta" :class="a.metric.up ? 'up' : 'down'">{{ a.metric.delta }}</span>
-            </div>
-          </div>
-          <svg class="mini-spark" viewBox="0 0 120 28" aria-hidden="true">
-            <polyline :points="sparkPoints(a)" fill="none" :stroke="a.color" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
-            <circle :cx="sparkEnd(a).x" :cy="sparkEnd(a).y" r="3" :fill="a.color" stroke="var(--viz-surface)" stroke-width="2" />
-          </svg>
-        </div>
-        <div class="card-footer-hint">进入细节调节 →</div>
-      </article>
-    </section>
+        {{ t.label }}
+        <span v-if="t.value === 'tasks' && activeRuns.length" class="ac-tab-badge">{{ activeRuns.length }}</span>
+      </button>
+    </nav>
 
-    <p class="ac-footnote">以上数据由你近期的真实学习行为汇总而成 · 参数调整与磨合记录会随使用自动更新</p>
+    <!-- ===== 任务（统一入口）===== -->
+    <div v-show="tab === 'tasks'">
+      <RunBoard :user-id="userId" @open="openRun" @browse="browseWorkflows" />
+      <WorkflowPanel ref="workflowRef" :user-id="userId" :focus-run-id="focusRunId" />
+    </div>
+
+    <!-- ===== 智能体 ===== -->
+    <div v-show="tab === 'agents'">
+      <p v-if="loading" class="ac-loading">数据加载中…</p>
+      <p v-else-if="error" class="ac-loading">{{ error }}</p>
+      <section v-else-if="ov" class="agent-grid">
+        <article
+          v-for="a in agents"
+          :key="a.key"
+          class="ac-card agent-card clickable"
+          :class="'agent-' + a.key"
+          @click="goDetail(a.key)"
+        >
+          <div class="agent-head">
+            <div class="agent-badge" :style="{ background: a.grad }"><img :src="a.img" alt="" class="agent-badge-img"></div>
+            <div class="agent-id">
+              <div class="agent-name-row">
+                <h3 class="agent-name">{{ a.name }}</h3>
+              </div>
+              <span class="fit-chip" :style="{ color: a.color }">{{ a.tagline }}</span>
+            </div>
+          </div>
+          <div class="agent-metric">
+            <div class="metric-left">
+              <span class="mini-label">{{ a.metric?.label }}</span>
+              <div class="metric-val-row">
+                <span class="mini-value">{{ fmtNum(a.metric?.value, a.metric?.unit) }}</span>
+                <span v-if="a.metric?.delta" class="mini-delta" :class="a.metric.up ? 'up' : 'down'">{{ a.metric.delta }}</span>
+              </div>
+            </div>
+            <svg class="mini-spark" viewBox="0 0 120 28" aria-hidden="true">
+              <polyline :points="sparkPoints(a)" fill="none" :stroke="a.color" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+              <circle :cx="sparkEnd(a).x" :cy="sparkEnd(a).y" r="3" :fill="a.color" stroke="var(--viz-surface)" stroke-width="2" />
+            </svg>
+          </div>
+          <div class="card-footer-hint">进入细节调节 →</div>
+        </article>
+      </section>
+      <PolicyPanel v-if="tab === 'agents'" :user-id="userId" />
+      <KnowledgePanel v-if="tab === 'agents'" :user-id="userId" />
+      <p class="ac-footnote">以上数据由你近期的真实学习行为汇总而成 · 参数调整与磨合记录会随使用自动更新</p>
+    </div>
+
+    <!-- ===== 记忆与调参 ===== -->
+    <div v-show="tab === 'memory'">
+      <section class="ac-card debate-entry">
+        <div class="de-copy">
+          <h2 class="de-title">调参圆桌</h2>
+          <p class="de-sub">
+            数据、规划、评估、小基四个 Agent 会诊，主控裁决；通常在信号矛盾或高风险时开，
+            也可以手动复诊。每句发言都来自真实 run，参数变更受边界约束。
+          </p>
+        </div>
+        <button class="de-btn" @click="debateOpen = true">开一场圆桌</button>
+      </section>
+      <MemoryPanel :user-id="userId" />
+      <DebateRoom v-model:open="debateOpen" :user-id="userId" />
+    </div>
+
+    <!-- ===== 协作数据 ===== -->
+    <div v-show="tab === 'data'">
+      <div class="ac-data-head">
+        <div>
+          <h2 class="ac-data-title">协作数据</h2>
+          <p class="ac-data-sub">统计范围作用于本页所有指标</p>
+        </div>
+        <div class="ac-filter">
+          <button
+            v-for="r in rangeOptions"
+            :key="r.value"
+            class="range-btn"
+            :class="{ active: range === r.value }"
+            @click="range = r.value"
+          >{{ r.label }}</button>
+        </div>
+      </div>
+
+      <p v-if="loading" class="ac-loading">数据加载中…</p>
+      <p v-else-if="error" class="ac-loading">{{ error }}</p>
+
+      <template v-else-if="ov">
+        <div class="kpi-row">
+          <div class="kpi-tile" v-for="k in kpis" :key="k.label">
+            <span class="kpi-label">{{ k.label }}</span>
+            <div class="kpi-value-row">
+              <span class="kpi-value">{{ k.value }}</span>
+              <span v-if="k.delta" class="kpi-delta" :class="k.up ? 'up' : 'down'">{{ k.delta }}</span>
+            </div>
+            <svg v-if="k.spark" class="kpi-spark" viewBox="0 0 120 32" aria-hidden="true">
+              <polyline :points="k.spark" fill="none" stroke="var(--viz-muted)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+              <circle :cx="k.endX" :cy="k.endY" r="3.5" fill="var(--viz-s1)" stroke="var(--viz-surface)" stroke-width="2" />
+            </svg>
+            <span v-else class="kpi-note">{{ k.note }}</span>
+          </div>
+        </div>
+
+        <section class="ac-card">
+          <div class="card-head">
+            <h2 class="card-title">学习协作闭环</h2>
+            <span class="card-head-note">近 30 天 · 5 智能体协作</span>
+          </div>
+          <p class="card-desc">你的学习在这条链路上流转——每个环节由一个智能体主导</p>
+          <div class="loop-flow">
+            <template v-for="(l, i) in collab.loop" :key="l.step">
+              <div class="loop-node" :style="{ '--loop-c': agentColor(l.agent_key) }">
+                <span class="loop-step">{{ l.step }}</span>
+                <strong class="loop-text">{{ l.text }}</strong>
+                <span class="loop-sub">{{ l.sub }}</span>
+              </div>
+              <div v-if="i < collab.loop.length - 1" class="loop-arrow">→</div>
+            </template>
+          </div>
+          <p class="loop-note">{{ collab.xiaoji_line.text }} <span class="source-tag">数据源：{{ collab.xiaoji_line.source }}</span></p>
+        </section>
+
+        <section class="ac-card">
+          <div class="card-head">
+            <h2 class="card-title">协同增益</h2>
+            <span class="card-head-note">跨表联合分析</span>
+          </div>
+          <p class="card-desc">一个智能体的介入，如何改变另一个智能体的效果</p>
+          <p class="analysis-summary">{{ collab.synergy_summary }}</p>
+          <div class="syn-list">
+            <div class="syn-row" v-for="s in collab.synergy" :key="s.metric + s.note">
+              <span class="syn-pair">
+                <b class="syn-chip" :style="{ color: agentColor(s.pair[0]) }">{{ agentName(s.pair[0]) }}</b>
+                <span class="syn-x">×</span>
+                <b class="syn-chip muted">{{ agentName(s.pair[1]) }}</b>
+              </span>
+              <span class="syn-metric">{{ s.metric }}</span>
+              <span class="syn-bars">
+                <span class="syn-bar-group">
+                  <span class="syn-bar-track"><span class="syn-bar base" :style="{ width: synBarW(s.base, s) }"></span></span>
+                  <span class="syn-bar-label">{{ fmtNum(s.base, s.unit) }}</span>
+                </span>
+                <span class="syn-bar-group">
+                  <span class="syn-bar-track"><span class="syn-bar boost" :style="{ width: synBarW(s.boost, s), background: agentColor(s.pair[0]) }"></span></span>
+                  <span class="syn-bar-label boost">{{ fmtNum(s.boost, s.unit) }}</span>
+                </span>
+              </span>
+              <span v-if="s.delta != null" class="syn-delta">▲ {{ s.delta }}{{ s.unit }}</span>
+              <span class="syn-note">{{ s.note }} · {{ s.source }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="ac-card">
+          <div class="card-head">
+            <h2 class="card-title">对话路由转化</h2>
+            <span class="card-head-note">找瓶颈链路</span>
+          </div>
+          <p class="card-desc">对话 Agent 分流出去的请求，落地成了什么</p>
+          <p class="analysis-summary">{{ collab.routing_summary }}</p>
+          <div class="route-list">
+            <div class="route-row" v-for="r in collab.routing" :key="r.agent_key">
+              <img :src="agentImg(r.agent_key)" alt="" class="bar-icon">
+              <span class="route-name">分流 {{ agentName(r.agent_key) }}</span>
+              <span class="route-count">{{ r.uses }} 次</span>
+              <span class="route-arrow">→</span>
+              <span class="route-output">{{ r.output || '聊天内产出未独立记录' }}</span>
+              <span v-if="r.rate != null" class="route-rate" :class="{ warn: r.warn }">{{ r.rate }}{{ r.rate_unit }}</span>
+              <span class="route-source">{{ r.note }}</span>
+            </div>
+          </div>
+        </section>
+      </template>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { agents as agentsMeta } from '@/utils/mockAgents'
 import { getOverview } from '@/api/agentCenter'
+import { openXiaojiPopup } from '@/xiaoji/popupStore'
+import { activeRuns, startRunPolling, stopRunPolling } from '@/stores/runStore'
+import RunBoard from '@/components/RunBoard.vue'
 import WorkflowPanel from '@/components/WorkflowPanel.vue'
 import MemoryPanel from '@/components/MemoryPanel.vue'
+import DebateRoom from '@/components/DebateRoom.vue'
+import KnowledgePanel from '@/components/KnowledgePanel.vue'
+import PolicyPanel from '@/components/PolicyPanel.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-// ===== 数据范围（作用于下方全部内容，后端按 days 聚合） =====
+// ===== 任务优先：默认落在「任务」页签 =====
+const tab = ref('tasks')
+const tabs = [
+  { value: 'tasks', label: '任务' },
+  { value: 'agents', label: '智能体' },
+  { value: 'memory', label: '记忆与调参' },
+  { value: 'data', label: '协作数据' },
+]
+const userId = computed(() => authStore.user?.id || '')
+const focusRunId = ref('')
+const workflowRef = ref(null)
+const debateOpen = ref(false)
+
+function quickUpload() {
+  openXiaojiPopup({ mode: 'upload' })
+}
+
+function openRun(r) {
+  tab.value = 'tasks'
+  focusRunId.value = ''
+  nextTick(() => {
+    focusRunId.value = r.id
+    workflowRef.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
+function browseWorkflows() {
+  tab.value = 'tasks'
+  nextTick(() => workflowRef.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+
+// ===== 数据范围（作用于协作数据页签，后端按 days 聚合） =====
 const range = ref('30d')
 const rangeOptions = [
   { value: '7d', label: '近 7 天', days: 7 },
@@ -198,8 +282,20 @@ async function load() {
     loading.value = false
   }
 }
-onMounted(load)
+function openDebateRoom() {
+  tab.value = 'memory'
+  debateOpen.value = true
+}
+onMounted(() => {
+  load()
+  if (userId.value) startRunPolling(userId.value)
+  window.addEventListener('open-debate-room', openDebateRoom)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('open-debate-room', openDebateRoom)
+})
 watch(range, load)
+watch(userId, (v) => { v ? startRunPolling(v) : stopRunPolling() })
 
 function goDetail(key) {
   router.push(`/agent-center/${key}`)
@@ -322,6 +418,60 @@ function sparkEnd(a) {
 .ac-title { font-size: 26px; font-weight: 700; color: var(--text-primary); margin: 0; }
 .ac-subtitle { font-size: 13px; color: var(--text-secondary); margin: 6px 0 0; }
 
+/* ===== 任务优先：页头状态 + 页签 ===== */
+.ac-header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ac-live-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11.5px; font-weight: 650; color: var(--brand-bright);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 28%, transparent);
+  padding: 5px 11px; border-radius: 999px;
+}
+.ac-live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--brand-bright);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 45%, transparent);
+  animation: ac-pulse 1.8s infinite;
+}
+@keyframes ac-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 40%, transparent); }
+  70% { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.ac-quick {
+  font-family: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
+  padding: 7px 14px; border-radius: 9px;
+  color: var(--brand-bright);
+  border: 1px solid color-mix(in srgb, var(--brand) 38%, transparent);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  transition: all .18s ease;
+}
+.ac-quick:hover { background: color-mix(in srgb, var(--brand) 24%, transparent); transform: translateY(-1px); }
+
+.ac-tabs {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--line-soft); margin-bottom: 18px;
+}
+.ac-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 9px 14px 10px; border: none; background: transparent;
+  color: var(--text-muted); border-bottom: 2px solid transparent;
+  transition: color .18s ease, border-color .18s ease;
+}
+.ac-tab:hover { color: var(--text-primary); }
+.ac-tab.active { color: var(--brand-bright); border-bottom-color: var(--brand); }
+.ac-tab-badge {
+  font-size: 10.5px; font-weight: 700; line-height: 1;
+  color: var(--brand-bright); background: color-mix(in srgb, var(--brand) 16%, transparent);
+  padding: 3px 7px; border-radius: 999px;
+}
+.ac-data-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.ac-data-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin: 0; }
+.ac-data-sub { font-size: 12px; color: var(--text-muted); margin: 4px 0 0; }
+
 .ac-filter { display: flex; gap: 6px; }
 .range-btn {
   padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer;
@@ -360,9 +510,30 @@ function sparkEnd(a) {
   border-radius: 16px; padding: 20px 22px; backdrop-filter: blur(20px); margin-bottom: 18px;
 }
 [data-theme="dark"] .ac-card { background: color-mix(in srgb, var(--surface, #ffffff) 2%, transparent); }
+/* ===== 调参圆桌入口（2026-11-11）===== */
+.debate-entry {
+  display: flex; align-items: center; gap: 18px;
+  border-color: color-mix(in srgb, #f2c94c 26%, transparent);
+  background: color-mix(in srgb, #f2c94c 5%, transparent);
+}
+.de-copy { flex: 1; min-width: 0; }
+.de-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.de-sub { margin: 5px 0 0; font-size: 12px; line-height: 1.65; color: var(--text-muted); }
+.de-btn {
+  flex: none; padding: 9px 16px; border-radius: 10px;
+  border: 1px solid color-mix(in srgb, #f2c94c 48%, transparent);
+  background: color-mix(in srgb, #f2c94c 14%, transparent);
+  color: var(--text-primary); font-family: inherit; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all .18s ease;
+}
+.de-btn:hover { background: color-mix(in srgb, #f2c94c 24%, transparent); }
+@media (max-width: 640px) {
+  .debate-entry { flex-direction: column; align-items: flex-start; }
+}
 .card-head { display: flex; align-items: center; justify-content: space-between; }
 .card-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0; }
 .card-desc { font-size: 12px; color: var(--text-muted); margin: 6px 0 16px; }
+.analysis-summary { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin: 0 0 12px; }
 
 /* ===== 卡片头备注 / 数据源标签 ===== */
 .card-head-note { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
@@ -456,6 +627,9 @@ function sparkEnd(a) {
   box-shadow: 0 10px 32px rgba(0,0,0,.18);
 }
 .agent-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.agent-metric { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.metric-left { min-width: 0; }
+.metric-val-row { display: flex; align-items: baseline; gap: 6px; }
 .agent-badge {
   width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;

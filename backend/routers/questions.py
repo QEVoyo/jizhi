@@ -12,7 +12,7 @@ from utils.sensitive_words import check_and_penalize
 from utils.safety_gateway import generate, GatewayError, InputBlocked
 from utils.auth_middleware import get_current_user, verify_user_match
 from utils.reputation_gate import ai_quota_gate
-from services import task_queue, video_gen
+from services import task_queue, video_gen, question_sets
 from logging_config import logger
 
 router = APIRouter(prefix="/questions", tags=["题目"])
@@ -45,6 +45,12 @@ class QuestionSetUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     question_ids: Optional[List[str]] = None
+
+
+class QuestionSetFromRun(BaseModel):
+    run_id: str
+    name: str
+    description: Optional[str] = None
 
 
 # ========== 解析函数 ==========
@@ -197,6 +203,47 @@ async def create_question_set(user_id: str, data: QuestionSetCreate, current_use
             return {"success": True, "message": "题集已创建"}
 
         return res.json()
+
+
+@router.post("/set/from-run")
+async def create_set_from_run(user_id: str, data: QuestionSetFromRun,
+                              current_user: str = Depends(get_current_user)):
+    """把一次真实 agent run 落库的题打包成题集（2026-11-13）。
+
+    团队出题页完成 run 后调用：只收 `run.output.questions` 里带 id 的题；
+    没有可入库题时明确报错，不建空题集。
+    """
+    verify_user_match(user_id, current_user)
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        res = await client.get(
+            f"{settings.SUPABASE_URL}/rest/v1/agent_runs",
+            headers=headers,
+            params={"id": f"eq.{data.run_id}", "user_id": f"eq.{user_id}",
+                    "select": "id,status,output", "limit": "1"})
+        rows = res.json() if res.status_code == 200 and isinstance(res.json(), list) else []
+    if not rows:
+        raise HTTPException(status_code=404, detail="运行记录不存在")
+    run = rows[0]
+    if run.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="这次运行还没完成，不能生成题集")
+    output = run.get("output") if isinstance(run.get("output"), dict) else {}
+    questions = output.get("questions") if isinstance(output, dict) else []
+    ids = [q.get("id") for q in (questions or [])
+           if isinstance(q, dict) and q.get("id")]
+    if not ids:
+        raise HTTPException(status_code=400, detail="这轮没有通过质检的题，未创建题集")
+
+    row = await question_sets.create_set(
+        user_id=user_id, name=data.name, description=data.description,
+        question_ids=ids)
+    if not row:
+        raise HTTPException(status_code=400, detail="创建题集失败")
+    return row
 
 
 @router.get("/set/list/{user_id}")
@@ -544,6 +591,103 @@ async def _verify_programming_question(result: dict, max_cases: int = 5):
 
 
 # ========== AI 生成题目 ==========
+
+async def save_generated_question(user_id: str, result: dict, *,
+                                  origin: str = "",
+                                  verification: Optional[dict] = None,
+                                  topic_fallback: str = "") -> dict:
+    """把一道已生成/已校验的题落库，并排产知识点视频。
+
+    2026-11-12 从 generate_question_core 抽出：团队出题必须先校验、后落库，
+    所以生成阶段用 `persist=False` 只拿草稿，persist 节点再调用这里。
+    单 Agent 出题（/questions/generate、队友出题卡）仍走默认 persist=True。
+    """
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    q_content = result.get("content") if isinstance(result.get("content"), dict) else None
+    q_test_cases = _normalize_test_cases(result.get("test_cases")) or \
+        _normalize_test_cases(q_content.get("test_cases") if q_content else None) or None
+
+    question_data = {
+        "user_id": user_id,
+        "title": result.get("title"),
+        "question_type": result.get("type") or result.get("question_type"),
+        "difficulty_score": result.get("difficulty_score", 5.0),
+        "category": result.get("category"),
+        "topic": result.get("topic"),
+        "normalized_topic": result.get("normalized_topic"),
+        "options": result.get("options"),
+        "answer": result.get("answer"),
+        "explanation": result.get("explanation"),
+        "hint": result.get("hint"),
+        # 编程题字段（旧版落库时被整体丢弃 → 代码编辑器无模板、沙箱无判分用例）
+        "starter_code": result.get("starter_code"),
+        "test_cases": q_test_cases,
+        "source": "generated",
+    }
+    # 这两个列由 agent_orchestration.sql 补上；只有显式传入时才写，
+    # 避免在老库（未执行迁移）上把单 Agent 出题链路打挂。
+    if origin:
+        question_data["origin"] = origin
+    if verification is not None:
+        question_data["verification"] = verification
+    logger.info(f"=== 开始保存题目，user_id: {user_id} ===")
+
+    headers["Prefer"] = "return=representation"
+    async with httpx.AsyncClient() as client:
+        url = f"{settings.SUPABASE_URL}/rest/v1/questions"
+        res = await client.post(url, headers=headers, json=question_data)
+        logger.info(f"=== 保存响应状态码: {res.status_code} ===")
+        if res.status_code in [200, 201]:
+            try:
+                saved = res.json()
+                if isinstance(saved, list) and len(saved) > 0:
+                    result["id"] = saved[0].get("id")
+                elif isinstance(saved, dict):
+                    result["id"] = saved.get("id")
+                logger.info(f"=== 保存成功，id: {result.get('id')} ===")
+            except Exception as e:
+                logger.info(f"=== 解析响应失败: {e} ===")
+                if user_id and result.get("title"):
+                    query_url = (f"{settings.SUPABASE_URL}/rest/v1/questions"
+                                 f"?user_id=eq.{user_id}"
+                                 f"&title=eq.{result.get('title')}"
+                                 f"&order=created_at.desc&limit=1")
+                    query_res = await client.get(query_url, headers=headers)
+                    if query_res.status_code == 200 and query_res.json():
+                        result["id"] = query_res.json()[0].get("id")
+                        logger.info(f"=== 查询到的 id: {result['id']} ===")
+        else:
+            logger.info(f"保存题目失败: {res.text}")
+            raise HTTPException(status_code=400, detail=f"保存题目失败: {res.text}")
+
+    # 题入库即排视频（2026-09-04 定稿）：知识点级懒生成。
+    # 走 Redis 队列而不是 asyncio.create_task —— 生成要几分钟，
+    # 挂进程里重启就丢、多开 uvicorn 还会重复跑同一格。
+    # 排产失败**不影响出题**（排产是附带的），但要 ERROR 级留痕：
+    # 静默吞掉的话，「视频一直不出来」会变成一桩查不出的悬案。
+    try:
+        subject = result.get("category") or "通用"
+        kp_name = (result.get("normalized_topic") or result.get("topic")
+                   or topic_fallback or "")
+        if kp_name:
+            nk = video_gen.make_knowledge_key(subject, kp_name)
+            await task_queue.enqueue(
+                "video.generate",
+                subject=subject,
+                knowledge_key=nk,
+                # ⚠️ 必须带上名字 —— 不带的话 worker 那边只能传空串，
+                #    生成出来的视频行 knowledge_name 为空，前端显示成「没名字」。
+                knowledge_name=kp_name,
+            )
+    except Exception as e:
+        logger.error(f"❌ 视频排产入队失败（出题不受影响）: {e}")
+    return result
+
+
 @router.post("/generate")
 async def generate_question(data: dict, current_user: str = Depends(get_current_user),
                             _quota=Depends(ai_quota_gate("question_gen"))):
@@ -584,8 +728,12 @@ async def generate_question(data: dict, current_user: str = Depends(get_current_
     return await generate_question_core(user_id, category, topic, question_type, difficulty, extra)
 
 
-async def generate_question_core(user_id, category, topic, question_type, difficulty, extra):
-    """生成 1 道题并落库（/questions/generate 端点与队友「出题卡」共用）。
+async def generate_question_core(user_id, category, topic, question_type, difficulty, extra,
+                                 *, persist: bool = True):
+    """生成 1 道题；persist=True 时落库（/questions/generate 与队友「出题卡」共用）。
+
+    团队出题链路传 persist=False：只生成草稿，等 verifier 通过后再由
+    runtime 的 persist 节点调用 save_generated_question 落库。
     返回题目 dict（落库成功含 id）。"""
     from agents.llm_client import call_llm
     import random
@@ -754,85 +902,9 @@ async def generate_question_core(user_id, category, topic, question_type, diffic
                     detail="编程题质检未通过：测试用例与参考答案不符，请重新生成",
                 )
 
-        if user_id:
-            logger.info(f"=== 开始保存题目，user_id: {user_id} ===")
-            headers = {
-                "apikey": settings.SUPABASE_KEY,
-                "Authorization": f"Bearer {settings.SUPABASE_KEY}",
-                "Content-Type": "application/json"
-            }
-            # 编程题补全：题干取完整 title，test_cases 优先取 content 内的结构化数组
-            q_content = result.get("content") if isinstance(result.get("content"), dict) else None
-            q_test_cases = _normalize_test_cases(result.get("test_cases")) or \
-                _normalize_test_cases(q_content.get("test_cases") if q_content else None) or None
-
-            question_data = {
-                "user_id": user_id,
-                "title": result.get("title"),
-                "question_type": result.get("type"),
-                "difficulty_score": result.get("difficulty_score", 5.0),
-                "category": result.get("category"),
-                "topic": result.get("topic"),
-                "normalized_topic": result.get("normalized_topic"),
-                "options": result.get("options"),
-                "answer": result.get("answer"),
-                "explanation": result.get("explanation"),
-                "hint": result.get("hint"),
-                # 编程题字段（旧版落库时被整体丢弃 → 代码编辑器无模板、沙箱无判分用例）
-                "starter_code": result.get("starter_code"),
-                "test_cases": q_test_cases,
-                "source": "generated"
-            }
-            logger.info(f"=== 要保存的数据: {question_data} ===")
-
-            headers["Prefer"] = "return=representation"
-
-            async with httpx.AsyncClient() as client:
-                url = f"{settings.SUPABASE_URL}/rest/v1/questions"
-                res = await client.post(url, headers=headers, json=question_data)
-                logger.info(f"=== 保存响应状态码: {res.status_code} ===")
-                logger.info(f"=== 保存响应内容: {res.text} ===")
-                if res.status_code in [200, 201]:
-                    try:
-                        saved = res.json()
-                        if isinstance(saved, list) and len(saved) > 0:
-                            result["id"] = saved[0].get("id")
-                        elif isinstance(saved, dict):
-                            result["id"] = saved.get("id")
-                        logger.info(f"=== 保存成功，id: {result.get('id')} ===")
-                    except Exception as e:
-                        logger.info(f"=== 解析响应失败: {e} ===")
-                        if user_id and result.get("title"):
-                            query_url = f"{settings.SUPABASE_URL}/rest/v1/questions?user_id=eq.{user_id}&title=eq.{result.get('title')}&order=created_at.desc&limit=1"
-                            query_res = await client.get(query_url, headers=headers)
-                            if query_res.status_code == 200 and query_res.json():
-                                result["id"] = query_res.json()[0].get("id")
-                                logger.info(f"=== 查询到的 id: {result['id']} ===")
-                else:
-                    logger.info(f"保存题目失败: {res.text}")
-                    raise HTTPException(status_code=400, detail=f"保存题目失败: {res.text}")
-
-        # 题入库即排视频（2026-09-04 定稿）：知识点级懒生成。
-        # 走 Redis 队列而不是 asyncio.create_task —— 生成要几分钟，
-        # 挂进程里重启就丢、多开 uvicorn 还会重复跑同一格。
-        # 排产失败**不影响出题**（排产是附带的），但要 ERROR 级留痕：
-        # 静默吞掉的话，「视频一直不出来」会变成一桩查不出的悬案。
-        try:
-            subject = result.get("category") or "通用"
-            kp_name = result.get("normalized_topic") or topic or ""
-            if kp_name:
-                nk = video_gen.make_knowledge_key(subject, kp_name)
-                await task_queue.enqueue(
-                    "video.generate",
-                    subject=subject,
-                    knowledge_key=nk,
-                    # ⚠️ 必须带上名字 —— 不带的话 worker 那边只能传空串，
-                    #    生成出来的视频行 knowledge_name 为空，前端显示成「没名字」。
-                    knowledge_name=kp_name,
-                )
-        except Exception as e:
-            logger.error(f"❌ 视频排产入队失败（出题不受影响）: {e}")
-
+        if user_id and persist:
+            result = await save_generated_question(
+                user_id, result, topic_fallback=topic)
         return result
 
     except HTTPException:

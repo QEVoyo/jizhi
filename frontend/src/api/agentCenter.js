@@ -58,3 +58,9 @@ export function postDecisionRevert(decisionId, userId) {
   return request.post(`/agent-center/decisions/${decisionId}/revert`, null,
     { params: { user_id: userId } }).then(res => res.data)
 }
+
+// 立即复盘：对比决策时与近 7 天指标，变差会自动回滚（2026-11-12）
+export function postDecisionReview(decisionId, userId) {
+  return request.post(`/agent-center/decisions/${decisionId}/review`, null,
+    { params: { user_id: userId } }).then(res => res.data)
+}

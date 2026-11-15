@@ -277,9 +277,39 @@
             <span>{{ s.score }} / {{ s.max_score }}</span>
           </div>
         </div>
+        <p v-if="result?.analysis_run_id" class="ep-analysis-state" :class="analysisState">
+          <template v-if="analysisState === 'analyzing'">
+            🤖 错题解析进行中（{{ result.ai_analyzing }} 道）· 右下角可看协作进度
+          </template>
+          <template v-else-if="analysisState === 'done'">
+            ✅ 错题解析已完成，点「查看解析」看错因与改进建议
+          </template>
+          <template v-else-if="analysisState === 'failed'">
+            ⚠️ 错题解析未完成；交卷成绩不受影响
+          </template>
+        </p>
+        <p v-if="videoState !== 'idle'" class="ep-video-state" :class="videoState">
+          <template v-if="videoState === 'generating'">
+            🎬 考卷讲评视频生成中（写讲稿 → 校验 → 合成音轨）· 右下角可看进度
+          </template>
+          <template v-else-if="videoState === 'done'">
+            ✅ 考卷讲评视频已生成，可以看了
+          </template>
+          <template v-else-if="videoState === 'failed'">
+            ⚠️ 讲评视频没有生成成功；可以稍后重试，交卷成绩不受影响
+          </template>
+        </p>
         <div class="ep-result-actions">
           <button class="ep-result-btn gen" @click="generatePlan" :disabled="generatingPlan">
             {{ generatingPlan ? '生成中...' : '生成备考计划' }}
+          </button>
+          <button v-if="videoState === 'done'" class="ep-result-btn vid" @click="openVideo">
+            查看讲解视频
+          </button>
+          <button v-else class="ep-result-btn vid"
+            :disabled="videoState === 'generating' || !result?.record_id"
+            @click="generateVideo">
+            {{ videoState === 'generating' ? '讲评视频生成中…' : '生成考卷讲解视频' }}
           </button>
           <button class="ep-result-btn sec" @click="switchToReview">查看解析</button>
           <button class="ep-result-btn pri" @click="handleBack">返回</button>
@@ -293,8 +323,12 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getExamPaper, submitExamPaper, submitExamPlan } from '@/api/subjectPlan'
+import { createRun, getRun } from '@/api/agents'
+import { openAgentPanel } from '@/stores/agentPanel'
+import { startRunPolling, refresh as refreshRuns } from '@/stores/runStore'
 import { useAuthStore } from '@/stores/auth'
 import { recordAction } from '@/api/career'
+import { emitXiaoji } from '@/xiaoji/bus'
 
 const route = useRoute()
 const router = useRouter()
@@ -313,6 +347,20 @@ const showResult = ref(false)
 const result = ref(null)
 const timerSec = ref(0)
 let timerInterval = null
+
+// 交卷解析（2026-11-14）：错题归因走真实 agent run，悬浮面板显示进度
+const analysisState = ref('idle')   // idle | analyzing | done | failed
+const analysisRunId = ref('')
+let analysisTimer = null
+let analysisFails = 0
+
+// 考卷讲解视频（2026-11-15）：交卷后按 record_id 创建 exam_video run
+const videoState = ref('idle')      // idle | generating | done | failed
+const videoRunId = ref('')
+const videoId = ref('')
+let videoTimer = null
+let videoFails = 0
+let videoTries = 0
 
 const activeSection = ref(1)
 const contentRef = ref(null)
@@ -414,25 +462,27 @@ function getQuestionResult(secOrder, q) {
   // 返回该题的用户答题结果（仅在提交后 review 时使用）
   if (!result.value?.question_results) return null
   const idx = q.index || q.question_number
-  const r = result.value.question_results.find(
-    r => r.section_order === secOrder && r.index === idx
-  ) || result.value.question_results.find(
-    r => r.section?.includes && r.index === idx
-  )
-  return r || null
+  const rows = result.value.question_results
+  return rows.find(
+    r => String(r.section_order) === String(secOrder) && String(r.index) === String(idx)
+  ) || rows.find(
+    r => String(r.index) === String(idx)
+  ) || null
 }
 
 function getQuestionStat(secOrder, q) {
   if (!history.value?.question_accuracy) return null
   const idx = q.index || q.question_number || q.blank_index
-  return history.value.question_accuracy[String(idx)] || null
+  return history.value.question_accuracy[`${secOrder}_${idx}`]
+    || history.value.question_accuracy[String(idx)] || null
 }
 
 function getLatestResult(secOrder, q) {
   // 返回最近一次提交的完整结果（含 AI 实时分析）
   if (!history.value?.latest_results) return null
   const idx = q.index || q.question_number || q.blank_index
-  return history.value.latest_results[String(idx)] || null
+  return history.value.latest_results[`${secOrder}_${idx}`]
+    || history.value.latest_results[String(idx)] || null
 }
 
 function isLastAnswerCorrect(secOrder, q) {
@@ -496,6 +546,138 @@ function startTimer() {
 
 // ===== 提交 =====
 
+function stopAnalysisPolling() {
+  if (analysisTimer) clearInterval(analysisTimer)
+  analysisTimer = null
+}
+
+function finishAnalysis(state) {
+  stopAnalysisPolling()
+  analysisState.value = state
+}
+
+function mirrorLatestResults(rows) {
+  const latest = {}
+  for (const r of rows || []) {
+    const idx = String(r.index)
+    latest[idx] = r
+    if (r.section_order != null) latest[`${r.section_order}_${idx}`] = r
+  }
+  if (!history.value) history.value = {}
+  history.value.latest_results = latest
+}
+
+function applyAnalyses(analyses) {
+  const byKey = new Map()
+  for (const a of analyses || []) byKey.set(String(a.index), a)
+  const latest = history.value?.latest_results || {}
+  for (const r of result.value?.question_results || []) {
+    const idx = String(r.index)
+    const key = r.section_order != null ? `${r.section_order}_${idx}` : idx
+    const a = byKey.get(key) || byKey.get(idx)
+    if (!a) continue
+    r.ai_mistake_analysis = a.reason || ''
+    r.ai_correction = a.correction || ''
+    r.ai_study_tip = a.study_tip || ''
+    const lr = latest[key] || latest[idx]
+    if (lr) {
+      lr.ai_mistake_analysis = r.ai_mistake_analysis
+      lr.ai_correction = r.ai_correction
+      lr.ai_study_tip = r.ai_study_tip
+    }
+  }
+}
+
+async function pollAnalysisRun(runId) {
+  const uid = authStore.user?.id
+  if (!uid) return finishAnalysis('failed')
+  let bundle
+  try {
+    bundle = await getRun(runId, uid)
+    analysisFails = 0
+  } catch (e) {
+    analysisFails += 1
+    if (analysisFails >= 5) finishAnalysis('failed')
+    return
+  }
+  const run = bundle?.run || {}
+  if (!['completed', 'failed', 'cancelled'].includes(run.status)) return
+  stopAnalysisPolling()
+  if (run.status !== 'completed') return finishAnalysis('failed')
+  const analyses = run.output?.analyses || []
+  applyAnalyses(analyses)
+  analysisState.value = 'done'
+}
+
+// ===== 考卷讲解视频（2026-11-15）=====
+function stopVideoPolling() {
+  if (videoTimer) { clearInterval(videoTimer); videoTimer = null }
+}
+
+async function generateVideo() {
+  if (videoState.value === 'generating') return
+  const uid = authStore.user?.id
+  const recordId = result.value?.record_id
+  if (!uid) { alert('请先登录'); return }
+  if (!recordId) { alert('这次交卷记录还没有保存成功，稍后再试'); return }
+  videoState.value = 'generating'
+  videoFails = 0
+  videoTries = 0
+  try {
+    const created = await createRun({
+      workflow_key: 'exam_video',
+      mode: 'team',
+      input: { paper_id: paperId.value, record_id: recordId },
+    }, uid)
+    const runId = created?.run_id
+    if (!runId) throw new Error('任务创建失败：没有返回 run_id')
+    videoRunId.value = runId
+    startRunPolling(uid)
+    refreshRuns()
+    openAgentPanel(runId)
+    stopVideoPolling()
+    videoTimer = setInterval(() => pollVideoRun(runId), 2500)
+    pollVideoRun(runId)
+  } catch (e) {
+    videoState.value = 'failed'
+    alert('讲评视频生成失败: ' + (e.response?.data?.detail || e.message))
+  }
+}
+
+async function pollVideoRun(runId) {
+  const uid = authStore.user?.id
+  if (!uid) { stopVideoPolling(); videoState.value = 'failed'; return }
+  videoTries += 1
+  if (videoTries > 120) {
+    stopVideoPolling(); videoState.value = 'failed'
+    return
+  }
+  let bundle
+  try {
+    bundle = await getRun(runId, uid)
+    videoFails = 0
+  } catch (e) {
+    videoFails += 1
+    if (videoFails >= 5) {
+      stopVideoPolling(); videoState.value = 'failed'
+    }
+    return
+  }
+  const run = bundle?.run || {}
+  if (!['completed', 'failed', 'cancelled'].includes(run.status)) return
+  stopVideoPolling()
+  if (run.status !== 'completed') {
+    videoState.value = 'failed'
+    return
+  }
+  videoId.value = run.output?.video_id || ''
+  videoState.value = videoId.value ? 'done' : 'failed'
+}
+
+function openVideo() {
+  if (videoId.value) router.push(`/video/${videoId.value}`)
+}
+
 async function handleSubmit() {
   const unanswered = totalQuestionCount.value - answeredCount.value
   if (unanswered > 0) {
@@ -516,6 +698,28 @@ async function handleSubmit() {
       }
     }
     result.value = await submitExamPaper(paperId.value, payload)
+    // 交卷结果先镜像到历史，解析模式即使不刷新也能看到本次答案
+    mirrorLatestResults(result.value?.question_results)
+
+    // 错题解析走真实 agent run；悬浮胶囊 + 协作面板显示进度
+    analysisState.value = 'idle'
+    analysisRunId.value = result.value?.analysis_run_id || ''
+    // 讲评视频按本次交卷重来，不复用上一卷的状态
+    stopVideoPolling()
+    videoState.value = 'idle'
+    videoId.value = ''
+    videoRunId.value = ''
+    if (analysisRunId.value) {
+      analysisState.value = 'analyzing'
+      analysisFails = 0
+      startRunPolling(authStore.user.id)
+      refreshRuns()
+      openAgentPanel(analysisRunId.value)
+      stopAnalysisPolling()
+      analysisTimer = setInterval(() => pollAnalysisRun(analysisRunId.value), 2000)
+      pollAnalysisRun(analysisRunId.value)
+    }
+
     // 学程埋点（2026-10-01）：交了一套真题卷。
     // 放在提交成功之后 —— 半途放弃的不算。
     recordAction(authStore.user.id, 'exam_submit')
@@ -534,16 +738,23 @@ const generatingPlan = ref(false)
 
 async function generatePlan() {
   generatingPlan.value = true
+  emitXiaoji('plan:generate:start', { data: { source: 'exam' } })
   try {
     const res = await submitExamPlan(paperId.value, {
       user_id: authStore.user?.id || '',
       period_days: 30,
       daily_minutes: 60
     })
-    if (res.error) { alert(res.error); return }
+    if (res.error) {
+      emitXiaoji('plan:generate:error', { data: { source: 'exam' } })
+      alert(res.error)
+      return
+    }
+    emitXiaoji('plan:generate:done', { data: { source: 'exam' } })
     showResult.value = false
     router.push(`/plan-detail/${res.plan_id}`)
   } catch (e) {
+    emitXiaoji('plan:generate:error', { data: { source: 'exam' } })
     alert('生成计划失败: ' + (e.response?.data?.detail || e.message))
   } finally {
     generatingPlan.value = false
@@ -587,6 +798,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval)
+  stopAnalysisPolling()
+  stopVideoPolling()
   window.removeEventListener('scroll', onScroll)
 })
 
@@ -831,8 +1044,16 @@ watch(() => route.query.mode, async (newMode) => {
 .ep-score-unit { font-size: 14px; }
 .ep-score-detail { font-size: 15px; color: var(--text-muted); margin-bottom: 16px; }
 .ep-section-scores { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+.ep-analysis-state { font-size: 13px; margin: 0 0 16px; color: var(--text-muted); }
+.ep-analysis-state.analyzing { color: #d48806; }
+.ep-analysis-state.done { color: #10b981; }
+.ep-analysis-state.failed { color: #ff6b6b; }
+.ep-video-state { font-size: 13px; margin: -8px 0 16px; color: var(--text-muted); }
+.ep-video-state.generating { color: #d48806; }
+.ep-video-state.done { color: #10b981; }
+.ep-video-state.failed { color: #ff6b6b; }
 .ep-ss-row { display: flex; justify-content: space-between; font-size: 14px; color: var(--text-secondary); padding: 4px 12px; }
-.ep-result-actions { display: flex; gap: 12px; justify-content: center; }
+.ep-result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .ep-result-btn { padding: 10px 28px; border-radius: 10px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; transition: all .2s; }
 .ep-result-btn.pri { background: color-mix(in srgb, var(--surface, #ffffff) 10%, transparent); color: var(--text-secondary); }
 .ep-result-btn.pri:hover { background: color-mix(in srgb, var(--surface, #ffffff) 20%, transparent); }
@@ -841,6 +1062,9 @@ watch(() => route.query.mode, async (newMode) => {
 .ep-result-btn.gen { background: linear-gradient(135deg, rgba(16,185,129,.2), color-mix(in srgb, var(--brand) 20%, transparent)); color: #10b981; border: 1px solid rgba(16,185,129,.2); }
 .ep-result-btn.gen:hover:not(:disabled) { background: linear-gradient(135deg, rgba(16,185,129,.35), color-mix(in srgb, var(--brand) 35%, transparent)); }
 .ep-result-btn.gen:disabled { opacity: .4; }
+.ep-result-btn.vid { background: color-mix(in srgb, #8b5cf6 15%, transparent); color: #a78bfa; border: 1px solid color-mix(in srgb, #8b5cf6 30%, transparent); }
+.ep-result-btn.vid:hover:not(:disabled) { background: color-mix(in srgb, #8b5cf6 26%, transparent); }
+.ep-result-btn.vid:disabled { opacity: .4; cursor: not-allowed; }
 
 @media (max-width: 900px) {
   .ep-nav { display: none; }

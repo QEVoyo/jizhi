@@ -11,6 +11,57 @@
         <template v-if="mode === 'menu'">
           <p class="xj-hint">{{ profile.bubble }}</p>
 
+          <!-- 记忆流 / 我的路线（2026-11-04）：
+               学习出来的路线（接着上次 / 下一步 / 常走）和用户自己设的固定路线分开展示。
+               学习部分证据不够时不渲染；「我的路线」是用户明确设的，冷启动也有。 -->
+          <div v-if="customRoute || memorySuggestions.length || memoryRoute.length || memoryMsg" class="xj-memory">
+            <template v-if="customRoute">
+              <span class="xj-section-label">我的路线</span>
+              <button
+                v-if="customNext"
+                class="xj-memory-jump"
+                :disabled="memoryBusy"
+                @click="goCustomRoute"
+              >
+                <span class="xj-memory-ic">🧭</span>
+                <span class="xj-memory-body">
+                  <b>{{ memoryTitle(customNext) }}</b>
+                  <em>{{ customNext.reason }}</em>
+                </span>
+              </button>
+              <div class="xj-memory-route">我的路线：{{ customRouteLine }}</div>
+              <div class="xj-memory-foot">
+                <button @click="openRouteEditor">编辑</button>
+              </div>
+            </template>
+
+            <div v-if="memorySuggestions.length || memoryRoute.length" class="xj-memory-learned">
+              <span class="xj-section-label">小基记下的</span>
+              <button
+                v-for="s in memorySuggestions"
+                :key="s.id"
+                class="xj-memory-jump"
+                :disabled="memoryBusy"
+                @click="onMemoryJump(s)"
+              >
+                <span class="xj-memory-ic">{{ s.type === 'resume' ? '↩' : '→' }}</span>
+                <span class="xj-memory-body">
+                  <b>{{ memoryTitle(s) }}</b>
+                  <em>{{ s.reason }}</em>
+                </span>
+              </button>
+              <div v-if="memoryRoute.length" class="xj-memory-route">
+                你常这样走：{{ memoryRoute.map(x => memoryTitle(x)).join(' → ') }}
+              </div>
+              <div class="xj-memory-foot">
+                <button v-if="memorySuggestions.length" @click="dismissMemoryHint">{{ memoryDismissLabel }}</button>
+                <button @click="clearMemory">{{ clearArmed ? '确定清空' : '清空记忆' }}</button>
+              </div>
+            </div>
+
+            <p v-if="memoryMsg" class="xj-memory-msg">{{ memoryMsg }}</p>
+          </div>
+
           <!-- 这一页专属的快捷动作（学程：快完成 / 可领取；社区：私信；资源库：出题…） -->
           <div v-if="pageActions.length" class="xj-page-actions">
             <span class="xj-section-label">针对这页</span>
@@ -31,8 +82,50 @@
             <button @click="captureScreen">🖥 截图解析</button>
             <button @click="search">🔎 全局搜索</button>
             <button @click="upload">📄 传资料出题</button>
+            <button @click="openTasks">⏱ 任务</button>
+            <button @click="openRouteEditor">🗺 设置路线</button>
             <button @click="home">💬 找小基聊聊</button>
             <button class="ghost" @click="hide">👋 先躲起来</button>
+          </div>
+        </template>
+
+        <template v-else-if="mode === 'route'">
+          <p class="xj-hint">按顺序加入页面；保存后，小基按你当前的位置提示下一步。</p>
+
+          <div v-if="routeDraft.length" class="xj-route-steps">
+            <div v-for="(s, i) in routeDraft" :key="`${s.key}-${i}`" class="xj-route-step">
+              <span class="xj-route-no">{{ i + 1 }}</span>
+              <span class="xj-route-name">{{ memoryTitle(s) }}</span>
+              <button class="xj-route-mini" :disabled="i === 0" title="上移"
+                      @click="moveRouteStep(i, -1)">↑</button>
+              <button class="xj-route-mini" :disabled="i === routeDraft.length - 1" title="下移"
+                      @click="moveRouteStep(i, 1)">↓</button>
+              <button class="xj-route-mini xj-route-del" title="移除"
+                      @click="removeRouteStep(i)">×</button>
+            </div>
+          </div>
+          <p v-if="!routeDraft.length" class="xj-hint">还没有步骤，从下面选一个页面加入。</p>
+          <p v-else-if="routeDraft.length === 1" class="xj-hint">再加一个页面就可以保存了。</p>
+
+          <div class="xj-route-add">
+            <select v-model="routePick" class="xj-route-select">
+              <option value="">选一个页面…</option>
+              <option value="__current__">当前页：{{ memoryTitle(currentRouteStep) }}</option>
+              <optgroup v-for="g in routeGroups" :key="g.name" :label="g.name">
+                <option v-for="p in g.pages" :key="p.path" :value="p.path">{{ p.title }}</option>
+              </optgroup>
+            </select>
+            <button class="xj-route-addbtn" :disabled="!routePick" @click="addRouteStep">加入</button>
+          </div>
+
+          <p v-if="routeError" class="xj-error">{{ routeError }}</p>
+
+          <div class="xj-actions tight">
+            <button :disabled="routeDraft.length < 2" @click="saveRoute">保存路线</button>
+            <button class="ghost" @click="mode = 'menu'">取消</button>
+          </div>
+          <div v-if="customRoute" class="xj-route-delete">
+            <button @click="deleteCustomRoute">{{ routeClearArmed ? '确定删除' : '删除我的路线' }}</button>
           </div>
         </template>
 
@@ -84,9 +177,65 @@
           </div>
         </template>
 
+        <!-- 跨页任务：与智能体中心共用同一份 run 数据 -->
+        <template v-else-if="mode === 'tasks'">
+          <p v-if="runState.error" class="xj-error">{{ runState.error }}</p>
+          <p v-if="!activeRuns.length" class="xj-hint">当前没有进行中的任务。拖资料出题后会在这里看到进度。</p>
+          <div v-else class="xj-run-list">
+            <div v-for="r in activeRuns" :key="r.id" class="xj-run-item">
+              <div class="xj-run-top">
+                <b class="xj-run-title">{{ r.title || workflowName(r.workflow_key) }}</b>
+                <span class="xj-run-pct">{{ r.progress || 0 }}%</span>
+              </div>
+              <div class="xj-run-bar"><span :style="{ width: (r.progress || 0) + '%' }"></span></div>
+              <p class="xj-run-stage">{{ stageText(r) }}</p>
+              <div class="xj-run-actions">
+                <button v-if="r.status === 'awaiting_confirm'" @click="goConfirmTask(r)">去确认</button>
+                <button v-else-if="r.link" @click="goTaskLink(r)">看结果</button>
+                <button v-if="canResumeRun(r)" class="ghost" :disabled="taskBusyRun === r.id" @click="resumeTask(r)">继续</button>
+                <button v-else-if="canPauseRun(r)" class="ghost" :disabled="taskBusyRun === r.id" @click="pauseTask(r)">暂停</button>
+                <button class="ghost" :disabled="taskBusyRun === r.id" @click="cancelTask(r)">
+                  {{ taskBusyRun === r.id ? '处理中…' : '取消' }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="xj-actions tight">
+            <button class="ghost" @click="mode = 'menu'">收起</button>
+          </div>
+        </template>
+
         <p v-if="error" class="xj-error">{{ error }}</p>
       </div>
     </Transition>
+
+    <!-- 记忆流：新会话第一次落到业务页时，只在头像上方提示一次「接着上次」。
+         不自动跳转、不自动展开气泡；忽略或点掉后本次会话不再打扰。 -->
+    <button v-if="resumeChip && resumeChipVisible && !open && !hidden"
+            class="xj-resume-chip" :class="{ below: bubbleBelow }" title="接着上次"
+            @click="onMemoryJump(resumeChip)">
+      <span class="xj-resume-text">接着上次 · {{ memoryTitle(resumeChip) }}</span>
+      <span class="xj-resume-x" title="先不用" @click.stop="dismissResumeChip">×</span>
+    </button>
+
+    <!-- 页面事件反应（2026-11-11）：答题对错 / 生成完成等只在头像旁说一句，
+         不展开气泡、不挡点击；用户打开气泡或拖走小基时不显示。 -->
+    <div v-if="reactionVisible && reactionText && !open && !hidden"
+         class="xj-reaction-chip"
+         :class="{
+           below: bubbleBelow,
+           stacked: resumeChip && resumeChipVisible && !open,
+         }"
+         role="status" aria-live="polite">
+      {{ reactionText }}
+    </div>
+
+    <!-- 跨页任务进度环：有活跃 run 时出现在头像右上角 -->
+    <button v-if="activeRuns.length" class="xj-task-ring" :style="ringStyle"
+            :title="`${activeRuns.length} 个任务未结束`"
+            @pointerdown.stop @click.stop="openTasks">
+      <span class="xj-ring-core">{{ activeRuns.length }}</span>
+    </button>
 
     <button class="xj-avatar-btn" :class="{ dragging }" :data-look="displayLook"
             title="小基在页面里（可以拖动）"
@@ -108,8 +257,8 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNavStore } from '@/stores/nav'
 import { getXiaojiDaily } from '@/api/xiaoji'
@@ -117,12 +266,25 @@ import { getTaskProgress, claimCareerTask } from '@/api/career'
 import { summarizePage, analyzeImage } from '@/api/agents'
 import { localOverview, pageLightContext } from '@/xiaoji/pageFrameworks'
 import { openXiaojiPopup } from '@/xiaoji/popupStore'
+import { onXiaoji } from '@/xiaoji/bus'
+import { resolveReaction } from '@/xiaoji/reactions'
+import { resolvePageTitle, STATIC_PAGES } from '@/utils/pageMeta'
+import {
+  getMemoryFlow, pageKeyOf, acceptSuggestion, rejectSuggestion,
+  dismissResume, clearRouteMemory,
+  getCustomRoute, saveCustomRoute, clearCustomRoute, nextCustomStep,
+} from '@/utils/routeMemory'
+import {
+  runState, activeRuns, startRunPolling, cancelRunById,
+  pauseRunById, resumeRunById, canPauseRun, canResumeRun,
+} from '@/stores/runStore'
 import ScreenshotCropper from '@/components/ScreenshotCropper.vue'
 
 const props = defineProps({
   routePath: { type: String, default: '' },
 })
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const navStore = useNavStore()
@@ -134,7 +296,8 @@ const POS_KEY = 'xiaoji_page_pos'
 
 const open = ref(false)
 const hidden = ref(false)
-const mode = ref('menu')          // menu / loading / summary / overview / action
+const mode = ref('menu')          // menu / loading / summary / overview / action / tasks / route
+const taskBusyRun = ref('')
 const summary = ref('')
 const overview = ref({ studyDays: 0, weekQuestions: 0, rec: '' })
 const error = ref('')
@@ -148,6 +311,35 @@ const imageAnalysis = ref('')
 const cropOpen = ref(false)
 const cropUrl = ref('')
 const capturing = ref(false)
+
+// ===== 页面事件感知（2026-11-11）=====
+// 页面通过 xiaoji/bus 发事件；这里只负责表情、节流和头像旁的一句短话。
+const reactionText = ref('')
+const reactionVisible = ref(false)
+const reducedMotion = ref(false)
+const reactionLastAt = new Map()   // 事件类型 → 上次反应时间
+const reactionSeenOnce = new Set() // payload.once 的事件只反应一次
+let reactionTimer = null
+let lastAnyReactionAt = 0
+let motionMq = null
+let offXiaojiBus = null
+
+// ===== 记忆流（2026-11-04）=====
+const memorySuggestions = ref([])
+const memoryRoute = ref([])
+const resumeChip = ref(null)
+const memoryBusy = ref(false)
+const memoryMsg = ref('')
+const memoryDismissed = ref(false)   // 本次停留已说过「不太准」，不再推下一步
+const clearArmed = ref(false)        // 「清空」二次确认
+const resumeChipVisible = ref(false) // 新会话只在第一个业务页提示一次
+const customRoute = ref(null)        // 用户自己设的固定路线
+const routeDraft = ref([])
+const routePick = ref('')
+const routeError = ref('')
+const routeClearArmed = ref(false)
+let memoryFirstPath = ''
+let memoryMsgTimer = null
 
 const WEBP_MAP = {
   idle: '/xiaoji/xiaoji_idle_loop.webp',
@@ -171,9 +363,12 @@ const displayLook = computed(() =>
   look.value !== 'idle' ? look.value : (idleLook.value || 'idle'))
 const lookUrl = computed(() => STATIC_LOOKS[displayLook.value] || STATIC_LOOKS.idle)
 const lookWebpUrl = computed(() => WEBP_MAP[displayLook.value] || WEBP_MAP.idle)
-const lookImgUrl = computed(() => lookFallback.value
-  ? lookUrl.value
-  : lookWebpUrl.value + (lookBust.value ? `?v=${lookBust.value}` : ''))
+// 系统开了「减少动态效果」时直接用静态 PNG：WebP 自己会循环播放，
+// 只关 CSS 浮动不够（设计文档 12.4 的已知差距）。
+const lookImgUrl = computed(() => {
+  if (reducedMotion.value || lookFallback.value) return lookUrl.value
+  return lookWebpUrl.value + (lookBust.value ? `?v=${lookBust.value}` : '')
+})
 let lookTimer = null
 let idleTimer = null
 let idleActionTimer = null
@@ -237,6 +432,63 @@ function stopIdleActions() {
   idleActionTimer = null
   idleLook.value = ''
 }
+
+// ===== 页面事件反应（2026-11-11）=====
+function showReaction(text, ms = 3200) {
+  reactionText.value = text
+  reactionVisible.value = true
+  if (reactionTimer) clearTimeout(reactionTimer)
+  reactionTimer = setTimeout(() => {
+    reactionVisible.value = false
+    reactionText.value = ''
+    reactionTimer = null
+  }, ms)
+}
+
+function clearReaction() {
+  if (reactionTimer) clearTimeout(reactionTimer)
+  reactionTimer = null
+  reactionVisible.value = false
+  reactionText.value = ''
+}
+
+function onPageEvent(e) {
+  if (hidden.value || !e?.type) return
+  // 异步任务完成时用户可能已经换页了，过期事件不再反应
+  if (e.page && props.routePath && e.page !== props.routePath) return
+  const r = resolveReaction(e)
+  if (!r) return
+
+  const now = Date.now()
+  const lastType = reactionLastAt.get(e.type) || 0
+  if (!r.force && r.cooldown && now - lastType < r.cooldown) return
+  // 不同事件之间也留一点间隔，避免两个事件同时到达时表情乱跳；
+  // 但不能太长 —— 答题接口很快返回时，submit → correct 不能被吞掉。
+  if (!r.force && now - lastAnyReactionAt < 200) return
+  // 正在总结/识图/办动作时不抢状态
+  if (mode.value === 'loading' || mode.value === 'imageLoading' || actionBusy.value) return
+  // once 的事件只反应一次
+  if (e.once) {
+    const key = `${e.type}:${e.page || ''}`
+    if (reactionSeenOnce.has(key)) return
+    reactionSeenOnce.add(key)
+  }
+
+  reactionLastAt.set(e.type, now)
+  lastAnyReactionAt = now
+  setLook(r.look, r.duration)
+
+  if (!r.text || open.value || dragging.value) return
+  // 考试页只做表情，不弹字（设计文档 4.3）
+  if (r.quietOnExam && /\/exam\//.test(props.routePath || '')) return
+  showReaction(r.text, r.bubbleMs)
+}
+
+function onMotionPrefChange(e) {
+  reducedMotion.value = !!e?.matches
+  if (reducedMotion.value) lookFallback.value = false
+}
+
 const pos = ref({ x: 0, y: 0 })
 const dragging = ref(false)
 const moved = ref(false)
@@ -312,6 +564,254 @@ const pageActions = computed(() => {
   return []
 })
 
+// ===== 记忆流（2026-11-04）=====
+// 读取由 routeMemory 在全局记录的本机路线；这里只负责展示、跳转和反馈。
+// 没把握时 getMemoryFlow 返回空，界面就不出现这一块。
+function memoryTitle(item) {
+  const raw = String(item?.titleKey || item?.path || item?.key || '')
+  const clean = raw.split('?')[0]
+  const resolved = resolvePageTitle(clean)
+  // 静态页/可识别前缀用命名册；认不出来的动态页用保存时的标题兜底
+  if (resolved && resolved !== clean) return resolved
+  return item?.title || resolved || '这个页面'
+}
+
+// 「接着上次」是事实，不是猜测，别用「不太准」这种反馈词
+const memoryDismissLabel = computed(() =>
+  memorySuggestions.value.some(s => s.type === 'next') ? '不太准' : '先不用')
+
+// ===== 我的路线（用户自己设的固定路线）=====
+// 与学习出来的记忆流分开：这里只认用户保存的顺序，不参与衰减/阈值。
+const ROUTE_SKIP = new Set([
+  '/settings', '/qa', '/open-source', '/guide', '/agreement', '/privacy',
+  '/animation-demo', '/vlp-debug', '/onboarding', '/theme', '/api-center',
+  '/xiaoji/tree', '/xiaoji/search', '/xiaoji/settings',
+])
+
+const routeGroups = computed(() => {
+  const groups = new Map()
+  for (const p of STATIC_PAGES) {
+    if (ROUTE_SKIP.has(p.path)) continue
+    const g = p.group || '其他'
+    if (!groups.has(g)) groups.set(g, [])
+    groups.get(g).push({ key: p.path, path: p.path, title: p.title })
+  }
+  return [...groups.entries()].map(([name, pages]) => ({ name, pages }))
+})
+
+const currentRouteStep = computed(() => ({
+  key: pageKeyOf(route),
+  // 加入「当前页」时保留 query/hash（如题集 id、学科 id），跳回去才是原处
+  path: route.fullPath || route.path,
+  title: resolvePageTitle(route.path),
+}))
+
+const customNext = computed(() => {
+  const steps = customRoute.value?.steps || []
+  const target = nextCustomStep(steps, currentRouteStep.value.key)
+  return target ? { ...target, id: 'custom' } : null
+})
+
+const customRouteLine = computed(() =>
+  (customRoute.value?.steps || []).map(s => memoryTitle(s)).join(' → '))
+
+function refreshMemory() {
+  const uid = authStore.user?.id
+  if (!uid) {
+    memorySuggestions.value = []
+    memoryRoute.value = []
+    resumeChip.value = null
+    customRoute.value = null
+    return
+  }
+  customRoute.value = getCustomRoute(uid)
+  const data = getMemoryFlow(uid, pageKeyOf(route), { currentPath: route.path })
+  resumeChip.value = data.resume || null
+  memorySuggestions.value = memoryDismissed.value
+    ? data.suggestions.filter(s => s.type === 'resume')
+    : data.suggestions
+  memoryRoute.value = memoryDismissed.value ? [] : (data.route || [])
+}
+
+// ===== 路线编辑器 =====
+function openRouteEditor() {
+  const uid = authStore.user?.id
+  if (!uid) return
+  const saved = getCustomRoute(uid)
+  routeDraft.value = saved ? saved.steps.map(s => ({ ...s })) : []
+  routePick.value = ''
+  routeError.value = ''
+  routeClearArmed.value = false
+  mode.value = 'route'
+  open.value = true
+  error.value = ''
+  setLook('thinking', 1200)
+}
+
+function addRouteStep() {
+  routeError.value = ''
+  const pick = routePick.value
+  if (!pick) return
+  let step
+  if (pick === '__current__') {
+    step = { ...currentRouteStep.value }
+  } else {
+    const hit = STATIC_PAGES.find(p => p.path === pick)
+    if (!hit) return
+    step = { key: hit.path, path: hit.path, title: hit.title }
+  }
+  if (routeDraft.value.length >= 10) {
+    routeError.value = '一条路线最多 10 步'
+    return
+  }
+  const last = routeDraft.value[routeDraft.value.length - 1]
+  if (last && last.key === step.key) {
+    routeError.value = '连续两步不能是同一页'
+    return
+  }
+  routeDraft.value.push(step)
+  routePick.value = ''
+  routeClearArmed.value = false
+}
+
+function removeRouteStep(i) {
+  routeDraft.value.splice(i, 1)
+  routeError.value = ''
+  routeClearArmed.value = false
+}
+
+function moveRouteStep(i, delta) {
+  const j = i + delta
+  const arr = routeDraft.value
+  if (j < 0 || j >= arr.length) return
+  const [item] = arr.splice(i, 1)
+  arr.splice(j, 0, item)
+  routeError.value = ''
+  routeClearArmed.value = false
+}
+
+function saveRoute() {
+  routeError.value = ''
+  if (routeDraft.value.length < 2) {
+    routeError.value = '至少选两个页面才算一条路线'
+    return
+  }
+  const uid = authStore.user?.id
+  if (!uid) return
+  if (!saveCustomRoute(uid, routeDraft.value)) {
+    routeError.value = '保存失败，再试一次'
+    return
+  }
+  customRoute.value = getCustomRoute(uid)
+  mode.value = 'menu'
+  flashMemoryMsg('路线已保存')
+  setLook('happy', 1800)
+}
+
+function deleteCustomRoute() {
+  const uid = authStore.user?.id
+  if (!uid) return
+  // 编辑器里没有共享消息位，第一次点击只改按钮文案
+  if (!routeClearArmed.value) {
+    routeClearArmed.value = true
+    return
+  }
+  clearCustomRoute(uid)
+  customRoute.value = null
+  routeDraft.value = []
+  routeClearArmed.value = false
+  mode.value = 'menu'
+  flashMemoryMsg('已删除我的路线')
+}
+
+function goCustomRoute() {
+  const target = customNext.value
+  if (!target?.path || memoryBusy.value) return
+  memoryBusy.value = true
+  open.value = false
+  setLook('happy', 900)
+  router.push(target.path)
+    .catch(() => {
+      open.value = true
+      mode.value = 'menu'
+      flashMemoryMsg('这个页面暂时打不开')
+    })
+    .finally(() => { memoryBusy.value = false })
+}
+
+function flashMemoryMsg(text) {
+  memoryMsg.value = text
+  if (memoryMsgTimer) clearTimeout(memoryMsgTimer)
+  memoryMsgTimer = setTimeout(() => { memoryMsg.value = '' }, 4000)
+}
+
+function onMemoryJump(s) {
+  if (!s?.path || memoryBusy.value) return
+  memoryBusy.value = true
+  const uid = authStore.user?.id
+  if (uid) acceptSuggestion(uid, s)
+  open.value = false
+  setLook('happy', 900)
+  router.push(s.path)
+    .catch(() => {
+      // 跳转被拦下时把气泡打开，别让用户以为点了没反应
+      open.value = true
+      mode.value = 'menu'
+      flashMemoryMsg('这个页面暂时打不开')
+    })
+    .finally(() => { memoryBusy.value = false })
+}
+
+function dismissMemoryHint() {
+  const uid = authStore.user?.id
+  if (!uid) return
+  const target = memorySuggestions.value.find(s => s.type === 'next')
+  if (target) {
+    rejectSuggestion(uid, target)
+    memoryDismissed.value = true
+    flashMemoryMsg('记下了，这条先不推')
+  } else if (resumeChip.value) {
+    dismissResume(uid)
+    resumeChip.value = null
+    flashMemoryMsg('好，这次先不提醒')
+  }
+  refreshMemory()
+}
+
+function dismissResumeChip() {
+  const uid = authStore.user?.id
+  if (uid) dismissResume(uid)
+  resumeChipVisible.value = false
+  resumeChip.value = null
+}
+
+function clearMemory() {
+  if (!clearArmed.value) {
+    clearArmed.value = true
+    flashMemoryMsg(customRoute.value
+      ? '再点一次清空学习记忆（我的路线保留）'
+      : '再点一次就清空学习记忆')
+    return
+  }
+  const uid = authStore.user?.id
+  if (uid) clearRouteMemory(uid)
+  clearArmed.value = false
+  resumeChipVisible.value = false
+  memoryDismissed.value = false
+  flashMemoryMsg(customRoute.value ? '学习记忆已清空，我的路线还在' : '学习记忆已清空')
+  refreshMemory()
+}
+
+// 「接着上次」小提示：每个浏览器标签页、每个用户只提示一次。
+// 用 sessionStorage 而不是 localStorage —— 关掉标签页再开就是新一次"打开"。
+function resumeChipSeenKey(uid) { return `xj_resume_chip_seen:${uid || 'anon'}` }
+function markResumeChipSeen(uid) {
+  try { sessionStorage.setItem(resumeChipSeenKey(uid), '1') } catch { /* ignore */ }
+}
+function hasSeenResumeChip(uid) {
+  try { return sessionStorage.getItem(resumeChipSeenKey(uid)) === '1' } catch { return false }
+}
+
 const bubbleTitle = computed(() => ({
   menu: '小基',
   loading: '正在总结',
@@ -320,7 +820,117 @@ const bubbleTitle = computed(() => ({
   imageLoading: '正在识图',
   imageResult: '截图解析',
   action: '小基办好了',
+  tasks: '任务进度',
+  route: '设置路线',
 }[mode.value] || '小基'))
+
+// 进度环：取所有活跃 run 的平均进度；没有活跃任务时不渲染
+const ringProgress = computed(() => {
+  const xs = activeRuns.value.map(r => Number(r.progress) || 0)
+  if (!xs.length) return 0
+  return Math.round(xs.reduce((a, b) => a + b, 0) / xs.length)
+})
+const ringStyle = computed(() => ({
+  '--p': `${Math.max(6, ringProgress.value)}%`,
+}))
+
+const HOST_WORKFLOW_NAMES = {
+  file_to_questions: '上传出题',
+  question_gen: '团队出题',
+  evaluate: '团队评估',
+  tuning_debate: '调参圆桌',
+}
+function workflowName(key) { return HOST_WORKFLOW_NAMES[key] || key || '任务' }
+function stageText(r) {
+  const map = {
+    queued: '排队中', paused: '已暂停', pausing: '正在暂停',
+    extracting: '提取文字 / 识别扫描页',
+    profiling: '判断资料类型', seeding: '抽象可出题点',
+    awaiting_confirm: '等你确认要生成哪些点', confirmed: '已确认，等待生成',
+    generating: '生成题目中', crosschecking: '独立复核中',
+    saving: '建题集', cancelling: '正在取消',
+    ready: '已完成', failed: '失败', cancelled: '已取消',
+  }
+  return map[r.stage] || map[r.status] || ''
+}
+
+function openTasks() {
+  error.value = ''
+  open.value = true
+  mode.value = 'tasks'
+}
+
+function goConfirmTask(r) {
+  const jobId = r.input?.job_id
+  if (jobId) {
+    openXiaojiPopup({ mode: 'upload', jobId })
+    open.value = false
+  }
+}
+
+function goTaskLink(r) {
+  if (!r.link) return
+  open.value = false
+  router.push(r.link)
+}
+
+async function cancelTask(r) {
+  if (!r?.id || taskBusyRun.value) return
+  taskBusyRun.value = r.id
+  try {
+    await cancelRunById(r.id)
+  } catch (e) {
+    error.value = e?.response?.data?.detail || '取消失败'
+  } finally {
+    taskBusyRun.value = ''
+  }
+}
+
+async function pauseTask(r) {
+  if (!r?.id || taskBusyRun.value) return
+  taskBusyRun.value = r.id
+  try {
+    await pauseRunById(r.id)
+  } catch (e) {
+    error.value = e?.response?.data?.detail || '暂停失败'
+  } finally {
+    taskBusyRun.value = ''
+  }
+}
+
+async function resumeTask(r) {
+  if (!r?.id || taskBusyRun.value) return
+  taskBusyRun.value = r.id
+  try {
+    await resumeRunById(r.id)
+  } catch (e) {
+    error.value = e?.response?.data?.detail || '继续失败'
+  } finally {
+    taskBusyRun.value = ''
+  }
+}
+
+// 任务完成/失败时主动弹一次；正在总结/识图/处理动作时不打断
+function onRunDone(e) {
+  const r = e.detail || {}
+  if (!r.id) return
+  if (mode.value === 'loading' || mode.value === 'imageLoading' || actionBusy.value) return
+  if (r.status === 'completed') {
+    actionText.value = `${r.title || '任务'}已经完成`
+      + (r.link ? '，要现在去看看吗？' : '。')
+    actionLink.value = r.link || ''
+    setLook('happy', 4000)
+  } else if (r.status === 'failed') {
+    actionText.value = `${r.title || '任务'}失败了：${r.error || '未知原因'}`
+    actionLink.value = ''
+    setLook('thinking', 4000)
+  } else {
+    return
+  }
+  error.value = ''
+  open.value = true
+  mode.value = 'action'
+}
 
 const hostStyle = computed(() => ({
   left: pos.value.x + 'px',
@@ -732,19 +1342,73 @@ function hide() {
   try { sessionStorage.setItem('xiaoji_page_hidden', '1') } catch { /* ignore */ }
 }
 
+// 记忆流：换页时重算；「接着上次」只在新会话的第一个业务页露一次
+watch(() => props.routePath, (path) => {
+  if (memoryFirstPath && path !== memoryFirstPath) resumeChipVisible.value = false
+  memoryDismissed.value = false
+  clearArmed.value = false
+  if (memoryMsgTimer) clearTimeout(memoryMsgTimer)
+  memoryMsg.value = ''
+  clearReaction()
+  refreshMemory()
+})
+
+watch(open, (v) => {
+  if (v) {
+    clearReaction()
+    refreshMemory()
+    clearArmed.value = false
+  }
+})
+
+watch(() => authStore.user?.id, () => {
+  memoryDismissed.value = false
+  clearArmed.value = false
+  refreshMemory()
+})
+
 onMounted(() => {
   try { hidden.value = sessionStorage.getItem('xiaoji_page_hidden') === '1' } catch { /* ignore */ }
   loadPos()
   startIdleActions()
+  if (authStore.user?.id) startRunPolling(authStore.user.id)
+  memoryFirstPath = props.routePath
+  refreshMemory()
+  const uid = authStore.user?.id
+  if (resumeChip.value && !hasSeenResumeChip(uid)) {
+    resumeChipVisible.value = true
+    markResumeChipSeen(uid)
+  }
   window.addEventListener('resize', onResize)
   window.addEventListener('paste', onPaste)
+  window.addEventListener('xiaoji-run-done', onRunDone)
   document.addEventListener('pointerdown', onDocPointerDown, true)
+
+  // 页面事件感知：通配订阅，规则由 reactions.js 决定
+  offXiaojiBus = onXiaoji('*', onPageEvent)
+  try {
+    motionMq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    reducedMotion.value = motionMq.matches
+    if (motionMq.addEventListener) motionMq.addEventListener('change', onMotionPrefChange)
+    else if (motionMq.addListener) motionMq.addListener(onMotionPrefChange) // 老 Safari
+  } catch { /* ignore */ }
 })
 
 onBeforeUnmount(() => {
   stopIdleActions()
+  clearReaction()
+  if (offXiaojiBus) { offXiaojiBus(); offXiaojiBus = null }
+  if (motionMq) {
+    try {
+      if (motionMq.removeEventListener) motionMq.removeEventListener('change', onMotionPrefChange)
+      else if (motionMq.removeListener) motionMq.removeListener(onMotionPrefChange)
+    } catch { /* ignore */ }
+    motionMq = null
+  }
+  if (memoryMsgTimer) clearTimeout(memoryMsgTimer)
   window.removeEventListener('resize', onResize)
   window.removeEventListener('paste', onPaste)
+  window.removeEventListener('xiaoji-run-done', onRunDone)
   document.removeEventListener('pointerdown', onDocPointerDown, true)
   if (imagePreview.value) URL.revokeObjectURL(imagePreview.value)
 })
@@ -757,6 +1421,57 @@ onBeforeUnmount(() => {
 }
 /* 截图的一瞬间把自己藏起来，别把头像截进图里 */
 .xj-page-host.capturing { visibility: hidden; }
+
+/* ===== 跨页任务进度环（2026-10-31）===== */
+.xj-task-ring {
+  position: absolute; right: -6px; top: -8px;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: none; padding: 0; cursor: pointer; z-index: 2;
+  pointer-events: auto;
+  background: conic-gradient(var(--brand) var(--p), rgba(128, 128, 128, .18) 0);
+  display: grid; place-items: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+}
+.xj-ring-core {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--surface, #fff); color: var(--brand-bright);
+  font-size: 12px; font-weight: 800;
+  display: grid; place-items: center;
+}
+
+/* ===== 小基气泡里的任务列表 ===== */
+.xj-run-list { display: flex; flex-direction: column; gap: 7px; margin: 8px 0 4px; }
+.xj-run-item {
+  border: 1px solid var(--line-soft); border-radius: 10px;
+  padding: 8px 9px;
+  background: color-mix(in srgb, var(--surface, #ffffff) 4%, transparent);
+}
+[data-theme="light"] .xj-run-item { background: rgba(15, 23, 42, .03); }
+.xj-run-top { display: flex; align-items: center; gap: 8px; }
+.xj-run-title {
+  flex: 1; min-width: 0; font-size: 11.5px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.xj-run-pct { font-size: 11px; font-weight: 700; color: var(--brand-bright); font-variant-numeric: tabular-nums; }
+.xj-run-bar { height: 4px; border-radius: 2px; overflow: hidden; background: rgba(128, 128, 128, .14); margin-top: 6px; }
+.xj-run-bar span {
+  display: block; height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--brand), var(--brand-bright));
+  transition: width .4s ease;
+}
+.xj-run-stage { margin: 5px 0 6px; font-size: 10.5px; color: var(--text-muted); }
+.xj-run-actions { display: flex; gap: 6px; }
+.xj-run-actions button {
+  font-family: inherit; font-size: 10.5px; font-weight: 600; cursor: pointer;
+  padding: 3px 8px; border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--brand) 34%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand-bright);
+}
+.xj-run-actions button.ghost {
+  border-color: var(--border-color); background: transparent; color: var(--text-secondary);
+}
+.xj-run-actions button:disabled { opacity: .5; cursor: not-allowed; }
 /* ===== 页面驻扎小基：3D 玻璃球（2026-10-30）=====
    原始 MP4 是浅底、无 alpha；装进球里就不用透明裁剪了。 */
 .xj-avatar-btn {
@@ -840,6 +1555,179 @@ onBeforeUnmount(() => {
   border-color: color-mix(in srgb, var(--brand) 40%, transparent);
 }
 .xj-page-actions button:disabled { opacity: .5; cursor: wait; }
+
+/* ===== 记忆流（2026-11-04）===== */
+.xj-memory {
+  margin-top: 8px; padding: 8px 9px 7px;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
+}
+.xj-memory .xj-section-label { margin-top: 0; }
+.xj-memory-jump {
+  display: flex; align-items: stretch; gap: 7px; width: 100%;
+  padding: 7px 8px; border-radius: 9px; text-align: left;
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  background: color-mix(in srgb, var(--surface, #ffffff) 55%, transparent);
+  color: var(--text-primary); font-family: inherit; cursor: pointer;
+  transition: all .18s ease;
+}
+.xj-memory-jump + .xj-memory-jump { margin-top: 5px; }
+.xj-memory-jump:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--brand) 52%, transparent);
+  background: color-mix(in srgb, var(--brand) 11%, transparent);
+}
+.xj-memory-jump:disabled { opacity: .55; cursor: wait; }
+.xj-memory-ic {
+  flex: none; width: 17px; font-size: 13px; line-height: 1.4;
+  color: var(--brand-bright); text-align: center;
+}
+.xj-memory-body { display: flex; flex-direction: column; min-width: 0; }
+.xj-memory-body b {
+  font-size: 12px; font-weight: 700; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.xj-memory-body em {
+  margin-top: 1px; font-style: normal; font-size: 10.5px;
+  color: var(--text-muted);
+}
+.xj-memory-route {
+  margin-top: 6px; font-size: 10.5px; line-height: 1.55;
+  color: var(--text-muted); word-break: break-word;
+}
+.xj-memory-msg { margin: 6px 0 0; font-size: 10.5px; line-height: 1.5; color: var(--brand-bright); }
+.xj-memory-foot { display: flex; gap: 12px; margin-top: 6px; }
+.xj-memory-foot button {
+  padding: 0; border: none; background: none; cursor: pointer;
+  font-family: inherit; font-size: 10.5px; color: var(--text-muted);
+}
+.xj-memory-foot button:hover { color: var(--brand-bright); }
+.xj-memory-learned {
+  margin-top: 9px; padding-top: 7px;
+  border-top: 1px solid var(--line-soft, rgba(128, 128, 128, .18));
+}
+[data-theme="light"] .xj-memory-jump { background: rgba(255, 255, 255, .62); }
+
+/* ===== 我的路线：编辑器 ===== */
+.xj-route-steps { display: flex; flex-direction: column; gap: 5px; margin: 8px 0; }
+.xj-route-step {
+  display: flex; align-items: center; gap: 4px;
+  padding: 5px 6px; border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--surface, #ffffff) 55%, transparent);
+}
+.xj-route-no {
+  flex: none; width: 16px; height: 16px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--brand); color: #fff; font-size: 9.5px; font-weight: 700;
+}
+.xj-route-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 11.5px; color: var(--text-primary);
+}
+.xj-route-mini {
+  flex: none; width: 18px; height: 18px; padding: 0;
+  border: none; border-radius: 4px; background: transparent;
+  color: var(--text-muted); font-family: inherit; font-size: 11px; line-height: 1;
+  cursor: pointer;
+}
+.xj-route-mini:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--text-primary);
+}
+.xj-route-mini:disabled { opacity: .25; cursor: default; }
+.xj-route-del:hover { color: #e6a23c; }
+.xj-route-add { display: flex; gap: 5px; margin: 8px 0; }
+.xj-route-select {
+  flex: 1; min-width: 0; height: 28px; padding: 0 5px;
+  border-radius: 7px; border: 1px solid var(--border-color);
+  background: var(--surface, #ffffff); color: var(--text-primary);
+  font-family: inherit; font-size: 11.5px;
+}
+.xj-route-addbtn {
+  flex: none; padding: 0 9px; border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  color: var(--text-primary); font-family: inherit; font-size: 11.5px;
+  cursor: pointer;
+}
+.xj-route-addbtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+}
+.xj-route-addbtn:disabled { opacity: .45; cursor: default; }
+.xj-route-delete { margin-top: 8px; text-align: right; }
+.xj-route-delete button {
+  padding: 0; border: none; background: none;
+  color: var(--text-muted); font-family: inherit; font-size: 10.5px;
+  cursor: pointer;
+}
+.xj-route-delete button:hover { color: #e6a23c; }
+[data-theme="light"] .xj-route-step { background: rgba(255, 255, 255, .62); }
+
+/* ===== 新会话「接着上次」小提示（只在头像上方露一次） ===== */
+.xj-resume-chip {
+  position: absolute; right: 0; bottom: calc(100% + 6px);
+  pointer-events: auto; z-index: 2;
+  display: flex; align-items: center; gap: 6px;
+  max-width: 230px; padding: 6px 8px 6px 10px;
+  border-radius: 999px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  background: color-mix(in srgb, var(--surface, #ffffff) 92%, transparent);
+  color: var(--text-primary); font-family: inherit; font-size: 11.5px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .14);
+  backdrop-filter: blur(18px) saturate(1.3);
+  animation: xj-chip-in .22s ease;
+}
+.xj-resume-chip:hover { border-color: color-mix(in srgb, var(--brand) 55%, transparent); }
+/* 小基被拖到窗口顶部时，提示翻到下方，和气泡的翻转规则一致 */
+.xj-resume-chip.below { bottom: auto; top: calc(100% + 6px); }
+.xj-resume-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xj-resume-x {
+  flex: none; width: 16px; height: 16px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 12px; color: var(--text-muted);
+}
+.xj-resume-x:hover { background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--text-primary); }
+@keyframes xj-chip-in {
+  from { opacity: 0; transform: translateY(4px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+[data-theme="dark"] .xj-resume-chip {
+  background: color-mix(in srgb, var(--surface, #0f172a) 88%, transparent);
+}
+@media (max-width: 640px) {
+  .xj-resume-chip { max-width: 200px; font-size: 11px; }
+}
+
+/* ===== 页面事件反应（2026-11-11）=====
+   只报一句，不展开气泡；pointer-events: none 保证不挡页面点击。 */
+.xj-reaction-chip {
+  position: absolute; right: 0; bottom: calc(100% + 6px);
+  pointer-events: none; z-index: 1;
+  max-width: 220px; padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--brand) 26%, transparent);
+  background: color-mix(in srgb, var(--surface, #ffffff) 92%, transparent);
+  color: var(--text-primary);
+  font-size: 11.5px; line-height: 1.5;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .14);
+  backdrop-filter: blur(18px) saturate(1.3);
+  animation: xj-chip-in .18s ease;
+}
+.xj-reaction-chip.below { bottom: auto; top: calc(100% + 6px); }
+/* 「接着上次」也在头像上方时，反应往上再叠一层，别互相盖住 */
+.xj-reaction-chip.stacked { bottom: calc(100% + 44px); }
+.xj-reaction-chip.stacked.below { bottom: auto; top: calc(100% + 44px); }
+[data-theme="dark"] .xj-reaction-chip {
+  background: color-mix(in srgb, var(--surface, #0f172a) 88%, transparent);
+}
+@media (max-width: 640px) {
+  .xj-reaction-chip { max-width: 190px; font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xj-reaction-chip { animation: none; }
+}
+
 .xj-actions { display: flex; flex-direction: column; gap: 6px; }
 .xj-actions.tight { margin-top: 10px; flex-direction: row; flex-wrap: wrap; }
 .xj-actions button.ghost { color: var(--text-muted); }

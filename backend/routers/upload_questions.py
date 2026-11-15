@@ -10,21 +10,37 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
+from agents.runtime import store as run_store
 from config import settings
-from services import doc_ingest, doc_profile, question_seeds, upload_jobs, upload_generate
+from services import doc_ingest, task_queue, upload_jobs, upload_runs
 from logging_config import logger
 from utils.auth_middleware import get_current_user, verify_user_match
 
 router = APIRouter()
 
 MAX_BYTES = 20 * 1024 * 1024
-_BG_TASKS: set = set()
+# 运行中/排队中才阻止删除；paused 可以先取消再删
+ACTIVE_JOB_STATUSES = ("parsing", "generating")
+
+
+def _max_active() -> int:
+    # 兼容公网 config.py 还没补这一类新配置的情况（部署时 config.py 不随包覆盖）
+    return int(getattr(settings, "UPLOAD_MAX_ACTIVE_PER_USER", 5))
+
+
+def _tmp_dir() -> Path:
+    raw = getattr(settings, "UPLOAD_TMP_DIR", "")
+    if raw:
+        return Path(raw)
+    return Path(__file__).resolve().parents[1] / "data" / "upload_tmp"
 
 
 class ConfirmBody(BaseModel):
@@ -38,13 +54,28 @@ class ConfirmBody(BaseModel):
 @router.post("/upload")
 async def upload(file: UploadFile = File(...),
                  user_id: str = Query(...),
+                 batch_id: str = Query(""),
                  current_user: str = Depends(get_current_user)):
+    """接收文件后立刻返回，解析交给 arq worker。
+
+    ⚠️ 2026-10-31 起不再用 `asyncio.create_task`：进程重启会丢、
+       多 worker 不共享。任务状态同时写 upload_jobs 与 agent_runs。
+    """
     verify_user_match(user_id, current_user)
     filename = file.filename or "upload"
     mime = file.content_type or ""
     ok, msg = doc_ingest.check_supported(filename, mime)
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
+
+    limit = _max_active()
+    active = await upload_jobs.count_active_jobs(user_id)
+    if active >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail=(f"同时进行的上传任务最多 {limit} 个，"
+                    f"等前面的完成再传。"))
+
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="文件是空的")
@@ -52,54 +83,53 @@ async def upload(file: UploadFile = File(...),
         raise HTTPException(status_code=400, detail="文件超过 20MB，请拆分后再传")
 
     ext = doc_ingest.ext_of(filename, mime).lstrip(".")
-    job_id = await upload_jobs.create_job(user_id, filename, mime, len(data), ext)
+    batch = batch_id or ""
+    try:
+        uuid.UUID(batch)
+    except (ValueError, TypeError, AttributeError):
+        batch = ""
+    job_id = await upload_jobs.create_job(
+        user_id, filename, mime, len(data), ext,
+        batch_id=batch or None)
     if not job_id:
         raise HTTPException(
             status_code=503,
             detail="upload_jobs 表不可用，请先执行 backend/sql/agent_orchestration.sql")
 
-    task = asyncio.create_task(_process(job_id, user_id, data, filename, mime))
-    _BG_TASKS.add(task)
-    task.add_done_callback(_BG_TASKS.discard)
-    return {"job_id": job_id, "status": "parsing", "filename": filename}
+    # 临时文件给 worker 读；任务成功/失败都由 task_upload_parse 的 finally 删除
+    tmp_dir = _tmp_dir()
+    await asyncio.to_thread(tmp_dir.mkdir, parents=True, exist_ok=True)
+    path = tmp_dir / f"{job_id}.{ext}" if ext else tmp_dir / job_id
+    await asyncio.to_thread(path.write_bytes, data)
 
+    # 任务中心 = 智能体中心：一个上传任务对应一条 agent_run
+    run_id = await run_store.create_run(
+        user_id, "file_to_questions", "background",
+        {"job_id": job_id, "filename": filename, "batch_id": batch,
+         "tmp_path": str(path)},
+        title=f"解析：{filename}"[:200], kind="upload_parse")
+    if run_id:
+        await upload_jobs.update_job(job_id, run_id=run_id)
+        await run_store.update_run(
+            run_id, status="queued", progress=0, stage="queued")
 
-async def _process(job_id: str, user_id: str, data: bytes,
-                   filename: str, mime: str) -> None:
     try:
-        await upload_jobs.update_job(job_id, status="parsing", progress=10)
-        result = await doc_ingest.ingest(data, filename, mime)
-        await upload_jobs.update_job(job_id, progress=35)
-        if not result.chunks:
-            await upload_jobs.update_job(
-                job_id, status="failed", progress=100,
-                error="没有读到可用的文字内容；扫描件请重传清晰截图，或换 PDF/PPTX。")
-            return
-
-        profile = await doc_profile.build_profile(result, filename)
-        await upload_jobs.update_job(job_id, progress=55, profile=profile,
-                                     source_type=result.source_type)
-        seeds = await question_seeds.extract_seeds(result, profile)
-        ok = await upload_jobs.save_seeds(job_id, user_id, seeds)
-        if not ok:
-            await upload_jobs.update_job(
-                job_id, status="failed", progress=100,
-                error="可出题点保存失败（upload_seeds 表不可用？）")
-            return
-        await upload_jobs.update_job(
-            job_id,
-            status="awaiting_confirm",
-            progress=100,
-            seed_count=len(seeds),
-            profile={**profile, "chunk_count": len(result.chunks)},
-        )
-        logger.info(f"[upload] {job_id[:8]} 解析完成：{len(result.chunks)} 块，"
-                    f"{len(seeds)} 个可出题点")
+        await task_queue.enqueue(
+            "upload.parse", job_id=job_id, user_id=user_id, path=str(path),
+            filename=filename, mime=mime, run_id=run_id or "")
     except Exception as e:                                  # noqa: BLE001
-        logger.warning(f"[upload] 处理失败 {job_id[:8]}: {e}")
-        await upload_jobs.update_job(
-            job_id, status="failed", progress=100,
-            error=f"解析失败：{str(e)[:200]}")
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        await upload_runs.mark_failed(
+            job_id, user_id, run_id, f"任务队列不可用：{e}", filename)
+        raise HTTPException(
+            status_code=503,
+            detail="任务队列不可用，请确认 Redis 与 worker 已启动")
+
+    return {"job_id": job_id, "run_id": run_id, "status": "queued",
+            "filename": filename}
 
 
 @router.get("/upload/{job_id}")
@@ -126,7 +156,7 @@ async def confirm(job_id: str, user_id: str = Query(...),
     job = await upload_jobs.get_job(job_id, user_id)
     if not job:
         raise HTTPException(status_code=404, detail="上传任务不存在")
-    if job.get("status") not in ("awaiting_confirm", "confirmed", "ready"):
+    if job.get("status") not in ("awaiting_confirm", "confirmed"):
         raise HTTPException(status_code=400, detail=f"当前状态不能确认：{job.get('status')}")
     if not body.seed_ids:
         raise HTTPException(status_code=400, detail="请至少选择一个可出题点")
@@ -150,16 +180,26 @@ async def confirm(job_id: str, user_id: str = Query(...),
             profile = {}
     profile["confirm"] = settings
     await upload_jobs.update_job(
-        job_id, status="confirmed", selected_count=len(body.seed_ids), profile=profile)
+        job_id, status="confirmed", stage="confirmed", cancel_requested=False,
+        selected_count=len(body.seed_ids), profile=profile)
+    run_id = job.get("run_id")
+    if run_id:
+        # run 的进度代表整个任务生命周期：解析只占 20%，确认不是完成。
+        # 这里曾经写 progress=100，任务列表会出现「100% 但还在进行中」。
+        await run_store.update_run(
+            run_id, status="confirmed", stage="confirmed", progress=20,
+            kind="upload_generate",
+            title=f"已确认：{job.get('filename') or ''}"[:200])
     return {"success": True, "job_id": job_id, "settings": settings}
 
 
 @router.post("/upload/{job_id}/generate")
 async def generate(job_id: str, user_id: str = Query(...),
                    current_user: str = Depends(get_current_user)):
-    """生成题目（后台任务，前端轮询 GET /upload/{job_id} 或 /result）。
+    """确认后开始生成（入 arq 队列）。
 
-    ⚠️ 只有 `confirmed`（用户点过确认）才能进来 —— 这是「是否生成」的硬闸门。
+    只有 `confirmed` 能进来；用条件更新做幂等闸门，双击/多标签页
+    同时点只会有一个请求真正入队。
     """
     verify_user_match(user_id, current_user)
     job = await upload_jobs.get_job(job_id, user_id)
@@ -171,23 +211,62 @@ async def generate(job_id: str, user_id: str = Query(...),
     if not seeds:
         raise HTTPException(status_code=400, detail="没有选中的可出题点")
 
-    async def _run():
-        try:
-            res = await upload_generate.generate_for_job(job_id, user_id)
-            if not res.get("ok"):
-                await upload_jobs.update_job(
-                    job_id, status="failed", progress=100,
-                    error=res.get("error") or "生成失败")
-        except Exception as e:                              # noqa: BLE001
-            logger.warning(f"[upload] 生成任务异常 {job_id[:8]}: {e}")
-            await upload_jobs.update_job(
-                job_id, status="failed", progress=100,
-                error=f"生成失败：{str(e)[:200]}")
+    ok = await upload_jobs.update_job_if_status(
+        job_id, "confirmed", status="queued", progress=5, stage="queued",
+        cancel_requested=False,
+        queued_at=datetime.now(timezone.utc).isoformat(), error=None)
+    if not ok:
+        raise HTTPException(
+            status_code=409,
+            detail="任务已经在生成，或状态已变化，请刷新后再看")
 
-    task = asyncio.create_task(_run())
-    _BG_TASKS.add(task)
-    task.add_done_callback(_BG_TASKS.discard)
-    return {"success": True, "status": "generating", "job_id": job_id}
+    run_id = job.get("run_id")
+    if run_id:
+        await run_store.update_run(
+            run_id, status="queued", stage="queued", progress=20, link="",
+            kind="upload_generate", pause_requested=False, paused_at=None,
+            title=f"生成：{job.get('filename') or ''}"[:200])
+
+    try:
+        await task_queue.enqueue(
+            "upload.generate", job_id=job_id, user_id=user_id,
+            run_id=run_id or "")
+    except Exception as e:                                  # noqa: BLE001
+        await upload_jobs.update_job_if_status(
+            job_id, "queued", status="confirmed", progress=100,
+            stage="confirmed", error=None)
+        if run_id:
+            await run_store.update_run(
+                run_id, status="confirmed", stage="confirmed", progress=100)
+        logger.warning(f"[upload] 生成任务入队失败 {job_id[:8]}: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="任务队列不可用，请确认 Redis 与 worker 已启动")
+
+    return {"success": True, "status": "queued", "job_id": job_id,
+            "run_id": run_id}
+
+
+@router.post("/upload/{job_id}/cancel")
+async def cancel_upload(job_id: str, user_id: str = Query(...),
+                        current_user: str = Depends(get_current_user)):
+    """取消解析/生成。与 /agents/runs/{id}/cancel 共用同一套逻辑。"""
+    verify_user_match(user_id, current_user)
+    job = await upload_jobs.get_job(job_id, user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="上传任务不存在")
+    run_id = job.get("run_id")
+    outcome = await upload_jobs.request_cancel(job_id, user_id)
+    if not outcome:
+        raise HTTPException(status_code=500, detail="取消失败")
+    if run_id:
+        if outcome == "cancelled":
+            await run_store.update_run(
+                run_id, status="cancelled", stage="cancelled", progress=100,
+                finished_at=datetime.now(timezone.utc).isoformat())
+        else:
+            await run_store.update_run(run_id, stage="cancelling")
+    return {"success": True, "status": outcome, "run_id": run_id}
 
 
 @router.get("/upload/{job_id}/result")
@@ -239,8 +318,36 @@ async def get_result(job_id: str, user_id: str = Query(...),
 @router.delete("/upload/{job_id}")
 async def remove(job_id: str, user_id: str = Query(...),
                  current_user: str = Depends(get_current_user)):
+    """删除上传任务：job + 关联 run + 临时文件。
+
+    题目/题集是产出，不随任务记录删除。运行中的任务必须先取消。
+    """
     verify_user_match(user_id, current_user)
+    job = await upload_jobs.get_job(job_id, user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="上传任务不存在")
+    if job.get("status") in ACTIVE_JOB_STATUSES:
+        raise HTTPException(status_code=409, detail="任务进行中，先取消再删除")
+
+    run_id = job.get("run_id")
+    outcome = await upload_jobs.request_cancel(job_id, user_id)
+    if not outcome:
+        raise HTTPException(status_code=500, detail="取消失败，任务未删除")
     ok = await upload_jobs.delete_job(job_id, user_id)
     if not ok:
         raise HTTPException(status_code=500, detail="删除失败")
+    if run_id:
+        run = await run_store.get_run(run_id, user_id)
+        await run_store.soft_delete_run(run_id, user_id)
+        tmp = (run or {}).get("input", {}).get("tmp_path") or ""
+        if tmp:
+            try:
+                Path(tmp).unlink(missing_ok=True)
+            except OSError:
+                pass
+    try:
+        for p in _tmp_dir().glob(f"{job_id}.*"):
+            p.unlink(missing_ok=True)
+    except OSError:
+        pass
     return {"success": True}

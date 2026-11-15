@@ -28,6 +28,28 @@ from .models import Node, RunContext, Workflow
 # 多 worker 部署时取消只对处理该 run 的进程生效 —— 与当前 arq 的认知一致。
 RUN_CONTEXTS: dict[str, RunContext] = {}
 
+# 动态调度（2026-11-12）：每个 Agent 一个信号量，限制同类节点的并发；
+# 全局最多 8 路，避免一个 run 里的扇出把 LLM 配额一次打满。
+# 进程内状态，多 worker 各自一份 —— 与「进程内 DAG」的边界一致。
+_AGENT_SEMS: dict[str, asyncio.Semaphore] = {}
+_GLOBAL_SEM = asyncio.Semaphore(8)
+
+
+def _agent_limit(agent_key: str) -> int:
+    from .registry import AGENTS, TOOLS
+    spec = AGENTS.get(agent_key) or TOOLS.get(agent_key) or {}
+    try:
+        return max(1, min(8, int(spec.get("max_concurrency") or 3)))
+    except (TypeError, ValueError):
+        return 3
+
+
+def _sem_for(agent_key: str) -> asyncio.Semaphore:
+    sem = _AGENT_SEMS.get(agent_key)
+    if sem is None:
+        sem = _AGENT_SEMS[agent_key] = asyncio.Semaphore(_agent_limit(agent_key))
+    return sem
+
 
 def register_context(ctx: RunContext) -> None:
     RUN_CONTEXTS[ctx.run_id] = ctx
@@ -37,9 +59,13 @@ def unregister_context(run_id: str) -> None:
     RUN_CONTEXTS.pop(run_id, None)
 
 
-def cancel_run(run_id: str) -> bool:
+def cancel_run(run_id: str, user_id: str = "") -> bool:
     ctx = RUN_CONTEXTS.get(run_id)
     if not ctx:
+        return False
+    # 进程内上下文不能只按 run_id 找：路由层只校验了 query user_id，
+    # 不校验 ctx 的归属，知道别人 run_id 就能取消别人的任务。
+    if user_id and ctx.user_id and ctx.user_id != user_id:
         return False
     ctx.cancelled = True
     return True
@@ -55,6 +81,13 @@ def _kind_of(agent: str) -> str:
         "verifier": "verdict",
         "conductor": "result",
         "evaluator": "verdict",
+        # 调参圆桌：四个角色先发言，主控最后裁决
+        "debate_context": "result",
+        "debate_data": "proposal",
+        "debate_plan": "proposal",
+        "debate_eval": "critique",
+        "debate_xiaoji": "proposal",
+        "debate_judge": "verdict",
     }.get(agent, "result")
 
 
@@ -86,11 +119,16 @@ async def _run_node(node: Node, ctx: RunContext) -> Any:
         runner = AGENT_RUNNERS.get(node.agent) or TOOL_RUNNERS.get(node.tool)
         if runner is None:
             raise KeyError(f"未注册的节点执行器: agent={node.agent!r} tool={node.tool!r}")
-        output = await asyncio.wait_for(runner(ctx, node), timeout=node.timeout_s)
-        await store.update_step(step_id, status="completed", output=output,
-                                ended_at=_now())
+        # 同类 Agent 并发上限 + 全局上限；排队时间不计入节点 timeout，
+        # 因为当前每个用户同一时刻只有一个 run，锁竞争只发生在同一 run 内。
+        async with _GLOBAL_SEM:
+            async with _sem_for(agent_key):
+                output = await asyncio.wait_for(runner(ctx, node), timeout=node.timeout_s)
+        await store.update_step(
+            step_id, status="completed", output=output, ended_at=_now(),
+            degraded=bool(isinstance(output, dict) and output.get("degraded")))
         await store.add_message(
-            ctx.run_id, ctx.next_seq(), agent_key, "conductor",
+            ctx.run_id, ctx.next_seq(), agent_key, node.to_agent,
             _kind_of(agent_key), _summary_of(output), output,
             confidence=(output or {}).get("confidence") if isinstance(output, dict) else None,
             refs=(output or {}).get("refs") if isinstance(output, dict) else None,
@@ -172,7 +210,8 @@ async def execute(workflow: Workflow, ctx: RunContext) -> dict:
                 finally:
                     tasks.pop(key, None)
 
-        output = ctx.state.get("aggregate") or ctx.state.get("conductor") \
+        output = ctx.state.get(workflow.final_key) \
+            or ctx.state.get("aggregate") or ctx.state.get("conductor") \
             or {"state": {k: v for k, v in ctx.state.items() if k != "errors"}}
         return {"status": "completed", "output": output, "error": None}
 

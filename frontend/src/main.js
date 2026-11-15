@@ -117,7 +117,7 @@ watch(
 // ===== Element Plus 按需加载 =====
 // 落地页和两个协议页不用任何 el-* 组件，先不加载 Element Plus；
 // 其它路由在渲染前 await 一次（只加载一次），避免首屏白等 340KB gzip。
-const LIGHT_ROUTES = new Set(['/', '/agreement', '/privacy'])
+const LIGHT_ROUTES = new Set(['/', '/agreement', '/privacy', '/campus'])
 router.beforeEach(async (to, from, next) => {
   if (LIGHT_ROUTES.has(to.path)) return next()
   try {
@@ -204,3 +204,18 @@ window.addEventListener('unhandledrejection', (e) => {
 })
 
 app.mount('#app')
+
+// ===== 记忆流：路线记录（2026-11-04）=====
+// 挂在全局而不是页面驻扎小基里 —— 小基在 /home、管理后台、协议页不挂载，
+// 但「首页 → 资源库 → 薄弱点出题」这种路线必须从首页就开始记。
+// 首屏之后再生效（和通知轮询同一原则）：记录晚几百毫秒不影响路线质量，
+// 但它不该把首屏入口撑大。只写本机 localStorage，不走网络。
+function startRouteMemory() {
+  import('./utils/routeMemory')
+    .then(({ installRouteMemory }) => {
+      installRouteMemory(router, () => useAuthStore().user?.id)
+    })
+    .catch(() => { /* 记忆流不可用不该影响主流程 */ })
+}
+if (window.requestIdleCallback) window.requestIdleCallback(startRouteMemory, { timeout: 2500 })
+else setTimeout(startRouteMemory, 1200)

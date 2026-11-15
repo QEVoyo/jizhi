@@ -56,4 +56,5 @@ export const ANGLE_LABELS = {
   concept: '概念精讲', method: '方法论', pitfall: '易错排雷', shortcut: '秒杀技巧',
   contrast: '对比辨析', origin: '根源推导', mnemonic: '口诀记忆', exam: '考试视角',
   notes: '学霸笔记', story: '情境故事', visual: '图解演示', demo: '拆题示范',
+  walkthrough: '试卷讲评',
 }

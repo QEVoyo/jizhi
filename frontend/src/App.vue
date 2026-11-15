@@ -33,6 +33,10 @@
 
     <!-- 页面驻扎小基（2026-10-30）：业务页右下角，与 /home 全屏小基、桌宠三形态切割 -->
     <XiaojiPageHost v-if="showPageAgent" :route-path="route.path" />
+
+    <!-- 小队协作（2026-11-11）：任何真实 run 的节点/消息/产物可视化 -->
+    <AgentSquadDock v-if="showPageAgent" />
+    <AgentCollabPanel v-if="route.meta.requiresAuth" />
   </div>
 </template>
 
@@ -49,6 +53,8 @@ const DesktopWindowControls = defineAsyncComponent(() => import('@/desktop/Deskt
 const DesktopContextMenu = defineAsyncComponent(() => import('@/desktop/ContextMenu.vue'))
 const XiaojiUploadPopup = defineAsyncComponent(() => import('@/components/XiaojiUploadPopup.vue'))
 const XiaojiPageHost = defineAsyncComponent(() => import('@/components/XiaojiPageHost.vue'))
+const AgentSquadDock = defineAsyncComponent(() => import('@/components/AgentSquadDock.vue'))
+const AgentCollabPanel = defineAsyncComponent(() => import('@/components/AgentCollabPanel.vue'))
 
 const UPLOAD_OK = ['.pdf', '.pptx', '.docx', '.xlsx', '.csv', '.txt', '.md',
                    '.png', '.jpg', '.jpeg', '.webp', '.bmp']
@@ -140,19 +146,23 @@ function onWindowDrop(e) {
   dragDepth = 0
   isDragging.value = false
   if (popupState.open || e.defaultPrevented) return
-  const f = e.dataTransfer?.files?.[0]
-  if (!f) return
+  const all = Array.from(e.dataTransfer?.files || [])
+  if (!all.length) return
   e.preventDefault()
-  const ext = (f.name.match(/\.[^.]+$/) || [''])[0].toLowerCase()
-  if (!UPLOAD_OK.includes(ext)) {
-    warnLater('视频/音频/压缩包暂时不支持；可以上传截图、讲义或 PDF。')
-    return
+  const ok = []
+  let badType = false
+  let tooBig = false
+  for (const f of all) {
+    const ext = (f.name.match(/\.[^.]+$/) || [''])[0].toLowerCase()
+    if (!UPLOAD_OK.includes(ext)) { badType = true; continue }
+    if (f.size > 20 * 1024 * 1024) { tooBig = true; continue }
+    ok.push(f)
   }
-  if (f.size > 20 * 1024 * 1024) {
-    warnLater('文件超过 20MB，请拆分后再传。')
-    return
-  }
-  openXiaojiPopup({ mode: 'upload', file: f })
+  if (badType) warnLater('视频/音频/压缩包暂时不支持；可以上传截图、讲义或 PDF。')
+  if (tooBig) warnLater('有文件超过 20MB，已跳过；请拆分后再传。')
+  if (!ok.length) return
+  if (ok.length === 1) openXiaojiPopup({ mode: 'upload', file: ok[0] })
+  else openXiaojiPopup({ mode: 'upload', files: ok.slice(0, 5) })
 }
 
 function unstickTransition() {

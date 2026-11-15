@@ -39,6 +39,9 @@ def _load_syllabi():
 
 def _load_paper(paper_id: str) -> Optional[dict]:
     """加载套卷 JSON 文件"""
+    # 防路径穿越：paper_id 来自 URL/run input，不能拼出 ../..
+    if not paper_id or "/" in paper_id or "\\" in paper_id or ".." in paper_id:
+        return None
     file_path = EXAM_DIR / f"{paper_id}.json"
     if not file_path.exists():
         return None
@@ -289,7 +292,8 @@ async def submit_exam_paper(paper_id: str, data: ExamSubmitRequest):
                 q_score = q.get("score", 3.55) if is_correct else 0
                 sec_score += q_score
 
-                r = {"section": sec["name"], "index": q["blank_index"],
+                r = {"section": sec["name"], "section_order": sec["order"],
+                     "index": q["blank_index"],
                      "question_type": "banked_cloze", "user_answer": user_ans,
                      "correct_answer": correct, "is_correct": is_correct,
                      "score": q_score, "max_score": q.get("score", 3.55),
@@ -297,6 +301,7 @@ async def submit_exam_paper(paper_id: str, data: ExamSubmitRequest):
                 if not is_correct:
                     r["word_bank_letter"] = correct
                     r["context"] = sec.get("passage", "")[:500]
+                    r["analysis_key"] = f"{sec['order']}_{q['blank_index']}"
                     wrong_questions.append(r)
                 all_question_results.append(r)
         else:
@@ -309,7 +314,8 @@ async def submit_exam_paper(paper_id: str, data: ExamSubmitRequest):
                 if q.get("ai_grade"):
                     ai_result = await _ai_grade_question(q, user_ans, paper["syllabus_id"])
                     q_score = ai_result.get("score", 0)
-                    r = {"section": sec["name"], "index": idx,
+                    r = {"section": sec["name"], "section_order": sec["order"],
+                         "index": idx,
                          "question_type": q.get("question_type"),
                          "user_answer": user_ans[:2000], "score": q_score,
                          "max_score": q_max, "graded_by": "ai",
@@ -322,7 +328,8 @@ async def submit_exam_paper(paper_id: str, data: ExamSubmitRequest):
                     correct = q.get("answer", "").strip().upper()
                     is_correct = user_ans.strip().upper() == correct
                     q_score = q_max if is_correct else 0
-                    r = {"section": sec["name"], "index": idx,
+                    r = {"section": sec["name"], "section_order": sec["order"],
+                         "index": idx,
                          "question_type": "choice", "user_answer": user_ans.strip().upper(),
                          "correct_answer": correct, "is_correct": is_correct,
                          "score": q_score, "max_score": q_max,
@@ -330,13 +337,15 @@ async def submit_exam_paper(paper_id: str, data: ExamSubmitRequest):
                     if not is_correct:
                         r["stem_snippet"] = (q.get("stem") or q.get("content", {}).get("stem", ""))[:300]
                         r["passage_snippet"] = sec.get("passage", "")[:300]
+                        r["analysis_key"] = f"{sec['order']}_{idx}"
                         wrong_questions.append(r)
                     all_question_results.append(r)
                 else:
                     correct = str(q.get("answer", "")).strip()
                     is_correct = user_ans.strip().lower() == correct.lower()
                     q_score = q_max if is_correct else 0
-                    r = {"section": sec["name"], "index": idx,
+                    r = {"section": sec["name"], "section_order": sec["order"],
+                         "index": idx,
                          "question_type": q.get("question_type"),
                          "user_answer": user_ans[:500], "correct_answer": correct,
                          "is_correct": is_correct, "score": q_score,
@@ -344,6 +353,7 @@ async def submit_exam_paper(paper_id: str, data: ExamSubmitRequest):
                          "graded_by": "auto"}
                     if not is_correct:
                         r["stem_snippet"] = (q.get("stem") or q.get("content", {}).get("stem", ""))[:300]
+                        r["analysis_key"] = f"{sec['order']}_{idx}"
                         wrong_questions.append(r)
                     all_question_results.append(r)
 
@@ -353,14 +363,28 @@ async def submit_exam_paper(paper_id: str, data: ExamSubmitRequest):
         section_results.append({"order": sec["order"], "name": sec["name"],
             "score": round(sec_score, 1), "max_score": sec_max, "disabled": False})
 
-    # 后台生成错题 AI 分析（批量，不阻塞响应）
-    if wrong_questions:
-        import asyncio
-        asyncio.create_task(_batch_ai_analyze_wrong(wrong_questions, all_question_results, data.user_id))
-
-    # 保存记录
+    # 先保存记录：交卷解析要写回这条记录，不能再像旧实现那样在保存后才改内存。
     record_id = await _save_paper_record(paper_id, data.user_id, earned_total, total_available,
                                          section_results, all_question_results, data.elapsed_seconds)
+
+    # 交卷解析：真实创建 agent run（错题归因 → 核对 → 写回 → 汇总），
+    # 与交卷响应解耦；前端拿 analysis_run_id 打开悬浮协作面板。
+    analysis_run_id = None
+    if wrong_questions and record_id:
+        try:
+            from routers.agents import start_workflow_run
+            analysis_run_id = await start_workflow_run(
+                data.user_id, "exam_analysis",
+                {"paper_id": paper_id, "record_id": record_id,
+                 "paper_name": paper.get("name") or paper_id,
+                 "wrong_questions": wrong_questions,
+                 "wrong_count": len(wrong_questions),
+                 "total_score": round(earned_total, 1),
+                 "max_score": total_available},
+                mode="team",
+                title=f"交卷解析：{paper.get('name') or paper_id}")
+        except Exception as e:
+            logger.info(f"[真题] 交卷解析 run 创建失败（不影响交卷）: {e}")
 
     # 批改完成 → 告诉本人。
     # ⚠️ 必须判 `record_id`：`_save_paper_record` 落库失败时**只 print 并返回 None**，
@@ -384,83 +408,15 @@ async def submit_exam_paper(paper_id: str, data: ExamSubmitRequest):
         "score_pct": round(earned_total / total_available * 100, 1) if total_available > 0 else 0,
         "section_scores": section_results, "question_results": all_question_results,
         "elapsed_seconds": data.elapsed_seconds,
-        "ai_analyzing": len(wrong_questions),
+        "analysis_run_id": analysis_run_id,
+        "ai_analyzing": len(wrong_questions) if analysis_run_id else 0,
         "has_ai_grading": any(r.get("graded_by") == "ai" for r in all_question_results),
     }
 
 
 # ==================== 4. AI 批改 + 错题分析 ====================
 
-async def _batch_ai_analyze_wrong(wrong_questions: list, all_results: list, user_id: str):
-    """后台批量 AI 分析错题，更新 all_results 中的对应条目"""
-    from agents.llm_client import call_llm
-    import copy
-
-    # 批量处理，每次最多 5 题
-    for i in range(0, len(wrong_questions), 5):
-        batch = wrong_questions[i:i+5]
-        if len(batch) == 1:
-            q = batch[0]
-            prompt = _build_wrong_answer_prompt(q)
-        else:
-            prompt = _build_batch_wrong_prompt(batch)
-
-        try:
-            response = call_llm([
-                {"role": "system", "content": "你是学习诊断专家。分析学生错题原因，给出个性化改进建议。只输出 JSON 数组。"},
-                {"role": "user", "content": prompt}
-            ], temperature=0.5)
-            # 解析 AI 分析
-            import re
-            m = re.search(r'\[[\s\S]*\]', response)
-            if m:
-                analyses = json.loads(m.group())
-                for a in analyses:
-                    idx = a.get("index")
-                    # 更新 all_results 中对应条目
-                    for r in all_results:
-                        if str(r.get("index")) == str(idx) and not r.get("is_correct") and r.get("graded_by") == "auto":
-                            r["ai_mistake_analysis"] = a.get("reason", "")
-                            r["ai_correction"] = a.get("correction", "")
-                            r["ai_study_tip"] = a.get("study_tip", "")
-                            break
-        except Exception as e:
-            print(f"[AI错题分析] 批次失败: {e}")
-
-
-def _build_wrong_answer_prompt(q):
-    """为单道错题构建 AI 分析 prompt"""
-    qtype = q.get("question_type", "choice")
-    user_ans = q.get("user_answer", "")
-    correct = q.get("correct_answer", "")
-    explanation = q.get("explanation", "")
-    stem = q.get("stem_snippet", q.get("context", ""))[:200]
-
-    return f"""分析学生这道错题：
-
-题型：{qtype}
-题目：{stem}
-学生答案：{user_ans}
-正确答案：{correct}
-知识点解析：{explanation}
-
-请输出 JSON：
-{{"index": "{q.get('index')}", "reason": "学生选错的原因（30字内）", "correction": "正确思路（40字内）", "study_tip": "针对性的学习建议（30字内）"}}"""
-
-
-def _build_batch_wrong_prompt(batch):
-    """为多道错题构建批量 AI 分析 prompt"""
-    items = []
-    for q in batch:
-        stem = q.get("stem_snippet", q.get("context", ""))[:150]
-        items.append(f"题{q.get('index')}: {stem}\n  学生选:{q.get('user_answer')} 正确:{q.get('correct_answer')} 解析:{q.get('explanation','')[:100]}")
-
-    return f"""分析以下 {len(batch)} 道错题，每题分析学生选错的原因和改进建议：
-
-{chr(10).join(items)}
-
-输出 JSON 数组：
-[{{"index": "题号", "reason": "选错原因（30字内）", "correction": "正确思路（40字内）", "study_tip": "针对性的学习建议（30字内）"}}]"""
+# 错题解析已迁移到 services/exam_analysis.py（2026-11-14，走 agent run）
 
 # 题目未自带 grading_rubric 时，按考纲学科选用的通用评分口径（非四级专属）
 _FAMILY_RUBRICS = {
@@ -701,20 +657,25 @@ async def _get_user_paper_history(paper_id: str, user_id: str) -> Optional[dict]
             q_stats = defaultdict(lambda: {"attempts": 0, "correct": 0, "answers": [], "ai_feedback": None})
             for qr in all_q_results:
                 idx = qr.get("index")
-                q_stats[idx]["attempts"] += 1
-                if qr.get("is_correct"):
-                    q_stats[idx]["correct"] += 1
-                q_stats[idx]["answers"].append(qr.get("user_answer", ""))
-                # 保留最新一条 AI 反馈
-                if qr.get("graded_by") == "ai" and not q_stats[idx]["ai_feedback"]:
-                    q_stats[idx]["ai_feedback"] = {
-                        "score": qr.get("score"),
-                        "max_score": qr.get("max_score"),
-                        "feedback": qr.get("ai_feedback", ""),
-                        "highlights": qr.get("ai_highlights", []),
-                        "errors": qr.get("ai_errors", []),
-                        "suggestion": qr.get("ai_suggestion", ""),
-                    }
+                # 新记录带 section_order：同时写复合键和 index 键，兼容旧前端/旧数据
+                keys = [idx]
+                if qr.get("section_order") is not None:
+                    keys.append(f"{qr['section_order']}_{idx}")
+                for key in keys:
+                    q_stats[key]["attempts"] += 1
+                    if qr.get("is_correct"):
+                        q_stats[key]["correct"] += 1
+                    q_stats[key]["answers"].append(qr.get("user_answer", ""))
+                    # 保留最新一条 AI 反馈
+                    if qr.get("graded_by") == "ai" and not q_stats[key]["ai_feedback"]:
+                        q_stats[key]["ai_feedback"] = {
+                            "score": qr.get("score"),
+                            "max_score": qr.get("max_score"),
+                            "feedback": qr.get("ai_feedback", ""),
+                            "highlights": qr.get("ai_highlights", []),
+                            "errors": qr.get("ai_errors", []),
+                            "suggestion": qr.get("ai_suggestion", ""),
+                        }
 
             question_accuracy = {}
             for idx, stats in q_stats.items():
@@ -731,7 +692,12 @@ async def _get_user_paper_history(paper_id: str, user_id: str) -> Optional[dict]
             latest_qr = latest.get("question_results")
             if isinstance(latest_qr, str):
                 latest_qr = json.loads(latest_qr)
-            latest_results = {str(r.get("index")): r for r in (latest_qr or [])}
+            latest_results = {}
+            for r in (latest_qr or []):
+                idx = str(r.get("index"))
+                latest_results[idx] = r
+                if r.get("section_order") is not None:
+                    latest_results[f"{r['section_order']}_{idx}"] = r
 
             return {
                 "has_history": True,

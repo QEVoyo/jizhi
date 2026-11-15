@@ -4,7 +4,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from pathlib import Path
 from logging_config import logger
-from utils import gen_audit
+from utils import gen_audit, llm_usage
 
 # 加载环境变量
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -78,6 +78,7 @@ def call_llm(messages, temperature=0.7, use_cache=True, purpose="unknown"):
         raise
     logger.info("=== llm_stream 返回了 ===")  # 加这行
     content = response.choices[0].message.content
+    llm_usage.add(_PROVIDER, get_model(), getattr(response, "usage", None))
     gen_audit.note_ok(provider=_PROVIDER, model=get_model(), purpose=purpose,
                       started=started, output=content)
     return content
@@ -155,6 +156,7 @@ def call_llm_vision(image_url, prompt="请描述这张图片的内容", temperat
                             purpose=purpose, started=started, error=e)
         raise
     content = response.choices[0].message.content
+    llm_usage.add(_PROVIDER, get_vision_model(), getattr(response, "usage", None))
     gen_audit.note_ok(provider=_PROVIDER, model=get_vision_model(), purpose=purpose,
                       started=started, output=content)
     return content

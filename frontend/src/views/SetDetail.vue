@@ -18,6 +18,10 @@
 
       <!-- 题目列表 -->
       <div v-if="questions.length">
+        <p v-if="failedCount" class="load-warn">
+          有 {{ failedCount }} 道题暂时加载失败，
+          <el-button link type="primary" @click="loadData">重试</el-button>
+        </p>
         <el-input v-model="searchQuery" placeholder="🔍 搜索题目" style="max-width:300px; margin-bottom:12px;" />
 
         <div v-for="q in filteredQuestions" :key="q.id" class="question-item">
@@ -41,7 +45,11 @@
           </div>
         </div>
       </div>
-      <div v-else class="empty-state">📭 这个题集还没有题目</div>
+      <div v-else-if="!loading && failedCount" class="empty-state">
+        有 {{ failedCount }} 道题暂时加载失败，可能是网络抖动。
+        <el-button size="small" type="primary" @click="loadData">重试</el-button>
+      </div>
+      <div v-else-if="!loading" class="empty-state">📭 这个题集还没有题目</div>
     </div>
   </div>
 </template>
@@ -63,6 +71,7 @@ const setData = ref(null)
 const questions = ref([])
 const searchQuery = ref('')
 const loading = ref(true)
+const failedCount = ref(0)
 
 const questionIds = computed(() => setData.value?.question_ids || [])
 
@@ -104,14 +113,16 @@ async function loadData() {
   }
 
   loading.value = true
+  failedCount.value = 0
   try {
     setData.value = await getQuestionSetDetail(id)
+    // 并发取题：单题慢/失败不能把整个题集卡成“空”
+    const ids = setData.value.question_ids || []
+    const results = await Promise.allSettled(ids.map(qId => getQuestionDetail(qId)))
     const qs = []
-    for (const qId of (setData.value.question_ids || [])) {
-      try {
-        const q = await getQuestionDetail(qId)
-        if (q) qs.push(q)
-      } catch {}
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value) qs.push(r.value)
+      else failedCount.value += 1
     }
     questions.value = qs
   } catch (error) {
@@ -199,5 +210,10 @@ onMounted(loadData)
   color: var(--text-muted);
   padding: 24px 0;
   text-align: center;
+}
+.load-warn {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #d48806;
 }
 </style>

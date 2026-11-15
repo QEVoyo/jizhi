@@ -57,7 +57,11 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     user_id UUID NOT NULL,
     workflow_key TEXT NOT NULL,            -- question_gen / evaluate / file_to_questions / tuning_debate
     mode TEXT NOT NULL DEFAULT 'auto',     -- auto / quick / team / background
-    status TEXT NOT NULL DEFAULT 'queued', -- queued / running / completed / failed / cancelled
+    status TEXT NOT NULL DEFAULT 'queued', -- queued / running / paused / awaiting_confirm / confirmed / completed / failed / cancelled
+    title TEXT NOT NULL DEFAULT '',        -- 任务中心展示名（如「生成：高数讲义.pdf」）
+    link TEXT NOT NULL DEFAULT '',         -- 完成后跳转（如 /set-detail?id=...）
+    progress INT NOT NULL DEFAULT 0,       -- 0-100，任务中心/小基进度环用
+    stage TEXT NOT NULL DEFAULT '',        -- queued / extracting / profiling / seeding / awaiting_confirm / generating / crosschecking / saving / ready ...
     input JSONB NOT NULL DEFAULT '{}'::jsonb,
     state JSONB NOT NULL DEFAULT '{}'::jsonb,
     output JSONB,
@@ -71,6 +75,25 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     started_at TIMESTAMPTZ,
     finished_at TIMESTAMPTZ
 );
+
+-- 老库补列（2026-10-31：任务中心与智能体中心合并，run 即任务）
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS link TEXT NOT NULL DEFAULT '';
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS progress INT NOT NULL DEFAULT 0;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS stage TEXT NOT NULL DEFAULT '';
+
+-- 老库补列（2026-11-02：任务控制层 —— 排序/暂停/删除/重试/心跳）
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT '';
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS queue_pos INT NOT NULL DEFAULT 0;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS pause_requested BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS checkpoint JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS lease_owner TEXT NOT NULL DEFAULT '';
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS attempt INT NOT NULL DEFAULT 1;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS retry_of UUID;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 -- ============================================================
 -- 3. 节点级轨迹 / 检查点
@@ -217,11 +240,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_patrol_events_dedupe
 CREATE TABLE IF NOT EXISTS upload_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
+    run_id UUID,                            -- 关联 agent_runs（任务中心与智能体中心共用一条记录）
+    batch_id UUID,                          -- 多文件批量出题时同组
     filename TEXT NOT NULL DEFAULT '',
     mime TEXT NOT NULL DEFAULT '',
     size BIGINT NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'uploaded', -- uploaded / parsing / profiling / seeding / awaiting_confirm / generating / ready / failed
+    status TEXT NOT NULL DEFAULT 'queued',  -- queued / parsing / paused / awaiting_confirm / confirmed / generating / ready / failed / cancelled
     progress INT NOT NULL DEFAULT 0,
+    stage TEXT NOT NULL DEFAULT '',         -- queued / extracting / profiling / seeding / awaiting_confirm / generating / crosschecking / saving / ready ...
+    cancel_requested BOOLEAN NOT NULL DEFAULT FALSE,
     source_type TEXT NOT NULL DEFAULT '',   -- pdf / pptx / docx / xlsx / image / text
     profile JSONB NOT NULL DEFAULT '{}'::jsonb,
     seed_count INT NOT NULL DEFAULT 0,
@@ -231,8 +258,26 @@ CREATE TABLE IF NOT EXISTS upload_jobs (
     error TEXT,
     result_set_id UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    queued_at TIMESTAMPTZ,
+    started_at TIMESTAMPTZ,
+    finished_at TIMESTAMPTZ
 );
+
+-- 老库补列（2026-10-31：上传任务接入 agent_runs + 跨页进度/取消）
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS run_id UUID;
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS batch_id UUID;
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS stage TEXT NOT NULL DEFAULT '';
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS cancel_requested BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS queued_at TIMESTAMPTZ;
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;
+
+-- 老库补列（2026-11-02：暂停/继续 + 可恢复生成）
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS pause_requested BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ;
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS pause_stage TEXT NOT NULL DEFAULT '';
+ALTER TABLE upload_jobs ADD COLUMN IF NOT EXISTS arq_job_id TEXT NOT NULL DEFAULT '';
 
 -- ============================================================
 -- 11. 可出题点（抽象结果）
@@ -258,6 +303,26 @@ CREATE TABLE IF NOT EXISTS upload_seeds (
     generated_question_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (job_id, seed_key)
+);
+
+-- ============================================================
+-- 11.1 生成单元（可暂停/继续的检查点）
+-- ============================================================
+-- 上传生成以前只在内存里 gather；暂停/worker 崩溃后无法续跑。
+-- 每个「种子 × 题型」落一行，题目生成完就写回，恢复时跳过已完成单元。
+CREATE TABLE IF NOT EXISTS upload_job_units (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id UUID NOT NULL REFERENCES upload_jobs(id) ON DELETE CASCADE,
+    run_id UUID,
+    idx INT NOT NULL,
+    seed_id UUID,
+    qtype TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending', -- pending / generating / done / failed / skipped
+    question JSONB,
+    error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (job_id, idx)
 );
 
 -- ============================================================
@@ -308,6 +373,7 @@ ALTER TABLE generation_history ADD COLUMN IF NOT EXISTS upload_job_id UUID;
 -- ============================================================
 CREATE INDEX IF NOT EXISTS idx_agent_runs_user ON agent_runs(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_workflow ON agent_runs(workflow_key, status);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_active ON agent_runs(user_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_agent_run_steps_run ON agent_run_steps(run_id, node_key);
 CREATE INDEX IF NOT EXISTS idx_agent_messages_run ON agent_messages(run_id, seq);
 CREATE INDEX IF NOT EXISTS idx_agent_memory_user ON agent_memory(user_id, scope, kind);
@@ -315,7 +381,14 @@ CREATE INDEX IF NOT EXISTS idx_agent_decisions_user ON agent_decisions(user_id, 
 CREATE INDEX IF NOT EXISTS idx_patrol_events_user ON patrol_events(user_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_patrol_user_state_user ON patrol_user_state(user_id, rule_key);
 CREATE INDEX IF NOT EXISTS idx_upload_jobs_user ON upload_jobs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_upload_jobs_active ON upload_jobs(user_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_upload_jobs_run ON upload_jobs(run_id);
 CREATE INDEX IF NOT EXISTS idx_upload_seeds_job ON upload_seeds(job_id, questionability DESC);
+CREATE INDEX IF NOT EXISTS idx_upload_job_units_job ON upload_job_units(job_id, status, idx);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_user_queue
+    ON agent_runs(user_id, status, queue_pos, created_at) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_agent_runs_user_active
+    ON agent_runs(user_id, updated_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_questions_source_file ON questions(source_file_id);
 CREATE INDEX IF NOT EXISTS idx_generation_history_source ON generation_history(user_id, source, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_question_sets_source ON question_sets(user_id, source, created_at DESC);
@@ -334,6 +407,7 @@ ALTER TABLE patrol_user_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patrol_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE upload_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE upload_seeds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE upload_job_units ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "API can manage agent defs" ON agent_defs;
 DROP POLICY IF EXISTS "API can manage agent runs" ON agent_runs;
@@ -346,6 +420,7 @@ DROP POLICY IF EXISTS "API can manage patrol user state" ON patrol_user_state;
 DROP POLICY IF EXISTS "API can manage patrol events" ON patrol_events;
 DROP POLICY IF EXISTS "API can manage upload jobs" ON upload_jobs;
 DROP POLICY IF EXISTS "API can manage upload seeds" ON upload_seeds;
+DROP POLICY IF EXISTS "API can manage upload job units" ON upload_job_units;
 
 CREATE POLICY "API can manage agent defs" ON agent_defs FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "API can manage agent runs" ON agent_runs FOR ALL USING (true) WITH CHECK (true);
@@ -358,6 +433,7 @@ CREATE POLICY "API can manage patrol user state" ON patrol_user_state FOR ALL US
 CREATE POLICY "API can manage patrol events" ON patrol_events FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "API can manage upload jobs" ON upload_jobs FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "API can manage upload seeds" ON upload_seeds FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "API can manage upload job units" ON upload_job_units FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================
 -- 授权（Supabase 手工建表不会自动 GRANT）
@@ -373,6 +449,46 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.patrol_user_state TO anon, authen
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.patrol_events TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.upload_jobs TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.upload_seeds TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.upload_job_units TO anon, authenticated, service_role;
+
+-- ============================================================
+-- 原子重排（拖拽排序）
+-- ============================================================
+-- 只允许排自己的 queued / paused 任务；返回真正更新的行数。
+-- 后端必须校验返回值 == len(p_ids)，少一行就说明有任务不属于本人或状态不允许。
+CREATE OR REPLACE FUNCTION reorder_agent_runs(p_user_id UUID, p_ids UUID[])
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    n INT;
+BEGIN
+    -- 服务端调用（service_role）时 auth.uid() 为 NULL；浏览器直连时只允许排自己
+    IF auth.uid() IS NOT NULL AND auth.uid() <> p_user_id THEN
+        RETURN 0;
+    END IF;
+
+    WITH ord AS (
+        SELECT id, (ord - 1)::int AS pos
+        FROM unnest(p_ids) WITH ORDINALITY AS t(id, ord)
+    ), upd AS (
+        UPDATE agent_runs r
+        SET queue_pos = ord.pos, updated_at = NOW()
+        FROM ord
+        WHERE r.id = ord.id
+          AND r.user_id = p_user_id
+          AND r.deleted_at IS NULL
+          AND r.status IN ('queued', 'paused')
+        RETURNING 1
+    )
+    SELECT count(*) INTO n FROM upd;
+    RETURN n;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION reorder_agent_runs(UUID, UUID[]) TO anon, authenticated, service_role;
 
 -- ============================================================
 -- 巡检规则种子（可在后台/前端覆盖 config）

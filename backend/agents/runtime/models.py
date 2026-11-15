@@ -56,6 +56,7 @@ class Node:
     when: str = "always"
     timeout_s: float = 120.0
     optional: bool = False           # 失败不阻断后续，只在轨迹里标 failed
+    to_agent: str = "conductor"      # A2A 消息收件人；圆桌节点发给主控 Judge
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,7 @@ class Workflow:
     description: str
     nodes: tuple[Node, ...]
     status: str = "ready"            # ready / planned（planned 只展示，不允许运行）
+    final_key: str = "aggregate"     # 最终产物对应的节点 key
 
     def node_map(self) -> dict[str, Node]:
         return {n.key: n for n in self.nodes}
@@ -73,6 +75,8 @@ class Workflow:
         keys = {n.key for n in self.nodes}
         if len(keys) != len(self.nodes):
             raise ValueError(f"工作流 {self.key} 有重复节点")
+        if self.final_key not in keys:
+            raise ValueError(f"工作流 {self.key} 的 final_key 不存在: {self.final_key}")
         for n in self.nodes:
             for d in n.deps:
                 if d not in keys:

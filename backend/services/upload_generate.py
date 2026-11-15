@@ -22,11 +22,23 @@ import httpx
 
 from config import settings
 from logging_config import logger
-from services import upload_jobs
+from services import upload_jobs, upload_runs
 
 QWEN_MODEL = getattr(settings, "QWEN_REASON_MODEL", "qwen-plus")
 MAX_PER_RUN = 20
 CONCURRENCY = 3
+
+# 跨任务的总闸门：多个上传任务同时生成时，所有单题调用共用这一个信号量。
+# 单任务的 CONCURRENCY=3 只管本任务；没有总闸门，4 个任务就是 12 路并发。
+_GLOBAL_LLM_SEM: Optional[asyncio.Semaphore] = None
+
+
+def _global_llm_sem() -> asyncio.Semaphore:
+    global _GLOBAL_LLM_SEM
+    if _GLOBAL_LLM_SEM is None:
+        _GLOBAL_LLM_SEM = asyncio.Semaphore(
+            int(getattr(settings, "UPLOAD_LLM_CONCURRENCY", 6)))
+    return _GLOBAL_LLM_SEM
 
 
 def _headers(prefer: str = "") -> dict:
@@ -342,74 +354,384 @@ async def _notify(user_id: str, filename: str, set_id: str,
         logger.error(f"[upload] 生成完成通知未送达: {e}")
 
 
-async def generate_for_job(job_id: str, user_id: str) -> dict:
+# ==================== 生成单元检查点（2026-11-02） ====================
+# 暂停/继续的前提不是「改个状态」，而是每道题都有地方落盘：
+#   · 每个「种子 × 题型」在 upload_job_units 里一行；
+#   · 生成完一道就写回，恢复时跳过已完成单元；
+#   · worker 只在题目边界停，不假装能打断正在跑的 LLM 调用。
+
+_UNIT_FIELDS = ("id,job_id,run_id,idx,seed_id,qtype,status,question,error")
+
+
+async def _list_units(job_id: str) -> list:
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            res = await client.get(_base("upload_job_units"), headers=_headers(), params={
+                "job_id": f"eq.{job_id}", "select": _UNIT_FIELDS,
+                "order": "idx.asc", "limit": "100",
+            })
+        return res.json() if res.status_code == 200 and isinstance(res.json(), list) else []
+    except Exception as e:
+        logger.info(f"[upload] 读生成单元失败: {e}")
+        return []
+
+
+async def _insert_units(job_id: str, run_id: Optional[str],
+                        items: list[tuple[int, dict]]) -> bool:
+    if not items:
+        return True
+    payload = []
+    for idx, item in items:
+        payload.append({
+            "job_id": job_id, "run_id": run_id or None, "idx": idx,
+            "seed_id": item.get("seed_id") or None,
+            "qtype": item.get("qtype") or "",
+            "status": "pending",
+            "created_at": _now(), "updated_at": _now(),
+        })
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            res = await client.post(
+                f"{_base('upload_job_units')}",
+                headers=_headers("return=minimal"), json=payload)
+        if res.status_code < 300:
+            return True
+        # 并发恢复时可能撞唯一键；重新读一遍即可
+        logger.info(f"[upload] 写生成单元失败 {res.status_code}: {res.text[:160]}")
+    except Exception as e:
+        logger.info(f"[upload] 写生成单元异常: {e}")
+    return False
+
+
+async def _update_unit(unit_id: str, **fields: Any) -> bool:
+    if not unit_id or not fields:
+        return False
+    fields.setdefault("updated_at", _now())
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            res = await client.patch(
+                f"{_base('upload_job_units')}?id=eq.{unit_id}",
+                headers=_headers("return=minimal"), json=fields)
+        return res.status_code < 300
+    except Exception as e:
+        logger.info(f"[upload] 更新生成单元失败: {e}")
+        return False
+
+
+def _build_plan(seeds: list[dict], count: int, types: list[str]) -> list[dict]:
+    type_map = {"选择题": "choice", "判断题": "judge", "填空题": "fill",
+                "计算题": "calculation", "简答题": "essay", "论述题": "essay"}
+    plan: list[dict] = []
+    if not seeds:
+        return plan
+    for i in range(count):
+        seed = seeds[i % len(seeds)]
+        qtype = types[i % len(types)]
+        forms = seed.get("question_forms") or []
+        if qtype not in forms and forms:
+            qtype = type_map.get(forms[0], "choice")
+        plan.append({"seed_id": seed.get("id"), "qtype": qtype})
+    return plan
+
+
+async def _stop_state(job_id: str, user_id: str) -> str:
+    """返回 '' / paused / cancelled。每个题目边界查一次。"""
+    if await upload_runs.is_cancelled(job_id, user_id):
+        return "cancelled"
+    job = await upload_jobs.get_job(job_id, user_id)
+    if not job:
+        return "cancelled"
+    if job.get("pause_requested") or job.get("status") == "paused":
+        return "paused"
+    return ""
+
+
+async def _generate_units(job_id: str, user_id: str, run_id: Optional[str],
+                          seeds_by_id: dict, plan: list[dict], profile: dict,
+                          difficulty: str) -> str:
+    """按单元生成题目。返回 done / paused / cancelled。"""
+    existing = await _list_units(job_id)
+    have = {int(u.get("idx") or 0) for u in existing}
+    missing = [(i, item) for i, item in enumerate(plan) if i not in have]
+    if missing:
+        await _insert_units(job_id, run_id, missing)
+        existing = await _list_units(job_id)
+    if not existing:
+        raise RuntimeError(
+            "生成单元表不可用（upload_job_units）；请先执行 "
+            "backend/sql/agent_orchestration.sql")
+
+    # 上次 worker 崩在「正在生成」的单元，恢复时重新排队；
+    # 失败单元也允许再试一次（LLM 抖动不该让整批永久失败）。
+    reset = False
+    for u in existing:
+        if u.get("status") == "generating":
+            await _update_unit(u["id"], status="pending")
+            reset = True
+        elif u.get("status") == "failed":
+            await _update_unit(u["id"], status="pending", error=None)
+            reset = True
+    if reset:
+        existing = await _list_units(job_id)
+
+    total = max(1, len(existing))
+    completed = len([u for u in existing
+                     if u.get("status") in ("done", "failed", "skipped")])
+    done = len([u for u in existing if u.get("status") == "done"])
+    pending = [u for u in existing if u.get("status") == "pending"]
+
+    progress_lock = asyncio.Lock()
+    counts = {"completed": completed, "done": done}
+
+    async def report():
+        pct = 5 + int(75 * counts["completed"] / total)
+        rpct = 25 + int(60 * counts["completed"] / total)
+        await upload_runs.set_progress(
+            job_id, run_id, pct, "generating",
+            run_progress=rpct, generated_count=counts["done"])
+
+    # 恢复时先把真实进度写回去，别让界面从 5% 重新爬
+    await report()
+
+    if not pending:
+        return "done"
+
+    q: asyncio.Queue = asyncio.Queue()
+    for u in pending:
+        q.put_nowait(u)
+    stop = asyncio.Event()
+
+    async def one_unit():
+        while not stop.is_set():
+            try:
+                unit = q.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            state = await _stop_state(job_id, user_id)
+            if state:
+                stop.set()
+                return
+            seed = seeds_by_id.get(str(unit.get("seed_id") or "").lower())
+            if not seed:
+                await _update_unit(unit["id"], status="skipped",
+                                   error="可出题点已删除")
+                async with progress_lock:
+                    counts["completed"] += 1
+                    await report()
+                continue
+
+            await _update_unit(unit["id"], status="generating", error=None)
+            err = ""
+            qobj = None
+            try:
+                async with _global_llm_sem():
+                    qobj = await _call_one(
+                        seed, unit.get("qtype") or "choice", difficulty, profile)
+            except Exception as e:                          # noqa: BLE001
+                err = str(e)[:300]
+                logger.info(f"[upload] 单元 {unit.get('idx')} 生成失败: {err}")
+            if qobj:
+                await _update_unit(unit["id"], status="done",
+                                   question=qobj, error=None)
+            else:
+                await _update_unit(unit["id"], status="failed",
+                                   error=err or "未通过结构/命题校验")
+
+            async with progress_lock:
+                counts["completed"] += 1
+                if qobj:
+                    counts["done"] += 1
+                await report()
+
+            if await _stop_state(job_id, user_id):
+                stop.set()
+                return
+
+    workers = [asyncio.create_task(one_unit())
+               for _ in range(max(1, min(CONCURRENCY, len(pending))))]
+    await asyncio.gather(*workers, return_exceptions=True)
+
+    state = await _stop_state(job_id, user_id)
+    if state:
+        return state
+    return "done"
+
+
+async def _mark_paused_from_units(job_id: str, user_id: str, run_id: Optional[str],
+                                  stage: str = "paused") -> None:
+    units = await _list_units(job_id)
+    total = max(1, len(units))
+    completed = len([u for u in units
+                     if u.get("status") in ("done", "failed", "skipped")])
+    await upload_jobs.mark_paused(
+        job_id, user_id, run_id,
+        progress=5 + int(75 * completed / total),
+        run_progress=25 + int(60 * completed / total),
+        stage=stage)
+
+
+async def generate_for_job(job_id: str, user_id: str,
+                           run_id: Optional[str] = None) -> dict:
     job = await upload_jobs.get_job(job_id, user_id)
     if not job:
         return {"ok": False, "error": "上传任务不存在"}
-    if job.get("status") not in ("confirmed", "generating"):
+    run_id = run_id or job.get("run_id")
+    if job.get("status") == "cancelled" or job.get("cancel_requested"):
+        await upload_runs.mark_cancelled(job_id, user_id, run_id)
+        return {"ok": False, "cancelled": True}
+    if job.get("status") not in ("confirmed", "queued", "generating", "paused"):
         return {"ok": False, "error": f"当前状态不能生成：{job.get('status')}"}
+
+    _profile = job.get("profile") or {}
+    if isinstance(_profile, str):
+        try:
+            _profile = json.loads(_profile)
+        except (ValueError, TypeError):
+            _profile = {}
+    profile = dict(_profile)
+    phase = str(profile.get("generate_phase") or "")
+
+    # 暂停状态被误投递（例如队列里还留着旧 job）：直接确认暂停，不干活
+    if job.get("status") == "paused" or job.get("pause_requested"):
+        if phase in ("", "generating", "verifying"):
+            await _mark_paused_from_units(job_id, user_id, run_id)
+            return {"ok": True, "paused": True}
+        return {"ok": False, "error": "任务已暂停"}
+
+    if phase == "done" or job.get("status") == "ready":
+        return {"ok": True, "already": True}
+    if phase == "saving":
+        # 落库阶段中断：题目可能已经写了一半，自动重跑会重复
+        await upload_runs.mark_failed(
+            job_id, user_id, run_id,
+            "上次在保存阶段中断，可能有部分题目已写入；为避免重复，请重新上传",
+            job.get("filename") or "上传文件")
+        return {"ok": False, "error": "保存阶段中断，已停止自动重试"}
+
+    # 老库/老任务没有 phase：保留原来的「有产出就不自动重跑」保护
+    if not phase and job.get("status") == "generating" \
+            and int(job.get("generated_count") or 0) > 0:
+        await upload_runs.mark_failed(
+            job_id, user_id, run_id,
+            "上次生成中途中断，已停止自动重试以免重复出题；请重新上传或联系管理员",
+            job.get("filename") or "上传文件")
+        return {"ok": False, "error": "生成中途中断，已停止重试"}
 
     seeds = await upload_jobs.get_selected_seeds(job_id, user_id)
     if not seeds:
         return {"ok": False, "error": "没有选中的可出题点"}
+    seeds_by_id = {str(s.get("id") or "").lower(): s for s in seeds}
 
-    profile = job.get("profile") or {}
-    if isinstance(profile, str):
-        try:
-            profile = json.loads(profile)
-        except (ValueError, TypeError):
-            profile = {}
     confirm = profile.get("confirm") or {}
     count = max(1, min(MAX_PER_RUN, int(confirm.get("count") or 8)))
-    types = [str(t) for t in (confirm.get("types") or ["选择题"])][:4] or ["选择题"]
-    difficulty = str(confirm.get("difficulty") or "中等")
     type_map = {"选择题": "choice", "判断题": "judge", "填空题": "fill",
                 "计算题": "calculation", "简答题": "essay", "论述题": "essay"}
-    types = [type_map.get(t, t if t in _TYPE_FIELDS else "choice") for t in types]
+    types = [type_map.get(str(t), str(t) if str(t) in
+                          ("choice", "judge", "fill", "calculation", "essay")
+                          else "choice")
+             for t in (confirm.get("types") or ["选择题"])][:4] or ["choice"]
+    difficulty = str(confirm.get("difficulty") or "中等")
 
-    await upload_jobs.update_job(job_id, status="generating", progress=5,
-                                 generated_count=0, passed_count=0, error=None)
+    plan = profile.get("generate_plan") or []
+    if phase != "verifying" and not plan:
+        plan = _build_plan(seeds, count, types)
+    profile["generate_plan"] = plan
+    if not phase:
+        phase = "generating"
+        profile["generate_phase"] = "generating"
+    await upload_jobs.update_job(job_id, profile=profile)
 
-    sem = asyncio.Semaphore(CONCURRENCY)
-    tasks = []
-    for i in range(count):
-        seed = seeds[i % len(seeds)]
-        qtype = types[i % len(types)]
-        # 如果该题型不在种子适合的题型里，优先用种子自己的第一个适合题型
-        forms = seed.get("question_forms") or []
-        if qtype not in forms and forms:
-            qtype = type_map.get(forms[0], "choice")
-        tasks.append((seed, qtype))
+    started = _now()
+    if phase == "generating":
+        await upload_runs.set_progress(
+            job_id, run_id, 5, "generating", run_progress=25,
+            status="generating", started_at=job.get("started_at") or started,
+            generated_count=int(job.get("generated_count") or 0),
+            passed_count=int(job.get("passed_count") or 0), error=None)
+        await upload_runs.set_run(
+            run_id, status="running", started_at=job.get("started_at") or started)
+        plan_step = await upload_runs.add_step(
+            run_id, "plan", status="running")
+        await upload_runs.finish_step(
+            plan_step, output={"count": len(plan), "types": types,
+                               "difficulty": difficulty, "seeds": len(seeds)})
+        gen_step = await upload_runs.add_step(
+            run_id, "generate", status="running",
+            input_data={"count": len(plan)})
+        state = await _generate_units(
+            job_id, user_id, run_id, seeds_by_id, plan, profile, difficulty)
+        if state == "cancelled":
+            await upload_runs.finish_step(gen_step, status="cancelled")
+            await upload_runs.mark_cancelled(job_id, user_id, run_id)
+            return {"ok": False, "cancelled": True}
+        if state == "paused":
+            await upload_runs.finish_step(gen_step, status="skipped")
+            await _mark_paused_from_units(job_id, user_id, run_id)
+            return {"ok": True, "paused": True}
 
-    async def one(seed, qtype):
-        async with sem:
-            return seed, await _call_one(seed, qtype, difficulty, profile)
+        profile["generate_phase"] = "verifying"
+        await upload_jobs.update_job(job_id, profile=profile)
+        units = await _list_units(job_id)
+        await upload_runs.finish_step(
+            gen_step, output={"generated": len(units),
+                              "done": len([u for u in units
+                                           if u.get("status") == "done"])})
+    elif phase == "verifying":
+        # 从「复核前」的暂停恢复：生成已全部完成，不再重跑单元
+        await upload_runs.set_progress(
+            job_id, run_id, 82, "crosschecking", run_progress=88,
+            status="generating", error=None)
+        await upload_runs.set_run(
+            run_id, status="running", started_at=job.get("started_at") or started)
+    else:
+        return {"ok": False, "error": f"未知生成阶段：{phase}"}
 
-    results = await asyncio.gather(*[one(s, t) for s, t in tasks],
-                                   return_exceptions=True)
+    # ---------- 独立复核 + 落库 ----------
+    state = await _stop_state(job_id, user_id)
+    if state == "cancelled":
+        await upload_runs.mark_cancelled(job_id, user_id, run_id)
+        return {"ok": False, "cancelled": True}
+    if state == "paused":
+        await _mark_paused_from_units(job_id, user_id, run_id)
+        return {"ok": True, "paused": True}
 
+    units = await _list_units(job_id)
+    if not units:
+        await upload_runs.mark_failed(
+            job_id, user_id, run_id,
+            "生成单元丢失，无法继续复核；请重新上传",
+            job.get("filename") or "上传文件")
+        return {"ok": False, "error": "生成单元丢失"}
     candidates: list[tuple[dict, dict]] = []
     dropped: list[dict] = []
-    for r in results:
-        if isinstance(r, Exception):
-            dropped.append({"reason": str(r)[:200]})
-            continue
-        seed, q = r
-        if not q:
-            dropped.append({"reason": "未通过结构/命题校验", "seed": seed.get("seed_key")})
-            continue
-        candidates.append((seed, q))
+    for u in units:
+        status = u.get("status")
+        seed = seeds_by_id.get(str(u.get("seed_id") or "").lower())
+        if status == "done" and u.get("question") and seed:
+            candidates.append((seed, u["question"]))
+        elif status == "failed":
+            dropped.append({"reason": (u.get("error") or "生成失败")[:200],
+                            "seed": u.get("seed_id")})
+        elif status == "skipped":
+            dropped.append({"reason": "可出题点已删除", "seed": u.get("seed_id")})
+        elif status == "pending":
+            # 理论上不会发生（暂停会提前返回）；保守起见不把没生成的题算通过
+            dropped.append({"reason": "未生成（任务中断）", "seed": u.get("seed_id")})
 
-    # 批量独立复核：一次调用查「是否考对命题、答案是否被证据支持」。
-    # 复核服务失败时 cross={}，按已通过处理，不让整批卡死。
+    verify_step = await upload_runs.add_step(run_id, "verify", status="running")
+    await upload_runs.set_progress(
+        job_id, run_id, 82, "crosschecking", run_progress=88)
     cross = await _crosscheck_batch(candidates)
+
     passed_items: list[dict] = []
     for i, (seed, q) in enumerate(candidates):
         verdict = cross.get(i)
         if verdict and not verdict[0]:
             dropped.append({
-                "reason": "独立复核未通过：" + "；".join(str(x)[:80] for x in verdict[1][:3]),
-                "seed": seed.get("seed_key"), "title": (q.get("title") or "")[:60],
+                "reason": "独立复核未通过：" + "；".join(
+                    str(x)[:80] for x in verdict[1][:3]),
+                "seed": seed.get("seed_key"),
+                "title": (q.get("title") or "")[:60],
             })
             continue
         saved = await _insert_question(user_id, job, seed, q)
@@ -417,34 +739,73 @@ async def generate_for_job(job_id: str, user_id: str) -> dict:
             passed_items.append(saved)
         else:
             dropped.append({"reason": "题目落库失败", "seed": seed.get("seed_key")})
+    await upload_runs.finish_step(
+        verify_step, output={"passed": len(passed_items),
+                             "dropped": len(dropped)})
 
+    state = await _stop_state(job_id, user_id)
+    if state == "cancelled":
+        await upload_runs.mark_cancelled(job_id, user_id, run_id)
+        return {"ok": False, "cancelled": True}
+    if state == "paused":
+        # 复核已经跑完，但还没开始写题集；恢复时重新复核即可，不会重复写题
+        await _mark_paused_from_units(job_id, user_id, run_id)
+        return {"ok": True, "paused": True}
+
+    # 从这里开始写 questions / question_sets / generation_history。
+    # 落库阶段不再接受暂停：中途停下会产生半套数据，恢复时可能重复写。
+    profile["generate_phase"] = "saving"
+    await upload_jobs.update_job(job_id, profile=profile)
+
+    aggregate_step = await upload_runs.add_step(
+        run_id, "aggregate", status="running")
+    await upload_runs.set_progress(
+        job_id, run_id, 90, "saving", run_progress=92)
+
+    generated = len(units)
     if not passed_items:
+        await upload_runs.finish_step(
+            aggregate_step, output={"generated": generated, "passed": 0})
+        profile["generate_phase"] = "done"
         await upload_jobs.update_job(
-            job_id, status="ready", progress=100,
-            generated_count=len(tasks), passed_count=0,
-            profile={**profile, "generate_result": {
-                "generated": len(tasks), "passed": 0, "dropped": dropped[:20]}})
+            job_id, profile={**profile, "generate_result": {
+                "generated": generated, "passed": 0, "dropped": dropped[:20]}})
+        await upload_runs.set_run(
+            run_id, title=f"已完成：{job.get('filename') or '上传文件'}"[:200])
+        await upload_runs.mark_ready(
+            job_id, user_id, run_id, None, 0, len(dropped),
+            generated=generated)
         return {"ok": True, "set_id": None, "passed": 0,
                 "dropped": dropped, "message": "这批题都没通过质检，我没有把坏题塞给你。"}
 
     set_id = await _create_set(user_id, job, [q["id"] for q in passed_items],
                                len(passed_items), len(dropped))
     if not set_id:
-        await upload_jobs.update_job(
-            job_id, status="failed", progress=100,
-            error="题目已生成，但题集创建失败（question_sets.source 列未建？）")
+        await upload_runs.finish_step(
+            aggregate_step, status="failed", error="题集创建失败")
+        await upload_runs.mark_failed(
+            job_id, user_id, run_id,
+            "题目已生成，但题集创建失败（question_sets.source 列未建？）",
+            job.get("filename") or "上传文件")
         return {"ok": False, "error": "题集创建失败"}
 
     for q in passed_items:
         await _insert_history(user_id, job, set_id, q)
 
+    profile["generate_phase"] = "done"
     await upload_jobs.update_job(
-        job_id, status="ready", progress=100,
-        generated_count=len(tasks), passed_count=len(passed_items),
-        result_set_id=set_id,
-        profile={**profile, "generate_result": {
-            "generated": len(tasks), "passed": len(passed_items),
+        job_id, profile={**profile, "generate_result": {
+            "generated": generated, "passed": len(passed_items),
             "dropped": dropped[:20]}})
+    await upload_runs.finish_step(
+        aggregate_step, output={"set_id": set_id,
+                                "passed": len(passed_items),
+                                "dropped": len(dropped)})
+    await upload_runs.set_run(
+        run_id, title=f"已完成：{job.get('filename') or '上传文件'}"[:200])
+    await upload_runs.mark_ready(
+        job_id, user_id, run_id, set_id, len(passed_items), len(dropped),
+        generated=generated)
 
     await _notify(user_id, job.get("filename") or "上传文件", set_id,
                   len(passed_items), len(dropped))

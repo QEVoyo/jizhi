@@ -298,6 +298,7 @@ import VideoLessonPlayer from '@/components/VideoLessonPlayer.vue'
 import SkeletonScreen from '@/components/SkeletonScreen.vue'
 import { ElMessage } from 'element-plus'
 import { recordAction } from '@/api/career'
+import { emitXiaoji } from '@/xiaoji/bus'
 import request from '@/utils/request'
 import { typeLabel, buildCategoryMap, isSingleChoice, isMultiChoice, isLongTextType, longTextPlaceholder, getStem, getOptions } from '@/utils/questionLabels'
 
@@ -687,6 +688,8 @@ async function doSubmit() {
   testResults.value = null
 
   const qt = question.value.question_type
+  // 页面驻扎小基：交卷时先只做「思考」表情，不弹字
+  emitXiaoji('answer:submit', { data: { question_type: qt } })
 
   // 编程题 → 代码执行判题
   if (qt === 'programming') {
@@ -702,20 +705,29 @@ async function doSubmit() {
         time_spent: timerSeconds.value,   // 同上：以前也没传
       })
       const d = res.data
+      let judged = null
       if (d.has_test_cases) {
         testResults.value = d.test_results || []
         passedPoints.value = d.passed_points || 0
         totalPoints.value = d.total_points || 0
         judgePassed.value = d.is_correct || false
+        judged = !!d.is_correct
       } else {
         // 无测试用例 → 显示 AI 批改
         feedback.value = d
+        if (typeof d?.is_correct === 'boolean') judged = d.is_correct
       }
+      // 页面驻扎小基：只有拿到明确对/错才反应
+      if (judged === true) emitXiaoji('answer:correct', { data: { question_type: 'programming' } })
+      else if (judged === false) emitXiaoji('answer:wrong', { data: { question_type: 'programming' } })
       // 学程埋点：编程题也算「做了一道题」
       recordAction(authStore.user.id, 'complete_question')
       // 自定义计划来的：回写这次判题结果
       await reportToPlan(d.is_correct)
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      console.error(e)
+      emitXiaoji('network:error', { data: { where: 'code_submit' } })
+    }
     finally { submitting.value = false }
     return
   }
@@ -746,11 +758,20 @@ async function doSubmit() {
     // 有计划那条路由的 planId 是路径段，空值会拼出 /plans//submit 匹配不上。
     const res = planId ? await apiSubmit(planId, payload) : await apiSubmitPractice(payload)
     feedback.value = res
+    // 页面驻扎小基：答对/答错各给一个表情和一句短话
+    if (res && typeof res.is_correct === 'boolean') {
+      emitXiaoji(res.is_correct ? 'answer:correct' : 'answer:wrong', {
+        data: { question_type: qt },
+      })
+    }
     // 学程埋点（2026-10-01）：学科计划做了一道题（含计划详情/视频库/资源库进来的）
     recordAction(authStore.user.id, 'complete_question')
     // 自定义计划来的：把这次作答回写（最佳率，重做做错不回退）
     await reportToPlan(res?.is_correct)
-  } catch (e) { console.error(e) } finally { submitting.value = false }
+  } catch (e) {
+    console.error(e)
+    emitXiaoji('network:error', { data: { where: 'practice_submit' } })
+  } finally { submitting.value = false }
 }
 
 function nextQuestion() {

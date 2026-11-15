@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -32,6 +33,7 @@ from agents.tuning import start_background_tuning
 from services.video_gen import start_video_worker
 from services.daily_scheduler import start_daily_scheduler
 from services.patrol_scheduler import start_patrol_scheduler
+from services.decision_review import start_decision_review_scheduler
 from utils.security_middleware import SecurityMiddleware, startup_checks
 from utils import security_log
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -51,11 +53,14 @@ async def lifespan(app):
     daily_task = start_daily_scheduler()
     # 主动巡检 Self-Loop（2026-10-30）：每 10 分钟跑一轮信号 → 打分 → 投递
     patrol_task = start_patrol_scheduler()
+    # 调参决策 7 天复盘（2026-11-12）：到点对比指标，变差自动回滚
+    review_task = start_decision_review_scheduler()
     yield
     tuning_task.cancel()
     video_task.cancel()
     daily_task.cancel()
     patrol_task.cancel()
+    review_task.cancel()
     # 先把队列里没写完的安全事件刷下去，再退出。
     # 不刷的话进程一停，最后几条（往往正是出事时那几条）就没了。
     await security_log.shutdown()
@@ -82,12 +87,27 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:5174",  # 加上 5174 以防你用了其他端口
         "http://localhost:8000",
+        # 本地联调：手机/另一台电脑通过局域网 IP 访问 Vite 时，Origin 不是 localhost。
+        # 当前调试机 IP（会随网络变化，下面还有一条私网正则兜底）。
+        "http://10.231.178.79:5173",
+        "http://10.231.178.79:5174",
+        "http://10.231.178.79:5175",
+        "http://172.20.89.175:5173",
+        "http://172.20.89.175:5174",
+        "http://172.20.89.175:5175",
         # 桌面版（Tauri）的本地页面源。桌宠窗口加载的是壳内的本地 html，
         # 它要直接调后端 API 就必须在这里放行 —— 否则被浏览器 CORS 拦掉。
         # Windows/Linux 是 http://tauri.localhost，macOS 是 tauri://localhost。
         "http://tauri.localhost",
         "tauri://localhost",
     ],
+    # 本地联调兜底：任何私网 IP + 任意端口都放行（localhost/127/10.x/192.168.x/172.16–31.x）。
+    # 生产环境可以设置 ALLOW_LAN_CORS=0 关掉；API 本身仍要求 JWT。
+    allow_origin_regex=(
+        r"http://(?:localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+        r"192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}):\d+"
+        if os.getenv("ALLOW_LAN_CORS", "1") != "0" else None
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

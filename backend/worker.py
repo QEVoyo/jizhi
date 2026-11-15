@@ -7,8 +7,9 @@ export PYTHONIOENCODING=utf-8
 python worker.py
 ```
 
-它消费 Redis 队列里的长任务（目前是视频生成），完成后往 `notifications` 写一条，
-用户去消息中心看。
+它消费 Redis 队列里的长任务（视频生成、上传解析、上传生成），完成后往
+`notifications` 写一条，用户去消息中心看；任务进度同步写 agent_runs，
+智能体中心与小基进度环读同一份数据。
 
 ## 为什么单独一个进程
 

@@ -18,14 +18,24 @@ def _has_items(ctx: RunContext) -> bool:
     return bool(gen.get("questions"))
 
 
+def _verdict(ctx: RunContext) -> dict:
+    """首轮结论优先取语义复核结果；还没跑时退回结构校验。"""
+    return (ctx.state.get("verify_semantic")
+            or ctx.state.get("verify") or {})
+
+
 def _has_failures(ctx: RunContext) -> bool:
-    ver = ctx.state.get("verify") or {}
-    return bool(ver.get("failed"))
+    return bool(_verdict(ctx).get("failed"))
 
 
 def _has_passed(ctx: RunContext) -> bool:
-    ver = ctx.state.get("verify") or {}
-    return bool(ver.get("passed"))
+    return bool(_verdict(ctx).get("passed"))
+
+
+def _has_repair(ctx: RunContext) -> bool:
+    """修复节点真的产出了新草稿，才需要跑第二轮校验。"""
+    repair = ctx.state.get("repair") or {}
+    return bool(repair.get("questions"))
 
 
 CONDITIONS = {
@@ -33,6 +43,7 @@ CONDITIONS = {
     "has_items": _has_items,
     "has_failures": _has_failures,
     "has_passed": _has_passed,
+    "has_repair": _has_repair,
 }
 
 

@@ -17,6 +17,7 @@ AGENTS: dict[str, dict[str, Any]] = {
         "tools": ["llm.chat", "notify.push", "memory.read"],
         "memory": ["M1", "M2", "M3", "M4"],
         "model": "qwen-flash",
+        "max_concurrency": 2,
         "version": 1,
     },
     "planner": {
@@ -26,6 +27,7 @@ AGENTS: dict[str, dict[str, Any]] = {
         "tools": ["mastery.lookup", "bank.search", "memory.read"],
         "memory": ["M2", "M3", "M4"],
         "model": "qwen-flash",
+        "max_concurrency": 2,
         "version": 1,
     },
     "retriever": {
@@ -35,6 +37,7 @@ AGENTS: dict[str, dict[str, Any]] = {
         "tools": ["bank.search", "mastery.lookup", "docs.chunks"],
         "memory": ["M3"],
         "model": "qwen-flash",
+        "max_concurrency": 4,
         "version": 1,
     },
     "generator": {
@@ -44,6 +47,7 @@ AGENTS: dict[str, dict[str, Any]] = {
         "tools": ["llm.generate", "sandbox.run"],
         "memory": ["M3"],
         "model": "qwen-plus",
+        "max_concurrency": 3,
         "version": 1,
     },
     "evaluator": {
@@ -53,6 +57,7 @@ AGENTS: dict[str, dict[str, Any]] = {
         "tools": ["llm.judge", "sandbox.run", "record.lookup"],
         "memory": ["M3"],
         "model": "qwen-plus",
+        "max_concurrency": 3,
         "version": 1,
     },
     "verifier": {
@@ -62,6 +67,7 @@ AGENTS: dict[str, dict[str, Any]] = {
         "tools": ["schema.check", "sandbox.run", "llm.crosscheck", "duplicate.check"],
         "memory": ["M3", "M4"],
         "model": "qwen-plus",
+        "max_concurrency": 4,
         "version": 1,
     },
 }

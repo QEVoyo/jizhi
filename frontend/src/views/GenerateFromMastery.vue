@@ -47,10 +47,21 @@
         <el-form-item label="补充说明">
           <el-input v-model="form.extra" type="textarea" :rows="2" placeholder="可选，补充额外要求..." />
         </el-form-item>
+        <el-form-item label="题量">
+          <el-select v-model="teamCount" style="width:110px">
+            <el-option :value="3" label="3 道" />
+            <el-option :value="5" label="5 道" />
+          </el-select>
+          <span class="team-hint">团队模式：规划 → 检索 → 生成 → 语义复核 → 修复 → 落库</span>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" class="action-btn" @click="handleGenerate">
             <el-icon><MagicStick /></el-icon>
-            生成题目
+            生成单题
+          </el-button>
+          <el-button type="success" :loading="loading" class="action-btn team-btn" @click="handleTeamGenerate">
+            <el-icon><Cpu /></el-icon>
+            团队出题 · {{ teamCount }} 道
           </el-button>
         </el-form-item>
 
@@ -117,8 +128,12 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { generateQuestion, saveGenerationHistory } from '@/api/questions'
+import { generateQuestion, saveGenerationHistory, createSetFromRun } from '@/api/questions'
+import { createRun, getRun } from '@/api/agents'
+import { openAgentPanel, closeAgentPanel } from '@/stores/agentPanel'
+import { refresh as refreshRuns, startRunPolling } from '@/stores/runStore'
 import { recordAction } from '@/api/career'
+import { emitXiaoji } from '@/xiaoji/bus'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Edit, MagicStick, Cpu } from '@element-plus/icons-vue'
 
@@ -143,6 +158,28 @@ const form = reactive({
   difficulty: '中等',
   extra: ''
 })
+
+// 团队出题（2026-11-13）：真实创建 agent_run，右下角悬浮胶囊 + 协作面板看进度。
+const teamCount = ref(3)
+let teamTimer = null
+let teamPollFails = 0
+
+const TEAM_STAGE_TEXT = {
+  plan: '规划中：拆解出题计划…',
+  retrieve: '检索中：从题库 / 资料 / 学情取证…',
+  generate: '生成中：逐题生成…',
+  verify: '校验中：结构 / 规则检查…',
+  verify_semantic: '语义复核：独立模型核对答案与解析…',
+  repair: '修复中：按打回原因重写…',
+  verify_retry: '复检中：核对修复结果…',
+  persist: '落库中：只写通过质检的题…',
+  aggregate: '汇总中：整理交付结果…',
+}
+
+function stopTeamPolling() {
+  if (teamTimer) clearInterval(teamTimer)
+  teamTimer = null
+}
 
 function generateParticles() {
   const count = 40
@@ -199,6 +236,8 @@ function startDataStream() {
 
 async function handleGenerate() {
   loading.value = true
+  // 页面驻扎小基：生成开始/完成/失败各给一个反应
+  emitXiaoji('generation:start', { data: { kind: 'question' } })
 
   progress.value = 0
   progressMessage.value = '启动生成引擎...'
@@ -235,6 +274,7 @@ async function handleGenerate() {
 
     sessionStorage.setItem('current_question', JSON.stringify(data))
     ElMessage.success('✅ 题目生成成功！')
+    emitXiaoji('generation:done', { data: { kind: 'question' } })
 
     setTimeout(() => {
       router.push('/do-question')
@@ -243,9 +283,122 @@ async function handleGenerate() {
   } catch (error) {
     clearInterval(progressInterval)
     clearInterval(dataStreamInterval)
+    emitXiaoji('generation:error', { data: { kind: 'question' } })
     ElMessage.error('生成失败: ' + error.message)
     loading.value = false
   }
+}
+
+async function handleTeamGenerate() {
+  if (loading.value) return
+  if (progressInterval) clearInterval(progressInterval)
+  if (dataStreamInterval) clearInterval(dataStreamInterval)
+  progressInterval = null
+  dataStreamInterval = null
+  loading.value = true
+  teamPollFails = 0
+  emitXiaoji('generation:start', { data: { kind: 'team', count: teamCount.value } })
+  progress.value = 0
+  progressMessage.value = '创建团队任务...'
+  generateParticles()
+  startDataStream()
+
+  try {
+    const finalTopic = topic.value + (form.subTopic ? ` - ${form.subTopic}` : '')
+    const created = await createRun({
+      workflow_key: 'question_gen',
+      mode: 'auto',
+      input: {
+        topic: finalTopic,
+        count: teamCount.value,
+        question_type: form.questionType,
+        difficulty: form.difficulty,
+        extra: form.extra,
+        create_set: true,
+        set_name: `团队出题 · ${topic.value}`,
+        set_description: `团队出题 · ${form.questionType} · ${form.difficulty}`,
+      },
+    }, authStore.user.id)
+    const runId = created?.run_id || created?.id
+    if (!runId) throw new Error('任务创建失败：没有返回 run_id')
+
+    // 让全局 runStore 立刻刷新，右下角才会马上出现「协作进行中」
+    startRunPolling(authStore.user.id)
+    await refreshRuns()
+    openAgentPanel(runId)
+    progressMessage.value = '团队已开工，右下角可看协作图…'
+    stopTeamPolling()
+    teamTimer = setInterval(() => pollTeamRun(runId), 2000)
+    pollTeamRun(runId)
+  } catch (e) {
+    failTeam(e)
+  }
+}
+
+async function pollTeamRun(runId) {
+  let bundle
+  try {
+    bundle = await getRun(runId, authStore.user.id)
+    teamPollFails = 0
+  } catch (e) {
+    // 本机到 Supabase 会间歇 503；连续失败多次才判定页面失败
+    teamPollFails += 1
+    if (teamPollFails >= 5) failTeam(e)
+    return
+  }
+
+  try {
+    const run = bundle?.run || {}
+    const steps = bundle?.steps || []
+    const total = steps.length || 9
+    const done = steps.filter(s => s.status === 'completed').length
+    const running = steps.find(s => s.status === 'running')
+    progress.value = Math.max(5, Math.min(96, Math.round((done / total) * 100)))
+    progressMessage.value = TEAM_STAGE_TEXT[running?.node_key] || '团队执行中…'
+
+    if (!['completed', 'failed', 'cancelled'].includes(run.status)) return
+
+    stopTeamPolling()
+    if (run.status !== 'completed') {
+      throw new Error(run.error || (run.status === 'cancelled' ? '任务已取消' : '团队出题失败'))
+    }
+    const questions = run.output?.questions || []
+    if (!questions.length) throw new Error('这轮没有通过质检的题')
+
+    // 正常路径由后端在 run 收尾时建好题集；旧 run/异常时兜底再建一次
+    let setId = run.output?.set_id
+    if (!setId) {
+      const set = await createSetFromRun(authStore.user.id, {
+        run_id: runId,
+        name: `团队出题 · ${topic.value}`,
+        description: `团队出题 ${questions.length} 道 · ${form.questionType} · ${form.difficulty}`,
+      })
+      setId = set?.id
+    }
+    if (!setId) throw new Error('题集创建失败')
+
+    progress.value = 100
+    progressMessage.value = `完成：${questions.length} 道题已加入题集`
+    emitXiaoji('generation:done', { data: { kind: 'team', count: questions.length } })
+    ElMessage.success(`团队出了 ${questions.length} 道题，已加入题集`)
+    setTimeout(() => {
+      closeAgentPanel()
+      router.push(`/set-detail?id=${setId}`)
+    }, 1200)
+  } catch (e) {
+    failTeam(e)
+  }
+}
+
+function failTeam(e) {
+  stopTeamPolling()
+  if (progressInterval) clearInterval(progressInterval)
+  if (dataStreamInterval) clearInterval(dataStreamInterval)
+  progressInterval = null
+  dataStreamInterval = null
+  emitXiaoji('generation:error', { data: { kind: 'team' } })
+  ElMessage.error('团队出题失败: ' + (e?.response?.data?.detail || e?.message || '未知错误'))
+  loading.value = false
 }
 
 function goBack() {
@@ -263,6 +416,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (progressInterval) clearInterval(progressInterval)
   if (dataStreamInterval) clearInterval(dataStreamInterval)
+  stopTeamPolling()
 })
 </script>
 
@@ -328,6 +482,15 @@ onUnmounted(() => {
 }
 .action-btn:active {
   transform: scale(0.95) !important;
+}
+.team-btn {
+  margin-left: 10px;
+}
+.team-hint {
+  margin-left: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 :deep(.el-form-item__label) {

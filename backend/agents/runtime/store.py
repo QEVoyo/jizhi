@@ -41,17 +41,45 @@ def _base(table: str) -> str:
 # 写
 # ============================================================
 
+async def next_queue_pos(user_id: str) -> int:
+    """取该用户下一个排队位置。失败返回 0，不阻断建任务。"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(_base("agent_runs"), headers=_headers(), params={
+                "user_id": f"eq.{user_id}", "deleted_at": "is.null",
+                "select": "queue_pos", "order": "queue_pos.desc", "limit": "1",
+            })
+        if res.status_code == 200 and isinstance(res.json(), list) and res.json():
+            return int(res.json()[0].get("queue_pos") or 0) + 1
+    except Exception as e:
+        logger.info(f"[runtime] 读 queue_pos 失败: {e}")
+    return 0
+
+
 async def create_run(user_id: str, workflow_key: str, mode: str,
-                     input_data: dict) -> Optional[str]:
+                     input_data: dict, title: str = "",
+                     link: str = "", kind: str = "",
+                     queue_pos: Optional[int] = None,
+                     retry_of: str = "") -> Optional[str]:
     payload = {
         "user_id": user_id,
         "workflow_key": workflow_key,
+        "kind": kind or workflow_key,
         "mode": mode,
         "status": "queued",
+        "title": (title or "")[:200],
+        "link": (link or "")[:300],
+        "progress": 0,
+        "stage": "queued",
         "input": input_data or {},
         "state": {},
+        "queue_pos": (await next_queue_pos(user_id)
+                      if queue_pos is None else int(queue_pos)),
         "created_at": _now(),
+        "updated_at": _now(),
     }
+    if retry_of:
+        payload["retry_of"] = retry_of
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             res = await client.post(
@@ -72,6 +100,7 @@ async def create_run(user_id: str, workflow_key: str, mode: str,
 async def update_run(run_id: str, **fields: Any) -> bool:
     if not run_id or not fields:
         return False
+    fields.setdefault("updated_at", _now())
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             res = await client.patch(
@@ -81,6 +110,80 @@ async def update_run(run_id: str, **fields: Any) -> bool:
     except Exception as e:
         logger.info(f"[runtime] 更新 run 失败: {e}")
         return False
+
+
+async def update_run_if_status(run_id: str, expected: str, **fields: Any) -> bool:
+    """条件更新（CAS）。返回是否真的命中一行，用于暂停/继续/取消/删除。"""
+    if not run_id or not fields:
+        return False
+    fields.setdefault("updated_at", _now())
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.patch(
+                f"{_base('agent_runs')}?id=eq.{run_id}&status=eq.{expected}"
+                f"&deleted_at=is.null",
+                headers=_headers("return=representation"), json=fields)
+        if res.status_code >= 300:
+            logger.info(f"[runtime] 条件更新 run 失败 {res.status_code}: {res.text[:120]}")
+            return False
+        rows = res.json()
+        return isinstance(rows, list) and bool(rows)
+    except Exception as e:
+        logger.info(f"[runtime] 条件更新 run 异常: {e}")
+        return False
+
+
+async def soft_delete_run(run_id: str, user_id: str) -> bool:
+    """软删除任务记录（保留统计与审计；不删除题目/题集等产出）。"""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.patch(
+                f"{_base('agent_runs')}?id=eq.{run_id}&user_id=eq.{user_id}"
+                f"&deleted_at=is.null",
+                headers=_headers("return=minimal"),
+                json={"deleted_at": _now(), "updated_at": _now()})
+        return res.status_code < 300
+    except Exception as e:
+        logger.info(f"[runtime] 删除 run 失败: {e}")
+        return False
+
+
+async def reorder_runs(user_id: str, ids: list[str]) -> Optional[int]:
+    """原子重排；返回真正更新的行数。表还没补列/函数时返回 None。"""
+    if not ids:
+        return 0
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.post(
+                f"{_base('rpc/reorder_agent_runs')}", headers=_headers(),
+                json={"p_user_id": user_id, "p_ids": ids})
+        if res.status_code in (200, 201):
+            data = res.json()
+            if isinstance(data, int):
+                return data
+            if isinstance(data, list) and data:
+                return int(data[0])
+        logger.info(f"[runtime] 重排失败 {res.status_code}: {res.text[:120]}")
+    except Exception as e:
+        logger.info(f"[runtime] 重排异常: {e}")
+    return None
+
+
+async def get_queue_head(user_id: str, limit: int = 20) -> list:
+    """该用户当前 running/queued 的任务，按 queue_pos 排序。串行守卫用。"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(_base("agent_runs"), headers=_headers(), params={
+                "user_id": f"eq.{user_id}", "deleted_at": "is.null",
+                "status": "in.(running,queued)",
+                "select": "id,status,queue_pos,created_at,kind,heartbeat_at",
+                "order": "queue_pos.asc,created_at.asc",
+                "limit": str(max(1, min(50, limit))),
+            })
+        return res.json() if res.status_code == 200 and isinstance(res.json(), list) else []
+    except Exception as e:
+        logger.info(f"[runtime] 读队列头失败: {e}")
+        return []
 
 
 async def add_step(run_id: str, node_key: str, agent_key: str = "",
@@ -157,7 +260,7 @@ async def add_message(run_id: str, seq: int, from_agent: str, to_agent: str,
 # ============================================================
 
 async def get_run(run_id: str, user_id: Optional[str] = None) -> Optional[dict]:
-    params = {"id": f"eq.{run_id}", "limit": "1"}
+    params = {"id": f"eq.{run_id}", "deleted_at": "is.null", "limit": "1"}
     if user_id:
         params["user_id"] = f"eq.{user_id}"
     try:
@@ -171,16 +274,28 @@ async def get_run(run_id: str, user_id: Optional[str] = None) -> Optional[dict]:
     return None
 
 
+# 任务中心与智能体中心共用：这些状态都算「还没结束」
+ACTIVE_STATUSES = ("queued", "running", "paused", "awaiting_confirm", "confirmed")
+
+
 async def list_runs(user_id: str, limit: int = 30,
-                    workflow_key: Optional[str] = None) -> list:
+                    workflow_key: Optional[str] = None,
+                    active_only: bool = False,
+                    include_deleted: bool = False) -> list:
     params = {
         "user_id": f"eq.{user_id}",
-        "select": ("id,workflow_key,mode,status,confidence,llm_calls,tokens,cost,"
-                   "latency_ms,error,created_at,started_at,finished_at"),
+        "select": ("id,workflow_key,kind,mode,status,title,link,progress,stage,"
+                   "input,queue_pos,pause_requested,paused_at,updated_at,"
+                   "confidence,llm_calls,tokens,cost,latency_ms,error,"
+                   "created_at,started_at,finished_at"),
         "order": "created_at.desc", "limit": str(limit),
     }
+    if not include_deleted:
+        params["deleted_at"] = "is.null"
     if workflow_key:
         params["workflow_key"] = f"eq.{workflow_key}"
+    if active_only:
+        params["status"] = f"in.({','.join(ACTIVE_STATUSES)})"
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             res = await client.get(_base("agent_runs"), headers=_headers(), params=params)
@@ -240,6 +355,9 @@ async def get_metrics(user_id: str, days: int = 30) -> dict:
     total = len(runs)
     completed = [r for r in runs if r.get("status") == "completed"]
     failed = [r for r in runs if r.get("status") == "failed"]
+    # 任务中心合并后，awaiting_confirm / queued / running 也算 run。
+    # 成功率只拿「已结束的成功/失败」做分母，否则挂着等确认的任务会拉低成功率。
+    terminal = [r for r in runs if r.get("status") in ("completed", "failed")]
     lat = [r.get("latency_ms") for r in completed if r.get("latency_ms")]
     conf = [float(r.get("confidence")) for r in completed if r.get("confidence") is not None]
 
@@ -267,7 +385,10 @@ async def get_metrics(user_id: str, days: int = 30) -> dict:
         "total": total,
         "completed": len(completed),
         "failed": len(failed),
-        "success_rate": round(len(completed) / total * 100, 1) if total else None,
+        "success_rate": (round(len(completed) / len(terminal) * 100, 1)
+                         if terminal else None),
+        "active": total - len(terminal) - len(
+            [r for r in runs if r.get("status") == "cancelled"]),
         "avg_latency_ms": avg(lat),
         "p95_latency_ms": p95(lat),
         "avg_confidence": avg(conf),

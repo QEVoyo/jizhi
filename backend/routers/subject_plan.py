@@ -41,6 +41,41 @@ except Exception as e:
     logger.warning(f"考纲配置加载失败: {e}")
 
 
+def _exam_papers_for(s: dict, scanned: Optional[dict] = None) -> list:
+    """静态真题列表 + 磁盘上的生成卷（AI 仿真卷）。
+
+    `syllabi.json` 里的 `exam_papers` 是手填快照；出考卷写的是
+    `data/exam_papers/*.json`。不合并的话，卷子已经生成、做题页也能打开，
+    但考纲页列表里永远看不到 —— 用户只能靠「碰巧知道 paper_id」。
+    """
+    static = list(s.get("exam_papers") or [])
+    try:
+        if scanned is None:
+            from routers.exam_papers import _scan_papers
+            scanned = _scan_papers()
+    except Exception:
+        return static
+    known = {p.get("paper_id") for p in static if p.get("paper_id")}
+    extra = []
+    for pid, p in (scanned or {}).items():
+        if p.get("syllabus_id") != s.get("id") or pid in known:
+            continue
+        extra.append({
+            "paper_id": pid,
+            "name": p.get("name") or pid,
+            "paper_type": p.get("paper_type") or "real",
+            "question_count": p.get("question_count") or 0,
+            "section_count": p.get("section_count") or 0,
+            "total_score": p.get("total_score"),
+            "available_score": p.get("available_score"),
+            "available_note": p.get("available_note") or "",
+            "grey": False,
+        })
+    # 生成卷排在真题后面（最新生成的在后），不改动现有真题顺序
+    extra.sort(key=lambda x: str(x.get("paper_id") or ""))
+    return static + extra
+
+
 def dimensions_with_counts(s: dict) -> list:
     """维度列表，题量计数**从题库实时算**，不读 syllabi.json 里的静态值。
 
@@ -252,6 +287,13 @@ async def list_syllabi(user_id: str = Query("")):
         except Exception:
             pass
 
+    scanned = None
+    try:
+        from routers.exam_papers import _scan_papers
+        scanned = _scan_papers()
+    except Exception:
+        scanned = {}
+
     result = []
     for s in SYLLABI:
         plan = plans_by_syllabus.get(s["id"])
@@ -280,7 +322,7 @@ async def list_syllabi(user_id: str = Query("")):
             "target_count": s.get("target_count"),
             "max_score": s.get("max_score"),
             "pass_score": s.get("pass_score"),
-            "exam_papers": s.get("exam_papers", []),
+            "exam_papers": _exam_papers_for(s, scanned),
         })
     return {"syllabi": result}
 
@@ -342,7 +384,7 @@ async def get_syllabus_detail(
             "target_count": s.get("target_count"),
             "max_score": s.get("max_score"),
             "pass_score": s.get("pass_score"),
-            "exam_papers": s.get("exam_papers", []),
+            "exam_papers": _exam_papers_for(s),
         },
         "plan": plan_summary,
         "diagnosis": diagnosis,

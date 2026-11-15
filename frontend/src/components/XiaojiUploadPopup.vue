@@ -35,7 +35,7 @@
               <p class="xj-drop-title">把资料拖进来，我来出题</p>
               <p class="xj-drop-sub">PDF · PPTX · DOCX · XLSX · 图片 · TXT / MD</p>
               <p class="xj-drop-note">视频/音频暂时看不懂；可以先截图关键页</p>
-              <input ref="fileInput" type="file" hidden
+              <input ref="fileInput" type="file" hidden multiple
                      accept=".pdf,.pptx,.docx,.xlsx,.csv,.txt,.md,.png,.jpg,.jpeg,.webp"
                      @change="onPick">
             </div>
@@ -47,6 +47,103 @@
             <p class="xj-stage-title">我正在看这份文件…</p>
             <p class="xj-stage-sub">{{ parseHint }}</p>
             <div class="xj-progress"><span :style="{ width: progress + '%' }"></span></div>
+          </div>
+
+          <!-- ②-b 批量解析（多文件） -->
+          <div v-else-if="stage === 'batchParse'" class="xj-body">
+            <div class="xj-batch-head">
+              <p class="xj-stage-title">正在批量读 {{ batchJobs.length }} 份资料…</p>
+              <p class="xj-stage-sub">解析完成后一起确认；关掉小窗也不会中断后台任务。</p>
+            </div>
+            <div class="xj-batch-list">
+              <div v-for="(b, i) in batchJobs" :key="i" class="xj-batch-item">
+                <span class="xj-batch-dot" :class="b.status"></span>
+                <div class="xj-batch-main">
+                  <div class="xj-batch-top">
+                    <span class="xj-batch-name">{{ b.name }}</span>
+                    <span class="xj-batch-status" :class="b.status">{{ batchStatusText(b) }}</span>
+                  </div>
+                  <div class="xj-batch-bar"><span :style="{ width: (b.progress || 0) + '%' }"></span></div>
+                  <p v-if="b.error" class="xj-batch-error">{{ b.error }}</p>
+                </div>
+              </div>
+            </div>
+            <button class="xj-btn ghost" @click="doClose">先关掉，后台继续</button>
+          </div>
+
+          <!-- ②-c 批量确认 -->
+          <div v-else-if="stage === 'batchConfirm'" class="xj-body">
+            <div class="xj-batch-head">
+              <p class="xj-stage-title">{{ batchOk.length }} 份资料可以出题</p>
+              <p class="xj-stage-sub">每份按下面的题量/题型各生成一套；关掉小窗后仍会继续。</p>
+            </div>
+            <div class="xj-batch-list">
+              <div v-for="(b, i) in batchJobs" :key="i" class="xj-batch-item">
+                <span class="xj-batch-dot" :class="b.status"></span>
+                <div class="xj-batch-main">
+                  <div class="xj-batch-top">
+                    <span class="xj-batch-name">{{ b.name }}</span>
+                    <span class="xj-batch-status" :class="b.status">
+                      {{ b.status === 'awaiting_confirm' ? `${b.seeds.length} 个可出题点` : batchStatusText(b) }}
+                    </span>
+                  </div>
+                  <p v-if="b.error" class="xj-batch-error">{{ b.error }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="xj-settings">
+              <div class="xj-field">
+                <span>题量</span>
+                <div class="xj-chips">
+                  <button v-for="n in [3, 5, 8, 12]" :key="n" :class="{ on: count === n }"
+                          @click="count = n">{{ n }}</button>
+                </div>
+              </div>
+              <div class="xj-field">
+                <span>题型</span>
+                <div class="xj-chips">
+                  <button v-for="t in typeOptions" :key="t" :class="{ on: types.includes(t) }"
+                          @click="toggleType(t)">{{ t }}</button>
+                </div>
+              </div>
+              <div class="xj-field">
+                <span>难度</span>
+                <div class="xj-chips">
+                  <button v-for="d in ['简单', '中等', '困难']" :key="d"
+                          :class="{ on: difficulty === d }" @click="difficulty = d">{{ d }}</button>
+                </div>
+              </div>
+            </div>
+            <div class="xj-actions">
+              <button class="xj-btn ghost" :disabled="batchBusy" @click="doClose">先关掉</button>
+              <button class="xj-btn primary" :disabled="batchBusy || !batchOk.length" @click="confirmBatch">
+                {{ batchBusy ? '正在交给后台…' : `全部生成（${batchOk.length} 份）` }}
+              </button>
+            </div>
+          </div>
+
+          <!-- ②-d 批量已入队 -->
+          <div v-else-if="stage === 'batchDone'" class="xj-body">
+            <div class="xj-batch-head">
+              <p class="xj-stage-title">已经交给后台</p>
+              <p class="xj-stage-sub">关掉小窗也会继续；小基头顶会显示进度，完成后会主动提醒你。</p>
+            </div>
+            <div class="xj-batch-list">
+              <div v-for="(b, i) in batchJobs" :key="i" class="xj-batch-item">
+                <span class="xj-batch-dot" :class="b.status"></span>
+                <div class="xj-batch-main">
+                  <div class="xj-batch-top">
+                    <span class="xj-batch-name">{{ b.name }}</span>
+                    <span class="xj-batch-status" :class="b.status">{{ batchStatusText(b) }}</span>
+                  </div>
+                  <div class="xj-batch-bar"><span :style="{ width: (b.progress || 0) + '%' }"></span></div>
+                  <p v-if="b.error" class="xj-batch-error">{{ b.error }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="xj-actions">
+              <button class="xj-btn primary" @click="doClose">关掉，去看进度</button>
+            </div>
           </div>
 
           <!-- ③ 确认可出题点 -->
@@ -121,13 +218,24 @@
             </div>
           </div>
 
-          <!-- ④ 生成中 -->
+          <!-- ④ 生成中 / 已暂停 -->
           <div v-else-if="stage === 'generating'" class="xj-body xj-center">
-            <div class="xj-spin"></div>
-            <p class="xj-stage-title">团队在出题…</p>
-            <p class="xj-stage-sub">规划 → 生成 → 校验；没过质检的题会被丢掉</p>
-            <div class="xj-progress"><span :style="{ width: progress + '%' }"></span></div>
-            <button class="xj-btn ghost" @click="close">先关掉，后台继续</button>
+            <template v-if="paused">
+              <p class="xj-stage-title">任务已暂停</p>
+              <p class="xj-stage-sub">已生成的题都保存了，继续会从检查点接着跑。</p>
+              <div class="xj-progress"><span :style="{ width: progress + '%' }"></span></div>
+              <div class="xj-actions">
+                <button class="xj-btn primary" :disabled="busy" @click="resumePaused">继续</button>
+                <button class="xj-btn ghost" @click="gotoTasks">去任务中心</button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="xj-spin"></div>
+              <p class="xj-stage-title">团队在出题…</p>
+              <p class="xj-stage-sub">规划 → 生成 → 校验；没过质检的题会被丢掉</p>
+              <div class="xj-progress"><span :style="{ width: progress + '%' }"></span></div>
+              <button class="xj-btn ghost" @click="close">先关掉，后台继续</button>
+            </template>
           </div>
 
           <!-- ⑤ 结果 -->
@@ -257,6 +365,9 @@ import {
 } from '@/api/xiaoji'
 import { submitPractice } from '@/api/subjectPlan'
 import { popupState, closeXiaojiPopup } from '@/xiaoji/popupStore'
+import {
+  startRunPolling, stopRunPolling, trackRun, resumeRunById,
+} from '@/stores/runStore'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -277,6 +388,7 @@ const result = ref(null)
 const error = ref('')
 const closeConfirm = ref('')
 const busy = ref(false)
+const paused = ref(false)
 const progress = ref(0)
 const practiceIndex = ref(0)
 const answer = ref('')
@@ -287,15 +399,27 @@ const chatOpen = ref(false)
 const chatLog = ref([])
 const chatInput = ref('')
 const chatBusy = ref(false)
+// 多文件批量（2026-10-31）：一份文件一个 upload_job / agent_run
+const batchJobs = ref([])
+const batchBusy = ref(false)
 let timer = null
 let pollToken = 0
+let batchToken = 0
 let startedAt = 0
+
+const UPLOAD_OK = ['.pdf', '.pptx', '.docx', '.xlsx', '.csv', '.txt', '.md',
+                   '.png', '.jpg', '.jpeg', '.webp', '.bmp']
+const BATCH_MAX = 5
+const batchOk = computed(() => batchJobs.value.filter(b => b.status === 'awaiting_confirm'))
 
 const typeOptions = ['选择题', '判断题', '填空题', '计算题', '简答题']
 
 const stageText = computed(() => ({
   pick: '拖一份资料进来',
   parsing: '正在读文件',
+  batchParse: '批量读文件中',
+  batchConfirm: '确认要生成哪些',
+  batchDone: '已交给后台',
   confirm: '看看能出什么题',
   generating: '团队出题中',
   result: '题好了',
@@ -331,25 +455,21 @@ watch(() => popupState.open, (open) => {
   if (!open) { closeConfirm.value = ''; stopTimer(); return }
   if (popupState.jobId) {
     loadJob(popupState.jobId)
+  } else if (popupState.files?.length) {
+    handleFiles(popupState.files)
   } else if (popupState.file) {
     handleFile(popupState.file)
-  } else if (stage.value === 'pick') {
-    // 保持
+  } else {
+    // 全新打开：不要残留上一次的批量确认/结果页
+    reset()
   }
 })
 
-onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
-onBeforeUnmount(() => {
-  stopTimer()
-  window.removeEventListener('beforeunload', onBeforeUnload)
-})
-
-// 解析/生成途中刷新或关标签页也要拦一下：后台任务不会停，但这一窗的结果就找不回来了
-function onBeforeUnload(e) {
-  if (!isLockedStage.value) return
-  e.preventDefault()
-  e.returnValue = ''
-}
+// 全局任务轮询：小窗挂载即开始（它是 App 里常驻的异步组件），
+// 这样即使小窗没打开，小基也能在别的页面看到进度。
+onMounted(() => { if (userId.value) startRunPolling(userId.value) })
+watch(userId, (v) => { v ? startRunPolling(v) : stopRunPolling() })
+onBeforeUnmount(() => { stopTimer() })
 
 function stopTimer() {
   if (timer) { clearInterval(timer); timer = null }
@@ -361,8 +481,10 @@ function stopTimer() {
   pollToken += 1
 }
 
-// 处理中：遮罩完全点不动，X 按钮要走二次确认 —— 用户很容易点空白处误关
-const isLockedStage = computed(() => stage.value === 'parsing' || stage.value === 'generating')
+// 处理中：遮罩完全点不动，X 按钮要走二次确认 —— 用户很容易点空白处误关。
+// 注意：现在这些任务都在 arq / agent_run 里，关窗 ≠ 取消，确认文案要如实说明。
+const isLockedStage = computed(() =>
+  ['parsing', 'generating', 'batchParse', 'batchConfirm'].includes(stage.value))
 
 function onOverlayClick() {
   if (isLockedStage.value || stage.value === 'confirm') return
@@ -371,15 +493,19 @@ function onOverlayClick() {
 
 function close() {
   if (stage.value === 'parsing') {
-    closeConfirm.value = '资料还在解析，关掉后这次解析会作废，需要重新上传。'
+    closeConfirm.value = '关掉小窗不会中断解析，后台会继续；进度会显示在小基头顶。'
     return
   }
   if (stage.value === 'generating') {
-    closeConfirm.value = '题目还在生成。关掉小窗后看不到这次结果（后台会继续跑完）。'
+    closeConfirm.value = '关掉小窗不会中断生成，后台会继续；完成后小基会主动提醒你。'
+    return
+  }
+  if (stage.value === 'batchParse' || stage.value === 'batchConfirm') {
+    closeConfirm.value = '关掉小窗不会丢失已解析的结果，任务会留在小基的任务列表里。'
     return
   }
   if (stage.value === 'confirm') {
-    closeConfirm.value = '关闭后已解析的内容会丢掉，需要重新上传资料。'
+    closeConfirm.value = '已解析的内容会保留在小基任务列表里，可以从头顶进度环回来确认。'
     return
   }
   doClose()
@@ -392,6 +518,7 @@ function doClose() {
 
 function reset() {
   stopTimer()
+  batchToken += 1
   stage.value = 'pick'
   file.value = null
   job.value = null
@@ -399,39 +526,217 @@ function reset() {
   selected.value = []
   result.value = null
   error.value = ''
+  paused.value = false
   progress.value = 0
   practiceIndex.value = 0
   answer.value = ''
   feedback.value = null
   answered.value = []
+  batchJobs.value = []
+  batchBusy.value = false
   if (fileInput.value) fileInput.value.value = ''
 }
 
 function onPick(e) {
-  const f = e.target.files?.[0]
-  if (f) handleFile(f)
+  handleFiles(Array.from(e.target.files || []))
 }
 
 function onDrop(e) {
   dragOver.value = false
-  const f = e.dataTransfer?.files?.[0]
-  if (f) handleFile(f)
+  handleFiles(Array.from(e.dataTransfer?.files || []))
+}
+
+function handleFiles(files) {
+  if (!userId.value) { ElMessage.error('请先登录'); return }
+  // 新一代批次开始，上一轮还在跑的批量循环不再往 UI 写
+  batchToken += 1
+  const ok = files.filter(f => {
+    const ext = (f.name.match(/\.[^.]+$/) || [''])[0].toLowerCase()
+    return UPLOAD_OK.includes(ext)
+  })
+  if (!ok.length) {
+    ElMessage.warning('视频/音频/压缩包暂时不支持；可以上传截图、讲义或 PDF。')
+    return
+  }
+  const chosen = ok.slice(0, BATCH_MAX)
+  if (ok.length > BATCH_MAX) {
+    ElMessage.warning(`一次最多 ${BATCH_MAX} 份，已取前 ${BATCH_MAX} 份`)
+  }
+  if (chosen.length === 1) return handleFile(chosen[0])
+  return startBatch(chosen)
+}
+
+function trackUploadRun(runId, title, jobId, status = 'queued', progress = 0, stageName = 'queued') {
+  if (!runId) return
+  trackRun({
+    id: runId, title, workflow_key: 'file_to_questions',
+    status, progress, stage: stageName,
+    input: { job_id: jobId },
+  })
 }
 
 async function handleFile(f) {
   if (!userId.value) { ElMessage.error('请先登录'); return }
   file.value = f
   error.value = ''
+  paused.value = false
   stage.value = 'parsing'
   progress.value = 5
   try {
     const res = await uploadQuestionFile(userId.value, f)
-    job.value = { id: res.job_id, status: 'parsing', profile: {} }
+    job.value = { id: res.job_id, run_id: res.run_id, status: res.status || 'queued', profile: {} }
+    trackUploadRun(res.run_id, `解析：${f.name}`, res.job_id)
     pollJob(res.job_id)
   } catch (e) {
     error.value = e?.response?.data?.detail || '上传失败，请重试'
     stage.value = 'pick'
   }
+}
+
+// ==================== 多文件批量 ====================
+
+async function startBatch(files) {
+  const token = ++batchToken
+  batchJobs.value = files.map(f => ({
+    file: f, name: f.name, status: 'queued', progress: 0,
+    jobId: '', runId: '', seeds: [], error: '',
+  }))
+  stage.value = 'batchParse'
+  error.value = ''
+  for (const item of batchJobs.value) {
+    if (token !== batchToken) return
+    await uploadBatchItem(item, token)
+  }
+  if (token !== batchToken) return
+  if (!batchOk.value.length) {
+    error.value = '这批文件都没有解析成功，请看看下面的原因。'
+    return
+  }
+  const avg = Math.round(
+    batchOk.value.reduce((n, b) => n + (b.seeds?.length || 0), 0) / batchOk.value.length)
+  count.value = Math.max(3, Math.min(12, avg || 3))
+  stage.value = 'batchConfirm'
+}
+
+async function uploadBatchItem(item, token) {
+  item.status = 'uploading'
+  item.progress = 2
+  try {
+    const res = await uploadQuestionFile(userId.value, item.file)
+    if (token !== batchToken) return
+    item.jobId = res.job_id
+    item.runId = res.run_id || ''
+    item.status = res.status || 'queued'
+    trackUploadRun(res.run_id, `解析：${item.name}`, res.job_id)
+    await pollBatchItem(item, token)
+  } catch (e) {
+    if (token !== batchToken) return
+    item.status = 'failed'
+    item.error = e?.response?.data?.detail || '上传失败'
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+async function pollBatchItem(item, token) {
+  // 解析耗时取决于文件大小/扫描页数量；最长等 5 分钟
+  for (let i = 0; i < 250; i++) {
+    await sleep(1200)
+    if (token !== batchToken) return
+    try {
+      const data = await getUploadJob(item.jobId, userId.value)
+      const j = data.job || {}
+      item.status = j.status || item.status
+      item.progress = j.progress || item.progress
+      if (j.status === 'awaiting_confirm') {
+        item.seeds = data.seeds || []
+        return
+      }
+      if (j.status === 'failed' || j.status === 'cancelled') {
+        item.error = j.error || (j.status === 'cancelled' ? '已取消' : '解析失败')
+        return
+      }
+    } catch (e) {
+      item.status = 'failed'
+      item.error = e?.response?.data?.detail || '读取解析进度失败'
+      return
+    }
+  }
+  item.status = 'failed'
+  item.error = '解析超时，请到任务列表查看'
+}
+
+async function confirmBatch() {
+  if (batchBusy.value || !batchOk.value.length) return
+  const token = batchToken
+  batchBusy.value = true
+  error.value = ''
+  try {
+    for (const item of batchJobs.value) {
+      if (token !== batchToken) return
+      if (item.status !== 'awaiting_confirm') continue
+      const seedIds = (item.seeds || []).map(s => s.id)
+      if (!seedIds.length) {
+        item.status = 'failed'
+        item.error = '没有可出题点'
+        continue
+      }
+      item.status = 'generating'
+      item.progress = 5
+      try {
+        await confirmUpload(item.jobId, userId.value, {
+          seed_ids: seedIds,
+          count: count.value,
+          types: types.value,
+          difficulty: difficulty.value,
+          mode: 'generate',
+        })
+        const gen = await generateUpload(item.jobId, userId.value)
+        item.runId = gen.run_id || item.runId
+        trackUploadRun(
+          gen.run_id || item.runId, `生成：${item.name}`, item.jobId,
+          'queued', 5, 'queued')
+      } catch (e) {
+        item.status = 'failed'
+        item.error = e?.response?.data?.detail || '生成入队失败'
+      }
+    }
+    stage.value = 'batchDone'
+    startRunPolling(userId.value)
+  } finally {
+    batchBusy.value = false
+  }
+}
+
+function batchStatusText(b) {
+  return {
+    queued: '排队中', paused: '已暂停', uploading: '上传中', parsing: '解析中',
+    awaiting_confirm: '待确认', confirmed: '已确认', generating: '生成中',
+    ready: '已完成', failed: '失败', cancelled: '已取消',
+  }[b.status] || b.status || ''
+}
+
+async function resumePaused() {
+  const runId = job.value?.run_id
+  if (!runId || busy.value) return
+  busy.value = true
+  try {
+    await resumeRunById(runId)
+    paused.value = false
+    stage.value = 'generating'
+    const pauseStage = job.value?.pause_stage || ''
+    if (pauseStage === 'queued' || pauseStage === 'parsing') pollJob(job.value.id)
+    else pollResult(job.value.id)
+  } catch (e) {
+    error.value = e?.response?.data?.detail || '继续失败'
+  } finally {
+    busy.value = false
+  }
+}
+
+function gotoTasks() {
+  close()
+  router.push('/agent-center')
 }
 
 function pollJob(jobId) {
@@ -453,6 +758,14 @@ function pollJob(jobId) {
         stopTimer()
         error.value = data.job.error || '解析失败'
         stage.value = 'pick'
+      } else if (data.job?.status === 'paused') {
+        stopTimer()
+        paused.value = true
+        stage.value = 'generating'
+      } else if (data.job?.status === 'cancelled') {
+        stopTimer()
+        error.value = '解析已取消'
+        stage.value = 'pick'
       }
     } catch (e) {
       if (token !== pollToken) return
@@ -466,13 +779,34 @@ function pollJob(jobId) {
 }
 
 async function loadJob(jobId) {
+  paused.value = false
   try {
     const data = await getUploadJob(jobId, userId.value)
     job.value = data.job
     seeds.value = data.seeds || []
     selected.value = seeds.value.map(s => s.id)
-    stage.value = data.job?.status === 'awaiting_confirm' ? 'confirm' : 'parsing'
-    if (stage.value === 'parsing') pollJob(jobId)
+    const st = data.job?.status
+    if (st === 'awaiting_confirm' || st === 'confirmed') {
+      stage.value = 'confirm'
+    } else if (st === 'ready') {
+      const res = await getUploadResult(jobId, userId.value)
+      result.value = res
+      stage.value = 'result'
+    } else if (st === 'generating') {
+      stage.value = 'generating'
+      busy.value = true
+      pollResult(jobId)
+    } else if (st === 'paused') {
+      paused.value = true
+      progress.value = data.job?.progress || 0
+      stage.value = 'generating'
+    } else if (st === 'failed' || st === 'cancelled') {
+      error.value = data.job?.error || (st === 'cancelled' ? '任务已取消' : '任务失败')
+      stage.value = 'pick'
+    } else {
+      stage.value = 'parsing'
+      pollJob(jobId)
+    }
   } catch (e) {
     error.value = '任务不存在或已过期'
     stage.value = 'pick'
@@ -509,6 +843,7 @@ function scoreClass(v) {
 async function startGenerate(tryThree) {
   if (!selected.value.length) { ElMessage.warning('至少选一个可出题点'); return }
   busy.value = true
+  paused.value = false
   error.value = ''
   stage.value = 'generating'
   progress.value = 10
@@ -520,7 +855,10 @@ async function startGenerate(tryThree) {
       difficulty: difficulty.value,
       mode: 'generate',
     })
-    await generateUpload(job.value.id, userId.value)
+    const gen = await generateUpload(job.value.id, userId.value)
+    trackUploadRun(
+      gen.run_id, `生成：${file.value?.name || '上传文件'}`,
+      job.value.id, 'queued', 5, 'queued')
     pollResult(job.value.id)
   } catch (e) {
     error.value = e?.response?.data?.detail || '生成失败'
@@ -542,11 +880,21 @@ function pollResult(jobId) {
         result.value = data
         busy.value = false
         stage.value = 'result'
+      } else if (data.status === 'paused') {
+        stopTimer()
+        busy.value = false
+        paused.value = true
+        stage.value = 'generating'
       } else if (data.status === 'failed') {
         stopTimer()
         busy.value = false
         error.value = data.error || '生成失败'
         stage.value = 'confirm'
+      } else if (data.status === 'cancelled') {
+        stopTimer()
+        busy.value = false
+        error.value = '生成已取消'
+        stage.value = 'pick'
       }
     } catch (e) {
       if (token !== pollToken) return
@@ -727,6 +1075,45 @@ function gotoSet() {
 .xj-drop-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 8px 0 4px; }
 .xj-drop-sub { font-size: 12px; color: var(--text-secondary); margin: 0; }
 .xj-drop-note { font-size: 11.5px; color: var(--text-muted); margin: 10px 0 0; }
+
+/* ===== 多文件批量（2026-10-31）===== */
+.xj-batch-head { margin-bottom: 10px; }
+.xj-batch-list {
+  display: flex; flex-direction: column; gap: 7px;
+  max-height: 320px; overflow-y: auto; margin: 4px 0 14px;
+}
+.xj-batch-item {
+  display: flex; gap: 9px; align-items: flex-start;
+  border: 1px solid rgba(128, 128, 128, .16); border-radius: 11px;
+  padding: 9px 11px;
+}
+.xj-batch-dot {
+  width: 7px; height: 7px; border-radius: 50%; margin-top: 6px;
+  background: rgba(128, 128, 128, .45); flex-shrink: 0;
+}
+.xj-batch-dot.awaiting_confirm { background: var(--brand); }
+.xj-batch-dot.generating, .xj-batch-dot.parsing, .xj-batch-dot.uploading {
+  background: #d48806; box-shadow: 0 0 0 3px rgba(250, 178, 25, .14);
+}
+.xj-batch-dot.ready, .xj-batch-dot.confirmed { background: #0ca30c; }
+.xj-batch-dot.failed { background: #f56c6c; }
+.xj-batch-main { flex: 1; min-width: 0; }
+.xj-batch-top { display: flex; align-items: center; gap: 8px; }
+.xj-batch-name {
+  flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.xj-batch-status { font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; }
+.xj-batch-bar {
+  height: 4px; border-radius: 2px; overflow: hidden;
+  background: rgba(128, 128, 128, .14); margin-top: 6px;
+}
+.xj-batch-bar span {
+  display: block; height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--brand), var(--brand-bright));
+  transition: width .4s ease;
+}
+.xj-batch-error { margin: 5px 0 0; font-size: 11px; color: #f56c6c; line-height: 1.5; }
 
 .xj-spin {
   width: 34px; height: 34px; border-radius: 50%;

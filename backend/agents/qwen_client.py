@@ -18,7 +18,7 @@ from openai import OpenAI
 
 from config import settings
 from logging_config import logger
-from utils import gen_audit
+from utils import gen_audit, llm_usage
 
 _PROVIDER = "qwen"
 
@@ -50,6 +50,7 @@ def call_qwen(messages, temperature=0.7, model=None, purpose="unknown"):
                             started=started, error=e)
         raise
     content = response.choices[0].message.content
+    llm_usage.add(_PROVIDER, used, getattr(response, "usage", None))
     gen_audit.note_ok(provider=_PROVIDER, model=used, purpose=purpose,
                       started=started, output=content)
     return content
@@ -121,6 +122,7 @@ def call_qwen_vision(image_url, prompt="请描述这张图片的内容", tempera
                             started=started, error=e)
         raise
     content = response.choices[0].message.content
+    llm_usage.add(_PROVIDER, used, getattr(response, "usage", None))
     gen_audit.note_ok(provider=_PROVIDER, model=used, purpose=purpose,
                       started=started, output=content)
     return content
@@ -159,6 +161,7 @@ def call_qwen_vision_sequence(images, prompt, labels=None, temperature=0.5,
                             started=started, error=e)
         raise
     out = response.choices[0].message.content
+    llm_usage.add(_PROVIDER, used, getattr(response, "usage", None))
     gen_audit.note_ok(provider=_PROVIDER, model=used, purpose=purpose,
                       started=started, output=out)
     return out

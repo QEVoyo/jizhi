@@ -50,6 +50,12 @@ export function addQuestionToSet(setId, questionId) {
     .then(res => res.data)
 }
 
+// 团队出题完成后，把 run 里已落库的题打包成题集（2026-11-13）
+export function createSetFromRun(userId, data) {
+  return request.post(`/questions/set/from-run?user_id=${userId}`, data)
+    .then(res => res.data)
+}
+
 export function removeQuestionFromSet(setId, questionId) {
   return request.post(`/questions/set/${setId}/remove/${questionId}`)
     .then(res => res.data)

@@ -30,6 +30,14 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    // 2D 校园（2026-11-15）：替换原 3D 预览，地图取自《龙之城堡》一楼大地图；
+    // 公开可看，登录后才按真实学习数据推荐
+    path: '/campus',
+    name: 'Campus',
+    component: () => import('@/views/Campus.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/Profile.vue'),

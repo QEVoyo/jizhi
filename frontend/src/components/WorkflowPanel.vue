@@ -12,6 +12,7 @@
     <!-- 运行指标 -->
     <div v-if="metrics" class="metric-row">
       <span class="m-chip">近 {{ metrics.days }} 天 run <b>{{ metrics.total }}</b></span>
+      <span v-if="metrics.active" class="m-chip">进行中 <b>{{ metrics.active }}</b></span>
       <span class="m-chip">成功率 <b>{{ metrics.success_rate == null ? '—' : metrics.success_rate + '%' }}</b></span>
       <span class="m-chip">P95 <b>{{ metrics.p95_latency_ms == null ? '—' : metrics.p95_latency_ms + 'ms' }}</b></span>
       <span class="m-chip">成本 <b>¥{{ metrics.cost }}</b></span>
@@ -28,9 +29,16 @@
           <span class="wf-status" :class="w.status">{{ w.status === 'ready' ? '可运行' : '规划中' }}</span>
         </header>
         <p class="wf-desc">{{ w.description }}</p>
-        <div class="wf-nodes">
+        <div v-if="w.key === 'tuning_debate'" class="wf-nodes">
+          <span class="wf-node">取证</span>
+          <span class="wf-arrow">→</span>
+          <span class="wf-node wf-node-fan">四路并行</span>
+          <span class="wf-arrow">→</span>
+          <span class="wf-node">主控裁决</span>
+        </div>
+        <div v-else class="wf-nodes">
           <template v-for="(n, i) in w.nodes" :key="n.key">
-            <span class="wf-node" :class="nodeClass(w.key, n.key)">{{ n.key }}</span>
+            <span class="wf-node" :class="nodeClass(w.key, n.key)">{{ nodeLabel(n.key) }}</span>
             <span v-if="i < w.nodes.length - 1" class="wf-arrow">→</span>
           </template>
         </div>
@@ -42,14 +50,30 @@
         >
           {{ running ? '运行中…' : 'dry-run 跑一遍' }}
         </button>
+        <button
+          v-if="w.key === 'question_gen' || w.key === 'question_gen_quick'"
+          class="wf-run wf-real"
+          :disabled="running"
+          @click="startRealRun(w)"
+        >
+          {{ w.key === 'question_gen_quick' ? '真实快速出题' : '真实团队出题' }}
+        </button>
+        <button
+          v-if="w.key === 'tuning_debate'"
+          class="wf-run wf-room"
+          @click="openDebateRoom"
+        >
+          打开真实圆桌
+        </button>
       </article>
     </div>
 
     <!-- 实时轨迹 -->
     <div v-if="run" class="wf-live">
       <div class="live-head">
-        <span class="live-title">运行 {{ shortId(run.run.run_id || run.run.id) }}</span>
+        <span class="live-title">{{ run.run.title || ('运行 ' + shortId(run.run.run_id || run.run.id)) }}</span>
         <span class="live-status" :class="run.run.status">{{ statusText(run.run.status) }}</span>
+        <span v-if="run.run.progress != null" class="live-meta">{{ run.run.progress }}%</span>
         <span v-if="run.run.latency_ms" class="live-meta">{{ run.run.latency_ms }}ms</span>
       </div>
       <div class="live-steps">
@@ -68,23 +92,34 @@
           <span class="msg-text">{{ m.content }}</span>
         </div>
       </div>
+      <p v-if="run.run.error" class="live-error">{{ run.run.error }}</p>
       <p v-if="run.run.output?.message" class="live-final">{{ run.run.output.message }}</p>
+      <div v-if="run.run.link" class="live-actions">
+        <button @click="openResult(run.run.link)">查看结果</button>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getWorkflows, createRun, getRun, getRunMetrics } from '@/api/agents'
+import { openAgentPanel } from '@/stores/agentPanel'
 
-const props = defineProps({ userId: { type: String, default: '' } })
+const props = defineProps({
+  userId: { type: String, default: '' },
+  focusRunId: { type: String, default: '' },
+})
 
+const router = useRouter()
 const workflows = ref([])
 const metrics = ref(null)
 const running = ref(false)
 const run = ref(null)
 let timer = null
+let pollToken = 0
 
 const messages = computed(() => (run.value?.messages || []).slice(-12))
 
@@ -108,7 +143,20 @@ async function loadMetrics() {
 
 onMounted(load)
 watch(() => props.userId, (v) => { if (v) loadMetrics() })
-onBeforeUnmount(() => { if (timer) clearInterval(timer) })
+// 任务页点击某条 run 时，复用这里的轨迹视图（不再造第二套详情页）。
+// 历史任务打开时不再重复弹「任务完成」——只在本次亲眼看到它从未结束变成结束时才弹。
+watch(() => props.focusRunId, (id) => {
+  if (id && props.userId) poll(id, { label: '任务', notify: false })
+})
+onBeforeUnmount(() => {
+  pollToken += 1
+  if (timer) clearInterval(timer)
+  timer = null
+})
+
+function openDebateRoom() {
+  window.dispatchEvent(new CustomEvent('open-debate-room'))
+}
 
 async function startDryRun(w) {
   if (!props.userId || running.value) return
@@ -120,6 +168,7 @@ async function startDryRun(w) {
       mode: 'auto',
       input: { topic: '函数单调性', count: 3, dry_run: true },
     }, props.userId)
+    openAgentPanel(created.run_id)
     poll(created.run_id)
   } catch (e) {
     running.value = false
@@ -127,29 +176,121 @@ async function startDryRun(w) {
   }
 }
 
-function poll(runId) {
+async function startRealRun(w) {
+  if (!props.userId || running.value) return
+  const quick = w.key === 'question_gen_quick'
+  const count = quick ? 2 : 3
+  const label = quick ? '快速出题' : '团队出题'
+  let topic = ''
+  try {
+    const res = await ElMessageBox.prompt(
+      `输入要出的知识点。会真实调用模型并写入题库，预计 ${quick ? '2–4' : '5–8'} 次调用。`,
+      quick ? '真实快速出题' : '真实团队出题',
+      {
+        inputValue: '函数单调性',
+        confirmButtonText: '下一步',
+        cancelButtonText: '取消',
+        inputPattern: /\S+/,
+        inputErrorMessage: '请输入知识点',
+      },
+    )
+    topic = String(res.value || '').trim()
+  } catch { return }
+  if (!topic) return
+  try {
+    await ElMessageBox.confirm(
+      (quick
+        ? `快速模式：跳过规划与检索，围绕「${topic}」出 ${count} 道选择题。`
+        : `围绕「${topic}」出 ${count} 道选择题，团队会规划、检索、校验并修复。`)
+      + '会真实调用模型并写入题库，确定开始？',
+      '确认真实运行',
+      { type: 'warning', confirmButtonText: '开始', cancelButtonText: '取消' },
+    )
+  } catch { return }
+
+  running.value = true
+  run.value = null
+  try {
+    const created = await createRun({
+      workflow_key: w.key,
+      mode: quick ? 'quick' : 'auto',
+      input: { topic, count, question_type: '选择题', difficulty: '中等' },
+    }, props.userId)
+    openAgentPanel(created.run_id)
+    poll(created.run_id, { label })
+  } catch (e) {
+    running.value = false
+    ElMessage.error(e?.response?.data?.detail || '启动失败（先执行 agent_orchestration.sql）')
+  }
+}
+
+function stopPoll(token) {
+  if (token !== pollToken) return
+  pollToken += 1
   if (timer) clearInterval(timer)
+  timer = null
+}
+
+function poll(runId, { label = 'dry-run', notify = true } = {}) {
+  if (timer) clearInterval(timer)
+  timer = null
+  const token = ++pollToken
+  let sawActive = false
+
   const tick = async () => {
+    if (token !== pollToken) return
     try {
       const bundle = await getRun(runId, props.userId)
+      if (token !== pollToken) return
       run.value = bundle
-      if (['completed', 'failed', 'cancelled'].includes(bundle?.run?.status)) {
-        clearInterval(timer)
-        timer = null
+      const status = bundle?.run?.status
+      if (!['completed', 'failed', 'cancelled'].includes(status)) sawActive = true
+      if (['completed', 'failed', 'cancelled'].includes(status)) {
+        stopPoll(token)
         running.value = false
         loadMetrics()
-        if (bundle.run.status === 'completed') ElMessage.success('dry-run 完成')
-        else ElMessage.error(bundle.run.error || '运行失败')
+        if (notify && sawActive) {
+          if (status === 'completed') ElMessage.success(`${label}完成`)
+          else if (status === 'failed') {
+            ElMessage.error(bundle.run.error || `${label}失败`)
+          }
+        }
       }
     } catch (e) {
-      clearInterval(timer)
-      timer = null
+      if (token !== pollToken) return
+      stopPoll(token)
       running.value = false
       ElMessage.error('读取运行状态失败')
     }
   }
   tick()
   timer = setInterval(tick, 1000)
+}
+
+function openResult(link) {
+  if (link) router.push(link)
+}
+
+const NODE_LABELS = {
+  plan: '规划',
+  retrieve: '检索',
+  generate: '生成',
+  verify: '校验',
+  verify_semantic: '语义复核',
+  repair: '修复',
+  verify_retry: '复检',
+  persist: '落库',
+  aggregate: '汇总',
+  parse: '解析',
+  evaluate: '评估',
+  evidence: '取证',
+  data: '数据',
+  judge: '裁决',
+  xiaoji: '小基',
+}
+
+function nodeLabel(key) {
+  return NODE_LABELS[key] || key
 }
 
 function nodeClass(wfKey, nodeKey) {
@@ -159,7 +300,11 @@ function nodeClass(wfKey, nodeKey) {
 }
 
 function statusText(s) {
-  return { queued: '排队中', running: '运行中', completed: '已完成', failed: '失败', cancelled: '已取消' }[s] || s
+  return {
+    queued: '排队中', paused: '已暂停', running: '运行中',
+    awaiting_confirm: '待确认', confirmed: '已确认',
+    completed: '已完成', failed: '失败', cancelled: '已取消',
+  }[s] || s
 }
 
 function shortId(id) {
@@ -212,6 +357,7 @@ function shortId(id) {
   font-size: 11px; padding: 2px 8px; border-radius: 8px;
   color: var(--text-secondary); background: rgba(128, 128, 128, .10);
 }
+.wf-node-fan { color: #d48806; background: rgba(250, 178, 25, .12); }
 .wf-node.running { color: #d48806; background: rgba(250, 178, 25, .14); }
 .wf-node.completed { color: #0ca30c; background: rgba(12, 163, 12, .12); }
 .wf-node.failed { color: #f56c6c; background: rgba(245, 108, 108, .12); }
@@ -225,6 +371,18 @@ function shortId(id) {
 }
 .wf-run:hover:not(:disabled) { background: color-mix(in srgb, var(--brand) 25%, transparent); }
 .wf-run:disabled { opacity: .5; cursor: not-allowed; }
+.wf-room {
+  margin-top: 6px;
+  border-color: color-mix(in srgb, #f2c94c 46%, transparent);
+  background: color-mix(in srgb, #f2c94c 12%, transparent);
+}
+.wf-room:hover { background: color-mix(in srgb, #f2c94c 22%, transparent); }
+.wf-real {
+  margin-top: 6px;
+  border-color: color-mix(in srgb, #30d158 44%, transparent);
+  background: color-mix(in srgb, #30d158 11%, transparent);
+}
+.wf-real:hover { background: color-mix(in srgb, #30d158 20%, transparent); }
 
 .wf-live {
   margin-top: 14px; border-top: 1px solid rgba(255, 255, 255, .07);
@@ -259,5 +417,16 @@ function shortId(id) {
   margin-top: 10px; font-size: 13px; color: var(--text-primary);
   background: color-mix(in srgb, var(--brand) 8%, transparent);
   border-radius: 10px; padding: 8px 12px;
+}
+.live-error {
+  margin-top: 10px; font-size: 12.5px; color: #f56c6c; line-height: 1.55;
+  background: rgba(245, 108, 108, .08); border-radius: 10px; padding: 8px 12px;
+}
+.live-actions { margin-top: 10px; }
+.live-actions button {
+  font-size: 12px; font-family: inherit; cursor: pointer; font-weight: 600;
+  padding: 6px 14px; border-radius: 8px; color: var(--brand-bright);
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent);
+  background: color-mix(in srgb, var(--brand) 13%, transparent);
 }
 </style>

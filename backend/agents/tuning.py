@@ -246,6 +246,21 @@ def _build_evidence(data: dict, ctx: dict) -> dict:
             day_map[d][0] += 1
     daily = [{"date": d, "done": v[0], "total": v[1]} for d, v in sorted(day_map.items())]
 
+    # 近 7 天快照（2026-11-12）：调参复盘要用「决策后新产生的行为」对比，
+    # 不能拿 30 天窗口和被自己影响过的 30 天窗口比（重叠太多，永远看不出变化）。
+    since7 = (now - timedelta(days=7)).isoformat()
+    recent_actions = [a for a in actions if (a.get("action_at") or "") >= since7]
+    recent_records = [r for r in records if (r.get("created_at") or "") >= since7]
+    recent7_study_days = {(a.get("action_at") or "")[:10]
+                          for a in recent_actions
+                          if a.get("action_type") in _STUDY_ACTIONS and a.get("action_at")}
+    recent7_active_days = {(a.get("action_at") or "")[:10]
+                           for a in recent_actions if a.get("action_at")}
+    r7_total = len(recent_records)
+    r7_correct = sum(1 for r in recent_records if r.get("is_correct"))
+    recent7_tasks = [t for t in tasks if (t.get("date") or "") >= since7[:10]]
+    r7_done = sum(1 for t in recent7_tasks if t.get("completed"))
+
     total_q = len(records)
     correct = sum(1 for r in records if r.get("is_correct"))
     times = []
@@ -284,6 +299,19 @@ def _build_evidence(data: dict, ctx: dict) -> dict:
             "voice_calls": len(calls),
             "voice_minutes": round(
                 sum(float(c.get("duration_seconds") or 0) for c in calls) / 60, 1),
+        },
+        # 调参复盘基线（2026-11-12）：只统计近 7 天，避免和 30 天窗口重叠。
+        "recent7": {
+            "window_days": 7,
+            "active_days": len(recent7_active_days),
+            "study_days": len(recent7_study_days),
+            "questions_total": r7_total,
+            "questions_correct": r7_correct,
+            "accuracy": round(r7_correct / r7_total * 100, 1) if r7_total else None,
+            "tasks_total": len(recent7_tasks),
+            "tasks_done": r7_done,
+            "completion_rate": (round(r7_done / len(recent7_tasks) * 100, 1)
+                                if recent7_tasks else None),
         },
         "weak_kps": [{"kp": kp(m), "score": m.get("mastery_score")} for m in weak],
         "strong_kps": [{"kp": kp(m), "score": m.get("mastery_score")} for m in strong],
@@ -399,11 +427,23 @@ def _fallback_judgment(applied: list) -> dict:
 
 
 async def _save_decision(user_id: str, evidence: dict, applied: list,
-                         judgment: dict, fallback: bool) -> Optional[dict]:
-    """写 agent_decisions。表未建/写入失败只记日志，不影响调参。"""
+                         judgment: dict, fallback: bool, *,
+                         signal: Optional[str] = None,
+                         status: str = "applied",
+                         extra: Optional[dict] = None) -> Optional[dict]:
+    """写 agent_decisions。表未建/写入失败只记日志，不影响调参。
+
+    signal/status/extra 是给调参圆桌复用的：圆桌由主控 Judge 裁决，
+    信号名写 tuning_debate；没有可应用的变更时 status=proposed。
+    """
     now = datetime.now(timezone.utc)
-    signal = ",".join(sorted({f"{a['agent_key']}.{a['param_key']}" for a in applied})) \
-        or "tuning_rules"
+    signal = signal or (
+        ",".join(sorted({f"{a['agent_key']}.{a['param_key']}" for a in applied}))
+        or "tuning_rules")
+    try:
+        review_days = max(1, min(30, int(judgment.get("review_after_days") or 7)))
+    except (TypeError, ValueError):
+        review_days = 7
     payload = {
         "user_id": user_id,
         "signal": signal,
@@ -411,18 +451,20 @@ async def _save_decision(user_id: str, evidence: dict, applied: list,
         "diagnosis": judgment.get("diagnosis") or "",
         "confidence": judgment.get("confidence"),
         "changes": applied,
-        "actions": [],
+        "actions": judgment.get("actions") or [],
         "rejected": judgment.get("rejected") or [],
         "diary": judgment.get("diary") or "",
         "model": "rule" if fallback else JUDGE_MODEL,
-        "status": "applied",
+        "status": status,
         "agrees": judgment.get("agrees"),
         "suggestion": judgment.get("suggestion") or "",
         "feedback": [],
-        "review_at": (now + timedelta(days=7)).isoformat(),
+        "review_at": (now + timedelta(days=review_days)).isoformat(),
         "fallback": fallback,
         "created_at": now.isoformat(),
     }
+    if extra:
+        payload.update(extra)
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             res = await client.post(
@@ -474,6 +516,290 @@ async def _tag_tuning_logs(log_ids: list, decision: Optional[dict],
             logger.info(f"[tuning] 回填日记字段失败（SQL 未执行？）: {res.status_code}")
     except Exception as e:
         logger.info(f"[tuning] 回填日记字段异常: {e}")
+
+
+# ============================================================
+# 调参圆桌：主控裁决后的参数应用（2026-11-11）
+#
+# 圆桌不是「让模型随便改参数」。主控只能在已知参数空间里动，
+# 单次最多 2 项、单项幅度受限、同一参数有冷却期、用户锁定的参数不碰。
+# 越界的提案会被记进 skipped，前端原样展示，不假装成功。
+# ============================================================
+
+PARAM_BOUNDS = {
+    ("plan", "tasks"): {
+        "kind": "int", "min": 1, "max": 10, "delta": 2, "cooldown": 7,
+        "label": "每日任务量",
+    },
+    ("plan", "pace"): {
+        "kind": "enum", "values": PACE_ORDER, "delta": 1, "cooldown": 7,
+        "label": "阶段节奏",
+    },
+    ("generate", "difficulty"): {
+        "kind": "int", "min": 1, "max": 10, "delta": 2, "cooldown": 7,
+        "label": "出题难度",
+    },
+    ("generate", "mistake"): {
+        "kind": "bool", "cooldown": 7, "label": "错题针对性",
+    },
+    ("evaluate", "grain"): {
+        "kind": "enum", "values": ["粗", "中", "细"], "delta": 1, "cooldown": 14,
+        "label": "错因颗粒度",
+    },
+    ("xiaoji", "care"): {
+        "kind": "enum", "values": CARE_ORDER, "delta": 1, "cooldown": 7,
+        "label": "主动关心频率",
+    },
+}
+
+
+def _coerce_bool(v) -> bool:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        if v.strip().lower() in ("true", "1", "是", "开", "开启"):
+            return True
+        if v.strip().lower() in ("false", "0", "否", "关", "关闭"):
+            return False
+    return bool(v)
+
+
+def _parse_dt(s) -> Optional[datetime]:
+    try:
+        return datetime.fromisoformat(str(s or "").replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+
+
+async def apply_judge_changes(user_id: str, changes: list, *,
+                              source: str = "debate",
+                              max_changes: int = 2) -> dict:
+    """按硬边界应用主控裁决。返回 {applied, skipped}，永不越界。
+
+    - 参数必须在 PARAM_BOUNDS 里；
+    - 单次最多 max_changes 项；
+    - int 单项幅度 <= delta；enum 只允许相邻一档；
+    - 同一参数冷却期内不改（7/14 天）；
+    - agent_prefs.auto_managed=false 的用户锁定参数不碰；
+    - 「每周最多 2 次自动调整」只统计 source=auto；圆桌是用户主动触发，
+      不占自动额度，但仍受单项冷却期约束。
+    """
+    applied: list = []
+    skipped: list = []
+    changes = [c for c in (changes or []) if isinstance(c, dict)]
+    if not changes:
+        return {"applied": applied, "skipped": skipped}
+
+    now = datetime.now(timezone.utc)
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        # 当前参数与自动托管开关
+        try:
+            res = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/agent_prefs",
+                headers=_headers(),
+                params={"user_id": f"eq.{user_id}",
+                        "select": "id,agent_key,param_key,param_value,auto_managed",
+                        "limit": "500"})
+            rows = res.json() if res.status_code == 200 and isinstance(res.json(), list) else []
+        except Exception as e:
+            logger.info(f"[debate] 读 agent_prefs 失败: {e}")
+            rows = []
+        prefs = {(r.get("agent_key"), r.get("param_key")): r for r in rows}
+
+        # 近 14 天调整记录：冷却期 + 本周自动额度
+        since = (now - timedelta(days=14)).isoformat()
+        try:
+            res = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/agent_tuning_log",
+                headers=_headers(),
+                params={"user_id": f"eq.{user_id}",
+                        "created_at": f"gte.{since}",
+                        "select": "agent_key,param_key,source,created_at",
+                        "order": "created_at.desc", "limit": "200"})
+            logs = res.json() if res.status_code == 200 and isinstance(res.json(), list) else []
+        except Exception as e:
+            logger.info(f"[debate] 读 agent_tuning_log 失败: {e}")
+            logs = []
+
+        last_at: dict = {}
+        for r in logs:
+            key = (r.get("agent_key"), r.get("param_key"))
+            dt = _parse_dt(r.get("created_at"))
+            if dt and (key not in last_at or dt > last_at[key]):
+                last_at[key] = dt
+        week_ago = now - timedelta(days=7)
+        auto_week = sum(
+            1 for r in logs
+            if r.get("source") == "auto"
+            and (_parse_dt(r.get("created_at")) or now) >= week_ago)
+
+        for c in changes:
+            agent_key = str(c.get("agent_key") or "").strip()
+            param_key = str(c.get("param_key") or "").strip()
+            base = {"agent_key": agent_key, "param_key": param_key}
+
+            if len(applied) >= max_changes:
+                skipped.append({**base, "reason": f"单次圆桌最多应用 {max_changes} 项"})
+                continue
+            rule = PARAM_BOUNDS.get((agent_key, param_key))
+            if not rule:
+                skipped.append({**base, "reason": "不在允许自动调整的参数空间"})
+                continue
+            row = prefs.get((agent_key, param_key))
+            if row and row.get("auto_managed") is False:
+                skipped.append({**base, "reason": "用户锁定了这个参数（auto_managed=false）"})
+                continue
+
+            old = row.get("param_value") if row else c.get("from", c.get("old_value"))
+            new = c.get("to", c.get("new_value", c.get("new")))
+            if isinstance(old, dict):
+                old = old.get("value")
+            if isinstance(new, dict):
+                new = new.get("value")
+
+            try:
+                if rule["kind"] == "int":
+                    old_v, new_v = int(old), int(new)
+                    if not (rule["min"] <= new_v <= rule["max"]):
+                        skipped.append({**base, "reason": f"超出范围 {rule['min']}–{rule['max']}"})
+                        continue
+                    if abs(new_v - old_v) > rule["delta"]:
+                        skipped.append({**base, "reason": f"单次幅度不能超过 {rule['delta']}"})
+                        continue
+                elif rule["kind"] == "enum":
+                    vals = rule["values"]
+                    if old not in vals or new not in vals:
+                        skipped.append({**base, "reason": "当前值或目标值不在允许枚举里"})
+                        continue
+                    if abs(vals.index(new) - vals.index(old)) > rule["delta"]:
+                        skipped.append({**base, "reason": "枚举只能逐档调整"})
+                        continue
+                    old_v, new_v = old, new
+                else:  # bool
+                    old_v, new_v = _coerce_bool(old), _coerce_bool(new)
+            except (TypeError, ValueError):
+                skipped.append({**base, "reason": "参数值不是合法数字/枚举"})
+                continue
+
+            last_dt = last_at.get((agent_key, param_key))
+            if last_dt and (now - last_dt).days < rule["cooldown"]:
+                skipped.append({**base, "reason": f"冷却期内（{rule['cooldown']} 天）"})
+                continue
+            if auto_week >= 2:
+                skipped.append({**base, "reason": "本周自动调整已达 2 次；圆桌只给建议，未自动应用"})
+                continue
+
+            reason = str(c.get("reason") or "圆桌裁决").strip()[:300]
+            try:
+                if row:
+                    res = await client.patch(
+                        f"{settings.SUPABASE_URL}/rest/v1/agent_prefs?id=eq.{row['id']}",
+                        headers=_headers(),
+                        json={"param_value": new_v, "auto_managed": True,
+                              "updated_at": now.isoformat()})
+                else:
+                    res = await client.post(
+                        f"{settings.SUPABASE_URL}/rest/v1/agent_prefs",
+                        headers=_headers(),
+                        json={"user_id": user_id, "agent_key": agent_key,
+                              "param_key": param_key, "param_value": new_v,
+                              "auto_managed": True, "updated_at": now.isoformat()})
+                if res.status_code >= 300:
+                    raise RuntimeError(f"{res.status_code} {res.text[:120]}")
+
+                # 审计行：source=debate，前端与回滚都用这条
+                log_res = await client.post(
+                    f"{settings.SUPABASE_URL}/rest/v1/agent_tuning_log",
+                    headers=_headers(),
+                    json={"user_id": user_id, "agent_key": agent_key,
+                          "param_key": param_key, "old_value": old_v,
+                          "new_value": new_v, "reason": f"圆桌：{reason}",
+                          "source": source, "trigger_signal": "tuning_debate",
+                          "created_at": now.isoformat()})
+                if log_res.status_code >= 300:
+                    logger.info(f"[debate] 参数已改但审计行写入失败 "
+                                f"{agent_key}.{param_key}: {log_res.status_code}")
+                applied.append({
+                    "agent_key": agent_key, "param_key": param_key,
+                    "old_value": old_v, "new_value": new_v, "reason": reason,
+                })
+            except Exception as e:
+                logger.info(f"[debate] 应用参数失败 {agent_key}.{param_key}: {e}")
+                skipped.append({**base, "reason": f"写入失败：{str(e)[:80]}"})
+
+    return {"applied": applied, "skipped": skipped}
+
+
+async def revert_decision(user_id: str, decision: dict, *,
+                          reason: str = "用户回滚调参日记",
+                          source: str = "manual",
+                          lock: bool = True) -> dict:
+    """回滚一条调参决策：把参数恢复成 old_value。
+
+    用户手动回滚与 7 天复盘自动回滚共用这一份实现（2026-11-12）：
+    · 只回滚这条 decision 的 changes，不碰用户后来手动改过的值；
+    · 默认把 auto_managed 关掉，避免下一轮规则又把它调回去；
+    · 写一条 agent_tuning_log，时间线能看到「谁、为什么回滚」。
+    返回 {reverted, already, skipped}。
+    """
+    decision = decision or {}
+    decision_id = decision.get("id")
+    if not decision_id:
+        return {"reverted": 0, "already": False, "skipped": ["缺少 decision id"]}
+    if decision.get("status") == "reverted":
+        return {"reverted": 0, "already": True, "skipped": []}
+
+    headers = _headers()
+    reverted = 0
+    skipped: list[str] = []
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for ch in (decision.get("changes") or []):
+            agent_key = ch.get("agent_key")
+            param_key = ch.get("param_key")
+            old_value = ch.get("old_value")
+            new_value = ch.get("new_value")
+            if not agent_key or not param_key:
+                skipped.append("变更缺少 agent_key/param_key")
+                continue
+            cur = await client.get(
+                f"{settings.SUPABASE_URL}/rest/v1/agent_prefs",
+                headers=headers,
+                params={"user_id": f"eq.{user_id}",
+                        "agent_key": f"eq.{agent_key}",
+                        "param_key": f"eq.{param_key}",
+                        "select": "id,param_value", "limit": "1"})
+            rows = cur.json() if cur.status_code == 200 else []
+            if not rows:
+                skipped.append(f"{agent_key}.{param_key} 参数不存在")
+                continue
+            row = rows[0]
+            if row.get("param_value") != new_value:
+                skipped.append(f"{agent_key}.{param_key} 已被用户改过，不覆盖")
+                continue
+            patch = {"param_value": old_value,
+                     "updated_at": datetime.now(timezone.utc).isoformat()}
+            if lock:
+                patch["auto_managed"] = False
+            r = await client.patch(
+                f"{settings.SUPABASE_URL}/rest/v1/agent_prefs?id=eq.{row['id']}",
+                headers={**headers, "Prefer": "return=minimal"}, json=patch)
+            if r.status_code >= 300:
+                skipped.append(f"{agent_key}.{param_key} 写入失败")
+                continue
+            reverted += 1
+            await client.post(
+                f"{settings.SUPABASE_URL}/rest/v1/agent_tuning_log",
+                headers={**headers, "Prefer": "return=minimal"},
+                json={"user_id": user_id, "agent_key": agent_key,
+                      "param_key": param_key, "old_value": new_value,
+                      "new_value": old_value, "reason": reason[:300],
+                      "source": source, "decision_id": decision_id,
+                      "created_at": datetime.now(timezone.utc).isoformat()})
+        await client.patch(
+            f"{settings.SUPABASE_URL}/rest/v1/agent_decisions?id=eq.{decision_id}",
+            headers={**headers, "Prefer": "return=minimal"},
+            json={"status": "reverted"})
+    return {"reverted": reverted, "already": False, "skipped": skipped}
 
 
 # ============================================================

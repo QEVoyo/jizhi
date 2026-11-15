@@ -520,6 +520,7 @@ import VideoLessonPlayer from '@/components/VideoLessonPlayer.vue'
 import VideoPoster from '@/components/VideoPoster.vue'
 import { ElMessage } from 'element-plus'
 import { recordAction } from '@/api/career'
+import { emitXiaoji } from '@/xiaoji/bus'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import SkeletonScreen from '@/components/SkeletonScreen.vue'
 import { getToken } from '@/utils/storage'
@@ -985,11 +986,18 @@ async function handleSubmit() {
   // 编程题且有测试用例 → 沙箱逐点判分，不再交给 AI 批改
   if (isProgramming.value && hasTestCases.value) {
     submitting.value = true
+    emitXiaoji('answer:submit', { data: { question_type: 'programming' } })
     try {
       await submitProgramming()
-      if (evaluationResult.value?.is_correct) ElMessage.success('全部测试点通过 🎉')
-      else ElMessage.warning('还有测试点没通过，再改改')
+      if (evaluationResult.value?.is_correct) {
+        ElMessage.success('全部测试点通过 🎉')
+        emitXiaoji('answer:correct', { data: { question_type: 'programming' } })
+      } else {
+        ElMessage.warning('还有测试点没通过，再改改')
+        emitXiaoji('answer:wrong', { data: { question_type: 'programming' } })
+      }
     } catch (e) {
+      emitXiaoji('network:error', { data: { where: 'code_submit' } })
       ElMessage.error('判分失败：' + (e?.message || '请重试'))
     } finally {
       submitting.value = false
@@ -998,6 +1006,7 @@ async function handleSubmit() {
   }
 
   submitting.value = true
+  emitXiaoji('answer:submit', { data: { question_type: question.value?.question_type } })
   try {
     const result = await evaluateAnswer({
       question: question.value,
@@ -1027,6 +1036,11 @@ async function handleSubmit() {
 
     evaluationResult.value = result
     evaluated.value = true
+    if (typeof result?.is_correct === 'boolean') {
+      emitXiaoji(result.is_correct ? 'answer:correct' : 'answer:wrong', {
+        data: { question_type: question.value?.question_type },
+      })
+    }
 
     const searchTerms = []
     const topic = question.value.topic || ''
@@ -1041,6 +1055,7 @@ async function handleSubmit() {
     await loadLibraryVideos()
 
   } catch (error) {
+    emitXiaoji('network:error', { data: { where: 'question_evaluate' } })
     ElMessage.error('评估失败: ' + error.message)
   } finally {
     submitting.value = false

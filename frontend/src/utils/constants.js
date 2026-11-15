@@ -1,5 +1,13 @@
 // ===== 后端地址 =====
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+const envBackend = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+// 本地联调：手机/另一台电脑用局域网 IP 打开 Vite 时，页面里的 localhost
+// 指的是那台手机自己，API 必须回到开发机。开发模式下自动把 API 指到
+// 「当前页面 host 的 8000 端口」；生产构建（DEV=false）不受影响。
+const pageHost = typeof window !== 'undefined' ? window.location.hostname : ''
+const isPrivateLan = /^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(pageHost)
+export const BACKEND_URL = import.meta.env.DEV && isPrivateLan
+  ? `http://${pageHost}:8000`
+  : envBackend
 console.log('=== constants.js BACKEND_URL:', BACKEND_URL)
 // ===== 题型映射 =====
 export const TYPE_MAP = {
