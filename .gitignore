@@ -14,3 +14,5 @@ AGENT_AUDIT.md
 agent_center_design.md
 message_center_design.md
 logs/
+# 游戏本体约 171MB，GitHub 单文件超限；部署时单独上传到服务器
+backend/static/downloads/jizhi-game-*.exe
