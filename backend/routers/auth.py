@@ -107,72 +107,74 @@ async def login(req: LoginRequest, request: Request):
             detail="认证服务暂时连不上，请检查网络后重试（当前网络可能拦截了 Supabase）",
         )
 
-        user_account = None
-        nickname = None
-        avatar_url = None
-        bio = None
-        learning_stage = None
-        grade = None
-        major = None
-        learning_goal = None
-        difficulty_preference = None
-        learning_style = None
-        daily_study_time = None
+    user_account = None
+    nickname = None
+    avatar_url = None
+    bio = None
+    learning_stage = None
+    grade = None
+    major = None
+    learning_goal = None
+    difficulty_preference = None
+    learning_style = None
+    daily_study_time = None
+    is_admin = False
+    role = "user"
 
-        if profile_res.status_code == 200 and profile_res.json():
-            profile = profile_res.json()[0]
-            user_account = profile.get("user_account")
-            nickname = profile.get("nickname")
-            avatar_url = profile.get("avatar_url")
-            bio = profile.get("bio")
-            learning_stage = profile.get("learning_stage")
-            grade = profile.get("grade")
-            major = profile.get("major")
-            learning_goal = profile.get("learning_goal")
-            difficulty_preference = profile.get("difficulty_preference")
-            learning_style = profile.get("learning_style")
-            daily_study_time = profile.get("daily_study_time")
-            is_admin = profile.get("is_admin", False)
-            role = profile.get("role", "user")
+    if profile_res.status_code == 200 and profile_res.json():
+        profile = profile_res.json()[0]
+        user_account = profile.get("user_account")
+        nickname = profile.get("nickname")
+        avatar_url = profile.get("avatar_url")
+        bio = profile.get("bio")
+        learning_stage = profile.get("learning_stage")
+        grade = profile.get("grade")
+        major = profile.get("major")
+        learning_goal = profile.get("learning_goal")
+        difficulty_preference = profile.get("difficulty_preference")
+        learning_style = profile.get("learning_style")
+        daily_study_time = profile.get("daily_study_time")
+        is_admin = profile.get("is_admin", False)
+        role = profile.get("role", "user")
 
-        # ── 每日登录 +1（信誉值）──
-        # 规则侧有 once_per_day，同一天多登几次只会加一次；分值在库里。
-        #
-        # ⚠️ 为什么用 create_task 而不是 await：
-        #    apply_delta 内部有 3~4 次 Supabase 往返（查规则→查今日用量→读分→
-        #    写分→写流水）。挂在登录路径上就是**每次登录多几百毫秒**，
-        #    而登录是所有人进门的唯一入口 —— 不该为一个 +1 分承担这个延迟。
-        #    代价：进程恰好在那一刻退出会丢掉这次加分。对一个奖励分来说可以接受。
-        #
-        # ⚠️ 回调里必须把异常取出来，否则 asyncio 只会在 GC 时打一句
-        #    "Task exception was never retrieved"，等于静默失败。
-        async def _award_login_daily():
-            try:
-                from utils.reputation import apply_delta
-                await apply_delta(user_id, "login.daily", source_type="auth")
-            except Exception as e:
-                logger.warning(f"[auth] 每日登录加分失败（不影响登录）: {e}")
+    # ── 每日登录 +1（信誉值）──
+    # 规则侧有 once_per_day，同一天多登几次只会加一次；分值在库里。
+    #
+    # ⚠️ 为什么用 create_task 而不是 await：
+    #    apply_delta 内部有 3~4 次 Supabase 往返（查规则→查今日用量→读分→
+    #    写分→写流水）。挂在登录路径上就是**每次登录多几百毫秒**，
+    #    而登录是所有人进门的唯一入口 —— 不该为一个 +1 分承担这个延迟。
+    #    代价：进程恰好在那一刻退出会丢掉这次加分。对一个奖励分来说可以接受。
+    #
+    # ⚠️ 回调里必须把异常取出来，否则 asyncio 只会在 GC 时打一句
+    #    "Task exception was never retrieved"，等于静默失败。
+    async def _award_login_daily():
+        try:
+            from utils.reputation import apply_delta
+            await apply_delta(user_id, "login.daily", source_type="auth")
+        except Exception as e:
+            logger.warning(f"[auth] 每日登录加分失败（不影响登录）: {e}")
 
-        asyncio.create_task(_award_login_daily())
+    asyncio.create_task(_award_login_daily())
 
-        return {
-            "id": user_id,
-            "email": email,
-            "access_token": access_token,
-            "user_account": user_account,
-            "nickname": nickname,
-            "avatar_url": avatar_url,
-            "bio": bio,
-            "learning_stage": learning_stage,
-            "grade": grade,
-            "major": major,
-            "learning_goal": learning_goal,
-            "difficulty_preference": difficulty_preference,
-            "learning_style": learning_style,
-            "daily_study_time": daily_study_time,
-            "is_admin": is_admin,
-            "role": role
-        }
+    return {
+        "id": user_id,
+        "email": email,
+        "access_token": access_token,
+        "user_account": user_account,
+        "nickname": nickname,
+        "avatar_url": avatar_url,
+        "bio": bio,
+        "learning_stage": learning_stage,
+        "grade": grade,
+        "major": major,
+        "learning_goal": learning_goal,
+        "difficulty_preference": difficulty_preference,
+        "learning_style": learning_style,
+        "daily_study_time": daily_study_time,
+        "is_admin": is_admin,
+        "role": role
+    }
 
 
 # ============================================================
