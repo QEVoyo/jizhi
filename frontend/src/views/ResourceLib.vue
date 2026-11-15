@@ -54,6 +54,9 @@
       <el-tab-pane label="🤖 生成题目" name="generate">
         <GenerateForm @success="onGenerateSuccess" />
       </el-tab-pane>
+      <el-tab-pane label="📄 试卷" name="papers">
+        <ExamPapersPanel :user-id="authStore.user?.id || ''" />
+      </el-tab-pane>
       <el-tab-pane label="📁 我的题集" name="sets">
         <QuestionSets />
       </el-tab-pane>
@@ -72,6 +75,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import GenerateForm from '@/components/GenerateForm.vue'
+import ExamPapersPanel from '@/components/ExamPapersPanel.vue'
 import QuestionSets from '@/components/QuestionSets.vue'
 import MistakeBook from '@/components/MistakeBook.vue'
 import GenerationHistory from '@/components/GenerationHistory.vue'

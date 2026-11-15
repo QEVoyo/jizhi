@@ -68,6 +68,11 @@ export function getMistakes(planId, userId, params = {}) {
   return request.get(`/subject-plan/plans/${planId}/mistakes`, { params: { user_id: userId, ...params } }).then(r => r.data)
 }
 // ===== 真题套卷 =====
+export function listAllExamPapers(userId, kind = 'all') {
+  return request.get('/subject-plan/exam-papers', {
+    params: { user_id: userId || '', kind }
+  }).then(r => r.data)
+}
 export function listExamPapers(syllabusId, userId) {
   return request.get(`/subject-plan/syllabi/${syllabusId}/exam-papers`, { params: { user_id: userId || '' } }).then(r => r.data)
 }
