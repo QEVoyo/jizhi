@@ -34,12 +34,16 @@
           <a class="campus-main-btn" href="https://api.jizhi-learn.com/download/JIZHI-setup.exe">
             下载桌面版
           </a>
+          <a class="campus-ghost-btn" href="https://api.jizhi-learn.com/download/game.exe">
+            只下载游戏
+          </a>
           <button class="campus-ghost-btn" @click="backToDesk">回书桌</button>
         </div>
 
         <p class="campus-status" :class="{ 'is-error': statusError }">{{ status }}</p>
         <p class="campus-note">
-          游戏默认从 <code>D:\jizhi-game</code> 启动；也可以设置环境变量
+          桌面版约 3MB，含启动器；游戏本体约 171MB，可单独下载。
+          游戏默认从 <code>D:\jizhi-game</code> 启动，也可以设置环境变量
           <code>JIZHI_GAME_DIR</code> 指向游戏目录。
         </p>
       </section>

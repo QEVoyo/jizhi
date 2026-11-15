@@ -14,6 +14,9 @@
           <a v-if="dl" class="nav-link nav-download" :href="downloadUrl">
             <i class="fab fa-windows"></i> 下载客户端
           </a>
+          <a v-if="gameDl" class="nav-link" :href="gameDownloadUrl">
+            <i class="fas fa-gamepad"></i> 游戏
+          </a>
           <button class="nav-link" @click="goLogin">登录</button>
           <button class="nav-btn-primary magnet" @click="goRegister">免费注册</button>
         </div>
@@ -30,7 +33,7 @@
               <span class="hero-logo-sub">学习助手</span>
             </div>
           </div>
-          <div class="hero-badge">AI 备考平台 · 17 考纲 · 12 套真题</div>
+          <div class="hero-badge">AI 备考平台 · 17 考纲 · 12 套真题 · 2D 校园</div>
           <h1 class="hero-title">选一门考试<br />AI 陪你学到上岸</h1>
           <p class="hero-desc">
             摸底诊断 → 三阶段备考计划 → 每日任务 → 真题冲刺<br />
@@ -41,13 +44,16 @@
             <a v-if="dl" class="cta-primary magnet" :href="downloadUrl">
               <i class="fab fa-windows"></i> 下载 Windows 版
             </a>
+            <a v-if="gameDl" class="cta-ghost explore-btn game-cta magnet" :href="gameDownloadUrl">
+              <i class="fas fa-gamepad"></i> 只下载游戏
+            </a>
             <button class="cta-ghost explore-btn magnet" @click="scrollTo('features')">了解功能 ↓</button>
           </div>
 
           <!-- 无签名证书（个人主体申请不到 OV/EV），Windows 必弹「未知发布者」。
                提前写清楚，比让用户在警告页自己猜强得多。 -->
-          <p v-if="dl" class="hero-dl-note">
-            Windows 10/11 · 约 {{ dl.size_mb }} MB ·
+          <p v-if="dl || gameDl" class="hero-dl-note">
+            Windows 10/11 · 桌面版约 {{ dl?.size_mb ?? 3 }} MB · 游戏本体约 {{ gameDl?.size_mb ?? 171 }} MB ·
             安装时若提示「未知发布者」，点「更多信息」→「仍要运行」即可
           </p>
 
@@ -181,6 +187,16 @@
                       <div class="mu-podium-item p3"><b>3</b><span class="mu-bar-podium h3"></span></div>
                     </div>
                     <div class="mu-rank-badge">段位 · 破晓 Lv.6</div>
+                  </div>
+
+                  <!-- ===== 校园 · 龙之城堡：城堡背景 + 进度条 ===== -->
+                  <div v-else-if="slide.type === 'game'" class="mockup mockup-game">
+                    <div class="mu-game-card">
+                      <span class="mu-game-tag">DRAGON CASTLE</span>
+                      <b>龙之城堡</b>
+                      <em>2D 魔法世界 · 第三条学习路线</em>
+                      <div class="mu-game-bar"><span></span></div>
+                    </div>
                   </div>
 
                   <!-- 视频信息叠加 -->
@@ -393,6 +409,15 @@
               </div>
               <div class="mu-rank-badge">段位 · 破晓 Lv.6 · 排行榜</div>
             </div>
+            <!-- 校园 · 龙之城堡 -->
+            <div v-else-if="slide.type === 'game'" class="fv-inner fv-game">
+              <div class="fv-game-card">
+                <span class="mu-game-tag">DRAGON CASTLE</span>
+                <b>龙之城堡</b>
+                <em>答题充能 · 知识竞技场</em>
+                <div class="mu-game-bar"><span></span></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -546,6 +571,18 @@ const slides = [
     points: ['动态广场 + 好友私聊 + 排行榜', '段位 / 等级 / 成就 / 任务四大成长线', '学习打卡、倒计时、计时器工具箱'],
     cta: { label: '了解学程', to: '/community' },
   },
+  {
+    type: 'game',
+    label: '校园 · 龙之城堡',
+    desc: '第三条学习路线：2D 魔法世界《龙之城堡》。登录后进入超大地图，人物可以移动；答题充能、抽卡、放技能，在知识竞技场里用题目打一场。',
+    tags: ['2D 游戏', '超大地图', '答题对战'],
+    iconSvg: `<svg viewBox="0 0 24 24" width="28" height="28"><path d="M4 20V9l4-3 4 4 4-4 4 3v11" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/><path d="M4 20h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 20v-4h8v4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/></svg>`,
+    featureTitle: '校园 · 龙之城堡',
+    featureDesc: '2D 魔法世界 · 答题充能 · 知识竞技场',
+    deepDesc: '备考不只有刷题。登录《龙之城堡》，在超大地图里移动、探索；答题充能后放技能，人机竞技场把知识点变成一场对局。',
+    points: ['独立桌面游戏，从校园页直接启动', '登录后进入超大地图，人物可移动', '答题充能、抽卡、技能与记忆回廊复盘'],
+    cta: { label: '进入校园', to: '/campus' },
+  },
 ]
 
 // ===== 访客向 FAQ =====
@@ -556,6 +593,7 @@ const faqList = [
   { q: '每日任务是什么？', a: '计划生成后每天自动解锁任务：AI 按当天题目实时生成学习讲解（目标/知识点/方法/易错点），「去练习」带真实题目，做完即更新知识点掌握度。' },
   { q: '真题卷是真的吗？怎么批改？', a: '12 套真题来自教育部等国家部委组织的公开考试（CET-4/6、考研、法考、教资、CPA、计算机二级、公务员行测）。做题模式计时交卷：客观题自动判分、主观题 AI 批改，交卷后 AI 逐题分析错因。' },
   { q: '怎么登录？', a: '网页端用邮箱或用户名 + 密码登录。小程序端支持微信一键登录，首次使用会自动创建账号；在「设置 → 账号安全」补上邮箱和密码后，同一个账号在网页端和小程序端都能登录，学习数据互通。' },
+  { q: '《龙之城堡》是什么？要另外下载吗？', a: '《龙之城堡》是基智的第三条学习路线：一个 2D 魔法世界桌面游戏。桌面版客户端（约 3MB）会直接启动它；也可以只下载游戏本体（约 171MB）单独运行。游戏里先登录，再进入超大地图，人物可以移动；答题充能、抽卡、放技能，人机竞技场把知识点变成一场对局。' },
   { q: '遇到问题找谁？', a: '站内帮助中心有 29 条常见问题；也可以随时在对话里问小基 AI；意见反馈入口在侧边栏底部，我们会认真看每一条。' },
 ]
 
@@ -617,7 +655,9 @@ function goRegister() {
 // 安装包由后端 /download 路由提供（backend/static/downloads/，跟着 backend 一起部署）。
 // 拿不到元信息就不显示下载入口 —— 宁可没有，也不给一个点了 404 的按钮。
 const dl = ref(null)
+const gameDl = ref(null)
 const downloadUrl = computed(() => `${BACKEND_URL}/download/JIZHI-setup.exe`)
+const gameDownloadUrl = computed(() => `${BACKEND_URL}/download/game.exe`)
 
 async function loadDownloadInfo() {
   try {
@@ -625,6 +665,7 @@ async function loadDownloadInfo() {
     if (res.ok) {
       const data = await res.json()
       dl.value = data?.available ? data : null
+      gameDl.value = data?.game?.available ? data.game : null
     }
   } catch {
     // 后端没部署或没上传安装包：静默降级，不影响落地页其它部分
@@ -973,7 +1014,8 @@ onUnmounted(() => {
 .hero-actions {
   display: flex;
   align-items: center;
-  gap: 24px;
+  flex-wrap: wrap;
+  gap: 14px 20px;
   margin-top: 4px;
   animation: fadeInUp 0.8s ease both 0.5s;
 }
@@ -993,6 +1035,8 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .cta-primary:hover {
   transform: translateY(-2px);
@@ -1015,6 +1059,8 @@ onUnmounted(() => {
   padding: 10px 26px;
   border-radius: 24px;
   background: rgba(96,165,250,.06);
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .explore-btn:hover {
   color: var(--text-primary);
@@ -1368,6 +1414,89 @@ onUnmounted(() => {
   animation: muGlow 2.8s ease-in-out infinite;
 }
 
+/* ---- 校园 · 龙之城堡 ---- */
+.mockup-game {
+  position: relative;
+  justify-content: center;
+  background: url('/images/campus/campus_home_bg.webp') center / cover no-repeat;
+  overflow: hidden;
+}
+.mockup-game::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(3, 6, 14, .2), rgba(3, 6, 14, .72));
+}
+.mu-game-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 22px 28px;
+  border-radius: 16px;
+  background: rgba(6, 11, 24, .74);
+  border: 1px solid rgba(255, 214, 140, .28);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .45);
+}
+.mu-game-tag {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255, 214, 140, .75);
+}
+.mu-game-card b {
+  font-size: 26px;
+  letter-spacing: 2px;
+  color: #ffe6b6;
+}
+.mu-game-card em {
+  font-style: normal;
+  font-size: 11px;
+  color: rgba(220, 230, 250, .65);
+}
+.mu-game-bar {
+  width: 180px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .1);
+  overflow: hidden;
+}
+.mu-game-bar span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #ffcf7a, #6ee7ff);
+  transform-origin: left;
+  animation: muFill 2.2s ease-in-out infinite alternate;
+}
+.fv-game {
+  position: relative;
+  min-height: 280px;
+  border-radius: 16px;
+  background: url('/images/campus/campus_home_bg.webp') center / cover no-repeat;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fv-game::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(3, 6, 14, .2), rgba(3, 6, 14, .72));
+}
+.game-cta {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
 /* ---- mockup 动画 ---- */
 @keyframes muFloat {
   0%, 100% { transform: translateY(0); }
@@ -1578,8 +1707,8 @@ onUnmounted(() => {
 }
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
 }
 .feature-card {
   padding: 16px 18px;
