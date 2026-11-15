@@ -62,7 +62,7 @@
         <div class="rb-bar"><span :style="{ width: (r.progress || 0) + '%' }"></span></div>
         <div class="rb-actions">
           <button v-if="r.status === 'awaiting_confirm'" @click="goConfirm(r)">去确认</button>
-          <button v-else-if="r.link" @click="openLink(r)">查看结果</button>
+          <button v-else-if="r.link" @click="openLink(r)">{{ linkLabel(r) }}</button>
           <button class="ghost" @click="$emit('open', r)">看轨迹</button>
           <button class="ghost" @click="openCollab(r)">协作图</button>
           <button
@@ -106,7 +106,7 @@
           <span class="rb-row-status" :class="r.status">{{ statusText(r.status) }}</span>
         </button>
         <div class="rb-row-actions">
-          <button v-if="r.link" class="ghost" @click="openLink(r)">看结果</button>
+          <button v-if="r.link" class="ghost" @click="openLink(r)">{{ linkLabel(r) }}</button>
           <button class="ghost" @click="openCollab(r)">协作图</button>
           <button v-if="canRetryRun(r)" class="ghost" :disabled="busy[r.id]" @click="retry(r)">重试</button>
           <button v-if="canDeleteRun(r)" class="ghost danger-text" :disabled="busy[r.id]" @click="remove(r)">删除</button>
@@ -217,6 +217,10 @@ function upload() {
 
 function openLink(r) {
   if (r.link) router.push(r.link)
+}
+
+function linkLabel(r) {
+  return String(r.link || '').includes('/set-detail') ? '看题集' : '看结果'
 }
 
 function openCollab(r) {

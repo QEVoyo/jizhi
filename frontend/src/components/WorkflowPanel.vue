@@ -59,6 +59,13 @@
           {{ w.key === 'question_gen_quick' ? '真实快速出题' : '真实团队出题' }}
         </button>
         <button
+          v-if="businessLink(w)"
+          class="wf-run wf-real"
+          @click="openResult(businessLink(w).to)"
+        >
+          {{ businessLink(w).label }}
+        </button>
+        <button
           v-if="w.key === 'tuning_debate'"
           class="wf-run wf-room"
           @click="openDebateRoom"
@@ -94,8 +101,14 @@
       </div>
       <p v-if="run.run.error" class="live-error">{{ run.run.error }}</p>
       <p v-if="run.run.output?.message" class="live-final">{{ run.run.output.message }}</p>
+      <p v-if="run.run.status === 'completed' && run.run.output?.set_id" class="live-final">
+        已加入资源库「我的题集」，刷新资源库即可看到。
+      </p>
       <div v-if="run.run.link" class="live-actions">
-        <button @click="openResult(run.run.link)">查看结果</button>
+        <button class="primary" @click="openResult(run.run.link)">{{ resultLabel }}</button>
+        <button v-if="run.run.output?.set_id" class="ghost" @click="openResult('/resource-lib')">
+          去资源库
+        </button>
       </div>
     </div>
   </section>
@@ -122,6 +135,10 @@ let timer = null
 let pollToken = 0
 
 const messages = computed(() => (run.value?.messages || []).slice(-12))
+const resultLabel = computed(() => {
+  const link = String(run.value?.run?.link || '')
+  return link.includes('/set-detail') ? '打开题集' : '查看结果'
+})
 
 async function load() {
   try {
@@ -184,7 +201,7 @@ async function startRealRun(w) {
   let topic = ''
   try {
     const res = await ElMessageBox.prompt(
-      `输入要出的知识点。会真实调用模型并写入题库，预计 ${quick ? '2–4' : '5–8'} 次调用。`,
+      `输入要出的知识点。会真实调用模型、写入题库并生成资源库题集，预计 ${quick ? '2–4' : '5–8'} 次调用。`,
       quick ? '真实快速出题' : '真实团队出题',
       {
         inputValue: '函数单调性',
@@ -202,7 +219,7 @@ async function startRealRun(w) {
       (quick
         ? `快速模式：跳过规划与检索，围绕「${topic}」出 ${count} 道选择题。`
         : `围绕「${topic}」出 ${count} 道选择题，团队会规划、检索、校验并修复。`)
-      + '会真实调用模型并写入题库，确定开始？',
+      + '会真实调用模型、写入题库并生成资源库题集，确定开始？',
       '确认真实运行',
       { type: 'warning', confirmButtonText: '开始', cancelButtonText: '取消' },
     )
@@ -214,7 +231,17 @@ async function startRealRun(w) {
     const created = await createRun({
       workflow_key: w.key,
       mode: quick ? 'quick' : 'auto',
-      input: { topic, count, question_type: '选择题', difficulty: '中等' },
+      input: {
+        topic,
+        count,
+        question_type: '选择题',
+        difficulty: '中等',
+        // 智能体中心出的题也要能在资源库找到：
+        // run 收尾时后端把这些题打包成题集，并写 output.set_id / run.link。
+        create_set: true,
+        set_name: `${label} · ${topic}`,
+        set_description: `智能体中心 · ${w.name} · ${count} 道`,
+      },
     }, props.userId)
     openAgentPanel(created.run_id)
     poll(created.run_id, { label })
@@ -269,6 +296,18 @@ function poll(runId, { label = 'dry-run', notify = true } = {}) {
 
 function openResult(link) {
   if (link) router.push(link)
+}
+
+// 这些工作流的真实入口在业务页，不在智能体中心重复造一套表单。
+// 给一个明确的业务页按钮，避免「只有 dry-run，找不到真入口」。
+const BUSINESS_LINKS = {
+  exam_analysis: { to: '/subject-plan', label: '去真题卷交卷' },
+  exam_gen: { to: '/subject-plan', label: '去考纲页 AI 出卷' },
+  exam_video: { to: '/subject-plan', label: '交卷后生成讲评' },
+}
+
+function businessLink(w) {
+  return BUSINESS_LINKS[w.key] || null
 }
 
 const NODE_LABELS = {
@@ -422,7 +461,7 @@ function shortId(id) {
   margin-top: 10px; font-size: 12.5px; color: #f56c6c; line-height: 1.55;
   background: rgba(245, 108, 108, .08); border-radius: 10px; padding: 8px 12px;
 }
-.live-actions { margin-top: 10px; }
+.live-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
 .live-actions button {
   font-size: 12px; font-family: inherit; cursor: pointer; font-weight: 600;
   padding: 6px 14px; border-radius: 8px; color: var(--brand-bright);

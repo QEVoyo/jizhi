@@ -55,12 +55,15 @@
     </p>
 
     <p class="policy-formula">{{ data.formula }}</p>
+    <button class="policy-run" @click="$emit('go-workflow')">去跑一次真实出题 →</button>
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { getPolicy } from '@/api/agents'
+
+defineEmits(['go-workflow'])
 
 const props = defineProps({
   userId: { type: String, default: '' },
@@ -200,4 +203,12 @@ watch(() => props.userId, load)
 .latest-reason { color: var(--text-secondary); }
 .policy-empty { font-size: 12px; color: var(--text-muted); margin-top: 12px; line-height: 1.7; }
 .policy-formula { font-size: 11px; color: var(--text-muted); margin: 12px 0 0; font-variant-numeric: tabular-nums; }
+.policy-run {
+  margin-top: 14px; padding: 8px 14px; border-radius: 9px; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  color: var(--brand-bright);
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent);
+  background: color-mix(in srgb, var(--brand) 13%, transparent);
+}
+.policy-run:hover { background: color-mix(in srgb, var(--brand) 22%, transparent); }
 </style>

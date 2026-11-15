@@ -77,7 +77,7 @@
           <div class="card-footer-hint">进入细节调节 →</div>
         </article>
       </section>
-      <PolicyPanel v-if="tab === 'agents'" :user-id="userId" />
+      <PolicyPanel v-if="tab === 'agents'" :user-id="userId" @go-workflow="browseWorkflows" />
       <KnowledgePanel v-if="tab === 'agents'" :user-id="userId" />
       <p class="ac-footnote">以上数据由你近期的真实学习行为汇总而成 · 参数调整与磨合记录会随使用自动更新</p>
     </div>
