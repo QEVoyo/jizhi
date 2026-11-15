@@ -25,8 +25,21 @@ project1 那三份是本地开发用的（localhost、本地密钥、生产缺�
   用实际运行 uvicorn 的解释器安装：
   `python3.11 -m pip install -r requirements.txt`。
 - 新增 SQL 尚未执行：`backend/sql/agent_orchestration.sql`。
+- **2026-10-31 下午追加（任务中心合并 / 上传任务入 arq）**：
+  - **重新执行** `backend/sql/agent_orchestration.sql`：给 `agent_runs` 补
+    `title/link/progress/stage`，给 `upload_jobs` 补
+    `run_id/batch_id/stage/cancel_requested/queued_at/started_at/finished_at` 与索引
+  - **重启 worker**（不是只重启 uvicorn）：启动日志里必须看到
+    `arq 实际注册名：['video.generate', 'upload.parse', 'upload.generate']`；
+    少一个都会出现「任务一直排队」
+  - `UPLOAD_TMP_DIR` 默认 `backend/data/upload_tmp`，API 与 worker 必须同机
+    且该目录可写；任务处理完自动删文件
+  - `config.py` 若沿用服务器旧版不覆盖，需手工补四行：
+    `TASK_MAX_JOBS=4`、`UPLOAD_TMP_DIR=...`、`UPLOAD_MAX_ACTIVE_PER_USER=5`、
+    `UPLOAD_LLM_CONCURRENCY=6`
+  - 单用户同时上传任务默认最多 5 个；超出接口返回 429
 - 验证：`/health` 正常；`/openapi.json` 应出现 `/agents`、`/xiaoji/upload`、
-  `/community/ws`。
+  `/xiaoji/upload/{job_id}/cancel`、`/community/ws`。
 
 ---
 

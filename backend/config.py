@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -54,6 +56,13 @@ class Settings:
     # 静默降级正是这个项目反复吃亏的地方：看起来在跑，其实没进队列，
     # 重启就丢且没人知道。要退回必须显式打开，并且日志里会有 ERROR。
     TASK_QUEUE_FALLBACK_INLINE = os.getenv("TASK_QUEUE_FALLBACK_INLINE", "false").lower() == "true"
+    # 2026-10-31：上传解析/生成迁入 arq，新增以下配置（都有默认值）
+    TASK_MAX_JOBS = int(os.getenv("TASK_MAX_JOBS", "4"))
+    UPLOAD_TMP_DIR = os.getenv(
+        "UPLOAD_TMP_DIR",
+        str(Path(__file__).resolve().parent / "data" / "upload_tmp"))
+    UPLOAD_MAX_ACTIVE_PER_USER = int(os.getenv("UPLOAD_MAX_ACTIVE_PER_USER", "5"))
+    UPLOAD_LLM_CONCURRENCY = int(os.getenv("UPLOAD_LLM_CONCURRENCY", "6"))
 
     # 火山引擎（豆包）
     VOLC_ACCESS_KEY = os.getenv("VOLC_ACCESS_KEY")
